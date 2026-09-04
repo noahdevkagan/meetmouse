@@ -21,9 +21,9 @@ enum PromptBuilder {
         // decoration and renamed headers they sprinkle in anyway.
         let languageInstruction: String
         if let languageName {
-            languageInstruction = "Write all section content in \(languageName). The five literal header lines TITLE:, SUMMARY:, KEY TAKEAWAYS:, NEXT STEPS:, and NEXT MEETING FOCUS: must stay exactly in English; they are the only language exception."
+            languageInstruction = "Write all section content in \(languageName). The five literal header lines TITLE:, SUMMARY:, NOTES:, NEXT STEPS:, and NEXT MEETING FOCUS: must stay exactly in English; they are the only language exception."
         } else {
-            languageInstruction = "Write section content in the transcript's dominant language. The five literal header lines TITLE:, SUMMARY:, KEY TAKEAWAYS:, NEXT STEPS:, and NEXT MEETING FOCUS: must stay exactly in English."
+            languageInstruction = "Write section content in the transcript's dominant language. The five literal header lines TITLE:, SUMMARY:, NOTES:, NEXT STEPS:, and NEXT MEETING FOCUS: must stay exactly in English."
         }
 
         let system = """
@@ -39,11 +39,16 @@ enum PromptBuilder {
         SUMMARY:
         A TL;DR leading with the headline — the single most important thing decided, learned, or at stake. Then at most two more sentences on where things landed. Never mention meeting length, utterance counts, or talk percentages.
 
-        KEY TAKEAWAYS:
-        3-6 lines, each starting with "- ": decisions, positions, and status updates WITH their specifics (numbers, dates, names actually said).
+        NOTES:
+        The body of the meeting, grouped by topic. 2-5 topic sections. Each section is one line starting with "### " naming the topic in 2-5 words (a noun phrase like "Pricing and margin", never "Discussion" or "Updates"), then 2-6 lines each starting with "- ". Every bullet is a dense fact, not a vague gesture:
+        - Keep the specifics EXACTLY as said: numbers, dollar amounts, percentages, dates, names of people/products/companies. "~$6-7k/month, lowest Meta profit" beats "high cost, low return".
+        - Record decisions with their reasoning, and open questions as open.
+        - When people disagreed, say who pushed back on what and how it resolved (or that it didn't).
+        - Attribute positions when it matters ("X prefers…", "Y's concern:").
+        Skip small talk entirely. Order sections by importance, not chronology.
 
         NEXT STEPS:
-        1-6 lines, each starting with "- ", formatted "Owner — action — deadline". Only commitments actually stated or clearly implied. Write "(owner unclear)" or "(no deadline set)" when the transcript never said. Mark anything called urgent with "[critical]".
+        1-6 lines, each starting with "- ", formatted "Action (owner) — one line of detail: the how or the success bar". Every line carries its parenthesized owner right after the action; write "(owner unclear)" when the transcript never said. Only commitments actually stated or clearly implied. Include a deadline ONLY when one was actually spoken — NEVER invent dates or deadlines. Mark anything called urgent with "[critical]".
 
         NEXT MEETING FOCUS:
         One sentence on the most valuable thing to do differently next time — the ONLY place coaching signals may appear.
@@ -53,19 +58,31 @@ enum PromptBuilder {
         Dana · launch pricing
         SUMMARY:
         Signups are on plan, but support costs per new customer doubled, so reducing setup tickets is now the #1 priority.
-        KEY TAKEAWAYS:
+        NOTES:
+        ### Setup costs
+        - March hit the signup goal for the first time this year, but each new customer opened about four tickets during setup.
         - The guided checklist is the strongest predictor of success; customers who finish it open half as many tickets, so it becomes the default.
-        - The help center review stands at 9 current / 4 outdated; current articles stay live.
+        - Dana pushed back on delaying the pricing page — agreed to ship it on time and add the checklist first.
+        ### Help center review
+        - Status: 9 articles current / 4 outdated; current ones stay live, outdated ones stay hidden until rewritten.
+        - Lee's concern: the help center has no owner once Rosa rotates off in October — unresolved.
         NEXT STEPS:
-        - Dana — setup checklist + one-page rollout plan — by Friday [critical]
-        - Lee and Rosa — finish the help center review — (no deadline set)
+        - Draft the setup checklist and one-page rollout plan (Dana) — it sets the ticket target every new customer should meet [critical]
+        - Finish the help center review (Lee and Rosa) — rewrite the 4 outdated articles or retire them
         NEXT MEETING FOCUS:
         Watch talk time — hand the floor back with a question one sentence earlier.
 
-        Never invent facts that are not in the transcript. Keep the whole
-        reply under 350 words. Plain text only: no markdown headers, bold,
-        backticks, emoji, or numbered lists. Refer to coaching signals by
-        plain names (say "talk time", never camelCase ids).
+        Never invent facts that are not in the transcript. People: use only
+        names the transcript itself establishes for a speaker. Someone who
+        is merely mentioned ("I met with Chad") is NOT a speaker — when a
+        speaker is never named, call them by their transcript label ("Them")
+        rather than guessing. A NEXT STEPS owner must be a name from the
+        transcript, "You", "Them", or "(owner unclear)". Keep the whole
+        reply under 550 words. Plain text except for the structure shown:
+        the five header lines, "### " topic lines, and "- " bullets — no
+        bold, backticks, emoji, tables, or numbered lists. Refer to
+        coaching signals by plain names (say "talk time", never camelCase
+        ids).
         """
 
         var userLines = [
