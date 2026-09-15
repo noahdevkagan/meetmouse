@@ -860,6 +860,26 @@ both platforms from whichever machine runs the gate; the Intel guard in
 its branch is the one that would otherwise feed non-English audio to an en-US
 recognizer.
 
+## 2026-08-13 — MeetMouse is a public rename, not an identity or data migration
+The shipped product, app bundle filename, website, artwork, and MCP helper are
+now MeetMouse. The Xcode target and scheme, bundle identifier
+`com.coach.MeetingCoach`, Application Support and Documents directories, and
+the existing public Sparkle feed remain unchanged internally. Keeping those
+identifiers preserves macOS permissions, preferences, downloaded models,
+transcripts, and the update chain for installed users. The app includes a
+legacy `meetingcoach-mcp` helper alias alongside `meetmouse-mcp` so existing
+agent configurations continue to work.
+
+## 2026-08-13 — MeetMouse uses a literal animal, not an abstract logo
+The approved visual direction is the first RhinoVoice-inspired concept: a
+full-bodied charcoal-gray side-profile mouse on coral, rendered with chunky
+3D/emoji-like character. The earlier flat front-facing mark felt generic. The
+same principle applies in the menu bar, where Apple's literal `🐁` glyph is
+more recognizable at 16 px than either the detailed raster or a custom mouse
+outline. Status remains separate in small live, detection, update, and debug
+dots. Coral replaces the previous yellow primary accent so the icon, app, and
+site read as one brand.
+
 ## 2026-08-13 — Invalid microphone formats retry briefly, then fail cleanly
 
 A 0.17.0 customer crash reached `AVAudioNode.installTap` while starting the
@@ -1134,3 +1154,13 @@ session (best, not first — "team" filled the cap before multi-word lines)
 plus the saved ## Review, cap 4 sessions/12k chars, answer grounded
 "ONLY the excerpts" with meeting citations. Degraded modes are visible
 (no model / no matching meetings say why), per the standing rule.
+
+## 2026-09-15 — MeetMouse is layered onto current main, not restored as an August snapshot
+
+The MeetMouse redesign branch diverged before 24 later product commits. It is
+merged with its original history intact, while conflict resolution keeps the
+current transcript store, date-led filenames, session review/search behavior,
+and benchmark history. The redesign supplies the public MeetMouse name, coral
+mouse visual system, site/package copy, and compatibility choices. Why: taking
+the old branch wholesale would silently discard shipped 0.19–0.22 behavior;
+reapplying only visual/name changes preserves both the redesign and current app.

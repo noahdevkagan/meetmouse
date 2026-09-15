@@ -1850,7 +1850,7 @@ final class LiveSessionViewModel {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd_HH-mm"
         var lines: [String] = []
-        lines.append("# Meeting Coach Session — \(formatter.string(from: startedAt))")
+        lines.append("# MeetMouse Session — \(formatter.string(from: startedAt))")
         if let title {
             lines.append("**Title:** \(title)")
         }
