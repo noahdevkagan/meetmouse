@@ -5,6 +5,18 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-15, branch `crxnamja/pull-meetmouse-redesign`): MeetMouse redesign synced
+
+Merged the latest MeetMouse redesign branch
+(`origin/crxnamja/squirrel-domain-rebrand`, tip `d5e6953`) onto current
+`origin/main`. Conflict resolution preserves current transcript storage,
+v0.19–0.22 behavior, and chronological benchmark history while carrying the
+MeetMouse public name, coral/mouse visual system, site/package copy, and legacy
+identity/data compatibility. Regenerated the Xcode project, changelog, and
+sitemap. Verified a signed Debug build plus session and nudge suites; all pass.
+
+## Prior state
+
 ## Current state (2026-09-04, branch `crxnamja/shanghai`): Granola-class reviews + smarter search — BUILT
 
 Shipped on-branch this session (see decisions.md 2026-09-04 for the why):
