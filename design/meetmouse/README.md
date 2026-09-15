@@ -7,6 +7,8 @@ continued from another checkout.
 
 - `current-icon-source.png` is the gray phone-listening mouse on the
   NoahKagan.com green tile currently rolled out across the macOS app and site.
+  Its rounded outer corners are genuinely transparent (not an opaque black
+  matte), so it works on light and dark surfaces.
 - The menu-bar app currently uses Apple's mouse glyph (`🐁`) with compact
   status dots; it does not yet use one of the meeting-context concepts below.
 - Generated app sizes live in
