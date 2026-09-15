@@ -64,7 +64,9 @@ struct MeetMouseApp: App {
 
     #if DEBUG
     private static func applyDevDockBadge() {
-        guard let base = NSApp.applicationIconImage else { return }
+        guard let base = NSImage(named: "MeetMouseBrandIcon") ?? NSApp.applicationIconImage else {
+            return
+        }
         let badged = NSImage(size: base.size, flipped: false) { rect in
             base.draw(in: rect)
             let d = rect.width * 0.44
