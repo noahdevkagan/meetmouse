@@ -1164,3 +1164,34 @@ and benchmark history. The redesign supplies the public MeetMouse name, coral
 mouse visual system, site/package copy, and compatibility choices. Why: taking
 the old branch wholesale would silently discard shipped 0.19–0.22 behavior;
 reapplying only visual/name changes preserves both the redesign and current app.
+
+## 2026-09-15 — Rebrand context is for existing users; green comes from NoahKagan.com
+
+The “Meeting Coach is now MeetMouse” announcement is a once-per-install sheet
+shown only when `hasSeenDemo` proves the person used the app before the rename.
+Fresh installs mark the announcement handled and go straight to the ordinary
+MeetMouse welcome; explaining an old name they never saw would add confusion.
+The acknowledgment is explicit (“Got it”) and cannot be dismissed accidentally,
+so quitting before reading makes it return on the next launch. The sheet promises
+only compatibility guarantees the rebrand actually preserves: transcripts,
+settings, models, history, and local privacy.
+
+All success/live/positive green now resolves through one token at `#2BBD3E`,
+the current `--bs-primary` value in NoahKagan.com’s production stylesheet.
+System green and the old `#00C838` token were close but visibly inconsistent;
+coral remains MeetMouse’s primary action color.
+
+## 2026-09-15 — Noah green replaces coral, and the phone-listening mouse is the mark
+
+Reverses the last clause above after Noah reviewed the announcement live: the
+NoahKagan.com green is the whole MeetMouse brand color, not just a semantic
+success color. Primary, hover, pressed, tint, meeting-detection, live, and
+positive states now share the site’s production green scale (`#2BBD3E` base,
+`#4BC75B` hover, `#55CA65` active). This keeps the app visually inside the Noah
+Kagan family instead of running a competing coral identity.
+
+The selected icon is the existing phone-listening concept, recolored onto the
+green tile. Why: a generic mouse says only “mouse”; a mouse holding a phone to
+its ear instantly adds the meeting/listening story and matches the original
+MeetMouse direction Noah remembered. The side-profile, phone-call, and headset
+sources remain tracked as alternates.

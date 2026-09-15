@@ -64,7 +64,7 @@ struct SessionTrendsView: View {
                                 Spacer()
                                 Text(mult < 1.0 ? "more sensitive" : "less sensitive")
                                     .font(.caption2)
-                                    .foregroundStyle(mult < 1.0 ? .green : .orange)
+                                    .foregroundStyle(mult < 1.0 ? Dorado.dollar : Color.orange)
                                 Text(String(format: "%.0f%%", (mult - 1.0) * 100))
                                     .font(.system(.caption2, design: .monospaced))
                                     .foregroundStyle(.secondary)
@@ -86,7 +86,7 @@ struct SessionTrendsView: View {
                             Spacer()
                             Text("\(session.totalNudges) nudges")
                                 .font(.caption2)
-                                .foregroundStyle(session.totalNudges > 5 ? .orange : .green)
+                                .foregroundStyle(session.totalNudges > 5 ? Color.orange : Dorado.dollar)
                         }
                     }
                 }
@@ -111,7 +111,7 @@ struct SessionTrendsView: View {
     private func trendIcon(for type: NudgeType) -> some View {
         let direction = SessionTrends.trend(for: type, in: sessions)
         let (icon, color): (String, Color) = switch direction {
-        case .improving: ("arrow.down.right", .green)
+        case .improving: ("arrow.down.right", Dorado.dollar)
         case .worsening: ("arrow.up.right", .orange)
         case .neutral: ("arrow.right", .secondary)
         }

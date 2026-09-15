@@ -161,7 +161,7 @@ struct MeetingPromptView: View {
         .frame(width: 390)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        // A soft coral gradient ring — matches the pulsing accent and reads
+        // A soft green gradient ring — matches the pulsing accent and reads
         // "friendly nudge," not system alert.
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)

@@ -323,7 +323,7 @@ struct ProgressDashboardView: View {
                     Spacer()
                     Text("\(session.totalNudges) nudges")
                         .font(.caption2)
-                        .foregroundStyle(session.totalNudges > 5 ? .orange : .green)
+                        .foregroundStyle(session.totalNudges > 5 ? Color.orange : Dorado.dollar)
                 }
             }
         }
@@ -332,7 +332,7 @@ struct ProgressDashboardView: View {
     private func trendIcon(for type: NudgeType) -> some View {
         let direction = SessionTrends.trend(for: type, in: sessions)
         let (icon, color): (String, Color) = switch direction {
-        case .improving: ("arrow.down.right", .green)
+        case .improving: ("arrow.down.right", Dorado.dollar)
         case .worsening: ("arrow.up.right", .orange)
         case .neutral: ("arrow.right", .secondary)
         }
@@ -405,4 +405,3 @@ private struct FlowChips: View {
         }
     }
 }
-

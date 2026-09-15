@@ -9,7 +9,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
-- The app has a new name and face: MeetMouse, with a literal gray mouse on coral throughout the app and the same recognizable animal in the menu bar. Your settings, models, transcripts, and updates continue exactly where they left off
+- The app has a new name and face: MeetMouse, with a phone-listening gray mouse on NoahKagan green throughout the app and the same recognizable animal in the menu bar. Your settings, models, transcripts, and updates continue exactly where they left off
 
 ## 0.22.0 — 2026-09-04
 

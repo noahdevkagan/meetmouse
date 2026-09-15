@@ -264,7 +264,7 @@ struct MenuBarLabel: View {
     /// character-first direction. Apple's mouse glyph is designed to survive
     /// menu-bar scale far better than a reduced fur render or an abstract
     /// outline. Status stays in tiny corner dots so the mouse itself never
-    /// changes identity: coral = live, gold = detected, red = update.
+    /// changes identity: green = live, gold = detected, red = update.
     private static func mouseIcon(live: Bool, detected: Bool,
                                   updateAvailable: Bool) -> NSImage {
         let size = NSSize(width: 24, height: 18)
@@ -288,7 +288,7 @@ struct MenuBarLabel: View {
                                             y: rect.maxY - 5.2,
                                             width: 5.2, height: 5.2)).fill()
             } else if live {
-                NSColor(hex: 0xFF7568).setFill()
+                NSColor(hex: 0x2BBD3E).setFill()
                 NSBezierPath(ovalIn: NSRect(x: rect.maxX - 5.2,
                                             y: rect.maxY - 5.2,
                                             width: 5.2, height: 5.2)).fill()

@@ -11,7 +11,9 @@ struct ContentView: View {
     /// it until the next session starts.
     @State private var overlayDismissed = false
     @AppStorage("hasSeenDemo") private var hasSeenDemo = false
+    @AppStorage("hasSeenMeetMouseRebrand") private var hasSeenMeetMouseRebrand = false
     @State private var showWelcome = false
+    @State private var showRebrandAnnouncement = false
     @State private var showGiveSheet = false
     @State private var searchQuery = ""
     /// Session open in the main pane; nil = whatever else is active.
@@ -112,7 +114,14 @@ struct ContentView: View {
             // launches — startIfNeeded coalesces the two.)
             ParakeetDownloadState.shared.startIfNeeded(
                 for: settings.resolvedMeetingLanguage.preferredEngine)
-            if !hasSeenDemo { showWelcome = true }
+            if !hasSeenDemo {
+                // A fresh install has only ever known MeetMouse; don't explain
+                // a rename from a product this person never used.
+                hasSeenMeetMouseRebrand = true
+                showWelcome = true
+            } else if !hasSeenMeetMouseRebrand {
+                showRebrandAnnouncement = true
+            }
             await settings.refreshModels()
         }
         .sheet(isPresented: $showWelcome) {
@@ -123,6 +132,12 @@ struct ContentView: View {
             } onSkip: {
                 hasSeenDemo = true
                 showWelcome = false
+            }
+        }
+        .sheet(isPresented: $showRebrandAnnouncement) {
+            RebrandAnnouncementSheet {
+                hasSeenMeetMouseRebrand = true
+                showRebrandAnnouncement = false
             }
         }
         .onChange(of: liveSession.isLive) { _, isLive in
@@ -298,7 +313,7 @@ struct LiveTimelineView: View {
                                 if liveSession.isLive {
                                     Image(systemName: "waveform.badge.mic")
                                         .font(.system(size: 28))
-                                        .foregroundStyle(.green.opacity(0.4))
+                                        .foregroundStyle(Dorado.dollar.opacity(0.4))
                                         .symbolEffect(.pulse)
                                     Text("Quiet unless something's\nworth saying")
                                         .font(.caption).foregroundStyle(.tertiary)
@@ -647,13 +662,13 @@ private struct AmbientStatsStrip: View {
 
                 if liveSession.isLive {
                     HStack(spacing: 5) {
-                        Circle().fill(.green).frame(width: 6, height: 6)
+                        Circle().fill(Dorado.dollar).frame(width: 6, height: 6)
                         Text("Listening")
                             .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Dorado.dollar)
                     }
                     .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(Capsule().fill(Color.green.opacity(0.12)))
+                    .background(Capsule().fill(Dorado.dollar.opacity(0.12)))
                 }
             }
             .padding(.horizontal, 14).padding(.vertical, 10)
@@ -699,7 +714,7 @@ private struct PlannedQuestionsCard: View {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Image(systemName: asked ? "checkmark.circle.fill" : "circle")
                                 .font(.caption)
-                                .foregroundStyle(asked ? Color.green : Color.secondary)
+                                .foregroundStyle(asked ? Dorado.dollar : Color.secondary)
                             Text(question)
                                 .font(.caption)
                                 .strikethrough(asked)
@@ -1021,7 +1036,7 @@ private struct NameSuggestionBar: View {
                 Button {
                     liveSession.confirmNameSuggestion(s)
                 } label: {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Dorado.dollar)
                 }
                 .buttonStyle(.plain)
                 .help(s.kind == .samePerson
@@ -1332,7 +1347,7 @@ struct NudgeCardView: View {
     }
 
     private var urgencyColor: Color {
-        if nudge.type.isPositive { return .green }
+        if nudge.type.isPositive { return Dorado.dollar }
         switch nudge.urgency {
         case .low: return .gray
         case .med: return .blue
@@ -1352,7 +1367,7 @@ struct CopyButton: View {
         if copied {
             Label("Copied", systemImage: "checkmark")
                 .font(.caption)
-                .foregroundStyle(.green)
+                .foregroundStyle(Dorado.dollar)
         }
         Button {
             RecapExporter.copyToPasteboard(text())
@@ -1510,7 +1525,7 @@ private struct SessionsSection: View {
                 HStack {
                     Text("This meeting").font(.caption)
                     Spacer()
-                    Text("live").font(.caption2.bold()).foregroundStyle(.green)
+                    Text("live").font(.caption2.bold()).foregroundStyle(Dorado.dollar)
                 }
             }
 
@@ -1637,7 +1652,7 @@ struct OllamaStatusBar: View {
                 Text("Starting engine...").font(.caption).foregroundStyle(.secondary)
                 Spacer()
             case .running:
-                Image(systemName: "circle.fill").foregroundStyle(.green).font(.caption2)
+                Image(systemName: "circle.fill").foregroundStyle(Dorado.dollar).font(.caption2)
                 Text("Engine running").font(.caption).foregroundStyle(.secondary)
                 Spacer()
             case .error(let msg):
@@ -1849,7 +1864,7 @@ struct ModelSection: View {
                     VStack(spacing: 4) {
                         Image(systemName: "checkmark.circle")
                             .font(.system(size: 28))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Dorado.dollar)
                         Text("Instant coaching is already on")
                             .font(.callout.bold())
                         Text("Add a local model for smarter AI nudges and reviews — optional. Models run 100% on your Mac; nothing leaves this computer.")
@@ -2054,8 +2069,8 @@ struct InstalledModelRow: View {
                             .font(.caption2)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
-                            .background(.green.opacity(0.15))
-                            .foregroundStyle(.green)
+                            .background(Dorado.dollar.opacity(0.15))
+                            .foregroundStyle(Dorado.dollar)
                             .clipShape(Capsule())
                     }
                     // Installed before the RAM checks existed (or on another
@@ -2127,7 +2142,7 @@ struct CatalogModelRow: View {
             Spacer()
             if isInstalled {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Dorado.dollar)
                     .help("Already installed")
             } else if isDownloading {
                 ProgressView().controlSize(.small)
@@ -2161,10 +2176,10 @@ struct LiveSection: View {
                 // Active session
                 HStack(spacing: 8) {
                     Circle()
-                        .fill(.green)
+                        .fill(Dorado.dollar)
                         .frame(width: 8, height: 8)
                     Text(liveSession.isDemo ? "Demo" : "Live")
-                        .font(.caption.bold()).foregroundStyle(.green)
+                        .font(.caption.bold()).foregroundStyle(Dorado.dollar)
                     Spacer()
                     Text(liveSession.elapsedFormatted)
                         .font(.system(.caption, design: .monospaced))
@@ -2280,7 +2295,7 @@ struct LiveSection: View {
                     VStack(alignment: .leading, spacing: 8) {
                         if let path = liveSession.savedPath {
                             HStack(spacing: 6) {
-                                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                                Image(systemName: "checkmark.circle.fill").foregroundStyle(Dorado.dollar)
                                 Text("Saved").font(.caption.bold())
                             }
                             Text(path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
@@ -2418,7 +2433,7 @@ struct FeedbackSection: View {
                             : "Saved — tunes \(savedSignalNames)",
                           systemImage: "checkmark.circle.fill")
                         .font(.caption)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Dorado.dollar)
                 }
 
                 Spacer()
@@ -2602,6 +2617,69 @@ struct WelcomeSheet: View {
         }
         .padding(32)
         .frame(width: 480)
+    }
+}
+
+// MARK: - Rebrand announcement
+
+/// Existing users see this once after updating from Meeting Coach. Fresh
+/// installs skip it because they have no old name to unlearn.
+struct RebrandAnnouncementSheet: View {
+    var onContinue: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 88, height: 88)
+                .accessibilityLabel("MeetMouse app icon")
+
+            VStack(spacing: 8) {
+                Text("Meeting Coach is now MeetMouse")
+                    .font(Dorado.barlowXBold(25))
+                    .foregroundStyle(Dorado.midnight)
+                Text("Same private meeting coach. New name, new mouse.")
+                    .font(Dorado.roboto(15))
+                    .foregroundStyle(Dorado.grey600)
+            }
+            .multilineTextAlignment(.center)
+
+            VStack(alignment: .leading, spacing: 14) {
+                rebrandDetail(
+                    icon: "tray.full.fill",
+                    text: "Your transcripts, settings, models, and meeting history are right where you left them.")
+                rebrandDetail(
+                    icon: "lock.shield.fill",
+                    text: "MeetMouse is still private and local — your meeting audio never leaves your Mac.")
+                rebrandDetail(
+                    icon: "menubar.rectangle",
+                    text: "Look for the gray mouse in your Dock and menu bar.")
+            }
+            .padding(18)
+            .background(Dorado.surfaceSubtle)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            Button("Got it") { onContinue() }
+                .buttonStyle(DoradoPillButtonStyle())
+                .frame(width: 220)
+                .keyboardShortcut(.defaultAction)
+        }
+        .padding(32)
+        .frame(width: 500)
+        .interactiveDismissDisabled()
+    }
+
+    private func rebrandDetail(icon: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .frame(width: 20)
+                .foregroundStyle(Dorado.dollar)
+            Text(text)
+                .font(Dorado.roboto(14))
+                .foregroundStyle(Dorado.grey800)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
