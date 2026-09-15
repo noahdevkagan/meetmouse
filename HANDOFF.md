@@ -5,7 +5,16 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-09-15, branch `crxnamja/pull-meetmouse-redesign`): MeetMouse redesign synced
+## Current state (2026-09-15, branch `crxnamja/pull-meetmouse-redesign`): Noah green + phone MeetMouse built
+
+The one-time “Meeting Coach is now MeetMouse” sheet is built and approved.
+NoahKagan.com’s production green is now the full MeetMouse brand system:
+`#2BBD3E` base, site-matched hover/active states, tint, live/detected, and
+positive states. The selected mark is the existing phone-listening mouse on a
+green tile; transparent source, macOS sizes 16–1024, and site icons regenerated.
+Signed Debug build passes and is running with the announcement reset for review.
+
+## Prior state: MeetMouse redesign synced
 
 Merged the latest MeetMouse redesign branch
 (`origin/crxnamja/squirrel-domain-rebrand`, tip `d5e6953`) onto current

@@ -178,7 +178,7 @@ struct PreCallFormView: View {
                     Label("Start Session", systemImage: "antenna.radiowaves.left.and.right")
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.green)
+                .tint(Dorado.dollar)
                 .keyboardShortcut(.defaultAction)
             }
             .padding()

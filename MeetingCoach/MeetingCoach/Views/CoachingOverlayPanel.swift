@@ -145,7 +145,7 @@ struct CoachingOverlayView: View {
             HStack(spacing: 8) {
                 // Status dot
                 Circle()
-                    .fill(liveSession.isLive ? .green : .gray)
+                    .fill(liveSession.isLive ? Dorado.dollar : Color.gray)
                     .frame(width: 6, height: 6)
 
                 if let nudge = activeNudge {
@@ -164,7 +164,7 @@ struct CoachingOverlayView: View {
                     // Feedback buttons
                     HStack(spacing: 4) {
                         feedbackButton(nudge: nudge, feedback: .useful,
-                                       icon: "hand.thumbsup.fill", color: .green)
+                                       icon: "hand.thumbsup.fill", color: Dorado.dollar)
                         feedbackButton(nudge: nudge, feedback: .annoying,
                                        icon: "minus.circle.fill", color: .gray)
                         feedbackButton(nudge: nudge, feedback: .wrong,
@@ -275,7 +275,7 @@ struct CoachingOverlayView: View {
     }
 
     private func nudgeColor(_ nudge: Nudge) -> Color {
-        if nudge.type.isPositive { return .green }
+        if nudge.type.isPositive { return Dorado.dollar }
         switch nudge.urgency {
         case .low: return .gray
         case .med: return .blue

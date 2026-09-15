@@ -208,7 +208,7 @@ struct GeneralSettingsView: View {
                     } else if vocabSavedFlash {
                         Label("Saved", systemImage: "checkmark.circle.fill")
                             .font(.caption)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Dorado.dollar)
                             .transition(.opacity)
                     }
                 }

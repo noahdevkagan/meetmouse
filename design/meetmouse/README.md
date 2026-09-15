@@ -5,21 +5,21 @@ continued from another checkout.
 
 ## Current implementation
 
-- `current-icon-source.png` is the charcoal-gray side-profile mouse on the
-  coral tile currently rolled out across the macOS app and website.
+- `current-icon-source.png` is the gray phone-listening mouse on the
+  NoahKagan.com green tile currently rolled out across the macOS app and site.
 - The menu-bar app currently uses Apple's mouse glyph (`🐁`) with compact
   status dots; it does not yet use one of the meeting-context concepts below.
 - Generated app sizes live in
   `MeetingCoach/MeetingCoach/Resources/Assets.xcassets/AppIcon.appiconset/`.
 
-## Concepts awaiting selection
+## Source concepts
 
 - `concept-phone-call.png` — energetic mouse holding a phone, with a playful
   call-me pose.
-- `concept-phone-listening.png` — seated mouse listening on a phone, aimed at
-  the recording-and-recap story.
+- `concept-phone-listening.png` — original coral source for the selected
+  phone-listening icon; the green production version is `current-icon-source.png`.
 - `concept-headset.png` — side-profile mouse wearing a meeting headset, with
   the clearest small-icon silhouette.
 
-The three concepts are design candidates only. None has replaced the current
-app, website, or menu-bar assets yet.
+The phone-listening concept is selected. The phone-call and headset images
+remain alternates for future exploration.
