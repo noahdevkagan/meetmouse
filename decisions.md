@@ -1195,3 +1195,12 @@ green tile. Why: a generic mouse says only “mouse”; a mouse holding a phone 
 its ear instantly adds the meeting/listening story and matches the original
 MeetMouse direction Noah remembered. The side-profile, phone-call, and headset
 sources remain tracked as alternates.
+
+## 2026-09-15 — In-app branding uses a named asset, not the application icon API
+
+The header, welcome, and rebrand views load `MeetMouseBrandIcon` directly from
+the asset catalog. `NSApp.applicationIconImage` is reserved for OS-owned app
+identity because Launch Services may cache an older bundle icon after a local
+rebuild, which made the already-green MeetMouse build appear coral inside the
+app. A named asset makes in-app branding deterministic while leaving macOS to
+manage the Dock and Finder icon caches.

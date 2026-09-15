@@ -33,7 +33,7 @@ struct ContentView: View {
             HStack {
                 Spacer()
                 HStack(spacing: 6) {
-                    Image(nsImage: NSApp.applicationIconImage)
+                    Image("MeetMouseBrandIcon")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 18, height: 18)
@@ -2590,7 +2590,7 @@ struct WelcomeSheet: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            Image(nsImage: NSApp.applicationIconImage)
+            Image("MeetMouseBrandIcon")
                 .resizable()
                 .scaledToFit()
                 .frame(width: 72, height: 72)
@@ -2629,7 +2629,7 @@ struct RebrandAnnouncementSheet: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Image(nsImage: NSApp.applicationIconImage)
+            Image("MeetMouseBrandIcon")
                 .resizable()
                 .scaledToFit()
                 .frame(width: 88, height: 88)

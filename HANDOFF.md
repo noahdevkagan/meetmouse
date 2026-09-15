@@ -5,7 +5,15 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-09-15, branch `crxnamja/pull-meetmouse-redesign`): Noah green + phone MeetMouse built
+## Current state (2026-09-15, branch `crxnamja/pull-meetmouse-redesign`): Green in-app icon fixed
+
+The header, welcome sheet, rebrand sheet, and Debug Dock badge now load a named
+green phone-listening mouse asset instead of `NSApp.applicationIconImage`, which
+can retain the prior coral icon through Launch Services caching. The signed
+Debug build passes and is running with the rebrand announcement reset for
+review.
+
+## Prior state: Noah green + phone MeetMouse built
 
 The one-time “Meeting Coach is now MeetMouse” sheet is built and approved.
 NoahKagan.com’s production green is now the full MeetMouse brand system:
