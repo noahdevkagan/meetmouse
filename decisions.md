@@ -1204,3 +1204,12 @@ identity because Launch Services may cache an older bundle icon after a local
 rebuild, which made the already-green MeetMouse build appear coral inside the
 app. A named asset makes in-app branding deterministic while leaving macOS to
 manage the Dock and Finder icon caches.
+
+## 2026-09-15 — The MeetMouse tile has true transparent corners
+
+The generated green source declared an alpha channel but every pixel was still
+opaque, with black RGB pixels surrounding the rounded tile. The production
+master now makes only the dark matte connected to the image boundary
+transparent; the mouse, phone, shadows, and green tile remain unchanged. All
+app, in-app, and site sizes are regenerated from that corrected master so the
+mark sits cleanly on both light and dark UI surfaces.

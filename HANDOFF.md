@@ -5,13 +5,19 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-09-15, branch `crxnamja/pull-meetmouse-redesign`): Green in-app icon fixed
+## Current state (2026-09-15, branch `crxnamja/pull-meetmouse-redesign`): Black icon matte fixed
 
-The header, welcome sheet, rebrand sheet, and Debug Dock badge now load a named
+The supplied screenshot revealed that the green phone-listening source was RGBA
+but its corner pixels were opaque black. The connected outer matte is now true
+transparency; every app/site/in-app size was regenerated from the corrected
+master. Alpha inspection, a signed Debug build, and a live screenshot of the
+rebrand popup all pass. The app is running with the announcement reset.
+
+## Prior state: Green in-app icon fixed
+
+The header, welcome sheet, rebrand sheet, and Debug Dock badge load a named
 green phone-listening mouse asset instead of `NSApp.applicationIconImage`, which
-can retain the prior coral icon through Launch Services caching. The signed
-Debug build passes and is running with the rebrand announcement reset for
-review.
+can retain the prior coral icon through Launch Services caching.
 
 ## Prior state: Noah green + phone MeetMouse built
 
