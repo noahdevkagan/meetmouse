@@ -5,7 +5,19 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-09-16, branch `crxnamja/pull-meetmouse-redesign`): MeetMouse Cloudflare live
+## Current state (2026-09-16, branch `crxnamja/pull-meetmouse-redesign`): Support email, downloads, and redirects complete
+
+Cloudflare Email Routing is ready: `support@meetmouse.com` forwards to the
+already-verified `noahkagan@gmail.com`, and the required MX, SPF, and DKIM
+records are live. Customer-facing site and app support links use the branded
+address. All 51 historical GitHub DMGs are now named `MeetMouse-*.dmg`; the live
+Sparkle appcast points at the renamed latest asset, and future packaging already
+uses the MeetMouse name. Active Cloudflare 301 rules canonicalize `www` and both
+legacy `getmeetingcoach.com` hosts to `https://meetmouse.com` while preserving
+paths and query strings. An inbox delivery test is the only optional final
+verification and requires sending a test message to the support alias.
+
+## Prior state: MeetMouse Cloudflare live
 
 `meetmouse.com` and `www.meetmouse.com` are active custom domains on the existing
 Cloudflare Pages project, both backed by proxied CNAMEs to `meetcoach.pages.dev`.

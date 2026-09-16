@@ -8,7 +8,7 @@ struct FeedbackFormView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
 
-    private static let address = "noahkagan@gmail.com"
+    private static let address = "support@meetmouse.com"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {

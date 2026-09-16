@@ -1250,3 +1250,17 @@ while the canonical remote and README now use the new name. The local
 `.../workspaces/coach/prague` path is intentionally unchanged because Conductor
 owns workspace directory structure; renaming it underneath the app could break
 workspace bookkeeping without improving public branding.
+
+## 2026-09-16 — MeetMouse owns the public support and download identity
+
+Customer-facing support now uses `support@meetmouse.com`, forwarded through
+Cloudflare Email Routing to Noah's already-verified Gmail destination. Public
+site footers, AppSumo redemption help, the download thank-you page, and the
+in-app feedback form all expose the branded address rather than a personal one.
+
+Every historical GitHub release asset was renamed from `MeetingCoach-*.dmg` to
+`MeetMouse-*.dmg`, and the live Sparkle appcast was changed in the same operation
+so existing installs keep a valid update URL. The packaging script already
+derives future DMG names from the `MeetMouse` app name. Legacy apex and `www`
+requests receive one Cloudflare 301 rule to `https://meetmouse.com` that carries
+the original path and query string, avoiding split canonical URLs.

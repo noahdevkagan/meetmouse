@@ -136,7 +136,7 @@ def render(releases) -> str:
 {body}
 
   <footer>
-    <p>MeetMouse · <a href="mailto:noahkagan@gmail.com">noahkagan@gmail.com</a> · <a href="https://github.com/noahdevkagan/meeting-coach-releases/releases">Releases on GitHub</a></p>
+    <p>MeetMouse · <a href="mailto:support@meetmouse.com">support@meetmouse.com</a> · <a href="https://github.com/noahdevkagan/meeting-coach-releases/releases">Releases on GitHub</a></p>
   </footer>
 </main>
 </body>
