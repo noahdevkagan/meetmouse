@@ -1264,3 +1264,23 @@ so existing installs keep a valid update URL. The packaging script already
 derives future DMG names from the `MeetMouse` app name. Legacy apex and `www`
 requests receive one Cloudflare 301 rule to `https://meetmouse.com` that carries
 the original path and query string, avoiding split canonical URLs.
+
+## 2026-09-16 — The changelog generator never publishes the Unreleased section
+
+`CHANGELOG.md` keeps an `## Unreleased` staging section for notes written before
+a version number exists, but `build-changelog.py` previously only skipped
+*empty* sections, so the first bullet landed on meetmouse.com/changelog as a
+release literally titled "Unreleased", above 0.22.0. The generator now drops
+that section by name: notes reach the site only once they ship, under their real
+version. The section still has to be renamed to `## X.Y.Z` before tagging —
+`package-release.sh` matches the version heading to build the Sparkle update
+dialog, and falls back to commit subjects when it finds none.
+
+## 2026-09-16 — The menu-bar mouse is placed against its ink, not its line box
+
+`NSAttributedString.size()` reports Apple Color Emoji's line box (20x25 at
+15.5pt), which is several points taller than the glyph itself, so
+centring on it pushed the mouse's feet and tail below the 18pt canvas. At 15.5pt
+the ink alone is 19.4pt and cannot fit that canvas at any offset. The mark is now
+drawn at 14pt from `y: 0`, which seats the whole animal with the status dot clear
+of it.

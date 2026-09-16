@@ -43,7 +43,10 @@ def parse(md: str):
             current[2].append(line[2:].strip())
         elif line.startswith("  ") and current[2]:  # continuation of a wrapped bullet
             current[2][-1] += " " + line.strip()
-    return [r for r in releases if r[2]]  # drop empty sections (e.g. Unreleased)
+    # Drop empty sections, and the in-progress "Unreleased" staging section —
+    # notes land on the site when they ship, under their real version.
+    return [r for r in releases
+            if r[2] and r[0].lower() != "unreleased"]
 
 
 def pretty_date(iso: str | None) -> str:
