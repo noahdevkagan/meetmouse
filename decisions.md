@@ -1213,3 +1213,15 @@ master now makes only the dark matte connected to the image boundary
 transparent; the mouse, phone, shadows, and green tile remain unchanged. All
 app, in-app, and site sizes are regenerated from that corrected master so the
 mark sits cleanly on both light and dark UI surfaces.
+
+## 2026-09-16 — AppSumo media leads with the product, not decorative mockups
+
+The AppSumo set uses one dominant, readable MeetMouse product surface per 16:9
+frame, with a bold green brand field and short benefit-led copy. This combines
+the clearest patterns from the current top two homepage deals: immediate brand
+recognition in the hero and focused feature proof in the gallery. The exact
+one-word `MeetMouse` name is used throughout. Product captures come only from
+the bundled synthetic demo or aggregate dashboard metrics, so no personal
+meeting data ships in marketing assets. Generative imagery is limited to the
+subtle green audio-wave background; the logo, product UI, and claims remain
+deterministic and directly inspectable.

@@ -5,7 +5,18 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-09-15, branch `crxnamja/pull-meetmouse-redesign`): Black icon matte fixed
+## Current state (2026-09-16, branch `crxnamja/pull-meetmouse-redesign`): AppSumo media ready
+
+The stale MeetingCoach AppSumo media is replaced by an upload-ready MeetMouse
+kit in `design/appsumo/`: a transparent 512×512 company icon, a branded hero,
+and four focused 1920×1080 gallery frames for live coaching, meeting review,
+progress, and local privacy. Every upload image is PNG and under AppSumo's 5 MB
+limit, uses the exact `MeetMouse` name and Noah green, and was inspected at
+listing-thumbnail scale. Product screens use only the deterministic bundled demo
+or aggregate dashboard data; the README records upload order, alt text, benchmark
+links, listing cleanup, and image-generation provenance.
+
+## Prior state: Black icon matte fixed
 
 The supplied screenshot revealed that the green phone-listening source was RGBA
 but its corner pixels were opaque black. The connected outer matte is now true
