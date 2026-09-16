@@ -21,8 +21,8 @@ anything else — just click **Download model** once to fetch a local model
 ### Build from source
 Requires Xcode 16+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 ```bash
-git clone https://github.com/noahdevkagan/coach.git meeting-coach
-cd meeting-coach/MeetingCoach
+git clone https://github.com/noahdevkagan/meetmouse.git
+cd meetmouse/MeetingCoach
 xcodegen
 xcodebuild -project MeetingCoach.xcodeproj -scheme MeetingCoach \
   -configuration Debug -derivedDataPath build build

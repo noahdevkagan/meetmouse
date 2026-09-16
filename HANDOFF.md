@@ -5,7 +5,23 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-09-16, branch `crxnamja/pull-meetmouse-redesign`): AppSumo media ready
+## Current state (2026-09-16, branch `crxnamja/pull-meetmouse-redesign`): MeetMouse Cloudflare live
+
+`meetmouse.com` and `www.meetmouse.com` are active custom domains on the existing
+Cloudflare Pages project, both backed by proxied CNAMEs to `meetcoach.pages.dev`.
+The current green MeetMouse site is deployed; the apex returns 200 with the
+MeetMouse title, and an active Cloudflare rule permanently redirects `www` to
+the apex while preserving paths and query strings. The repository now owns the
+Pages setup through root `wrangler.toml`, and release/manual deploy commands use
+it. `/appsumo` is live and refreshed with the MeetMouse icon and green brand.
+The GitHub repository is renamed from `noahdevkagan/coach` to
+`noahdevkagan/meetmouse`; GitHub redirects the old URL and this checkout's
+origin plus README clone instructions use the new URL. The legacy Cloudflare
+project name stays in place to preserve history and the old domains. GitHub
+still lacks `CLOUDFLARE_API_TOKEN`, so release deployments continue to skip
+safely until a long-lived Pages:Edit token is added.
+
+## Prior state: AppSumo media ready
 
 The stale MeetingCoach AppSumo media is replaced by an upload-ready MeetMouse
 kit in `design/appsumo/`: a transparent 512×512 company icon, a branded hero,

@@ -161,7 +161,7 @@ jobs:
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
             echo "CLOUDFLARE_API_TOKEN secret not set — skipping site deploy."
-            echo "Manual fallback: npx wrangler pages deploy docs --project-name meetcoach"
+            echo "Manual fallback: npx wrangler pages deploy"
             exit 0
           fi
-          npx -y wrangler pages deploy docs --project-name meetcoach
+          npx -y wrangler pages deploy
