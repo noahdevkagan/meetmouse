@@ -14,8 +14,9 @@ address. All 51 historical GitHub DMGs are now named `MeetMouse-*.dmg`; the live
 Sparkle appcast points at the renamed latest asset, and future packaging already
 uses the MeetMouse name. Active Cloudflare 301 rules canonicalize `www` and both
 legacy `getmeetingcoach.com` hosts to `https://meetmouse.com` while preserving
-paths and query strings. An inbox delivery test is the only optional final
-verification and requires sending a test message to the support alias.
+paths and query strings. A test sent from Noah's Gmail to the support alias was
+received by Cloudflare; its expected same-account deduplication notice arrived
+in Noah's inbox, confirming the routing path.
 
 ## Prior state: MeetMouse Cloudflare live
 
