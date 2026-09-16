@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render CHANGELOG.md into docs/changelog.html for getmeetingcoach.com.
+"""Render CHANGELOG.md into docs/changelog.html for meetmouse.com.
 
 The page is a pure function of CHANGELOG.md so the two can never drift:
 the push gate regenerates it and fails if the committed copy is stale.
@@ -43,7 +43,10 @@ def parse(md: str):
             current[2].append(line[2:].strip())
         elif line.startswith("  ") and current[2]:  # continuation of a wrapped bullet
             current[2][-1] += " " + line.strip()
-    return [r for r in releases if r[2]]  # drop empty sections (e.g. Unreleased)
+    # Drop empty sections, and the in-progress "Unreleased" staging section —
+    # notes land on the site when they ship, under their real version.
+    return [r for r in releases
+            if r[2] and r[0].lower() != "unreleased"]
 
 
 def pretty_date(iso: str | None) -> str:
@@ -73,9 +76,9 @@ def render(releases) -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Changelog — MeetingCoach for Mac</title>
-<meta name="description" content="What's new in MeetingCoach — every release, in plain language.">
-<link rel="canonical" href="https://getmeetingcoach.com/changelog">
+<title>Changelog — MeetMouse for Mac</title>
+<meta name="description" content="What's new in MeetMouse — every release, in plain language.">
+<link rel="canonical" href="https://meetmouse.com/changelog">
 <link rel="icon" type="image/png" href="/icon.png">
 <style>
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -129,14 +132,14 @@ def render(releases) -> str:
 </head>
 <body>
 <main>
-  <a class="home" href="/">&larr; MeetingCoach</a>
+  <a class="home" href="/">&larr; MeetMouse</a>
   <h1>Changelog</h1>
-  <p class="sub">What's new in MeetingCoach — every release, in plain language. The app updates itself automatically.</p>
+  <p class="sub">What's new in MeetMouse — every release, in plain language. The app updates itself automatically.</p>
 
 {body}
 
   <footer>
-    <p>MeetingCoach · <a href="mailto:noahkagan@gmail.com">noahkagan@gmail.com</a> · <a href="https://github.com/noahdevkagan/meeting-coach-releases/releases">Releases on GitHub</a></p>
+    <p>MeetMouse · <a href="mailto:support@meetmouse.com">support@meetmouse.com</a> · <a href="https://github.com/noahdevkagan/meeting-coach-releases/releases">Releases on GitHub</a></p>
   </footer>
 </main>
 </body>

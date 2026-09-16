@@ -3,19 +3,39 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Redeem your AppSumo code — MeetingCoach</title>
+<title>Redeem your AppSumo code — MeetMouse</title>
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/png" href="/icon.png">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    background: #fff;
-    color: #1a1a1a;
+    background: #fbfaf6;
+    color: #242321;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
   }
-  main { max-width: 620px; margin: 0 auto; padding: 96px 24px; text-align: center; }
+  main {
+    max-width: 620px;
+    margin: 64px auto;
+    padding: 52px 44px;
+    text-align: center;
+    background: #fff;
+    border: 1px solid #e9e2d4;
+    border-radius: 20px;
+    box-shadow: 0 18px 50px rgba(36, 35, 33, 0.08);
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 30px;
+    color: #242321;
+    font-size: 18px;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+  }
+  .brand img { width: 42px; height: 42px; border-radius: 11px; }
   h1 { font-size: 34px; letter-spacing: -0.02em; }
   p { color: #555; margin-top: 16px; }
   .code-input {
@@ -27,15 +47,15 @@
     text-transform: uppercase;
     padding: 14px 16px;
     margin-top: 32px;
-    border: 2px solid #ddd;
+    border: 2px solid #dedbd3;
     border-radius: 10px;
     outline: none;
   }
-  .code-input:focus { border-color: #111; }
+  .code-input:focus { border-color: #2bbd3e; box-shadow: 0 0 0 4px rgba(43, 189, 62, 0.12); }
   .dl-btn {
     display: inline-block;
-    background: #111;
-    color: #fff;
+    background: #2bbd3e;
+    color: #132015;
     font-size: 17px;
     font-weight: 600;
     text-decoration: none;
@@ -45,18 +65,26 @@
     margin-top: 20px;
     cursor: pointer;
   }
-  .dl-btn:hover { background: #333; }
+  .dl-btn:hover { background: #4bc75b; }
   .error { color: #c0392b; margin-top: 16px; display: none; }
   .steps { font-size: 14px; color: #888; margin-top: 24px; }
   a { color: #555; }
   #success { display: none; }
+  @media (max-width: 680px) {
+    main { margin: 24px 16px; padding: 40px 22px; }
+    h1 { font-size: 29px; }
+  }
 </style>
 </head>
 <body>
 <main>
+  <a class="brand" href="/" aria-label="MeetMouse home">
+    <img src="/icon.png" alt="">
+    <span>MeetMouse</span>
+  </a>
   <div id="redeem">
     <h1>Redeem your AppSumo code</h1>
-    <p>Enter the code from your AppSumo purchase to download MeetingCoach for Mac.</p>
+    <p>Enter the code from your AppSumo purchase to download MeetMouse for Mac.</p>
     <form id="form">
       <input class="code-input" id="code" placeholder="AS-XXXX-XXXX-XXXX"
              autocomplete="off" autocapitalize="characters" spellcheck="false">
@@ -64,14 +92,14 @@
       <button type="submit" class="dl-btn">Redeem</button>
     </form>
     <p class="error" id="error">That code doesn't look right — check for typos and try again.</p>
-    <p class="steps">Trouble redeeming? Email <a href="mailto:noahkagan@gmail.com">noahkagan@gmail.com</a></p>
+    <p class="steps">Trouble redeeming? Email <a href="mailto:support@meetmouse.com">support@meetmouse.com</a></p>
   </div>
 
   <div id="success">
     <h1>You're in 🎉</h1>
-    <p>Your download is ready. Open the DMG and drag Meeting Coach to Applications.</p>
-    <a class="dl-btn" id="dl" href="https://github.com/noahdevkagan/meeting-coach-releases/releases/latest">Download MeetingCoach for Mac</a>
-    <p class="steps">On first launch, click <strong>Download Model</strong> once (needs WiFi that one time) — everything after runs fully offline.<br><br>Need help? Email <a href="mailto:noahkagan@gmail.com">noahkagan@gmail.com</a></p>
+    <p>Your download is ready. Open the DMG and drag MeetMouse to Applications.</p>
+    <a class="dl-btn" id="dl" href="https://github.com/noahdevkagan/meeting-coach-releases/releases/latest">Download MeetMouse for Mac</a>
+    <p class="steps">On first launch, click <strong>Download Model</strong> once (needs WiFi that one time) — everything after runs fully offline.<br><br>Need help? Email <a href="mailto:support@meetmouse.com">support@meetmouse.com</a></p>
   </div>
 </main>
 <script>

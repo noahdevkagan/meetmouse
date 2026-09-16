@@ -1,6 +1,6 @@
 import Foundation
 
-/// Import of Granola meeting history into MeetingCoach sessions, from the
+/// Import of Granola meeting history into MeetMouse sessions, from the
 /// CSV export Granola produces once the user enables data export. The
 /// earlier direct read of Granola's local cache is gone on purpose: newer
 /// Granola versions encrypt that cache, so the one supported path is the
@@ -247,7 +247,7 @@ enum GranolaImporter {
             participants: attendees)
 
         var lines: [String] = []
-        lines.append("# Meeting Coach Session — \(stampFormatter.string(from: date))")
+        lines.append("# MeetMouse Session — \(stampFormatter.string(from: date))")
         if !title.isEmpty {
             lines.append("**Title:** \(title)")
         }

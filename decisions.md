@@ -860,6 +860,26 @@ both platforms from whichever machine runs the gate; the Intel guard in
 its branch is the one that would otherwise feed non-English audio to an en-US
 recognizer.
 
+## 2026-08-13 — MeetMouse is a public rename, not an identity or data migration
+The shipped product, app bundle filename, website, artwork, and MCP helper are
+now MeetMouse. The Xcode target and scheme, bundle identifier
+`com.coach.MeetingCoach`, Application Support and Documents directories, and
+the existing public Sparkle feed remain unchanged internally. Keeping those
+identifiers preserves macOS permissions, preferences, downloaded models,
+transcripts, and the update chain for installed users. The app includes a
+legacy `meetingcoach-mcp` helper alias alongside `meetmouse-mcp` so existing
+agent configurations continue to work.
+
+## 2026-08-13 — MeetMouse uses a literal animal, not an abstract logo
+The approved visual direction is the first RhinoVoice-inspired concept: a
+full-bodied charcoal-gray side-profile mouse on coral, rendered with chunky
+3D/emoji-like character. The earlier flat front-facing mark felt generic. The
+same principle applies in the menu bar, where Apple's literal `🐁` glyph is
+more recognizable at 16 px than either the detailed raster or a custom mouse
+outline. Status remains separate in small live, detection, update, and debug
+dots. Coral replaces the previous yellow primary accent so the icon, app, and
+site read as one brand.
+
 ## 2026-08-13 — Invalid microphone formats retry briefly, then fail cleanly
 
 A 0.17.0 customer crash reached `AVAudioNode.installTap` while starting the
@@ -1134,3 +1154,133 @@ session (best, not first — "team" filled the cap before multi-word lines)
 plus the saved ## Review, cap 4 sessions/12k chars, answer grounded
 "ONLY the excerpts" with meeting citations. Degraded modes are visible
 (no model / no matching meetings say why), per the standing rule.
+
+## 2026-09-15 — MeetMouse is layered onto current main, not restored as an August snapshot
+
+The MeetMouse redesign branch diverged before 24 later product commits. It is
+merged with its original history intact, while conflict resolution keeps the
+current transcript store, date-led filenames, session review/search behavior,
+and benchmark history. The redesign supplies the public MeetMouse name, coral
+mouse visual system, site/package copy, and compatibility choices. Why: taking
+the old branch wholesale would silently discard shipped 0.19–0.22 behavior;
+reapplying only visual/name changes preserves both the redesign and current app.
+
+## 2026-09-15 — Rebrand context is for existing users; green comes from NoahKagan.com
+
+The “Meeting Coach is now MeetMouse” announcement is a once-per-install sheet
+shown only when `hasSeenDemo` proves the person used the app before the rename.
+Fresh installs mark the announcement handled and go straight to the ordinary
+MeetMouse welcome; explaining an old name they never saw would add confusion.
+The acknowledgment is explicit (“Got it”) and cannot be dismissed accidentally,
+so quitting before reading makes it return on the next launch. The sheet promises
+only compatibility guarantees the rebrand actually preserves: transcripts,
+settings, models, history, and local privacy.
+
+All success/live/positive green now resolves through one token at `#2BBD3E`,
+the current `--bs-primary` value in NoahKagan.com’s production stylesheet.
+System green and the old `#00C838` token were close but visibly inconsistent;
+coral remains MeetMouse’s primary action color.
+
+## 2026-09-15 — Noah green replaces coral, and the phone-listening mouse is the mark
+
+Reverses the last clause above after Noah reviewed the announcement live: the
+NoahKagan.com green is the whole MeetMouse brand color, not just a semantic
+success color. Primary, hover, pressed, tint, meeting-detection, live, and
+positive states now share the site’s production green scale (`#2BBD3E` base,
+`#4BC75B` hover, `#55CA65` active). This keeps the app visually inside the Noah
+Kagan family instead of running a competing coral identity.
+
+The selected icon is the existing phone-listening concept, recolored onto the
+green tile. Why: a generic mouse says only “mouse”; a mouse holding a phone to
+its ear instantly adds the meeting/listening story and matches the original
+MeetMouse direction Noah remembered. The side-profile, phone-call, and headset
+sources remain tracked as alternates.
+
+## 2026-09-15 — In-app branding uses a named asset, not the application icon API
+
+The header, welcome, and rebrand views load `MeetMouseBrandIcon` directly from
+the asset catalog. `NSApp.applicationIconImage` is reserved for OS-owned app
+identity because Launch Services may cache an older bundle icon after a local
+rebuild, which made the already-green MeetMouse build appear coral inside the
+app. A named asset makes in-app branding deterministic while leaving macOS to
+manage the Dock and Finder icon caches.
+
+## 2026-09-15 — The MeetMouse tile has true transparent corners
+
+The generated green source declared an alpha channel but every pixel was still
+opaque, with black RGB pixels surrounding the rounded tile. The production
+master now makes only the dark matte connected to the image boundary
+transparent; the mouse, phone, shadows, and green tile remain unchanged. All
+app, in-app, and site sizes are regenerated from that corrected master so the
+mark sits cleanly on both light and dark UI surfaces.
+
+## 2026-09-16 — AppSumo media leads with the product, not decorative mockups
+
+The AppSumo set uses one dominant, readable MeetMouse product surface per 16:9
+frame, with a bold green brand field and short benefit-led copy. This combines
+the clearest patterns from the current top two homepage deals: immediate brand
+recognition in the hero and focused feature proof in the gallery. The exact
+one-word `MeetMouse` name is used throughout. Product captures come only from
+the bundled synthetic demo or aggregate dashboard metrics, so no personal
+meeting data ships in marketing assets. Generative imagery is limited to the
+subtle green audio-wave background; the logo, product UI, and claims remain
+deterministic and directly inspectable.
+
+## 2026-09-16 — MeetMouse reuses the established Cloudflare Pages project
+
+The public site now serves from `meetmouse.com`, but the Cloudflare Pages project
+keeps its internal `meetcoach` name. Renaming by replacement would throw away
+deployment history, preview URLs, and working legacy-domain attachments without
+changing anything customers see. Both apex and `www` are attached as Pages
+custom domains through proxied CNAMEs; `www` receives a permanent redirect to
+the apex with path and query preservation so canonical URLs remain singular.
+The old `getmeetingcoach.com` domains remain attached for continuity.
+
+The root `wrangler.toml`, downloaded from the live project and completed with
+`pages_build_output_dir = "./docs"`, is now the deployment source of truth.
+This keeps manual and release deploys on the same checked-in configuration while
+leaving credentials out of the repository.
+
+## 2026-09-16 — The GitHub repository is named MeetMouse; Conductor paths stay managed
+
+The GitHub repository is renamed from `noahdevkagan/coach` to
+`noahdevkagan/meetmouse`, with its description and homepage updated to the
+current product. GitHub's automatic redirect keeps old clone links working,
+while the canonical remote and README now use the new name. The local
+`.../workspaces/coach/prague` path is intentionally unchanged because Conductor
+owns workspace directory structure; renaming it underneath the app could break
+workspace bookkeeping without improving public branding.
+
+## 2026-09-16 — MeetMouse owns the public support and download identity
+
+Customer-facing support now uses `support@meetmouse.com`, forwarded through
+Cloudflare Email Routing to Noah's already-verified Gmail destination. Public
+site footers, AppSumo redemption help, the download thank-you page, and the
+in-app feedback form all expose the branded address rather than a personal one.
+
+Every historical GitHub release asset was renamed from `MeetingCoach-*.dmg` to
+`MeetMouse-*.dmg`, and the live Sparkle appcast was changed in the same operation
+so existing installs keep a valid update URL. The packaging script already
+derives future DMG names from the `MeetMouse` app name. Legacy apex and `www`
+requests receive one Cloudflare 301 rule to `https://meetmouse.com` that carries
+the original path and query string, avoiding split canonical URLs.
+
+## 2026-09-16 — The changelog generator never publishes the Unreleased section
+
+`CHANGELOG.md` keeps an `## Unreleased` staging section for notes written before
+a version number exists, but `build-changelog.py` previously only skipped
+*empty* sections, so the first bullet landed on meetmouse.com/changelog as a
+release literally titled "Unreleased", above 0.22.0. The generator now drops
+that section by name: notes reach the site only once they ship, under their real
+version. The section still has to be renamed to `## X.Y.Z` before tagging —
+`package-release.sh` matches the version heading to build the Sparkle update
+dialog, and falls back to commit subjects when it finds none.
+
+## 2026-09-16 — The menu-bar mouse is placed against its ink, not its line box
+
+`NSAttributedString.size()` reports Apple Color Emoji's line box (20x25 at
+15.5pt), which is several points taller than the glyph itself, so
+centring on it pushed the mouse's feet and tail below the 18pt canvas. At 15.5pt
+the ink alone is 19.4pt and cannot fit that canvas at any offset. The mark is now
+drawn at 14pt from `y: 0`, which seats the whole animal with the status dot clear
+of it.

@@ -5,6 +5,81 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-16, branch `crxnamja/pull-meetmouse-redesign`): Support email, downloads, and redirects complete
+
+Cloudflare Email Routing is ready: `support@meetmouse.com` forwards to the
+already-verified `noahkagan@gmail.com`, and the required MX, SPF, and DKIM
+records are live. Customer-facing site and app support links use the branded
+address. All 51 historical GitHub DMGs are now named `MeetMouse-*.dmg`; the live
+Sparkle appcast points at the renamed latest asset, and future packaging already
+uses the MeetMouse name. Active Cloudflare 301 rules canonicalize `www` and both
+legacy `getmeetingcoach.com` hosts to `https://meetmouse.com` while preserving
+paths and query strings. A test sent from Noah's Gmail to the support alias was
+received by Cloudflare; its expected same-account deduplication notice arrived
+in Noah's inbox, confirming the routing path.
+
+## Prior state: MeetMouse Cloudflare live
+
+`meetmouse.com` and `www.meetmouse.com` are active custom domains on the existing
+Cloudflare Pages project, both backed by proxied CNAMEs to `meetcoach.pages.dev`.
+The current green MeetMouse site is deployed; the apex returns 200 with the
+MeetMouse title, and an active Cloudflare rule permanently redirects `www` to
+the apex while preserving paths and query strings. The repository now owns the
+Pages setup through root `wrangler.toml`, and release/manual deploy commands use
+it. `/appsumo` is live and refreshed with the MeetMouse icon and green brand.
+The GitHub repository is renamed from `noahdevkagan/coach` to
+`noahdevkagan/meetmouse`; GitHub redirects the old URL and this checkout's
+origin plus README clone instructions use the new URL. The legacy Cloudflare
+project name stays in place to preserve history and the old domains. GitHub
+still lacks `CLOUDFLARE_API_TOKEN`, so release deployments continue to skip
+safely until a long-lived Pages:Edit token is added.
+
+## Prior state: AppSumo media ready
+
+The stale MeetingCoach AppSumo media is replaced by an upload-ready MeetMouse
+kit in `design/appsumo/`: a transparent 512×512 company icon, a branded hero,
+and four focused 1920×1080 gallery frames for live coaching, meeting review,
+progress, and local privacy. Every upload image is PNG and under AppSumo's 5 MB
+limit, uses the exact `MeetMouse` name and Noah green, and was inspected at
+listing-thumbnail scale. Product screens use only the deterministic bundled demo
+or aggregate dashboard data; the README records upload order, alt text, benchmark
+links, listing cleanup, and image-generation provenance.
+
+## Prior state: Black icon matte fixed
+
+The supplied screenshot revealed that the green phone-listening source was RGBA
+but its corner pixels were opaque black. The connected outer matte is now true
+transparency; every app/site/in-app size was regenerated from the corrected
+master. Alpha inspection, a signed Debug build, and a live screenshot of the
+rebrand popup all pass. The app is running with the announcement reset.
+
+## Prior state: Green in-app icon fixed
+
+The header, welcome sheet, rebrand sheet, and Debug Dock badge load a named
+green phone-listening mouse asset instead of `NSApp.applicationIconImage`, which
+can retain the prior coral icon through Launch Services caching.
+
+## Prior state: Noah green + phone MeetMouse built
+
+The one-time “Meeting Coach is now MeetMouse” sheet is built and approved.
+NoahKagan.com’s production green is now the full MeetMouse brand system:
+`#2BBD3E` base, site-matched hover/active states, tint, live/detected, and
+positive states. The selected mark is the existing phone-listening mouse on a
+green tile; transparent source, macOS sizes 16–1024, and site icons regenerated.
+Signed Debug build passes and is running with the announcement reset for review.
+
+## Prior state: MeetMouse redesign synced
+
+Merged the latest MeetMouse redesign branch
+(`origin/crxnamja/squirrel-domain-rebrand`, tip `d5e6953`) onto current
+`origin/main`. Conflict resolution preserves current transcript storage,
+v0.19–0.22 behavior, and chronological benchmark history while carrying the
+MeetMouse public name, coral/mouse visual system, site/package copy, and legacy
+identity/data compatibility. Regenerated the Xcode project, changelog, and
+sitemap. Verified a signed Debug build plus session and nudge suites; all pass.
+
+## Prior state
+
 ## Current state (2026-09-04, branch `crxnamja/shanghai`): Granola-class reviews + smarter search — BUILT
 
 Shipped on-branch this session (see decisions.md 2026-09-04 for the why):

@@ -13,12 +13,14 @@ enum Dorado {
     // system appearance (Noah, 2026-08-05: "similar to computer on light
     // or dark or auto"). The handoff only specified the light values; the
     // dark side is the same hierarchy inverted onto near-black surfaces.
-    static let dorado300 = Color(hex: 0xFFBC00)   // Go live, accents (both modes)
-    static let dorado100 = Color(hex: 0xFFEE4E)   // hover, active highlight
-    static let dorado500 = Color(hex: 0xF58A00)   // pressed
-    static let doradoTint = dynamic(0xFFF3CC, 0x4A3F1E)  // soft highlight
+    /// NoahKagan.com production primary and button-state greens.
+    static let brandGreen = Color(hex: 0x2BBD3E)
+    static let dorado300 = brandGreen             // primary action
+    static let dorado100 = Color(hex: 0x4BC75B)   // site button hover
+    static let dorado500 = Color(hex: 0x55CA65)   // site button pressed
+    static let doradoTint = dynamic(0xE9F8EB, 0x203923)  // soft green highlight
     static let bolt = dynamic(0x0044C0, 0x5B9BFF)        // "You", links
-    static let dollar = Color(hex: 0x00C838)      // success / loaded dot
+    static let dollar = brandGreen                // success / live / positive
     static let midnight = dynamic(0x021414, 0xF2F4F6)    // headings
     static let grey800 = dynamic(0x3C4552, 0xC9D1D9)     // body text
     static let grey600 = dynamic(0x647184, 0x9AA5B1)     // secondary text
@@ -74,8 +76,7 @@ extension NSColor {
     }
 }
 
-/// The app's single primary action pill (Go live). Hover #FFEE4E, press
-/// #F58A00, no scale transform.
+/// The app's single primary action pill (Go live), using Noah brand green.
 struct DoradoPillButtonStyle: ButtonStyle {
     var stop = false
     @State private var hovering = false
