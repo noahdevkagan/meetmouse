@@ -7,9 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
-## Unreleased
+## 0.23.0 — 2026-09-16
 
 - The app has a new name and face: MeetMouse, with a phone-listening gray mouse on NoahKagan green throughout the app and the same recognizable animal in the menu bar. Your settings, models, transcripts, and updates continue exactly where they left off
+- If you had connected an AI agent, re-add it: the built-in MCP server moved with the rename. Open Advanced → Agent access and copy the new `claude mcp add` command — an older `meetingcoach` entry points at a path that no longer exists
 
 ## 0.22.0 — 2026-09-04
 
