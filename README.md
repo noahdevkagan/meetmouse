@@ -1,4 +1,4 @@
-# meeting-coach
+# MeetMouse
 
 A local-first, zero-telemetry real-time leadership coach for macOS. It listens to a live meeting, applies a facilitation rubric, and surfaces short coaching calls while the meeting is happening — shown in a small, screen-share-safe overlay.
 
@@ -10,8 +10,8 @@ See [`PLAN.md`](./PLAN.md) for the full build plan and [`findings.md`](./finding
 
 ## Install (macOS)
 
-**Download the app:** grab the latest `MeetingCoach-*.dmg` from
-[Releases](../../releases), open it, and drag **Meeting Coach** to Applications.
+**Download the app:** grab the latest `MeetMouse-*.dmg` from
+[Releases](../../releases), open it, and drag **MeetMouse** to Applications.
 It's signed and notarized, so it opens with a normal double-click.
 
 **First launch:** the app bundles the Ollama runtime, so you don't install
@@ -21,12 +21,12 @@ anything else — just click **Download model** once to fetch a local model
 ### Build from source
 Requires Xcode 16+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 ```bash
-git clone https://github.com/noahdevkagan/coach.git meeting-coach
-cd meeting-coach/MeetingCoach
+git clone https://github.com/noahdevkagan/meetmouse.git
+cd meetmouse/MeetingCoach
 xcodegen
 xcodebuild -project MeetingCoach.xcodeproj -scheme MeetingCoach \
   -configuration Debug -derivedDataPath build build
-open -n build/Build/Products/Debug/MeetingCoach.app
+open -n build/Build/Products/Debug/MeetMouse.app
 ```
 For local LLM features when running a source build, either have
 [Ollama](https://ollama.com) running, or vendor the runtime into the bundle with

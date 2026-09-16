@@ -49,14 +49,14 @@ struct MeetingReviewView: View {
 
             if !review.wins.isEmpty {
                 Divider()
-                section(icon: "hand.thumbsup.fill", tint: .green, title: "Wins") {
+                section(icon: "hand.thumbsup.fill", tint: Dorado.dollar, title: "Wins") {
                     bulletList(review.wins)
                 }
             }
 
             if !review.actionItems.isEmpty {
                 Divider()
-                section(icon: "checkmark.circle.fill", tint: .green, title: "Suggested Next Steps") {
+                section(icon: "checkmark.circle.fill", tint: Dorado.dollar, title: "Suggested Next Steps") {
                     ForEach(review.actionItems) { item in
                         Button {
                             onToggleActionItem?(item.id)
@@ -64,7 +64,7 @@ struct MeetingReviewView: View {
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 Image(systemName: item.isDone ? "checkmark.square.fill" : "square")
                                     .font(.callout)
-                                    .foregroundStyle(item.isDone ? Color.green : Color.secondary)
+                                    .foregroundStyle(item.isDone ? Dorado.dollar : Color.secondary)
                                 Text(item.text)
                                     .font(.callout)
                                     .strikethrough(item.isDone)
