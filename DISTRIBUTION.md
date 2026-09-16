@@ -138,13 +138,23 @@ SHA256. Ask and I'll scaffold it.
 ## Website (meetmouse.com, Cloudflare Pages)
 The landing page + purchase funnel lives in `docs/` (index.html → PayPal →
 thanks.html → DMG download). Hosted on Cloudflare Pages, not GitHub Pages.
+The root `wrangler.toml` is the checked-in source of truth. The Cloudflare Pages
+project intentionally keeps its legacy internal name, `meetcoach`, so existing
+deployments and redirects do not need a risky migration.
+
+Both `meetmouse.com` and `www.meetmouse.com` are attached to the Pages project.
+A Cloudflare Single Redirect sends `www` to the apex with a 301 while preserving
+the path and query string. The AppSumo redemption flow is served at `/appsumo`.
 
 Deploy after any change:
 ```bash
-npx wrangler pages deploy docs --project-name meetcoach
+npx wrangler pages deploy
 ```
-First time: `npx wrangler login`, and attach `meetmouse.com` to the project in
-the Cloudflare dashboard (Pages → meetcoach → Custom domains).
+First time on a new machine: `npx wrangler login`. The production custom domain
+`meetmouse.com` is attached to Pages → meetcoach → Custom domains.
+
+GitHub release deploys require repository secrets `CLOUDFLARE_API_TOKEN`
+(scoped to Account / Cloudflare Pages / Edit) and `CLOUDFLARE_ACCOUNT_ID`.
 
 Keep `getmeetingcoach.com` proxied in Cloudflare DNS, then create a Cloudflare
 Bulk Redirect from `https://getmeetingcoach.com/` to `https://meetmouse.com/`:

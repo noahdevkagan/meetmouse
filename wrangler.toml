@@ -1,0 +1,8 @@
+# Cloudflare Pages keeps the legacy internal project name so deployment history,
+# preview URLs, and the old-domain redirect remain intact after the rebrand.
+name = "meetcoach"
+compatibility_date = "2026-07-16"
+pages_build_output_dir = "./docs"
+send_metrics = false
+
+[env.production]

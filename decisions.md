@@ -1225,3 +1225,28 @@ the bundled synthetic demo or aggregate dashboard metrics, so no personal
 meeting data ships in marketing assets. Generative imagery is limited to the
 subtle green audio-wave background; the logo, product UI, and claims remain
 deterministic and directly inspectable.
+
+## 2026-09-16 — MeetMouse reuses the established Cloudflare Pages project
+
+The public site now serves from `meetmouse.com`, but the Cloudflare Pages project
+keeps its internal `meetcoach` name. Renaming by replacement would throw away
+deployment history, preview URLs, and working legacy-domain attachments without
+changing anything customers see. Both apex and `www` are attached as Pages
+custom domains through proxied CNAMEs; `www` receives a permanent redirect to
+the apex with path and query preservation so canonical URLs remain singular.
+The old `getmeetingcoach.com` domains remain attached for continuity.
+
+The root `wrangler.toml`, downloaded from the live project and completed with
+`pages_build_output_dir = "./docs"`, is now the deployment source of truth.
+This keeps manual and release deploys on the same checked-in configuration while
+leaving credentials out of the repository.
+
+## 2026-09-16 — The GitHub repository is named MeetMouse; Conductor paths stay managed
+
+The GitHub repository is renamed from `noahdevkagan/coach` to
+`noahdevkagan/meetmouse`, with its description and homepage updated to the
+current product. GitHub's automatic redirect keeps old clone links working,
+while the canonical remote and README now use the new name. The local
+`.../workspaces/coach/prague` path is intentionally unchanged because Conductor
+owns workspace directory structure; renaming it underneath the app could break
+workspace bookkeeping without improving public branding.
