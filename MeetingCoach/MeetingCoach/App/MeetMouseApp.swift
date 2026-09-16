@@ -271,12 +271,13 @@ struct MenuBarLabel: View {
                                   updateAvailable: Bool) -> NSImage {
         let size = NSSize(width: 24, height: 18)
         let image = NSImage(size: size, flipped: false) { rect in
-            let font = NSFont(name: "Apple Color Emoji", size: 15.5)
-                ?? NSFont.systemFont(ofSize: 15.5)
+            let font = NSFont(name: "Apple Color Emoji", size: 14)
+                ?? NSFont.systemFont(ofSize: 14)
             let mouse = NSAttributedString(string: "🐁", attributes: [.font: font])
-            let mouseSize = mouse.size()
-            mouse.draw(at: NSPoint(x: 0.5,
-                                   y: (rect.height - mouseSize.height) / 2 - 0.5))
+            // Placed against the ink, not size()'s line box: the emoji's line
+            // height runs several points taller than the glyph, and centring
+            // on it pushed the mouse's feet and tail off the bottom edge.
+            mouse.draw(at: NSPoint(x: 0.5, y: 0))
 
             if updateAvailable {
                 let d: CGFloat = 5.5
