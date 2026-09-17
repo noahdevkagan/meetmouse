@@ -9,6 +9,7 @@ struct VoiceProfile: Codable {
     /// Raw little-endian Float32 mono samples.
     let audio: Data
     var createdAt: Date
+    /// Last explicit profile save; enrollment alone does not prove attendance.
     var lastUsedAt: Date
 
     var samples: [Float] {
@@ -93,12 +94,6 @@ enum VoiceProfileStore {
         return aWords.count == 1 || bWords.count == 1 || aWords == bWords
     }
 
-    /// How many profiles enroll when nothing narrows the guest list. Every
-    /// enrolled voice is a live attractor the diarizer can mis-assign
-    /// far-side speech to (a 1:1 on 2026-09-01 ran with 8 people enrolled,
-    /// 6 of them absent), and each clip also costs session startup time.
-    static let recentEnrollmentCap = 4
-
     /// Enrollment candidates: `loadAll` with same-person duplicates
     /// collapsed, scoped to who is expected on the call. One person saved
     /// under two names ("anna" in one session, "Anna Notario" in another)
@@ -115,32 +110,22 @@ enum VoiceProfileStore {
                                    expecting: expected)
     }
 
-    /// Selection policy, pure for the session gate: named pre-call
-    /// participants scope enrollment to matching profiles ONLY (an
-    /// unmatched guest just shows as "Them N", renameable — strictly
-    /// better than a phantom absent name claiming their words); with no
-    /// participants named, the most recently used profiles up to
-    /// `recentEnrollmentCap` enroll.
+    /// A remembered voice is not evidence of attendance. Only profiles
+    /// matching this call's confirmed guest list may seed named slots.
+    /// Unknown calls start with neutral speakers, which can be named in-call.
     static func selectForEnrollment(_ profiles: [VoiceProfile],
                                     expecting expected: [String]) -> [VoiceProfile] {
-        if !expected.isEmpty {
-            let matched = profiles.filter { p in
-                expected.contains { samePerson($0, p.name) }
-            }
-            let skipped = profiles.map(\.name).filter { n in
-                !matched.contains { $0.name == n }
-            }
-            if !skipped.isEmpty {
-                mclog("[Voices] Enrollment scoped to pre-call participants — "
-                      + "not enrolling: \(skipped.joined(separator: ", "))")
-            }
-            return matched
+        let matched = profiles.filter { p in
+            expected.contains { samePerson($0, p.name) }
         }
-        guard profiles.count > recentEnrollmentCap else { return profiles }
-        let dropped = profiles.dropFirst(recentEnrollmentCap).map(\.name)
-        mclog("[Voices] No pre-call participants — enrolling the "
-              + "\(recentEnrollmentCap) most recent, not: \(dropped.joined(separator: ", "))")
-        return Array(profiles.prefix(recentEnrollmentCap))
+        let skipped = profiles.map(\.name).filter { n in
+            !matched.contains { $0.name == n }
+        }
+        if !skipped.isEmpty {
+            mclog("[Voices] No confirmed guest match — not enrolling: "
+                  + skipped.joined(separator: ", "))
+        }
+        return matched
     }
 
     static func collapseSamePerson(_ profiles: [VoiceProfile]) -> [VoiceProfile] {
@@ -153,17 +138,6 @@ enum VoiceProfileStore {
             }
         }
         return kept
-    }
-
-    /// Mark a profile as used (successful enrollment at session start) so
-    /// `loadAll`'s recency ordering reflects who actually shows up to
-    /// meetings — not just who was named most recently. Matters because
-    /// enrollment capacity is limited (diarizer slots minus one).
-    static func touch(name: String) {
-        guard var profile = load(name: name) else { return }
-        profile.lastUsedAt = Date()
-        guard let data = try? JSONEncoder().encode(profile) else { return }
-        try? data.write(to: url(for: name), options: .atomic)
     }
 
     static func delete(name: String) {

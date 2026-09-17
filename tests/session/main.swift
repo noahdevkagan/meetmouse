@@ -251,7 +251,9 @@ func runTests() async {
     //    can be dropped without provenance tracking.
     do {
         let vm = LiveSessionViewModel()
-        vm.startLive(context: PreCallContext())
+        var ctx = PreCallContext()
+        ctx.participants = [.init(name: "Lyndsay", role: "")]
+        vm.startLive(context: ctx, participantsConfirmed: true)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else {
             check(false, "capture manager wired (7)"); return
@@ -277,10 +279,8 @@ func runTests() async {
               "stored label stays raw (display-layer alias only)",
               "got \(vm.utterances.last?.speaker ?? "nil")")
 
-        // Real-session regression (2026-08-13): LS-EEND briefly emitted a
-        // second remote slot that never owned any transcript words. That
-        // disabled the 1:1 alias, so a short unaligned "Yeah." rendered as
-        // Them between correctly named Chad turns.
+        // Even without committed words, another diarized voice may be a
+        // guest joining the call. Suspend broad aliases until resolved.
         capture.onSpeakerSegments?(.system, [
             SpeakerSegment(speaker: "Lyndsay", start: 0.9, end: 3.1),
             SpeakerSegment(speaker: "Them 2", start: 8.0, end: 8.2),
@@ -289,8 +289,8 @@ func runTests() async {
         capture.onUtterance?(Utterance(t: 9, speaker: "Them",
             text: "Yeah.", endT: 9.2))
         try? await Task.sleep(for: .milliseconds(50))
-        check(vm.displaySpeaker("Them") == "Lyndsay",
-              "audio-only phantom slot does not disable one-on-one alias",
+        check(vm.displaySpeaker("Them") == "Them",
+              "a second diarized voice suspends even a confirmed one-on-one alias",
               "got \(vm.displaySpeaker("Them"))")
 
         vm.stopLive()
@@ -303,11 +303,12 @@ func runTests() async {
                 if content.contains("hear me alright") { body = content }
             }
         }
-        check(body.contains("Lyndsay: Hi there, can you hear me alright today? Great, let us get going then. Yeah."),
-              "saved file coalesces Them/Them-1 fragments under the real name",
+        check(body.contains("Lyndsay: Hi there, can you hear me alright today?")
+              && body.contains("Them: Great, let us get going then. Yeah."),
+              "saved group-call speech keeps unassigned words separate",
               "transcript: \(body.components(separatedBy: "## Transcript").last?.prefix(200) ?? "")")
-        check(!body.contains("] Them:") && !body.contains("] Them 1:"),
-              "no raw Them lines survive in the saved file")
+        check(!body.contains("] Them 1:"),
+              "explicitly named speaker keeps her name in the saved file")
         vm.deleteSession()
     }
 
@@ -316,7 +317,9 @@ func runTests() async {
     //    speaker's turns stay named.
     do {
         let vm = LiveSessionViewModel()
-        vm.startLive(context: PreCallContext())
+        var ctx = PreCallContext()
+        ctx.participants = [.init(name: "Lyndsay", role: "")]
+        vm.startLive(context: ctx, participantsConfirmed: true)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else {
             check(false, "capture manager wired (8)"); return
@@ -363,7 +366,7 @@ func runTests() async {
         var ctx = PreCallContext()
         ctx.participants = [.init(name: "Priya", role: "designer")]
         let vm = LiveSessionViewModel()
-        vm.startLive(context: ctx)
+        vm.startLive(context: ctx, participantsConfirmed: true)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else {
             check(false, "capture manager wired (9)"); return
@@ -1056,9 +1059,8 @@ func runTests() async {
               "follow-ups carry the prior turn")
     }
 
-    // 10. Merge suggestion: two remote labels that are probably one person
-    //     surface a one-tap merge card; confirming merges the transcript
-    //     and brings the one-on-one alias back.
+    // 10. Same-person merge still works without treating an unknown call
+    //     as one-on-one.
     do {
         let vm = LiveSessionViewModel()
         vm.startLive(context: PreCallContext())
@@ -1085,8 +1087,8 @@ func runTests() async {
         check(vm.utterances.map(\.speaker) == ["Anna Notario", "Anna Notario"],
               "confirming the merge relabels the transcript",
               "got \(vm.utterances.map(\.speaker))")
-        check(vm.displaySpeaker("Them") == "Anna Notario",
-              "one-on-one alias resumes after the merge",
+        check(vm.displaySpeaker("Them") == "Them",
+              "merging two labels does not establish a one-on-one guest list",
               "got \(vm.displaySpeaker("Them"))")
         vm.stopLive()
         vm.deleteSession()
@@ -1137,10 +1139,8 @@ func runTests() async {
         vm.deleteSession()
     }
 
-    // 12. preCallContext survives a session ("last-used context") and the
-    //     formless start paths reuse it, so a stale guest list must NOT
-    //     scope enrollment — the people actually on the call would lose
-    //     their saved voices and come back as "Them 1".
+    // 12. Last-used guests cannot supply names, merge evidence, or saved
+    //     attendance metadata for a new call without confirmation.
     do {
         var ctx = PreCallContext()
         ctx.participants = [.init(name: "Anna Notario", role: "")]
@@ -1153,7 +1153,34 @@ func runTests() async {
         check(capture.expectedParticipants.isEmpty,
               "an unconfirmed (last-used) guest list never scopes enrollment",
               "got \(capture.expectedParticipants)")
+        capture.onPartialText?("Them", "We have been building a database for AI agents.")
+        check(vm.displaySpeaker("Them") == "Them",
+              "stale Anna context never labels Tadeas's live partial")
+        capture.onUtterance?(Utterance(t: 1, speaker: "Them",
+            text: "Here are the numbers from this week.", endT: 4))
+        capture.onUtterance?(Utterance(t: 6, speaker: "Them",
+            text: "Let us discuss those numbers together.", endT: 9))
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Anna Notario", start: 0.9, end: 4.1),
+            SpeakerSegment(speaker: "Them 2", start: 5.9, end: 9.1),
+        ])
+        check(!vm.speakerNameSuggestions.contains { $0.kind == .samePerson },
+              "stale one-on-one context never proposes merging different guests")
+        vm.renameSpeaker("Anna Notario", to: "Tadeáš")
+        vm.renameSpeaker("Them 2", to: "Jarrett")
         vm.stopLive()
+        if let path = vm.savedPath {
+            let body = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+            check(!path.lowercased().contains("anna") && !body.contains("Anna Notario"),
+                  "stale guest never leaks into saved title, filename, or transcript")
+            let sidecar = URL(fileURLWithPath: path).deletingPathExtension().appendingPathExtension("json")
+            let data = (try? Data(contentsOf: sidecar)) ?? Data()
+            let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            check(json?["participants"] as? [String] == ["Tadeáš", "Jarrett"],
+                  "saved metadata uses speakers from this call")
+        } else { check(false, "stale-context meeting saved") }
+        check(vm.preCallContext.participants.first?.name == "Anna Notario",
+              "last-used form remains available without becoming attendance evidence")
         vm.deleteSession()
     }
 
@@ -1188,6 +1215,56 @@ func runTests() async {
         vm.deleteSession()
     }
 
+    // A named first voice is not evidence that the call has only one guest.
+    for confirmedGroup in [false, true] {
+        var ctx = PreCallContext()
+        ctx.participants = [.init(name: "Tadeáš", role: ""), .init(name: "Jarrett", role: "")]
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: ctx, participantsConfirmed: confirmedGroup)
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "group capture wired"); return
+        }
+        capture.onUtterance?(Utterance(t: 1, speaker: "Them",
+            text: "We have been building a database for agents.", endT: 4))
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Them 1", start: 0.9, end: 4.1),
+        ])
+        vm.renameSpeaker("Them 1", to: "Tadeáš")
+        capture.onPartialText?("Them", "Jarrett speaking next, before diarization catches up.")
+        check(vm.displaySpeaker("Them") == "Them" && vm.displaySpeaker("Them 2") == "Them 2",
+              "first named speaker never claims group/unknown live speech (confirmed=\(confirmedGroup))")
+        check(vm.utterances.first?.speaker == "Tadeáš",
+              "group-call naming preserves the identified speaker")
+        capture.onUtterance?(Utterance(t: 6, speaker: "Them",
+            text: "I have another question about the database.", endT: 9))
+        capture.onSpeakerSegments?(.system, [
+            SpeakerSegment(speaker: "Them 1", start: 0.9, end: 4.1),
+            SpeakerSegment(speaker: "Them 2", start: 5.9, end: 9.1),
+        ])
+        vm.renameSpeaker("Them 2", to: "Jarrett")
+        check(vm.utterances.map(\.speaker) == ["Tadeáš", "Jarrett"],
+              "both remote people retain separate named turns")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // Renaming an undiarized line must not label every future remote voice.
+    do {
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else { return }
+        capture.onUtterance?(Utterance(t: 1, speaker: "Them", text: "Tadeas here.", endT: 3))
+        vm.renameSpeaker("Them", to: "Tadeáš")
+        capture.onUtterance?(Utterance(t: 5, speaker: "Them", text: "Jarrett here.", endT: 7))
+        check(vm.utterances.map(\.speaker) == ["Tadeáš", "Them"],
+              "base-label rename does not claim future unknown voices")
+        check(vm.displaySpeaker("Them") == "Them", "base-label rename leaves group partials neutral")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
     // One person saved under two names must enroll ONCE (2026-09-01 field
     // report: "anna" + "Anna Notario" both enrolled → her turns flipped
     // between the two names and short replies fell back to raw "Them").
@@ -1210,18 +1287,38 @@ func runTests() async {
               "got \(collapsed.map(\.name))")
 
         // Enrollment scoping: named pre-call participants enroll ONLY
-        // matching profiles; nobody named caps at the most recent few.
+        // matching profiles; nobody named means nobody enrolled.
         let scoped = VoiceProfileStore.selectForEnrollment(
             [profile("Anna Notario"), profile("Ayman"), profile("Chad Boyda")],
             expecting: ["anna"])
         check(scoped.map(\.name) == ["Anna Notario"],
               "pre-call participants scope enrollment to matching profiles",
               "got \(scoped.map(\.name))")
+        check(VoiceProfileStore.selectForEnrollment([profile("anna")], expecting: []).isEmpty,
+              "even a single remembered voice needs a confirmed guest")
+        check(VoiceProfileStore.selectForEnrollment([profile("anna")], expecting: ["Tadeáš"]).isEmpty,
+              "an unknown guest cannot enroll an absent remembered voice")
         let capped = VoiceProfileStore.selectForEnrollment(
             (1...6).map { profile("Person \($0)") }, expecting: [])
-        check(capped.map(\.name) == (1...VoiceProfileStore.recentEnrollmentCap).map { "Person \($0)" },
-              "no participants named caps enrollment at the most recent",
+        check(capped.isEmpty,
+              "no confirmed participants never enrolls recent contacts",
               "got \(capped.map(\.name))")
+    }
+
+    // Mixed-channel profile audio must exclude every overlapping voice.
+    do {
+        check(VoiceClipSelection.soloRanges(start: 0, end: 10, excluding: []) == [0..<10],
+              "solo voice keeps its full clip")
+        check(VoiceClipSelection.soloRanges(start: 0, end: 10,
+                  excluding: [4..<7, 2..<5, 9..<12, -2..<1]) == [1..<2, 7..<9],
+              "overlapping, unordered interruptions leave only clean speech")
+        check(VoiceClipSelection.soloRanges(start: 1, end: 3, excluding: [0..<4]).isEmpty,
+              "fully overlapping speech cannot become a saved voice")
+        check(VoiceClipSelection.soloRanges(start: 1, end: 3,
+                  excluding: [0..<1, 3..<4]) == [1..<3],
+              "adjacent turns do not discard solo speech")
+        check(VoiceClipSelection.soloRanges(start: 2, end: 2, excluding: []).isEmpty,
+              "empty speech produces no clip")
     }
 
     resetSeams()

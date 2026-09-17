@@ -66,6 +66,7 @@
 		97BBFAF4DAC944901C41F097 /* TranscriptSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48F9343259F30B3410C031F9 /* TranscriptSearch.swift */; };
 		98104496237EA3D2AEC65205 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 99FF311B3C3C0B29ECF0C296 /* Assets.xcassets */; };
 		98E5BB4209899EF66A7A1B84 /* MicrophoneFormatPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AED495973BB067AF320CFA5 /* MicrophoneFormatPolicy.swift */; };
+		9AC524542146972D8144739E /* VoiceClipSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDFE946C214D3FA7737FF232 /* VoiceClipSelection.swift */; };
 		9CFEB7F1FAAB9B376743DE9E /* MeetingReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35964E2F9634996C0ACEB39C /* MeetingReview.swift */; };
 		9FC953EE954ED076AF94C4E9 /* GiveMeetMouseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21E0D0FECB8A88B3565D1140 /* GiveMeetMouseView.swift */; };
 		A113E174C9E4738E99D17427 /* Dorado.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98DF6673920BD9AAF4C4B8E0 /* Dorado.swift */; };
@@ -205,6 +206,7 @@
 		C9C7A3BC0456A49035438F8E /* MeetingAsk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingAsk.swift; sourceTree = "<group>"; };
 		CA1F99166785B46F89B17133 /* TranscriptParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptParser.swift; sourceTree = "<group>"; };
 		CDAB5DD9D8D87802B15EAF68 /* ParakeetDownloadState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParakeetDownloadState.swift; sourceTree = "<group>"; };
+		CDFE946C214D3FA7737FF232 /* VoiceClipSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceClipSelection.swift; sourceTree = "<group>"; };
 		D2B794F3FFF35F998081042B /* TalkCharts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkCharts.swift; sourceTree = "<group>"; };
 		D42F23C4E546293201AFCA59 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D5560738095EF73A5816E554 /* Mclog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mclog.swift; sourceTree = "<group>"; };
@@ -328,6 +330,7 @@
 				16524492B9725FF3E217054B /* TranscriptCleanup.swift */,
 				CA1F99166785B46F89B17133 /* TranscriptParser.swift */,
 				0F81DB4510A2BF8EF10A65C7 /* TuningTypes.swift */,
+				CDFE946C214D3FA7737FF232 /* VoiceClipSelection.swift */,
 				1E8658BF35A80CECD00D0FBE /* VoiceProfileStore.swift */,
 				DBC9BADF442D5516D4C8BEC1 /* Signals */,
 			);
@@ -684,6 +687,7 @@
 				16BE255C6A7E0741602AAD26 /* UnansweredQuestionSignal.swift in Sources */,
 				1F9054E3DCAD7089CBA0CBA2 /* Utterance.swift in Sources */,
 				2FEDD9EAC36955339A139478 /* VagueAnswerSignal.swift in Sources */,
+				9AC524542146972D8144739E /* VoiceClipSelection.swift in Sources */,
 				0DB912487D86ACAA5CC13926 /* VoiceProfileStore.swift in Sources */,
 				AB4F784C20C480FD7A9CD4BD /* VoiceShareSignal.swift in Sources */,
 				F285F58F0AEDB1C24B9ACF59 /* YesManSignal.swift in Sources */,

@@ -31,6 +31,7 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/TranscriptParser.swift" \
   "$SRC/Engine/PendingProfileSaves.swift" \
   "$SRC/Engine/VoiceProfileStore.swift" \
+  "$SRC/Engine/VoiceClipSelection.swift" \
   "$SRC/Models/ParticipantStore.swift" \
   "$SRC/Models/Utterance.swift" \
   "$SRC/Models/Nudge.swift" \

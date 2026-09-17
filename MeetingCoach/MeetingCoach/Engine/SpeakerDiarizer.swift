@@ -107,6 +107,9 @@ final class SpeakerDiarizer: @unchecked Sendable {
         var rate: Double = 0
         /// Segment time already harvested into `samples`.
         var consumedUntil: TimeInterval = 0
+        var isFull: Bool {
+            rate > 0 && Double(samples.count) / rate >= VoiceProfileStore.maxClipSeconds
+        }
     }
     private var clips: [Int: ClipBuffer] = [:]
     /// Names given this session whose clips may not be viable yet — saves
@@ -279,7 +282,6 @@ final class SpeakerDiarizer: @unchecked Sendable {
                                                      sourceSampleRate: p.sampleRate,
                                                      named: p.name) {
                     labelBySlot[speaker.index] = p.name
-                    VoiceProfileStore.touch(name: p.name)
                     mclog("[Diarizer:\(labelPrefix)] Enrolled \(p.name) at slot \(speaker.index)")
                 } else {
                     mclog("[Diarizer:\(labelPrefix)] Enrollment produced no speaker for \(p.name)")
@@ -310,7 +312,20 @@ final class SpeakerDiarizer: @unchecked Sendable {
         for (slot, speaker) in d.timeline.speakers {
             let label = speaker.name ?? "\(labelPrefix) \(speaker.index + 1)"
             labelBySlot[slot] = label
-            harvestClip(slot: slot, from: speaker)
+            if clips[slot]?.isFull != true {
+                // A diarized segment can overlap another person's speech. The
+                // source is still mixed audio, so never save those samples as
+                // a clean example of this person's voice. Include tentative
+                // interruptions: another speaker may still be mid-turn.
+                let otherSpeech = d.timeline.speakers
+                    .filter { $0.key != slot }
+                    .flatMap { $0.value.finalizedSegments + $0.value.tentativeSegments }
+                    .compactMap { seg -> Range<TimeInterval>? in
+                        let start = TimeInterval(seg.startTime), end = TimeInterval(seg.endTime)
+                        return end > start ? start..<end : nil
+                    }
+                harvestClip(slot: slot, from: speaker, excluding: otherSpeech)
+            }
             for seg in speaker.finalizedSegments {
                 segments.append(SpeakerSegment(
                     speaker: label,
@@ -339,26 +354,31 @@ final class SpeakerDiarizer: @unchecked Sendable {
 
     /// Top up this speaker's voice clip from newly finalized segments still
     /// covered by the audio ring.
-    private func harvestClip(slot: Int, from speaker: DiarizerSpeaker) {
+    private func harvestClip(slot: Int, from speaker: DiarizerSpeaker,
+                             excluding otherSpeech: [Range<TimeInterval>]) {
         var clip = clips[slot] ?? ClipBuffer()
         defer { clips[slot] = clip }
-        guard clip.rate <= 0 || Double(clip.samples.count) / clip.rate < VoiceProfileStore.maxClipSeconds
-        else { return }
+        guard !clip.isFull else { return }
 
         for seg in speaker.finalizedSegments {
             let start = max(TimeInterval(seg.startTime), clip.consumedUntil)
             let end = TimeInterval(seg.endTime)
             guard end > start else { continue }
-            let (samples, rate) = ringExtract(from: start, to: end)
-            guard !samples.isEmpty, rate > 0 else { continue }
-            // Marked consumed only AFTER a successful extract — marking
-            // first permanently skipped audio the ring couldn't serve yet.
-            clip.consumedUntil = end
-            if clip.rate <= 0 { clip.rate = rate }
-            guard rate == clip.rate else { continue }
-            clip.samples.append(contentsOf: samples)
-            if Double(clip.samples.count) / clip.rate >= VoiceProfileStore.maxClipSeconds {
-                return
+            let solo = VoiceClipSelection.soloRanges(start: start, end: end,
+                                                     excluding: otherSpeech)
+            for range in solo {
+                let (samples, rate) = ringExtract(from: range.lowerBound, to: range.upperBound)
+                guard !samples.isEmpty, rate > 0 else { continue }
+                // Advance only after extraction: ranges ahead of the ring
+                // remain eligible on the next publish.
+                clip.consumedUntil = range.upperBound
+                if clip.rate <= 0 { clip.rate = rate }
+                guard rate == clip.rate else { continue }
+                let remaining = max(0, Int(VoiceProfileStore.maxClipSeconds * rate) - clip.samples.count)
+                clip.samples.append(contentsOf: samples.prefix(remaining))
+                if clip.isFull {
+                    return
+                }
             }
         }
     }

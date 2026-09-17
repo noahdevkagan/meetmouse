@@ -65,6 +65,24 @@ notification — only the zero-audio watchdog catches it:
       `Apple call grabbed the mic mid-session ... adopting call mode`
 - [ ] Hang up: capture recovers, transcription resumes
 
+### 6. Speaker names on a three-person Meet call (2026-09-17 regression)
+- [ ] Leave Anna in the last-used setup, then start via Go Live without
+      submitting setup. On a call with two different remote guests, neither
+      live partials nor new diarized slots should display Anna
+- [ ] Name the first guest's numbered speaker. Before the second guest has
+      spoken, unassigned live text still says Them; once both speak, their
+      turns retain separate numbered/named labels
+- [ ] Repeat with both guests confirmed in setup: saved voices may name
+      their own turns, but unassigned text never borrows the first name
+- [ ] Confirm a single guest in setup: provisional naming works, then
+      suspends if a second remote voice is detected
+- [ ] Rename both speakers, stop, and inspect the saved transcript and JSON:
+      unknown-call participant metadata uses this call's named speakers,
+      never the unconfirmed last-used guest
+- [ ] Include overlapping speech before naming a speaker; verify their
+      saved voice clip contains solo speech (or no profile saves when less
+      than three seconds of solo speech is available)
+
 ## Record of runs
 
 | Date | Build | Scenarios passed | Notes |
