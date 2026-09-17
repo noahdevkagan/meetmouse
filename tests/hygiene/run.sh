@@ -9,6 +9,7 @@ OUT=tests/hygiene/.build
 mkdir -p "$OUT"
 swiftc -O -o "$OUT/hygienecheck" \
   tests/hygiene/main.swift \
+  MeetingCoach/MeetingCoach/App/AppBundleNameMigration.swift \
   MeetingCoach/MeetingCoach/Engine/TranscriptCleanup.swift \
   MeetingCoach/MeetingCoach/Engine/MicrophoneFormatPolicy.swift
 "$OUT/hygienecheck"

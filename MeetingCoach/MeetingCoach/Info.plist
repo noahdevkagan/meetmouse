@@ -24,6 +24,8 @@
 	<string>MeetMouse captures system audio to transcribe what other meeting participants say.</string>
 	<key>SUAutomaticallyUpdate</key>
 	<true/>
+	<key>SUBundleName</key>
+	<string>MeetMouse</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>

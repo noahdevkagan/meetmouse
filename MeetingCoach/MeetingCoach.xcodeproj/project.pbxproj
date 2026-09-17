@@ -92,6 +92,7 @@
 		D77C09AA85DC5397A7D1B114 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 2ADB653C496B73D902CC4DFD /* Sparkle */; };
 		D7E82BEB63E8D0037A2EB59E /* MeetingLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41E79DEE155A7764611418A7 /* MeetingLanguage.swift */; };
 		DC339E0767F4891CCD3BAF02 /* ReferralInvites.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947B36BFD468E1C108A1381C /* ReferralInvites.swift */; };
+		DEB20958B6B4DC26619F9B5F /* AppBundleNameMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03360FE07AA3CD101D27116 /* AppBundleNameMigration.swift */; };
 		E50CF069AE16583B2665E1BE /* AppSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F05A5F9043EE4F2C14B8D5 /* AppSupport.swift */; };
 		E64A1CF9A596EDF1578EA6E0 /* InterruptionSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88673BD63F55A97082E19D05 /* InterruptionSignal.swift */; };
 		E7FFC6FB0B3CCA7EA40EEFD0 /* MeetingReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 656450659BC1ACF5F68F709C /* MeetingReviewView.swift */; };
@@ -209,6 +210,7 @@
 		D5560738095EF73A5816E554 /* Mclog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mclog.swift; sourceTree = "<group>"; };
 		D6012F4265B831203CEF29D7 /* PositiveSignals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositiveSignals.swift; sourceTree = "<group>"; };
 		DF9C912979FF9EFB91A45FF1 /* MeetMouseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetMouseApp.swift; sourceTree = "<group>"; };
+		E03360FE07AA3CD101D27116 /* AppBundleNameMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBundleNameMigration.swift; sourceTree = "<group>"; };
 		E2D977B35E70510FAAE58159 /* AdaptiveThresholds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveThresholds.swift; sourceTree = "<group>"; };
 		E80054B1508EFBBFD8D840F3 /* CoachingOverlayPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachingOverlayPanel.swift; sourceTree = "<group>"; };
 		E9892670227218AFE8677E69 /* QuestionParkedSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionParkedSignal.swift; sourceTree = "<group>"; };
@@ -257,6 +259,7 @@
 		1FB0F9DBD59CE8BE4EC2C3E0 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				E03360FE07AA3CD101D27116 /* AppBundleNameMigration.swift */,
 				B601F828AB17A262298DF0AE /* ContentView.swift */,
 				DF9C912979FF9EFB91A45FF1 /* MeetMouseApp.swift */,
 			);
@@ -599,6 +602,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				14F45DE559A585FE6868EB2B /* AdaptiveThresholds.swift in Sources */,
+				DEB20958B6B4DC26619F9B5F /* AppBundleNameMigration.swift in Sources */,
 				E50CF069AE16583B2665E1BE /* AppSupport.swift in Sources */,
 				80A3C6A385E3EE4BE0E678BD /* AudioCaptureManager.swift in Sources */,
 				47D5418F46BB2B90178F534E /* CoachingOverlayPanel.swift in Sources */,
