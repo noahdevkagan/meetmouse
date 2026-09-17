@@ -65,6 +65,16 @@
   <p class="sub">What's new in MeetMouse — every release, in plain language. The app updates itself automatically.</p>
 
   <section class="release">
+    <h2>0.24.0
+      <span class="date">September 17, 2026</span></h2>
+    <ul>
+      <li>Speaker names now come only from the people you confirm in this call's setup. MeetMouse no longer reaches back to whoever you met with last time — that guest's name can't appear on live text, ASR hints, coaching prompts, saved titles, filenames, or transcript metadata for a call they weren't part of</li>
+      <li>Naming one person no longer names everyone. Previously a single named voice was taken as proof of a one-on-one, so unassigned speech inherited that name; now a second detected voice suspends the guess and each speaker keeps their own label</li>
+      <li>Saved voice profiles are cleaner: a speaker's voice clip now excludes other people's overlapping speech, so a crosstalk moment can't be learned as someone's voice. If less than three seconds of solo speech is available, no profile is saved rather than a bad one</li>
+    </ul>
+  </section>
+
+  <section class="release">
     <h2>0.23.1
       <span class="date">September 17, 2026</span></h2>
     <ul>
