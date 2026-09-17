@@ -1284,3 +1284,15 @@ centring on it pushed the mouse's feet and tail below the 18pt canvas. At 15.5pt
 the ink alone is 19.4pt and cannot fit that canvas at any offset. The mark is now
 drawn at 14pt from `y: 0`, which seats the whole animal with the status dot clear
 of it.
+
+## 2026-09-16 — Rebranded installs rename themselves after exit
+
+Sparkle updates the contents of the existing bundle URL and, with its standard
+Swift Package Manager build, does not normalize a renamed app on disk. That left
+upgraded users with a correctly branded MeetMouse binary inside a Finder item
+named `MeetingCoach.app`. Release builds now detect only that exact legacy path,
+spawn a helper that waits for the running process to exit, rename it to
+`MeetMouse.app`, and relaunch it. The bundle identifier and compatibility data
+paths remain unchanged; Debug builds never touch an installed bundle. The
+Sparkle `SUBundleName` is also explicit so update archives continue to resolve
+the new bundle name.

@@ -5,7 +5,18 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-09-16, branch `crxnamja/pull-meetmouse-redesign`): Support email, downloads, and redirects complete
+## Current state (2026-09-16, branch `crxnamja/fix-meetingcoach-name`): Installed app filename fixed
+
+The updated app's internals were already branded MeetMouse, but Sparkle kept
+the original installed bundle URL, leaving `/Applications/MeetingCoach.app` in
+Finder. Release builds now recognize only that exact legacy/rebranded bundle,
+quit, rename it to `MeetMouse.app` via a post-exit helper, and relaunch. Debug
+builds and existing destinations are guarded. `SUBundleName` is explicit for
+Sparkle archive lookup; the legacy bundle ID and data paths remain unchanged.
+Hygiene regression tests plus signed Debug and Release builds pass, and the
+Release plist/signature verify.
+
+## Prior state: Support email, downloads, and redirects complete
 
 Cloudflare Email Routing is ready: `support@meetmouse.com` forwards to the
 already-verified `noahkagan@gmail.com`, and the required MX, SPF, and DKIM

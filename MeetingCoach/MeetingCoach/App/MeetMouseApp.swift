@@ -43,6 +43,25 @@ struct MeetMouseApp: App {
         _updateBadge = StateObject(wrappedValue: badge)
         updaterController = SPUStandardUpdaterController(
             startingUpdater: true, updaterDelegate: badge, userDriverDelegate: nil)
+
+        // Sparkle preserves an installed app's filesystem URL across updates.
+        // Existing users therefore received MeetMouse inside a bundle still
+        // named MeetingCoach.app. Rename only the signed release after it has
+        // exited, then immediately relaunch from the canonical path.
+        #if !DEBUG
+        if let renamePlan = AppBundleNameMigration.plan() {
+            mclog("[App] Scheduling bundle rename: \(renamePlan.source.lastPathComponent) -> \(renamePlan.destination.lastPathComponent)")
+            DispatchQueue.main.async {
+                do {
+                    try AppBundleNameMigration.launchRenameHelper(for: renamePlan)
+                    NSApplication.shared.terminate(nil)
+                } catch {
+                    mclog("[App] Bundle rename helper failed to launch: \(error.localizedDescription)")
+                }
+            }
+        }
+        #endif
+
         // An always-available meeting detector must survive "I quit it
         // once": register as a login item on first launch (release builds
         // only — a dev build at login would fight the installed copy).
