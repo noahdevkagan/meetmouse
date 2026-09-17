@@ -7,6 +7,11 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Speaker names no longer carry over from an unconfirmed previous meeting. Saved voices are used only for guests confirmed in this call's setup; other speakers stay neutral until identified
+- Group calls keep each named speaker separate, and unassigned live text no longer inherits the first person's name. Saved voice samples exclude detected overlapping speech
+
 ## 0.23.1 — 2026-09-17
 
 - MeetMouse now actually shows up as "MeetMouse" in Finder, the Dock, and Spotlight. If you updated from Meeting Coach, the app on disk kept its old `MeetingCoach.app` filename — it renames itself once on the next launch and reopens straight away. Settings, models, transcripts, permissions, and updates all carry over untouched
