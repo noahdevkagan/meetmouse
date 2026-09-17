@@ -1296,3 +1296,37 @@ spawn a helper that waits for the running process to exit, rename it to
 paths remain unchanged; Debug builds never touch an installed bundle. The
 Sparkle `SUBundleName` is also explicit so update archives continue to resolve
 the new bundle name.
+
+
+## 2026-09-17 — Guest names need this call's evidence; one voice does not prove one-on-one
+
+Field report: a Meet call shows Tadeáš highlighted while MeetMouse labels the
+live partial “anna.” Two code paths permit this: the pre-call remote alias
+ignored `participantsConfirmed`, and unknown calls enrolled four recent saved
+voices. Enrollment itself refreshed their recency, even if they never attended.
+
+Supersedes the September 2 recent-contact fallback: no confirmed guest list
+means no named enrollment. Saved profiles remain intact and in-call naming
+still works. Enrollment no longer touches lastUsedAt; explicit profile saves
+still do. Keep last-used form values for editing, but exclude unconfirmed
+participants from aliases, merge hints, ASR hints, coaching/review prompts,
+saved titles, filenames, and sidecar participants.
+
+Only a confirmed one-on-one may name unassigned remote speech. A first named
+voice in an unknown or declared group call is not evidence that everyone else
+is absent. Either audio or transcript evidence of a second speaker suspends
+that alias. This deliberately supersedes the August phantom-slot exception:
+brief neutral labels are preferable to confidently assigning a new guest's
+words to the first person. Remote base-label renames no longer permanently
+relabel later raw utterances; confirmed one-on-one aliases stay reversible.
+Named, diarized turns and manual corrections continue to carry their names.
+
+Saved profile samples now subtract other slots' finalized and tentative speech intervals,
+because the source audio still contains both voices during overlap. This
+protects against detected overlap, not diarization errors the model misses;
+only explicit naming can create/refresh a profile, as before.
+
+No screen-reading or browser integration is included in this fix. Meet tile
+names plus timestamped active-speaker cues remain a separate integration to
+prototype and validate on real calls; the app does not infer a stranger's
+name from audio alone.
