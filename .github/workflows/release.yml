@@ -110,14 +110,36 @@ jobs:
           chmod +x scripts/*.sh
           ./scripts/package-release.sh
 
+      # uploads.github.com 500s intermittently (2026-09-17 it killed three
+      # v0.24.0 runs in a row with three different 500s), and the old flow
+      # made that destructive twice over: softprops overwrite_files deleted
+      # the good DMG before the replacement upload died, and `gh release
+      # create` with assets attached rolls the whole release back when an
+      # upload fails. So: create the release BARE, then upload with retries —
+      # a flaky upload can no longer delete anything that was already live.
+      # (retry() is duplicated in the publish step below — change one,
+      # change both.)
       - name: Upload DMG to Release (this repo)
-        uses: softprops/action-gh-release@v2
-        with:
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          retry() {
+            for i in 1 2 3 4 5; do
+              "$@" && return 0
+              [ "$i" = 5 ] && break
+              echo "attempt $i failed: $1 — retrying in $((i * 15))s" >&2
+              sleep $((i * 15))
+            done
+            echo "FAILED after 5 attempts: $*" >&2
+            return 1
+          }
           # Explicit tag so workflow_dispatch runs (no tag ref) create
           # v<version> instead of failing on a branch ref.
-          tag_name: v${{ steps.ver.outputs.version }}
-          files: dist/*.dmg
-          generate_release_notes: true
+          gh release view "v$VERSION" >/dev/null 2>&1 \
+            || retry gh release create "v$VERSION" --generate-notes
+          retry gh release upload "v$VERSION" dist/*.dmg --clobber
 
       # Users (and Sparkle) can't reach a private repo — publish the DMG and
       # the appcast feed to the PUBLIC releases repo. Needs RELEASES_TOKEN, a
@@ -130,20 +152,32 @@ jobs:
           RELEASES_REPO: noahdevkagan/meeting-coach-releases
         run: |
           set -euo pipefail
+          retry() {
+            for i in 1 2 3 4 5; do
+              "$@" && return 0
+              [ "$i" = 5 ] && break
+              echo "attempt $i failed: $1 — retrying in $((i * 15))s" >&2
+              sleep $((i * 15))
+            done
+            echo "FAILED after 5 attempts: $*" >&2
+            return 1
+          }
           if [ -f dist/RELEASE_NOTES.md ]; then
             NOTES_ARGS=(--notes-file dist/RELEASE_NOTES.md)
           else
             NOTES_ARGS=(--notes "MeetMouse $VERSION")
           fi
-          gh release create "v$VERSION" dist/*.dmg \
-            --repo "$RELEASES_REPO" \
-            --title "MeetMouse $VERSION" \
-            "${NOTES_ARGS[@]}" \
-            || gh release upload "v$VERSION" dist/*.dmg --repo "$RELEASES_REPO" --clobber
+          # Bare create + separate upload, same reasoning as the step above.
+          gh release view "v$VERSION" --repo "$RELEASES_REPO" >/dev/null 2>&1 \
+            || retry gh release create "v$VERSION" \
+                 --repo "$RELEASES_REPO" \
+                 --title "MeetMouse $VERSION" \
+                 "${NOTES_ARGS[@]}"
+          retry gh release upload "v$VERSION" dist/*.dmg --repo "$RELEASES_REPO" --clobber
           # Commit appcast.xml to the releases repo's main branch (contents API
           # needs the current blob sha when the file already exists).
           SHA=$(gh api "repos/$RELEASES_REPO/contents/appcast.xml" -q .sha 2>/dev/null || true)
-          gh api -X PUT "repos/$RELEASES_REPO/contents/appcast.xml" \
+          retry gh api -X PUT "repos/$RELEASES_REPO/contents/appcast.xml" \
             -f message="Appcast for v$VERSION" \
             -f content="$(base64 -i dist/appcast.xml)" \
             ${SHA:+-f sha="$SHA"}

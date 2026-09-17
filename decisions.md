@@ -1330,3 +1330,18 @@ No screen-reading or browser integration is included in this fix. Meet tile
 names plus timestamped active-speaker cues remain a separate integration to
 prototype and validate on real calls; the app does not infer a stranger's
 name from audio alone.
+
+## 2026-09-17 — Release uploads are bare-create-then-retry, never delete-first
+
+The v0.24.0 release died three runs in a row on uploads.github.com 500s
+("Error uploading", "Error creating asset temp dir", "Error saving asset"),
+and both upload paths made a transient failure destructive: the softprops
+action deletes the existing DMG before uploading its replacement (retry 2's
+good asset was destroyed by retry 3's failed upload), and `gh release create`
+with assets attached rolls the entire release back when an asset upload
+fails, which left the fallback `gh release upload` with "release not found".
+release.yml now creates each release bare, then uploads the DMG (and the
+appcast PUT) under a 5-attempt backoff retry — a flaky upload can retry
+freely and can never remove anything already live. workflow_dispatch is the
+recovery path for an already-pushed tag: it runs the workflow from main, so
+fixes apply without deleting/re-pushing the tag.
