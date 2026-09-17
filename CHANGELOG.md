@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## 0.23.1 — 2026-09-17
+
+- MeetMouse now actually shows up as "MeetMouse" in Finder, the Dock, and Spotlight. If you updated from Meeting Coach, the app on disk kept its old `MeetingCoach.app` filename — it renames itself once on the next launch and reopens straight away. Settings, models, transcripts, permissions, and updates all carry over untouched
+
 ## 0.23.0 — 2026-09-16
 
 - The app has a new name and face: MeetMouse, with a phone-listening gray mouse on NoahKagan green throughout the app and the same recognizable animal in the menu bar. Your settings, models, transcripts, and updates continue exactly where they left off
