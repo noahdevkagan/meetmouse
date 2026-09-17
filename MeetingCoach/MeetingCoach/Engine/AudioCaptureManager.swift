@@ -270,8 +270,8 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         }
 
         // Saved voices enroll into whichever diarizer runs, so known people
-        // come back by name. Named pre-call participants scope the list;
-        // otherwise the most recently used profiles enroll (capped).
+        // come back by name only when confirmed for this call. Otherwise
+        // start with neutral slots: recent contacts may not be attending.
         let profiles = VoiceProfileStore.loadForEnrollment(expecting: expectedParticipants)
         // The whole return path (saved voice → auto-label next session) was
         // undiagnosable from logs — enrollment lines only appear per

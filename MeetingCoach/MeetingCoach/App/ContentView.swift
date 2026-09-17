@@ -1101,7 +1101,7 @@ private struct LiveTranscriptPane: View {
                             HStack(spacing: 8) {
                                 Image(systemName: "pencil.circle")
                                     .foregroundStyle(.secondary)
-                                Text("Click a speaker name to rename them — MeetMouse remembers them for next time.")
+                                Text("Click a speaker label to name them. List your guests before the next call to reuse saved voices.")
                                     .font(.caption)
                                     .fixedSize(horizontal: false, vertical: true)
                                 Spacer(minLength: 4)

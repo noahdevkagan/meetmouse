@@ -105,8 +105,8 @@ final class LiveSessionViewModel {
     /// Every label each diarization channel has published (plus renames) —
     /// relabeled utterances must stay eligible for refined segments.
     private var channelLabels: [DiarizationChannel: Set<String>] = [:]
-    /// Renames of the undiarized base labels ("Them" → "William"), applied
-    /// to utterances as they arrive.
+    /// Renames of undiarized base labels. Remote renames are provisional
+    /// display aliases only in a confirmed one-on-one.
     private var baseLabelRenames: [String: String] = [:]
     /// Every rename ever applied ("Them 2" → "William"). Incoming segments
     /// are remapped through this: a publish already in flight when the user
@@ -120,16 +120,23 @@ final class LiveSessionViewModel {
     /// stored utterance labels stay raw, so a second remote voice showing
     /// up just drops the alias and the numbered labels are back instantly.
     private(set) var remoteAlias: String?
-    /// Distinct remote voices in the system channel's latest publish. This
-    /// is fallback evidence only: diarization can create a stray speaker
-    /// segment that never claims any transcript speech, so transcript-backed
-    /// labels take precedence when deciding whether a call is one-on-one.
+    /// Distinct remote voices in the system channel's latest publish.
+    /// A second voice vetoes the provisional one-on-one alias, even before
+    /// ASR has committed that person's words.
     private var latestRemoteLabels: Set<String> = []
     /// The system channel's latest full segment publish (rename-remapped) —
     /// the merge suggestion's overlap veto reads speech timing from it.
     private var latestSystemSegments: [SpeakerSegment] = []
-    /// Exactly one pre-call participant seeds the provisional remote name.
+    /// Exactly one participant confirmed for THIS call seeds the remote name.
     private var preCallRemoteName: String?
+    private var participantsConfirmedForSession = false
+    /// Keep the form's last-used values available for editing, but don't
+    /// pass yesterday's guests to coaching prompts or saved meeting metadata.
+    private var sessionContext: PreCallContext {
+        var context = preCallContext
+        if !participantsConfirmedForSession { context.participants = [] }
+        return context
+    }
 
     /// Signal types sharpened by the active focus goals (set per session).
     private var focusTypes: Set<NudgeType> = []
@@ -408,10 +415,6 @@ final class LiveSessionViewModel {
         if !noteExamples.isEmpty {
             mclog("[Training] Session tuned by coaching notes: \(noteExamples.keys.sorted().joined(separator: ", "))")
         }
-        signalEngine = SignalEngine(
-            context: context,
-            tuning: tuning,
-            languageMode: resolvedLanguage.isEnglish ? .fullEnglish : .multilingualSafe)
 
         // Tier-2 semantic coaching: progressive enhancement. Runs iff a
         // local model is actually available (or mock mode); a Mac with no
@@ -450,13 +453,19 @@ final class LiveSessionViewModel {
         lastOllamaManager = ollamaManager
 
         resetSessionState()
+        participantsConfirmedForSession = participantsConfirmed
+        signalEngine = SignalEngine(
+            context: sessionContext,
+            tuning: tuning,
+            languageMode: resolvedLanguage.isEnglish ? .fullEnglish : .multilingualSafe)
         sessionLanguage = resolvedLanguage
-        // Exactly one named pre-call participant → they're provisionally
-        // the far side; more (or none) and we never guess.
+        // Last-used context survives Stop, but it is not evidence of who's
+        // here today. Only a guest list confirmed for this call may name
+        // unassigned remote speech or justify a one-on-one merge suggestion.
         let participantNames = preCallContext.participants
             .map { $0.name.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-        preCallRemoteName = participantNames.count == 1 ? participantNames[0] : nil
+        preCallRemoteName = participantsConfirmed && participantNames.count == 1 ? participantNames[0] : nil
         recomputeRemoteAlias()
         status = resolvedLanguage.isEnglish
             ? "Starting — coaching loaded"
@@ -471,10 +480,9 @@ final class LiveSessionViewModel {
         let vocabulary = VocabularyNormalizer(
             customText: UserDefaults.standard.string(forKey: "customVocabularyText") ?? "",
             foldVietnameseArtifacts: resolvedLanguage.shouldFoldVietnameseArtifacts)
-        manager.contextualHints = context.vocabularyHints + vocabulary.canonicals
-        // Scoping enrollment throws away saved voices, so it needs a guest
-        // list the user stands behind for this call — not the one left over
-        // from the last meeting they bothered to fill the form in for.
+        manager.contextualHints = sessionContext.vocabularyHints + vocabulary.canonicals
+        // Saved voices are candidates only when the user confirms who is
+        // attending THIS call. The last-used form is not attendance evidence.
         manager.expectedParticipants = participantsConfirmed ? participantNames : []
         manager.vocabulary = vocabulary
         captureManager = manager
@@ -793,7 +801,7 @@ final class LiveSessionViewModel {
         let speed = speed ?? max(1, script.duration / 15)
 
         preCallContext = PreCallContext()   // neutral context → general type
-        signalEngine = SignalEngine(context: preCallContext)
+        signalEngine = SignalEngine(context: sessionContext)
         semanticCoach = nil
         nameInference = nil
         focusTypes = []   // demo choreography must not depend on user goals
@@ -884,6 +892,7 @@ final class LiveSessionViewModel {
         latestRemoteLabels = []
         latestSystemSegments = []
         preCallRemoteName = nil
+        participantsConfirmedForSession = false
         endedCaptureManager = nil
         micOnly = false
         appleCallCapture = false
@@ -928,10 +937,8 @@ final class LiveSessionViewModel {
         for s in segments { channelLabels[channel, default: []].insert(s.speaker) }
         let owned = channelLabels[channel] ?? []
 
-        // Keep the latest full publish as fallback evidence. Once labels have
-        // actually claimed transcript utterances, recomputeRemoteAlias uses
-        // those instead — a stray audio-only slot must not make a 1:1 look
-        // like a group call and leave short acknowledgements as raw "Them".
+        // Keep audio evidence too: a second speaker can appear before
+        // their words have been committed by ASR.
         if channel == .system {
             latestRemoteLabels = Set(segments.map(\.speaker))
             latestSystemSegments = segments
@@ -1023,9 +1030,8 @@ final class LiveSessionViewModel {
         for (channel, labels) in channelLabels where labels.contains(label) {
             channelLabels[channel]?.insert(name)
         }
-        // "Them"/"Meeting" was never diarized (single far speaker, or model
-        // still downloading) — remember the mapping so later utterances of
-        // that base label keep the name without a diarizer in the loop.
+        // Keep the explicit base rename for provenance and, in a confirmed
+        // one-on-one, display aliases. Unknown remote speech stays raw.
         if label == "Them" || label == "Meeting" {
             baseLabelRenames[label] = name
         }
@@ -1076,16 +1082,15 @@ final class LiveSessionViewModel {
         return alias
     }
 
-    /// Sole-remote-name resolution, strongest evidence first: labels that
-    /// actually own transcript utterances, then the latest diarizer publish,
-    /// then an explicit base-label rename and the single pre-call participant.
-    ///
-    /// Transcript evidence outranks the raw diarizer count because LS-EEND can
-    /// emit a short false speaker segment in an otherwise clean 1:1. That slot
-    /// should not disable the known person's alias unless it claims words in
-    /// the transcript. Once two labels do claim words, this immediately drops
-    /// the alias and preserves honest group-call attribution.
+    /// Only a confirmed one-on-one may name unassigned speech. Observing
+    /// one voice (even one the user named) does not prove other guests are
+    /// absent. Either audio or transcript evidence of a second voice vetoes
+    /// the alias; specifically named turns keep their own labels throughout.
     private func recomputeRemoteAlias() {
+        guard preCallRemoteName != nil else {
+            remoteAlias = nil
+            return
+        }
         let owned = channelLabels[.system] ?? []
         let transcriptLabels = Set(utterances.lazy.compactMap { utterance -> String? in
             let label = utterance.speaker
@@ -1096,16 +1101,11 @@ final class LiveSessionViewModel {
         })
         let evidence = transcriptLabels.isEmpty ? latestRemoteLabels : transcriptLabels
 
-        if evidence.count >= 2 {
+        if evidence.count >= 2 || latestRemoteLabels.count >= 2 {
             remoteAlias = nil
         } else if let only = evidence.first,
                   only != "Them", !only.hasPrefix("Them ") {
             remoteAlias = only
-        } else if latestRemoteLabels.count >= 2 {
-            // Transcript attribution hasn't separated the voices yet, but the
-            // diarizer clearly hears more than one — never fall through to the
-            // rename/pre-call guesses on what is likely a group call.
-            remoteAlias = nil
         } else if let renamed = baseLabelRenames["Them"] {
             remoteAlias = renamed
         } else {
@@ -1366,9 +1366,10 @@ final class LiveSessionViewModel {
     /// independently, so arrivals can be slightly out of order.
     private func insertUtterance(_ u: Utterance) {
         var u = u
-        // A renamed base label sticks to new arrivals; diarization (when
-        // running) still refines them into individual speakers later.
-        if let mapped = baseLabelRenames[u.speaker] {
+        // Remote names are a reversible display alias until diarization
+        // identifies the voice. A bare "Them" rename must not permanently
+        // claim the words of another guest arriving later.
+        if u.speaker != "Them", let mapped = baseLabelRenames[u.speaker] {
             u.speaker = mapped
         }
         if let last = utterances.last, u.t < last.t {
@@ -1455,7 +1456,7 @@ final class LiveSessionViewModel {
         let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
             nudges: nudges,
             transcript: labeledTranscript,
-            context: preCallContext,
+            context: sessionContext,
             durationMinutes: durationMin,
             languageName: sessionLanguage?.englishName
         )
@@ -1550,7 +1551,7 @@ final class LiveSessionViewModel {
     private func instantReview(durationMinutes: Int) -> MeetingReview {
         DeterministicReview.review(nudges: nudges,
                                    utterances: utterances,
-                                   context: preCallContext,
+                                   context: sessionContext,
                                    durationMinutes: durationMinutes,
                                    talkShare: talkStats.sessionShare)
     }
@@ -1658,7 +1659,7 @@ final class LiveSessionViewModel {
                     let newNudges = await coach.analyze(
                         utterances: self.utterances,
                         elapsed: self.elapsedTime,
-                        context: self.preCallContext
+                        context: self.sessionContext
                     )
                     guard self.isLive else { break }
                     interval = newNudges.isEmpty
@@ -1710,7 +1711,7 @@ final class LiveSessionViewModel {
         let newNudges = engine.evaluate(
             utterances: utterances,
             elapsed: elapsedTime,
-            context: preCallContext
+            context: sessionContext
         )
         turns = engine.turns
         signalEngine = engine
@@ -1842,7 +1843,7 @@ final class LiveSessionViewModel {
         // carries the slugified title and participants so external tools
         // can find a meeting by name.
         let startedAt = sessionStartDate ?? Date().addingTimeInterval(-elapsedTime)
-        let title = meetingTitleProvider?() ?? Self.sessionTitle(context: preCallContext)
+        let title = meetingTitleProvider?() ?? Self.sessionTitle(context: sessionContext)
         let participants = sessionParticipants()
         let file = TranscriptStore.uniqueTranscriptFile(
             in: dir, date: startedAt, title: title, participants: participants)
@@ -1873,8 +1874,8 @@ final class LiveSessionViewModel {
             if preCallContext.scheduledDurationMinutes > 0 {
                 lines.append("**Scheduled Duration:** \(preCallContext.scheduledDurationMinutes) min")
             }
-            if !preCallContext.participants.isEmpty {
-                lines.append("**Participants:** \(preCallContext.participants.map { "\($0.name) (\($0.role))" }.joined(separator: ", "))")
+            if !sessionContext.participants.isEmpty {
+                lines.append("**Participants:** \(sessionContext.participants.map { "\($0.name) (\($0.role))" }.joined(separator: ", "))")
             }
             if !preCallContext.myKnownTendencies.isEmpty {
                 lines.append("**Known Tendencies:** \(preCallContext.myKnownTendencies.joined(separator: ", "))")
@@ -1933,7 +1934,7 @@ final class LiveSessionViewModel {
     /// (renamed/recognized) speaker names heard in the transcript. Generic
     /// labels ("You", "Them 2", "Speaker A") aren't participants.
     private func sessionParticipants() -> [String] {
-        let fromContext = preCallContext.participants
+        let fromContext = sessionContext.participants
             .map { $0.name.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
         if !fromContext.isEmpty { return fromContext }

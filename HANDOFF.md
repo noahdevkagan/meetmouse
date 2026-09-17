@@ -5,6 +5,28 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-17): Speaker attribution reliability — built
+
+Fixed the Anna/Tadeáš group-call failure paths: only this call's confirmed
+participants seed aliases/enrollment, and unknown/group calls no longer give
+unassigned speech the first named speaker's identity. Confirmed one-on-one
+aliases suspend on a second diarized voice; remote base-label renames no
+longer permanently claim later raw speech. Last-used setup remains editable,
+but stale guests are excluded from prompts, ASR hints, saved titles, filenames,
+and metadata. Enrollment no longer refreshes voice-profile recency. Profile
+clips exclude other slots' finalized/tentative overlap, with the 12s cap kept.
+
+Validation: session suite (including 11 checks demonstrated failing before
+implementation), nudge suite, and signed Debug xcodebuild all pass. Logs are
+in `.context/speaker-{session-final,nudges,build-final}.log`. Changelog staged
+under Unreleased; no release tag, installation, or live-call interruption.
+Added a real three-person-call checklist to `tests/calls-manual.md`; hardware
+validation remains pending before release.
+
+Reading Meet's tile names and active-speaker cues remains a separate
+integration to prototype. Unknown guests currently need in-call naming;
+profiles can be reused when the next call's guest list is confirmed.
+
 ## Current state (2026-09-16, branch `crxnamja/fix-meetingcoach-name`): Installed app filename fixed
 
 The updated app's internals were already branded MeetMouse, but Sparkle kept
