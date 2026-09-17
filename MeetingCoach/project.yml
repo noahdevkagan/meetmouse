@@ -34,6 +34,9 @@ targets:
         # (noahdevkagan/meeting-coach-releases) so the app code + personal
         # rubrics/transcripts in this repo stay private.
         SUFeedURL: "https://raw.githubusercontent.com/noahdevkagan/meeting-coach-releases/main/appcast.xml"
+        # The update archive contains MeetMouse.app even when the installed
+        # bundle still has the legacy MeetingCoach.app filename.
+        SUBundleName: "MeetMouse"
         # EdDSA public key — pairs with the private key CI signs updates with
         # (secret SPARKLE_ED_PRIVATE_KEY). Placeholder replaced by generate_keys.
         SUPublicEDKey: "AAD6OqEDMP6l/7gMFXBY8knuVAZWigp77zuYSSAS8CE="
