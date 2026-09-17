@@ -24,6 +24,59 @@ check(!MicrophoneFormatPolicy.isUsable(sampleRate: 0, channelCount: 1),
 check(!MicrophoneFormatPolicy.isUsable(sampleRate: .infinity, channelCount: 1),
       "rejects non-finite sample rate before AVAudioEngine tap")
 
+// MARK: - Rebranded app bundle name migration
+
+let migrationRoot = FileManager.default.temporaryDirectory
+    .appendingPathComponent("meetmouse-name-migration-\(ProcessInfo.processInfo.processIdentifier)")
+let legacyApp = migrationRoot.appendingPathComponent("MeetingCoach.app", isDirectory: true)
+let currentApp = migrationRoot.appendingPathComponent("MeetMouse.app", isDirectory: true)
+try? FileManager.default.createDirectory(at: legacyApp, withIntermediateDirectories: true)
+defer { try? FileManager.default.removeItem(at: migrationRoot) }
+
+let renamePlan = AppBundleNameMigration.plan(
+    bundleURL: legacyApp,
+    bundleIdentifier: "com.coach.MeetingCoach",
+    displayName: "MeetMouse")
+check(renamePlan?.source == legacyApp && renamePlan?.destination == currentApp,
+      "legacy MeetingCoach.app schedules a MeetMouse.app rename")
+check(AppBundleNameMigration.plan(
+    bundleURL: currentApp,
+    bundleIdentifier: "com.coach.MeetingCoach",
+    displayName: "MeetMouse") == nil,
+      "canonical MeetMouse.app never relaunches")
+check(AppBundleNameMigration.plan(
+    bundleURL: legacyApp,
+    bundleIdentifier: "com.example.OtherApp",
+    displayName: "MeetMouse") == nil,
+      "unrelated bundle is never renamed")
+try? FileManager.default.createDirectory(at: currentApp, withIntermediateDirectories: true)
+check(AppBundleNameMigration.plan(
+    bundleURL: legacyApp,
+    bundleIdentifier: "com.coach.MeetingCoach",
+    displayName: "MeetMouse") == nil,
+      "existing MeetMouse.app is never overwritten")
+
+// Exercise the post-exit helper against scratch paths (including spaces).
+let helperRoot = FileManager.default.temporaryDirectory
+    .appendingPathComponent("meetmouse rename helper \(ProcessInfo.processInfo.processIdentifier)")
+let helperSource = helperRoot.appendingPathComponent("MeetingCoach.app", isDirectory: true)
+let helperDestination = helperRoot.appendingPathComponent("MeetMouse.app", isDirectory: true)
+try? FileManager.default.createDirectory(at: helperSource, withIntermediateDirectories: true)
+defer { try? FileManager.default.removeItem(at: helperRoot) }
+do {
+    let helper = try AppBundleNameMigration.launchRenameHelper(
+        for: .init(source: helperSource, destination: helperDestination),
+        parentPID: Int32.max,
+        relaunchExecutableURL: URL(fileURLWithPath: "/usr/bin/true"))
+    helper.waitUntilExit()
+    check(helper.terminationStatus == 0
+          && !FileManager.default.fileExists(atPath: helperSource.path)
+          && FileManager.default.fileExists(atPath: helperDestination.path),
+          "post-exit helper renames paths with spaces")
+} catch {
+    check(false, "post-exit helper launches", error.localizedDescription)
+}
+
 // MARK: - Wake-word filter
 
 // Pure activations — dropped.
