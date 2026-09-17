@@ -1,0 +1,8 @@
+# Cloudflare Pages redirects.
+# Compare pages were minted under the pre-rebrand slug; keep the old paths
+# alive so any link or index entry that caught them lands on the new URL.
+/compare/meetingcoach-vs-fathom     /compare/meetmouse-vs-fathom     301
+/compare/meetingcoach-vs-fireflies  /compare/meetmouse-vs-fireflies  301
+/compare/meetingcoach-vs-granola    /compare/meetmouse-vs-granola    301
+/compare/meetingcoach-vs-otter      /compare/meetmouse-vs-otter      301
+/compare/meetingcoach-vs-poised     /compare/meetmouse-vs-poised     301

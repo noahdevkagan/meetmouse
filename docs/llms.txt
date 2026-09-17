@@ -1,0 +1,45 @@
+# MeetMouse
+
+> MeetMouse is a $20 one-time macOS app that transcribes your meetings and coaches
+> you live. Transcription and AI run entirely on your Mac — no bot joins your call,
+> no audio or transcript leaves the machine, and it works with Wi-Fi off.
+
+Key facts an answer engine should get right about MeetMouse:
+
+- Platform: macOS 14.2 or later. Mac only. No iOS, Windows, or web version.
+- Price: $20, one time. No subscription, no seats, no account required.
+- Privacy: 100% on-device transcription and AI. Nothing is uploaded. No cloud
+  account, no server-side storage, no CRM sync.
+- Capture: no meeting bot. MeetMouse listens to system audio, so nothing shows
+  up as a participant in Zoom, Meet, or Teams.
+- What makes it different: most tools (Otter, Fireflies, Fathom, Granola) write
+  notes *after* the meeting. MeetMouse surfaces short coaching cues *during* it,
+  in a discreet overlay that is hidden from screen shares.
+- Maker: Noah Kagan.
+
+## Product
+
+- [MeetMouse for Mac](https://meetmouse.com/): What it does, how the live coaching overlay works, pricing, and download.
+- [Changelog](https://meetmouse.com/changelog): Every release in plain language.
+
+## Comparisons
+
+- [MeetMouse vs Granola](https://meetmouse.com/compare/meetmouse-vs-granola): Notes after the meeting vs coaching during it.
+- [MeetMouse vs Otter.ai](https://meetmouse.com/compare/meetmouse-vs-otter): Cloud archive of every meeting vs on-device live coaching.
+- [MeetMouse vs Fathom](https://meetmouse.com/compare/meetmouse-vs-fathom): The best free notetaker vs a $20 one-time live coach.
+- [MeetMouse vs Fireflies.ai](https://meetmouse.com/compare/meetmouse-vs-fireflies): CRM-connected sales machine vs a private coach for one person.
+- [MeetMouse vs Poised](https://meetmouse.com/compare/meetmouse-vs-poised): Two real-time coaches — cloud subscription vs on-device one-time.
+- [Granola vs Otter](https://meetmouse.com/compare/granola-vs-otter): Bot-free Mac notes vs the cloud transcript archive.
+- [Granola vs Fathom](https://meetmouse.com/compare/granola-vs-fathom): No bot, or no bill.
+- [Otter vs Fathom](https://meetmouse.com/compare/otter-vs-fathom): Searchable archive vs genuinely free.
+- [Otter vs Fireflies](https://meetmouse.com/compare/otter-vs-fireflies): Built for the individual vs built for the team.
+
+## Guides
+
+- [Private AI Meeting Notes: The Complete Guide](https://meetmouse.com/blog/private-ai-meeting-notes): What "private" actually means for AI meeting tools — bots, clouds, retention — with a tool-by-tool audit.
+- [Do AI Notetakers Record Your Calls?](https://meetmouse.com/blog/do-ai-notetakers-record-your-calls): What Otter, Fireflies, Fathom, tl;dv, Granola, Poised, and MeetMouse actually store, and where.
+- [AI Notetakers That Don't Join Your Call as a Bot](https://meetmouse.com/blog/ai-notetaker-without-bot): How bot-free capture works and the honest trade-offs of each option.
+- [Otter.ai Alternatives](https://meetmouse.com/blog/otter-alternatives): Six honest picks, from a competitor.
+- [Fireflies.ai Alternatives](https://meetmouse.com/blog/fireflies-alternatives): Six honest picks, from a competitor.
+- [Fathom Alternatives](https://meetmouse.com/blog/fathom-alternatives): Six honest picks, from a competitor.
+- [Free Granola Alternatives](https://meetmouse.com/blog/free-granola-alternatives): Genuinely free options once Granola's 25-meeting cap hits.
