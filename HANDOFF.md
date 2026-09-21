@@ -5,6 +5,15 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-21): Direct note sharing — built
+
+Share notes immediately creates/copies the curated encrypted snapshot, then shows
+Private link ready without the extra preview/confirmation. Includes a loading
+state and explicit retry on failure; existing shared-link management remains.
+The user-authorized checkpoint change is recorded in decisions.md.
+Validation: Debug xcodebuild, 23 Swift sharing checks, and 13 Node checks pass.
+Logs: .context/direct-share-{build,tests}.log. No app launch, upload, or release.
+
 ## Current state (2026-09-21): Optional cloud AI / BYOK — built
 
 Settings → AI now offers Local / Claude / OpenAI, model selection, device-only

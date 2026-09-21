@@ -1516,3 +1516,13 @@ active preference before every request; disabling/switching stops future sends.
 In-flight requests cannot be recalled. Built-in signals and transcription survive
 cloud failure. Initial model choices favor small, fast models for recurring
 coaching, with one larger option per provider. No subscription-login support.
+
+
+## 2026-09-21 — Share notes directly prepares the private link
+
+The user explicitly requested skipping Create private link and going directly
+to the ready/copied screen. Share notes now authorizes creation of the curated,
+encrypted 30-day snapshot; no second preview confirmation is required. Show a
+brief progress state and explicit retry on failure, retaining durable pending
+ownership and all existing payload exclusions. Existing shared-link controls
+remain available. This supersedes the prior mandatory preview checkpoint.
