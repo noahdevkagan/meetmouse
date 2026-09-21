@@ -5,6 +5,17 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-21): One-click share preparation — built
+
+Share notes generates missing AI notes and opens the preview on success, reuses
+in-progress reviews, and shows progress/errors. Generation is scoped to the meeting
+view so tab navigation does not cancel/restart it. Existing notes open immediately;
+preview and explicit link creation remain. Uses the configured AI provider.
+
+Validation: Debug xcodebuild and all 23 Swift + 13 Node sharing checks pass. Logs:
+.context/share-notes-{build,tests}.log. Actual AI-to-preview clicks still need runtime
+verification; no private meeting uploaded, app relaunched, release, or deployment.
+
 ## Current state (2026-09-21): Optional cloud AI / BYOK — built
 
 Settings → AI now offers Local / Claude / OpenAI, model selection, device-only
