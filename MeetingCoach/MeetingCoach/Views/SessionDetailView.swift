@@ -104,9 +104,6 @@ struct SessionDetailView: View {
                ) {
                 ShareNotesSheet(
                     sessionURL: url,
-                    title: title,
-                    meetingDate: TranscriptSearch.sessionDate(for: url) ?? Date(),
-                    durationMinutes: durationMinutes,
                     payload: payload
                 ) { record in
                     sharedLink = record
@@ -299,8 +296,8 @@ struct SessionDetailView: View {
             .buttonStyle(DoradoOutlineButtonStyle())
             .disabled(preparingShare)
             .help(review?.hasShareableMeetingNotes != true
-                  ? "Generate notes with your selected AI provider, then preview before sharing"
-                  : "Preview and create an encrypted 30-day private link")
+                  ? "Generate notes with your selected AI provider, then create and copy a private link"
+                  : "Create and copy an encrypted 30-day private link")
         }
     }
 
@@ -397,7 +394,7 @@ struct SessionDetailView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 if review?.hasShareableMeetingNotes != true {
-                    Text("Click Share notes to generate meeting notes and preview your private link. Your transcript and coaching stay private.")
+                    Text("Click Share notes to generate meeting notes and create your private link. Your transcript and coaching stay private.")
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 if let review {
@@ -681,7 +678,7 @@ struct SessionDetailView: View {
     /// persist it into the file's "## Review" section.
     @State private var reviewError: String?
 
-    /// Sharing prepares notes but never publishes them without the preview's Create action.
+    /// The explicit Share notes action prepares missing notes, then opens link creation.
     private func prepareShare() {
         load()
         if review?.hasShareableMeetingNotes == true {

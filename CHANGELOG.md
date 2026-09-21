@@ -9,7 +9,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
-- Share notes now generates missing AI notes automatically and opens the preview when ready, with visible progress and retryable errors.
+- Share notes now generates missing AI notes automatically, then creates and copies the private link with visible progress and retryable errors, without an extra confirmation.
 
 ## 0.25.0 — 2026-09-21
 

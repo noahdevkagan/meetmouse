@@ -5,22 +5,31 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-09-21): Merge latest main — in progress
+## Current state (2026-09-21): Merge latest main — resolved, validation pending
 
-Plan: merge origin/main, reconcile automatic AI-note preparation with main's
-direct-link sharing flow, retain unrelated main updates, run the push gate,
-and commit/push the resolved merge to the existing PR branch.
+Merged origin/main's direct-link sharing and icon-only settings updates. Share notes
+now generates missing AI notes, then creates/copies the encrypted link directly.
+Existing notes immediately enter link creation; progress/errors and review reuse
+remain. Updated help text, changelog, and decisions to match the combined flow.
 
-## Current state (2026-09-21): One-click share preparation — built
+Plan: run the push gate, commit/push the resolved merge to the existing PR branch.
+Earlier standalone Debug build and 36 sharing checks passed; merged validation is
+pending. No real meeting uploaded or installed app changed.
 
-Share notes generates missing AI notes and opens the preview on success, reuses
-in-progress reviews, and shows progress/errors. Generation is scoped to the meeting
-view so tab navigation does not cancel/restart it. Existing notes open immediately;
-preview and explicit link creation remain. Uses the configured AI provider.
+## Current state (2026-09-21): Direct note sharing — built
 
-Validation: Debug xcodebuild and all 23 Swift + 13 Node sharing checks pass. Logs:
-.context/share-notes-{build,tests}.log. Actual AI-to-preview clicks still need runtime
-verification; no private meeting uploaded, app relaunched, release, or deployment.
+Share notes immediately creates/copies the curated encrypted snapshot, then shows
+Private link ready without the extra preview/confirmation. Includes a loading
+state and explicit retry on failure; existing shared-link management remains.
+The user-authorized checkpoint change is recorded in decisions.md.
+Validation: Debug xcodebuild, 23 Swift sharing checks, and 13 Node checks pass.
+Logs: .context/direct-share-{build,tests}.log. No app launch, upload, or release.
+
+## Current state (2026-09-21): Icon-only AI provider settings
+
+Sidebar AI provider settings now shows only the gear icon, retaining its accessible
+name and hover tooltip. Debug xcodebuild and git diff --check pass.
+Build log: `.context/icon-only-build.log`.
 
 ## Current state (2026-09-21): Optional cloud AI / BYOK — built
 
