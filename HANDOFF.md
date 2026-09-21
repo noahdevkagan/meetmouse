@@ -5,6 +5,12 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-21): Icon-only AI provider settings
+
+Sidebar AI provider settings now shows only the gear icon, retaining its accessible
+name and hover tooltip. Debug xcodebuild and git diff --check pass.
+Build log: `.context/icon-only-build.log`.
+
 ## Current state (2026-09-21): Optional cloud AI / BYOK — built
 
 Settings → AI now offers Local / Claude / OpenAI, model selection, device-only
