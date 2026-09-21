@@ -1476,3 +1476,24 @@ failed dependency lookup. Clear Git's declared repository-local environment in t
 push gate after entering the workspace, so nested dependency commands discover their
 own repositories. Also retain full Xcode diagnostics and its exit code instead of
 piping the build into grep -q. This preserves the gate rather than skipping tests.
+
+## 2026-09-21 — Bound cancellation storage and retain long-turn evidence
+
+Missing-ID revocations consume the same client-IP quota as share creation because
+both allocate database rows. Existing records remain revocable even when that
+quota is exhausted; owner-token checks still apply. Tombstones continue to block
+late uploads after cancellation.
+
+Long chat excerpts retain their original timestamp/speaker and choose a bounded
+window with the most distinct query matches. This preserves late decisions in
+coalesced turns while keeping the existing 700-character and total-context caps.
+
+## 2026-09-21 — Ended demo yields the main pane to explicit navigation
+
+A finished demo leaves `hasSession` true with no `savedPath`, which pinned the
+main pane to the live view and made the sidebar's Meetings / Coaching progress
+buttons silent no-ops. Rejected excluding demos from that branch outright: the
+"Demo meeting · Ended" header exists to keep the replayed result visible.
+Instead a `leftLiveView` flag records deliberate navigation away and is cleared
+when the next session starts, so the demo result persists until the user leaves
+it on purpose.

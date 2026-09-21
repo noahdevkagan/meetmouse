@@ -1062,6 +1062,23 @@ func runTests() async {
         let bounded = MeetingAsk.sessionExcerpts(question: "update", transcriptLines: longLines,
                                                  review: String(repeating: "notes ", count: 500), budget: 150)
         check(bounded.count <= 150, "session retrieval honors the entire context budget")
+        let longTurn = "[04:12] Them: " + String(repeating: "Background discussion. ", count: 40)
+            + "The launch deadline is October 15."
+        let lateAnswer = MeetingAsk.sessionExcerpts(question: "What is the launch deadline?",
+                                                    transcriptLines: [longTurn], review: "")
+        check(lateAnswer.contains("October 15") && lateAnswer.contains("[04:12] Them:")
+              && lateAnswer.count <= 720,
+              "long-turn retrieval keeps late evidence and its citation within the cap")
+        let unicodeTurn = "[05:00] José: Budget discussion. " + String(repeating: "👩🏽‍💻 café discussion. ", count: 60)
+            + "The budget for launch is €5000."
+        let strongest = MeetingAsk.sessionExcerpts(question: "What is the budget for launch?",
+                                                   transcriptLines: [unicodeTurn], review: "")
+        check(strongest.contains("€5000") && strongest.contains("[05:00] José:"),
+              "long-turn retrieval prefers clustered matches and handles Unicode")
+        let smallWindow = MeetingAsk.sessionExcerpts(question: "launch deadline",
+                                                     transcriptLines: [longTurn], review: "", budget: 150)
+        check(smallWindow.count <= 150 && smallWindow.contains("October 15"),
+              "matching windows preserve evidence with a small context budget")
         check(MeetingAsk.sessionExcerpts(question: "q", transcriptLines: longLines, review: "notes", budget: 0).isEmpty,
               "zero context budget produces empty context")
         let (_, followUp) = MeetingAsk.sessionPrompt(

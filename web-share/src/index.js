@@ -126,6 +126,16 @@ async function revokeShare(request, id, env) {
 
   const candidate = await sha256Base64URL(token);
   const now = Math.floor(Date.now() / 1000);
+  const existing = await env.DB.prepare(
+    "SELECT revoke_hash FROM shared_notes WHERE id = ?1",
+  ).bind(id).first();
+  if (!existing) {
+    // A missing-ID DELETE allocates storage just like POST. Share its quota,
+    // but never let exhausted creation quota prevent an existing owner revoking.
+    const clientKey = request.headers.get("cf-connecting-ip") ?? "local-development";
+    const limit = await env.CREATE_RATE_LIMITER.limit({ key: clientKey });
+    if (!limit.success) return error("Too many private links. Try again shortly.", 429);
+  }
   // Reserve cancelled IDs even if a timed-out POST has not arrived yet. An empty
   // ciphertext is a tombstone; late creates collide instead of resurrecting it.
   await env.DB.prepare(
