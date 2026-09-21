@@ -1,0 +1,247 @@
+const loading = document.querySelector("#loading");
+const errorBox = document.querySelector("#error");
+const content = document.querySelector("#content");
+const titleNode = document.querySelector("#title");
+const metaNode = document.querySelector("#meta");
+const sectionsNode = document.querySelector("#sections");
+const shareButton = document.querySelector("#shareButton");
+const shareStatus = document.querySelector("#shareStatus");
+const copyNotesButton = document.querySelector("#copyNotesButton");
+let currentPayload = null;
+
+function base64URLBytes(value) {
+  const base64 = value.replaceAll("-", "+").replaceAll("_", "/")
+    + "=".repeat((4 - value.length % 4) % 4);
+  const binary = atob(base64);
+  return Uint8Array.from(binary, character => character.charCodeAt(0));
+}
+
+function showError(title, message) {
+  loading.hidden = true;
+  content.hidden = true;
+  errorBox.hidden = false;
+  document.querySelector("#errorTitle").textContent = title;
+  document.querySelector("#errorMessage").textContent = message;
+}
+
+function heading(icon, title) {
+  const row = document.createElement("div");
+  row.className = "section-heading";
+  const badge = document.createElement("span");
+  badge.className = "section-icon";
+  badge.textContent = icon;
+  const text = document.createElement("h2");
+  text.textContent = title;
+  row.append(badge, text);
+  return row;
+}
+
+function section(icon, title) {
+  const node = document.createElement("section");
+  node.append(heading(icon, title));
+  sectionsNode.append(node);
+  return node;
+}
+
+function bulletList(items) {
+  const list = document.createElement("ul");
+  for (const item of items) {
+    const row = document.createElement("li");
+    row.textContent = item;
+    list.append(row);
+  }
+  return list;
+}
+
+function setShareStatus(message) {
+  shareStatus.textContent = message;
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch { /* Try the user-initiated legacy copy path below. */ }
+  }
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.opacity = "0";
+  document.body.append(field);
+  field.select();
+  const copied = document.execCommand("copy");
+  field.remove();
+  if (!copied) throw new Error("copy unavailable");
+}
+
+async function copyCompleteLink() {
+  await copyText(location.href);
+}
+
+// A useful portable recap, with a small attribution at the end. No content is
+// transmitted until the reader deliberately copies or sends it elsewhere.
+function formatNotes(payload, privateURL) {
+  const parts = [payload.title || "Meeting notes"];
+  if (payload.summary) parts.push(payload.summary);
+  for (const topic of payload.sections || []) {
+    parts.push([topic.heading, ...(topic.bullets || []).map(text => `- ${text}`)].join("\n"));
+  }
+  if (payload.nextSteps?.length) {
+    parts.push("Next steps\n" + payload.nextSteps
+      .map(action => `- [${action.isDone ? "x" : " "}] ${action.text}`).join("\n"));
+  }
+  parts.push(`Private notes: ${privateURL}`);
+  parts.push("Made with MeetMouse · https://meetmouse.com");
+  return parts.join("\n\n");
+}
+
+async function copySharedNotes() {
+  if (!currentPayload) return;
+  try {
+    await copyText(formatNotes(currentPayload, location.href));
+    setShareStatus("Notes copied — ready to paste into your follow-up");
+  } catch {
+    setShareStatus("Couldn't copy notes — select the text to copy it manually");
+  }
+}
+
+async function shareCompleteLink() {
+  const shareData = {
+    title: titleNode.textContent || "Meeting notes",
+    text: "Here are the meeting notes and next steps.",
+    url: location.href,
+  };
+  if (navigator.share) {
+    try {
+      await navigator.share(shareData);
+      setShareStatus("Shared");
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+  try {
+    await copyCompleteLink();
+    setShareStatus("Complete private link copied");
+  } catch {
+    setShareStatus("Couldn’t copy — use the browser address bar");
+  }
+}
+
+function render(payload, expiresAt) {
+  currentPayload = payload;
+  titleNode.textContent = payload.title || "Meeting notes";
+  document.title = `${payload.title || "Meeting notes"} — shared notes`;
+
+  const date = new Date(payload.meetingDate);
+  const dateText = Number.isNaN(date.valueOf())
+    ? "Meeting notes"
+    : new Intl.DateTimeFormat(undefined, { dateStyle: "long", timeStyle: "short" }).format(date);
+  const meta = [dateText];
+  if (payload.durationMinutes) meta.push(`${payload.durationMinutes} minutes`);
+  meta.push(`Expires ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium" })
+    .format(new Date(expiresAt * 1000))}`);
+  for (const value of meta) {
+    const span = document.createElement("span");
+    span.textContent = value;
+    metaNode.append(span);
+  }
+
+  if (payload.summary) {
+    const node = section("S", "Summary");
+    const paragraph = document.createElement("p");
+    paragraph.className = "summary";
+    paragraph.textContent = payload.summary;
+    node.append(paragraph);
+  }
+
+  if (Array.isArray(payload.sections) && payload.sections.length > 0) {
+    const node = section("#", "Notes");
+    for (const topic of payload.sections) {
+      const topicNode = document.createElement("div");
+      topicNode.className = "topic";
+      const topicTitle = document.createElement("h3");
+      topicTitle.textContent = topic.heading;
+      topicNode.append(topicTitle, bulletList(Array.isArray(topic.bullets) ? topic.bullets : []));
+      node.append(topicNode);
+    }
+  }
+
+  if (Array.isArray(payload.nextSteps) && payload.nextSteps.length > 0) {
+    const node = section("✓", "Next steps");
+    const list = document.createElement("ul");
+    list.className = "actions";
+    for (const action of payload.nextSteps) {
+      const row = document.createElement("li");
+      if (action.isDone) row.className = "done";
+      const check = document.createElement("span");
+      check.className = "check";
+      check.textContent = action.isDone ? "✓" : "";
+      const text = document.createElement("span");
+      text.textContent = action.text;
+      row.append(check, text);
+      list.append(row);
+    }
+    node.append(list);
+  }
+
+  const privacy = document.createElement("div");
+  privacy.className = "private-note";
+  const lock = document.createElement("span");
+  lock.textContent = "🔒";
+  const message = document.createElement("span");
+  const strong = document.createElement("strong");
+  strong.textContent = "The transcript was not shared. ";
+  message.append(strong, "Personal coaching, talk-time statistics, and the raw transcript remain on the owner's Mac.");
+  privacy.append(lock, message);
+  sectionsNode.append(privacy);
+
+  loading.hidden = true;
+  errorBox.hidden = true;
+  content.hidden = false;
+}
+
+async function openNote() {
+  const id = location.pathname.split("/").filter(Boolean).at(-1);
+  const keyText = location.hash.slice(1);
+  if (!keyText) {
+    showError("This private link is incomplete", "Ask the sender to copy the complete link again.");
+    return;
+  }
+  try {
+    const response = await fetch(`/api/shared-notes/${encodeURIComponent(id)}`, {
+      cache: "no-store",
+      credentials: "omit",
+    });
+    if (response.status === 404 || response.status === 410) {
+      showError("This note is no longer shared", "The link was revoked, expired, or does not exist.");
+      return;
+    }
+    if (!response.ok) throw new Error("service unavailable");
+    const envelope = await response.json();
+    if (envelope.schemaVersion !== 1) throw new Error("unsupported format");
+
+    const keyBytes = base64URLBytes(keyText);
+    const nonce = base64URLBytes(envelope.nonce);
+    const encrypted = base64URLBytes(envelope.ciphertext);
+    const key = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["decrypt"]);
+    const plaintext = await crypto.subtle.decrypt({
+      name: "AES-GCM",
+      iv: nonce,
+      additionalData: new TextEncoder().encode(`meetingcoach-share-v1:${id}`),
+      tagLength: 128,
+    }, key, encrypted);
+    const payload = JSON.parse(new TextDecoder().decode(plaintext));
+    if (payload.schemaVersion !== 1) throw new Error("unsupported note");
+    render(payload, envelope.expiresAt);
+  } catch {
+    showError("This note could not be opened", "The private link may be incomplete, damaged, or temporarily unavailable.");
+  }
+}
+
+openNote();
+shareButton.addEventListener("click", shareCompleteLink);
+
+copyNotesButton.addEventListener("click", copySharedNotes);

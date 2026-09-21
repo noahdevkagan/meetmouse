@@ -15,6 +15,7 @@ enum AppSupport {
     static var rubricHistoryDir: URL { rubricsDir.appendingPathComponent("history", isDirectory: true) }
     static var activeRubricURL: URL { rubricsDir.appendingPathComponent("active.yaml") }
     static var suggestionsURL: URL { root.appendingPathComponent("suggestions.json") }
+    static var sharedLinksURL: URL { root.appendingPathComponent("shared-links.json") }
     static var goalsURL: URL { root.appendingPathComponent("goals.json") }
 
     /// Create the directory layout and seed rubrics/active.yaml from the

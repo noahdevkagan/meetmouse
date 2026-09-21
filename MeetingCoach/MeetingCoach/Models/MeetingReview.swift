@@ -44,6 +44,10 @@ struct MeetingReview: Equatable {
         summary.isEmpty && sections.isEmpty && takeaways.isEmpty && actionItems.isEmpty
     }
 
+    /// Only dedicated topic notes are eligible. Legacy/deterministic reviews
+    /// can mix coaching and transcript excerpts into their generic fields.
+    var hasShareableMeetingNotes: Bool { !isDeterministic && !sections.isEmpty }
+
     /// Shareable / persisted rendition. This goes into the session .md file
     /// and the copy/share recap, where markdown is the right format —
     /// the in-app card renders the struct, never this string.

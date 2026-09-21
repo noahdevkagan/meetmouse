@@ -1,0 +1,80 @@
+/* Matches the native Dorado light/dark tokens. No remote fonts or assets. */
+:root {
+  color-scheme: light dark;
+  --ink: #021414; --body: #3c4552; --muted: #647184;
+  --line: #dde2e8; --paper: #fff; --wash: #f5f7f9;
+  --green: #2bbd3e; --green-text: #167327; --green-soft: #e9f8eb;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #f2f4f6; --body: #c9d1d9; --muted: #9aa5b1;
+    --line: #3a4048; --paper: #1e2126; --wash: #262b31;
+    --green-text: #67d876; --green-soft: #203923;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--ink); background: var(--wash); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+[hidden] { display: none !important; }
+.shell { width: min(100% - 40px, 860px); margin: auto; padding: 24px 0 48px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); font-size: 17px; font-weight: 650; text-decoration: none; }
+.mark { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 9px; background: var(--green); color: #021414; font-size: 18px; font-weight: 700; }
+.privacy-pill { padding: 5px 10px; border: 1px solid var(--line); border-radius: 20px; color: var(--muted); font-size: 12px; }
+.note { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--paper); }
+.hero { padding: 28px; border-bottom: 1px solid var(--line); }
+.hero-actions { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.eyebrow { margin: 7px 0 0; color: var(--muted); font-size: 13px; font-weight: 500; }
+.share-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.note-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.share-button { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 7px 14px; border: 1px solid var(--line); border-radius: 20px; background: var(--paper); color: var(--body); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.share-button:hover { background: var(--wash); border-color: var(--muted); }
+.share-button:focus-visible, .cta-button:focus-visible, .brand:focus-visible { outline: 2px solid var(--green-text); outline-offset: 4px; }
+.share-status { color: var(--green-text); font-size: 12px; }
+.share-status:empty { display: none; }
+h1 { margin: 0; font-size: clamp(26px, 4vw, 34px); line-height: 1.25; font-weight: 650; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 10px; color: var(--muted); font-size: 13px; }
+.reader-hint { margin: 16px 0 0; color: var(--muted); font-size: 12px; }
+.content { padding: 0 28px 24px; }
+section { padding: 26px 0; border-bottom: 1px solid var(--line); }
+.section-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.section-icon { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 8px; background: var(--green-soft); color: var(--green-text); font-size: 13px; font-weight: 600; }
+h2 { margin: 0; font-size: 17px; line-height: 1.4; font-weight: 600; }
+.summary { margin: 0; color: var(--body); font-size: 15px; line-height: 1.7; }
+.topic + .topic { margin-top: 24px; }
+h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+ul { display: grid; gap: 8px; margin: 0; padding-left: 20px; color: var(--body); font-size: 15px; }
+li { overflow-wrap: anywhere; }
+li::marker { color: var(--muted); }
+.actions { list-style: none; padding: 0; }
+.actions li { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; }
+.actions .check { display: grid; width: 18px; height: 18px; margin-top: 3px; place-items: center; border: 1px solid var(--muted); border-radius: 5px; color: var(--green-text); font-size: 12px; }
+.actions .done { color: var(--muted); text-decoration: line-through; }
+.private-note { display: flex; align-items: start; gap: 10px; margin-top: 22px; padding: 14px; border-radius: 10px; background: var(--wash); color: var(--muted); font-size: 12px; }
+.private-note strong { color: var(--body); font-weight: 500; }
+.product-cta { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin: 0 28px 28px; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--wash); }
+.product-cta h2 { margin: 4px 0 6px; }
+.product-cta p { margin: 0; color: var(--muted); font-size: 13px; }
+.product-cta .cta-eyebrow { color: var(--green-text); font-size: 12px; font-weight: 500; }
+.cta-button { flex-shrink: 0; padding: 10px 14px; border-radius: 8px; background: var(--green); color: #021414; font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.cta-button:hover { background: #4bc75b; }
+.foot { max-width: 640px; margin: 20px auto 0; color: var(--muted); text-align: center; font-size: 12px; }
+.foot strong { color: var(--body); font-weight: 500; }
+.state-card { min-height: 360px; padding: 90px 24px; text-align: center; }
+.state-card h1 { font-size: 24px; }
+.state-card p { max-width: 430px; margin: 12px auto 0; color: var(--muted); }
+.state-icon { display: block; margin-bottom: 16px; font-size: 28px; color: var(--muted); }
+.spinner { display: block; width: 28px; height: 28px; margin: 0 auto 22px; border: 2px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 660px) {
+  .shell { width: calc(100% - 24px); padding-top: 16px; }
+  .topbar { gap: 8px; margin-bottom: 16px; }
+  .privacy-pill { font-size: 10px; padding: 5px 7px; }
+  .hero { padding: 20px; }
+  .hero-actions { flex-direction: column; gap: 12px; }
+  .share-wrap { align-items: flex-start; }
+  .share-button { min-height: 44px; }
+  .content { padding: 0 20px 20px; }
+  .product-cta { flex-direction: column; align-items: flex-start; gap: 16px; margin: 0 20px 20px; }
+  .meta { gap: 4px 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }

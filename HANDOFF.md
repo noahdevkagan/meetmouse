@@ -5,6 +5,162 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state: Review fixes and shared-page consistency — implemented, deployment pending
+
+Implemented all four findings: cross-process flock + reload transactions; pending
+owner capability saved before upload; Shared links manager on Meetings survives
+local deletion; selected meeting observes review completion/generation state.
+Worker revocation now retains empty-ciphertext tombstones so late uploads cannot
+resurrect cancelled links. Uses existing schema; deploy updated Worker with app.
+Web v4 styling matches Dorado light/dark tokens and system fonts, with MeetMouse
+branding and smaller headings. Synthetic local previews: .context/share-preview-
+light.html and share-preview-dark.html. Browser policy blocked local-file visual
+inspection; no visual QA claim. Production still needs deployment.
+Validation: 23 Swift sharing checks + 11 Node checks pass, including actual two-
+process storage writes, timeout recovery, finalize-write failure, and SQLite-backed
+Worker auth/expiry/late-create tests. Real sharing UI/models typecheck Swift 6;
+Swift parse and diff checks pass. Full app build/runtime remain blocked as recorded
+below. No release, production upload, or deployment performed.
+
+## Current state (2026-09-20): Full code review — source review complete
+
+Workspace restored. Source review completed; report: .context/code-review.md.
+Four findings: multi-instance store overwrites revocation controls (reproduced),
+upload before durable recovery state, deleting shared meetings removes revoke UI,
+and post-call notes fail to refresh after asynchronous review completion. No fixes
+applied. 20 sharing + 11 chat/citation + 10 simulated Worker route checks pass;
+sharing UI typechecks. Full build blocked by GitHub DNS; session suite blocked by
+Observation macro sandbox. Native/UI/live deployment tests remain outstanding.
+No release or deployment.
+
+## Current state (2026-09-20): Respectful sharing growth — source ready
+
+Send is prominent after link creation. Recipients can forward the full encrypted
+link or copy formatted notes/next steps with the private link and a small MeetMouse
+attribution. A single product invitation follows the content. No signup gate, forced
+referral, auto-send, or analytics. Opt-in upload and privacy are preserved.
+Validation: 12 Swift + 8 Worker/viewer checks pass, including formatting, cancellation
+and fragment preservation. Updated real sharing sheet typechecks with Swift 6.
+Recipient changes still require the Cloudflare deployment described below.
+
+## Current state (2026-09-20): Restored opt-in web sharing — source ready
+
+Recovered the existing sharing implementation from ../milan and integrated it into
+this redesigned app. Share notes sits beside the saved meeting's tabs; if notes are
+not yet eligible, it opens Notes with an explanation to generate AI notes. Preview
+then Create private link publishes only curated notes/next steps, AES-GCM encrypted,
+with Copy/Open/Send and Stop sharing. Chat/transcript/coaching are excluded. Both
+Debug and Release default to the already-deployed rhinovoice.app Cloudflare service.
+Existing link records/revocation capabilities stay compatible.
+
+Ported web-share/ Worker+D1 source and tests/sharing; added sharing to push gate.
+Recipient source now says MeetMouse and links to meetmouse.com, with versioned assets.
+Existing D1/routes are preserved. DO NOT create replacement database/resources.
+The web rebrand still needs `cd web-share && npm ci && npm run deploy` from an
+unrestricted terminal; current sandbox DNS cannot reach Cloudflare/rhinovoice.app.
+Backend deployment was verified in milan on Sep 17; not reverified live this turn.
+
+Validation: 12 Swift sharing checks + 8 Worker/viewer checks pass; real sharing sheet,
+models and Dorado typecheck under Swift 6. Xcode project regenerated and Swift parse /
+whitespace checks pass. Full app build remains blocked by the existing sandbox macro
+restriction. Rebuild dev in user's terminal to expose the new control. No personal
+meeting uploaded, no messages sent, no release or push.
+
+## Current state (2026-09-20): Durable chat, citations, scroll following — source ready
+
+Implemented the three requested improvements:
+- Completed Q&A persists atomically beside each transcript in .chat.json. Restored
+  on reopen; clear requires confirmation and preserves notes/transcript. Delete
+  session removes the chat. Read/write failures remain visible, with save retry.
+- Actual timestamp matches in answers link to Transcript, scroll to the source
+  row and highlight it. Unmatched model citations stay plain text.
+- Native user scrolling away from the bottom pauses live following. Back to live
+  resumes it. The observer ignores content growth/programmatic scrolling.
+
+11 standalone regression checks against real Foundation source pass (persistence,
+clear, corruption, isolation, missing transcript, Unicode and exact citations).
+Added those plus deletion lifecycle coverage to tests/session/main.swift. The full
+session suite and app typecheck cannot run: sandbox blocks Observation macro plugin
+execution. Native scroll observer typechecks against Swift 6/AppKit. Swift parse
+and git diff --check pass. No claim of a full app build or visual QA for these latest
+changes; rebuild in the user's unrestricted terminal, then check clicks/scrolling.
+No release/push. Sidebars also hide scroll indicators (previous small request).
+
+## Current state (2026-09-20): Sidebar scrollbar refinement
+
+Noah built the updated dev app in his own terminal and says the sidebar is much
+better. Hid scroll indicators in both sidebar scroll regions (meeting library and
+Advanced), preserving scrolling. This small follow-up is source-only pending his
+next rebuild; Swift frontend parse and whitespace checks pass. The build sandbox
+limitation documented below remains. Suggested next improvements: persist meeting
+chat, clickable answer citations, and automatic scroll pause while reading history.
+
+## Current state (2026-09-20): Sidebar polish + default-open coaching — source ready
+
+Noah wants coaching visible during calls because he checks it routinely. Restored
+an open-by-default resizable coaching pane with talk-share stats; the header button
+hides/shows it, and each new meeting opens it again. Header sits above both panes.
+
+Screenshot feedback drove sidebar cleanup: removed the outer cards, compact native
+Start button, larger search field, two-line meeting rows with dates below titles,
+selected-row highlight, and quieter typography. Replaced the saved-path/Keep/Delete
+block with a single Meeting saved row and an actions menu (Dismiss, Show in Finder,
+Delete meeting). Saving behavior stays unchanged.
+
+Validation: Swift frontend parse and git diff --check pass. Full build BLOCKED by
+current sandbox denying writes to ~/Library/Caches/org.swift.swiftpm/manifests.
+A later build redirected caches using -IDEPackageCacheDirPath=<workspace cache>
+and -IDEDisablePackageManifestCaching=YES plus SWIFTPM_MODULECACHE_OVERRIDE.
+That got past cache writes but hit sandbox-exec: sandbox_apply: Operation not
+permitted while resolving packages. Latest log: .context/launch-dev-local-cache.log.
+Updated binary could not be built/launched from this restricted session.
+Logs: `.context/coach-default-build.log`, `.context/sidebar-polish-build.log`.
+These latest changes are NOT in the running Debug preview and still need a normal
+Xcode build plus light/dark sidebar inspection. Earlier September 17 build/tests
+below apply only to the previous implementation. No app restart, release, or push.
+
+## Current state (2026-09-17): Live transcript + window polish — built
+
+Live transcript now uses a centered reading column, 15pt text, speaker/time headers,
+and generous turn spacing. The fixed coaching rail is replaced by an on-demand
+popover containing talk-share stats and coaching history. A compact header keeps
+status, elapsed time, auto-scroll toggle, Coach, and Stop accessible even with the
+new slimmer sidebar hidden. Sidebar toggle is in the title bar (Ctrl-Cmd-S).
+Existing speaker naming, word correction, capture warnings, and coaching logic stay.
+
+Signed Debug build passes (`.context/live-design-build-final.log`); diff check clean.
+Ran the permission-free demo and inspected transcript with sidebar shown/hidden,
+auto-scroll pause, and coaching popover. No audio capture or installed-app processes
+touched. Debug preview remains open on the demo transcript. UI-only changes; no
+new tests or release. Prior 154 session checks remain the latest engine validation.
+
+## Current state (2026-09-17): Chat-first MeetMouse — built for review
+
+Noah clarified: chat is the main product; coaching is valuable but secondary.
+Implemented meetings home, Chat as the default saved-meeting tab, a pinned
+composer, starter questions, copy/view-transcript controls, Stop/retry, and
+secondary coaching-progress navigation. Existing global AI search is reachable
+from the home and sidebar. Completed saved meetings open directly into chat;
+search results still open the highlighted transcript.
+
+Q&A reuses local Ollama. Retrieval carries prior question subjects, includes
+neighboring turns and final-turn coverage, and enforces a total context budget.
+Prompts request timestamps and distinguish commitments from suggested next steps.
+Cancellation checks and per-meeting view identity prevent stale answers crossing
+meetings. Notes reload on tab changes and before answering.
+
+Validation: signed Debug build passes (`.context/chat-build-final.log`), all 154
+session checks pass (`.context/chat-session.log`), diff whitespace check clean.
+Inspected home/chat visually; real local answer, follow-up, Stop, and retry worked.
+The installed granite4:3b initially confused anecdotes with follow-ups; tighter
+instructions improved the tested answer, but this is not a broad quality benchmark.
+Long meetings use selected excerpts. Chat history is still in-memory for the open
+meeting, not persisted across visits. Debug preview is running; no release or push.
+
+Conductor rename remains unresolved: repository actions and Git/Misc settings have
+no rename control, and CLI supports only workspace/session renames. Did not alter
+managed paths or internal database. Ask Conductor support about repository labels.
+
 ## Current state (2026-09-17): Speaker attribution reliability — built
 
 Fixed the Anna/Tadeáš group-call failure paths: only this call's confirmed
