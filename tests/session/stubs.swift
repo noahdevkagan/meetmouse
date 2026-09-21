@@ -71,6 +71,7 @@ struct Rubric {
 
 @MainActor
 final class SettingsViewModel {
+    var usesCloudAI = false
     var selectedModel = "stub-model"
     var effectiveModel: String { selectedModel }
     var semanticCoachEnabled = false

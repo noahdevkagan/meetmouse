@@ -159,7 +159,7 @@ struct SearchResultsView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("The local model reads the matching meetings and answers — nothing leaves this Mac")
+                .help("Uses your selected AI provider. Cloud AI sends matching meeting excerpts to that provider.")
             case .thinking(let message):
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
@@ -216,7 +216,7 @@ struct SearchResultsView: View {
     private func runAsk() async {
         guard let settings, let ollamaManager else { return }
         let question = query
-        askState = .thinking("Reading your meetings with the local model…")
+        askState = .thinking("Reading your meetings with AI…")
 
         let (excerpts, sources) = MeetingAsk.buildContext(question: question)
         guard !sources.isEmpty else {
@@ -227,20 +227,9 @@ struct SearchResultsView: View {
             return
         }
 
-        // Same on-demand model dance as "Generate AI review".
-        if ollamaManager.status == .stopped { ollamaManager.start() }
-        if ollamaManager.status != .running {
-            for _ in 1...30 {
-                try? await Task.sleep(for: .milliseconds(500))
-                if ollamaManager.status == .running { break }
-                if case .error = ollamaManager.status { break }
-            }
-        }
-        await settings.refreshModels()
-        guard ollamaManager.status == .running, !settings.availableModels.isEmpty else {
+        guard await settings.prepareAI(ollamaManager: ollamaManager) else {
             if question == query {
-                askState = .unavailable(
-                    "AI answers need a local model (Settings → Model) — showing word matches only.")
+                askState = .unavailable("Configure AI in Settings → AI, or install a local model — word matches still work.")
             }
             return
         }
@@ -251,9 +240,9 @@ struct SearchResultsView: View {
             // a 180-word answer fits comfortably, a smaller context spawns
             // the runner faster on a cold ask, and 4096 matches the in-call
             // phase so a warm live-session runner is reused, not respawned.
-            let client = OllamaClient(model: settings.effectiveModel,
+            let client = AIClient(model: settings.effectiveModel,
                                       numCtx: 4096, numPredict: 384)
-            if await !client.runningModels().contains(settings.effectiveModel),
+            if !settings.usesCloudAI, await !OllamaClient(model: settings.effectiveModel).runningModels().contains(settings.effectiveModel),
                question == query {
                 askState = .thinking(
                     "Loading \(settings.effectiveModel) — the first question pays this once, repeats are much faster…")
@@ -265,11 +254,11 @@ struct SearchResultsView: View {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             guard question == query else { return }
             askState = cleaned.isEmpty
-                ? .unavailable("The local model returned nothing — try asking again.")
+                ? .unavailable("The AI model returned nothing — try asking again.")
                 : .answered(cleaned, sources)
         } catch {
             guard question == query else { return }
-            askState = .unavailable("The local model couldn't answer (\(error.localizedDescription)) — word matches below still work.")
+            askState = .unavailable("The AI model couldn't answer (\(error.localizedDescription)) — word matches below still work.")
         }
     }
 

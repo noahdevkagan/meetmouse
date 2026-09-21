@@ -30,6 +30,7 @@
 		2FEDD9EAC36955339A139478 /* VagueAnswerSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94EF3B004043BDF659A8C3C2 /* VagueAnswerSignal.swift */; };
 		3487A8880341CF546AEE8431 /* RubricAdvisor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7923682551623339C11F93D /* RubricAdvisor.swift */; };
 		35823FAC9EE56A55A6056BC1 /* MeetingsHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F19AFCB82618FCED078DF03 /* MeetingsHomeView.swift */; };
+		359E6B061765BDA07BE4EEC3 /* AISettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A5350C0DCB7CE44CA74835F /* AISettingsView.swift */; };
 		3777383CF5218E48A0B5262D /* EchoFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85881F8DA1B5854DE7BA9F7A /* EchoFilter.swift */; };
 		3C2ED703482E504317466F11 /* TalkTimeSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0A3778DC493524AA4D6FE0 /* TalkTimeSignal.swift */; };
 		3DD7919979773DBC30AA415A /* QuestionParkedSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9892670227218AFE8677E69 /* QuestionParkedSignal.swift */; };
@@ -45,10 +46,12 @@
 		4A4FF91E00B9AFD2E0944107 /* PlatformSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BB9F3C621505E5F9C1C74CF /* PlatformSupport.swift */; };
 		4C4CE6FBC1FF6641932BEC3B /* TrainingExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */; };
 		55D4DD753779ACBE7E35E8D3 /* NoteDistiller.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5AE5052D754AAC4553B6E69 /* NoteDistiller.swift */; };
+		572F7D6B74DEF1C6B976EBBB /* AIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57C620F6E74ECD3050EDCC99 /* AIClient.swift */; };
 		5786720067BE8A950F4165ED /* SignalEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2E43CC253B7430EF30361 /* SignalEngine.swift */; };
 		602166D3A6873647DC911FDE /* bird_chirp.wav in Resources */ = {isa = PBXBuildFile; fileRef = 14D8000DD43FC31EDFC5A989 /* bird_chirp.wav */; };
 		643DA0464410998385AE5E60 /* PreCallFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25F544EB2BBE998E71984423 /* PreCallFormView.swift */; };
 		646D824B1FF7ECF4F27A8229 /* TranscriptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F96FF8CF114AAA6D7FDFBDF /* TranscriptStore.swift */; };
+		6A92709E9F9FEB3EEA99933F /* AIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 440E3EC8B273A32FED50F776 /* AIProvider.swift */; };
 		6C768BCDCE0CDE33A7F70567 /* Mclog.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5560738095EF73A5816E554 /* Mclog.swift */; };
 		6DDB4B7AD7A30F488D641CD9 /* GeneralSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35350EAFCF72EF5D24FA7AA1 /* GeneralSettingsView.swift */; };
 		752E7C3A09F3FFE9824E2003 /* ParticipantStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208023EBBD04229F5503508A /* ParticipantStore.swift */; };
@@ -157,7 +160,9 @@
 		3F96FF8CF114AAA6D7FDFBDF /* TranscriptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStore.swift; sourceTree = "<group>"; };
 		41E79DEE155A7764611418A7 /* MeetingLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingLanguage.swift; sourceTree = "<group>"; };
 		42EB3CC413C5B3BE91CB18AB /* ShareNotesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareNotesSheet.swift; sourceTree = "<group>"; };
+		440E3EC8B273A32FED50F776 /* AIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProvider.swift; sourceTree = "<group>"; };
 		48F9343259F30B3410C031F9 /* TranscriptSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptSearch.swift; sourceTree = "<group>"; };
+		57C620F6E74ECD3050EDCC99 /* AIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIClient.swift; sourceTree = "<group>"; };
 		59A325315611300C1A9E2C53 /* demo_nudges.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = demo_nudges.json; sourceTree = "<group>"; };
 		5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingExample.swift; sourceTree = "<group>"; };
 		5CD2E43CC253B7430EF30361 /* SignalEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalEngine.swift; sourceTree = "<group>"; };
@@ -178,6 +183,7 @@
 		74A9072A6A77D0C9F86838A1 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fonts; path = MeetingCoach/Resources/Fonts; sourceTree = SOURCE_ROOT; };
 		78FD64A28567F115FD3944A4 /* PromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptBuilder.swift; sourceTree = "<group>"; };
 		7A2619C7DBDE479D92329B84 /* SessionTrendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTrendsView.swift; sourceTree = "<group>"; };
+		7A5350C0DCB7CE44CA74835F /* AISettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsView.swift; sourceTree = "<group>"; };
 		7BFDDC5E15E6CA9D8E03D659 /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailView.swift; sourceTree = "<group>"; };
 		8143978E87DDB116AC0D3FD8 /* DemoScript.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoScript.swift; sourceTree = "<group>"; };
 		81D33EEE89EF224DC87FCF6E /* Utterance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utterance.swift; sourceTree = "<group>"; };
@@ -245,6 +251,7 @@
 		1031CDFCD30D6FAAEFEAB8B9 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				7A5350C0DCB7CE44CA74835F /* AISettingsView.swift */,
 				E80054B1508EFBBFD8D840F3 /* CoachingOverlayPanel.swift */,
 				98DF6673920BD9AAF4C4B8E0 /* Dorado.swift */,
 				35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */,
@@ -307,6 +314,8 @@
 			isa = PBXGroup;
 			children = (
 				E2D977B35E70510FAAE58159 /* AdaptiveThresholds.swift */,
+				57C620F6E74ECD3050EDCC99 /* AIClient.swift */,
+				440E3EC8B273A32FED50F776 /* AIProvider.swift */,
 				169665A106EBBC6CCDA1F018 /* AudioCaptureManager.swift */,
 				8143978E87DDB116AC0D3FD8 /* DemoScript.swift */,
 				2FBAD9FDD0A26CB47962E922 /* DeterministicReview.swift */,
@@ -613,6 +622,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				572F7D6B74DEF1C6B976EBBB /* AIClient.swift in Sources */,
+				6A92709E9F9FEB3EEA99933F /* AIProvider.swift in Sources */,
+				359E6B061765BDA07BE4EEC3 /* AISettingsView.swift in Sources */,
 				14F45DE559A585FE6868EB2B /* AdaptiveThresholds.swift in Sources */,
 				DEB20958B6B4DC26619F9B5F /* AppBundleNameMigration.swift in Sources */,
 				E50CF069AE16583B2665E1BE /* AppSupport.swift in Sources */,

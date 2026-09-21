@@ -22,6 +22,8 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/SemanticCoach.swift" \
   "$SRC/Engine/SpeakerNameInference.swift" \
   "$SRC/Engine/OllamaClient.swift" \
+  "$SRC/Engine/AIProvider.swift" \
+  "$SRC/Engine/AIClient.swift" \
   "$SRC/Engine/TalkStats.swift" \
   "$SRC/Engine/Mclog.swift" \
   "$SRC/Engine/DemoScript.swift" \

@@ -391,11 +391,14 @@ struct SessionDetailView: View {
                         .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey400)
                 }
 
+                if let reviewError {
+                    Text(reviewError).font(.caption).foregroundStyle(.red)
+                }
                 if settings != nil, !lines.isEmpty {
                     HStack(spacing: 8) {
                         if regenerating || reviewInProgress {
                             ProgressView().controlSize(.small)
-                            Text("Writing meeting notes with the local model…")
+                            Text("Writing meeting notes with AI…")
                                 .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey600)
                         } else {
                             Button {
@@ -408,7 +411,7 @@ struct SessionDetailView: View {
                                 }
                             }
                             .buttonStyle(DoradoOutlineButtonStyle())
-                            .help("Rewrites this session's notes with the installed local model — nothing leaves this Mac")
+                            .help("Uses your selected AI provider. Cloud AI sends meeting text to that provider.")
                         }
                     }
                 }
@@ -602,28 +605,20 @@ struct SessionDetailView: View {
             if !Task.isCancelled { askBusy = nil; pendingAsk = nil }
         }
         guard let settings, let ollamaManager else {
-            askError = "AI answers need a local model — install one in Settings → Model."
+            askError = "Configure AI in Settings → AI, or install a local model."
             askInput = question
             return
         }
 
-        if ollamaManager.status == .stopped { ollamaManager.start() }
-        if ollamaManager.status != .running {
-            for _ in 1...30 {
-                try? await Task.sleep(for: .milliseconds(500))
-                guard !Task.isCancelled else { return }
-                if ollamaManager.status == .running { break }
-                if case .error = ollamaManager.status { break }
-            }
-        }
-        guard !Task.isCancelled else { return }
-        await settings.refreshModels()
-        guard !Task.isCancelled else { return }
-        guard ollamaManager.status == .running, !settings.availableModels.isEmpty else {
-            askError = "The local model isn't available right now — check Settings → Model."
+        // Cloud providers need no engine, model inventory or memory check;
+        // prepareAI short-circuits for them and does the Ollama dance otherwise.
+        guard await settings.prepareAI(ollamaManager: ollamaManager) else {
+            guard !Task.isCancelled else { return }
+            askError = "AI is unavailable — check Settings → AI or install a local model."
             askInput = question
             return
         }
+        guard !Task.isCancelled else { return }
 
         load()
         let transcriptLines = lines.map { "[\($0.stamp)] \($0.speaker): \($0.text)" }
@@ -635,9 +630,10 @@ struct SessionDetailView: View {
                                                       history: askThread.suffix(3).map { (q: $0.q, a: $0.a) })
         // Same fast-path sizing as the search-pane ask (4096 matches the
         // in-call phase; 384 covers a 150-word answer).
-        let client = OllamaClient(model: settings.effectiveModel,
+        let client = AIClient(model: settings.effectiveModel,
                                   numCtx: 4096, numPredict: 384)
-        if await !client.runningModels().contains(settings.effectiveModel) {
+        if !settings.usesCloudAI,
+           await !OllamaClient(model: settings.effectiveModel).runningModels().contains(settings.effectiveModel) {
             guard !Task.isCancelled else { return }
             askBusy = "Warming up the local model…"
         }
@@ -664,28 +660,24 @@ struct SessionDetailView: View {
             }
         } catch {
             guard !Task.isCancelled else { return }
-            askError = "The local model couldn't answer (\(error.localizedDescription)). Try again."
+            askError = "The AI model couldn't answer (\(error.localizedDescription)). Try again."
             askInput = question
         }
     }
 
     /// Re-run the LLM review over this saved session's transcript and
     /// persist it into the file's "## Review" section.
+    @State private var reviewError: String?
+
     private func regenerateReview() async {
         guard let settings, let ollamaManager, !lines.isEmpty else { return }
         regenerating = true
         defer { regenerating = false }
-        if ollamaManager.status == .stopped { ollamaManager.start() }
-        if ollamaManager.status != .running {
-            for _ in 1...30 {
-                try? await Task.sleep(for: .milliseconds(500))
-                if ollamaManager.status == .running { break }
-                if case .error = ollamaManager.status { break }
-            }
+        guard await settings.prepareAI(ollamaManager: ollamaManager) else {
+            reviewError = "AI is unavailable — check Settings → AI or install a local model."
+            return
         }
-        guard ollamaManager.status == .running else { return }
-        await settings.refreshModels()
-        guard !settings.availableModels.isEmpty else { return }
+        reviewError = nil
 
         let transcript = lines.map { "\($0.speaker): \($0.text)" }.joined(separator: "\n")
         let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
@@ -694,9 +686,14 @@ struct SessionDetailView: View {
             languageName: languageCode.flatMap {
                 MeetingLanguageSelection.resolvedPersistedCode($0)?.englishName
             })
-        guard let text = try? await OllamaClient(model: settings.effectiveModel,
-                                                 numCtx: 12_288, numPredict: 1500)
-            .complete(system: system, user: user) else { return }
+        let text: String
+        do {
+            text = try await AIClient(model: settings.effectiveModel, numCtx: 12_288, numPredict: 1500)
+                .complete(system: system, user: user)
+        } catch {
+            reviewError = error.localizedDescription
+            return
+        }
         let parsed = MeetingReview.parse(llmText: text, talkShare: talkShareValue)
         review = parsed
         persistReview(parsed)

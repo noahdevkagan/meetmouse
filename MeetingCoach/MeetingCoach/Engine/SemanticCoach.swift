@@ -5,7 +5,7 @@ import Foundation
 /// alignment reached, buried signal, hedge not pinned, no decision named.
 ///
 /// Runs async on its own heartbeat and never blocks the deterministic tier-1
-/// signals. Everything stays on 127.0.0.1 (OllamaClient enforces loopback).
+/// signals. Uses the explicitly selected AI provider; local mode stays on loopback.
 @MainActor
 final class SemanticCoach {
 
@@ -51,7 +51,7 @@ final class SemanticCoach {
                   definition: "the user has asked essentially the same substantive question more than twice (possibly in different words) and it keeps getting deflected or parked instead of answered."),
     ]
 
-    private let client: OllamaClient
+    private let client: AIClient
     /// Built-in semantic signals still enabled by the active rubric.
     private let activeDefs: [SignalDef]
     /// User coaching-note examples keyed by NudgeType raw value — appended
@@ -78,7 +78,7 @@ final class SemanticCoach {
         // 4096 ctx: the prompt is a 180s window + signal definitions —
         // half the KV-cache memory of the 8192 default, held for the
         // whole meeting.
-        client = OllamaClient(model: model, timeout: 45, numCtx: 4096)
+        client = AIClient(model: model, timeout: 45, numCtx: 4096)
         activeDefs = Self.builtinDefs.filter { tuning[$0.type.rawValue]?.enabled ?? true }
         self.noteExamples = noteExamples
         // First entry wins on duplicate ids — rubrics are user/LLM-authored,
@@ -97,6 +97,8 @@ final class SemanticCoach {
     /// reliably when each spoken line stays on its own line (verified against
     /// a real missed moment: 0 calls on turn-walls, 0.9-confidence catch on
     /// line-per-utterance).
+    private(set) var lastError: String?
+
     func analyze(utterances: [Utterance], elapsed: TimeInterval, context: PreCallContext) async -> [Nudge] {
         guard !isAnalyzing else { return [] }
         guard !activeDefs.isEmpty || !customSignals.isEmpty else { return [] }
@@ -116,10 +118,12 @@ final class SemanticCoach {
         do {
             raw = try await client.complete(system: system, user: user)
         } catch {
+            lastError = error.localizedDescription
             mclog("[Semantic] LLM error: \(error.localizedDescription)")
             return []
         }
 
+        lastError = nil
         let calls = parseCalls(raw)
         mclog("[Semantic] \(calls.count) raw calls from model")
 
