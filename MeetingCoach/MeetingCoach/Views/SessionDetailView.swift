@@ -103,9 +103,6 @@ struct SessionDetailView: View {
                ) {
                 ShareNotesSheet(
                     sessionURL: url,
-                    title: title,
-                    meetingDate: TranscriptSearch.sessionDate(for: url) ?? Date(),
-                    durationMinutes: durationMinutes,
                     payload: payload
                 ) { record in
                     sharedLink = record
@@ -282,7 +279,7 @@ struct SessionDetailView: View {
             .buttonStyle(DoradoOutlineButtonStyle())
             .help(review?.hasShareableMeetingNotes != true
                   ? "Generate AI meeting notes before sharing"
-                  : "Preview and create an encrypted 30-day private link")
+                  : "Create and copy an encrypted 30-day private link")
         }
     }
 

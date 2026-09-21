@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Share notes now creates and copies the private link immediately, opening the ready-to-send screen without an extra confirmation
+
 ## 0.25.0 — 2026-09-21
 
 - Meetings are now the home screen. A cleaner meetings list replaces the coaching dashboard as the starting view; coaching progress stays one click away in the sidebar
