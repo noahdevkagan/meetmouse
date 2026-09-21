@@ -5,6 +5,13 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state: Push build failure diagnosis — 2026-09-21
+
+User's initial push failed at build; hook discarded Xcode diagnostics. Capture build output
+in .context/push-gate-build.log, preserve xcodebuild exit status, and print actual
+errors on failure. Local reproduction is blocked earlier by sandbox cache access,
+so do not attribute the user's unsandboxed failure to those permission errors.
+
 ## Current state: Review fixes and shared-page consistency — implemented, deployment pending
 
 Implemented all four findings: cross-process flock + reload transactions; pending
@@ -365,3 +372,12 @@ v0.20.0 is live and auto-updating users. Next: verify Basic mode and the
 lightweight fallback end-to-end on a busy Mac, then run a real Spanish or
 French meeting plus the call-matrix spot checks on real hardware. After that,
 fix the `startIfNeeded` retry regression.
+
+
+2026-09-21 push follow-up: user confirmed app build PASS. ASR SwiftPM checkout
+failed looking up the pinned FluidAudio revision. Revision/tree exist in dependency
+repo; reproduced failed lookup when parent GIT_DIR is inherited. push-gate.sh now
+clears git rev-parse --local-env-vars after resolving its workspace so SwiftPM Git
+commands use dependency repos. Shell syntax/whitespace checks pass; read-only
+reproduction resolves the pinned tree after clearing env. Full gate still needs
+user Terminal. Diagnostic logging and this fix remain uncommitted locally.

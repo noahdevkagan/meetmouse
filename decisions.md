@@ -1466,3 +1466,13 @@ No new schema or service is needed. Open meeting notes observe the latest sessio
 review completion and show its generation state rather than encouraging duplicate
 work. The web viewer now follows system appearance using Dorado light/dark tokens,
 app-sized headings, neutral surfaces, and restrained green accents; no remote fonts.
+
+
+## 2026-09-21 — Isolate dependency Git from the push hook environment
+
+The app build passed in the user's Terminal but the SwiftPM ASR rig could not read
+its pinned FluidAudio tree. That tree exists; inheriting the app's GIT_DIR reproduces
+failed dependency lookup. Clear Git's declared repository-local environment in the
+push gate after entering the workspace, so nested dependency commands discover their
+own repositories. Also retain full Xcode diagnostics and its exit code instead of
+piping the build into grep -q. This preserves the gate rather than skipping tests.
