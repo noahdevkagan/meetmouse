@@ -157,7 +157,7 @@ struct WebShareConfiguration: Sendable {
 
     static var current: WebShareConfiguration {
         // Use the established HTTPS service in both dev and release. Publishing
-        // still happens only after the user confirms the per-meeting preview.
+        // still happens only when the user explicitly chooses Share notes.
         let apiFallback = "https://rhinovoice.app/api/shared-notes"
         let viewerFallback = "https://rhinovoice.app/p"
         let environment = ProcessInfo.processInfo.environment
