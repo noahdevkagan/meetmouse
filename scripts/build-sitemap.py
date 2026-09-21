@@ -20,6 +20,10 @@ BASE = "https://meetmouse.com"
 
 NOINDEX = re.compile(r'<meta[^>]+robots[^>]+noindex', re.IGNORECASE)
 
+# Ownership-verification stubs Google and Bing ask you to host. They are not
+# pages, they carry no content, and listing them invites a thin-content crawl.
+SKIP = re.compile(r'^(google[0-9a-f]+|BingSiteAuth)\.html$', re.IGNORECASE)
+
 
 def url_for(path: Path) -> str:
     rel = path.relative_to(DOCS)
@@ -40,6 +44,8 @@ def lastmod(path: Path) -> str:
 def main() -> None:
     entries = []
     for path in sorted(DOCS.rglob("*.html")):
+        if SKIP.match(path.name):
+            continue
         if NOINDEX.search(path.read_text(errors="ignore")):
             continue
         mod = lastmod(path)

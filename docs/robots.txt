@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
 
+# Answer engines are welcome here: MeetMouse wants to be cited in AI answers
+# about private, on-device meeting notes and live meeting coaching on a Mac.
+Content-Signal: search=yes, ai-input=yes, ai-train=no
+
 Sitemap: https://meetmouse.com/sitemap.xml
