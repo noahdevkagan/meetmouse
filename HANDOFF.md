@@ -14,6 +14,12 @@ The user-authorized checkpoint change is recorded in decisions.md.
 Validation: Debug xcodebuild, 23 Swift sharing checks, and 13 Node checks pass.
 Logs: .context/direct-share-{build,tests}.log. No app launch, upload, or release.
 
+## Current state (2026-09-21): Icon-only AI provider settings
+
+Sidebar AI provider settings now shows only the gear icon, retaining its accessible
+name and hover tooltip. Debug xcodebuild and git diff --check pass.
+Build log: `.context/icon-only-build.log`.
+
 ## Current state (2026-09-21): Optional cloud AI / BYOK — built
 
 Settings → AI now offers Local / Claude / OpenAI, model selection, device-only
