@@ -203,4 +203,7 @@ jobs:
             echo "Manual fallback: npx -y wrangler pages deploy"
             exit 1
           fi
-          npx -y wrangler pages deploy
+          # A tag checkout is a detached HEAD, so wrangler would name the
+          # branch "HEAD" and publish a *preview* deployment — meetmouse.com
+          # (the production branch, "main") stayed stale on 0.25.0 that way.
+          npx -y wrangler pages deploy --branch main
