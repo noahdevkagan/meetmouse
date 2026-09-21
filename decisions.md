@@ -1345,3 +1345,22 @@ appcast PUT) under a 5-attempt backoff retry — a flaky upload can retry
 freely and can never remove anything already live. workflow_dispatch is the
 recovery path for an already-pushed tag: it runs the workflow from main, so
 fixes apply without deleting/re-pushing the tag.
+
+## 2026-09-21 — Explicit BYOK is an optional exception to local inference
+
+The user requested Claude and OpenAI API keys in Settings. Local AI remains the
+default; transcription/audio and telemetry policy are unchanged. Settings → AI
+requires a text-sharing acknowledgment plus Save and enable. Keys live only in
+device-only Keychain; testing uses a synthetic prompt and does not enable cloud.
+Direct HTTPS provider requests need no MeetMouse account/backend. OpenAI requests
+set store:false, sessions are ephemeral, redirects are refused, and provider
+error bodies are never displayed/logged. Provider retention rules still apply.
+
+AIClient wraps existing Ollama completions and the two cloud APIs. The existing
+string-based lifecycle pins namespaced cloud model references, preserving its
+review/test seams and ensuring local sessions never switch to cloud mid-call.
+Cloud references bypass local memory/preload/unload and require the matching
+active preference before every request; disabling/switching stops future sends.
+In-flight requests cannot be recalled. Built-in signals and transcription survive
+cloud failure. Initial model choices favor small, fast models for recurring
+coaching, with one larger option per provider. No subscription-login support.

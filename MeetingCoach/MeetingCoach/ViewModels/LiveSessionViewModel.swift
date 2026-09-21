@@ -55,6 +55,7 @@ final class LiveSessionViewModel {
     /// LLM path produce the same MeetingReview shape).
     var meetingReview: MeetingReview?
     var isGeneratingSummary = false
+    private(set) var reviewAIError: String?
 
     /// Indices into preCallContext.plannedQuestions that have been covered —
     /// auto-detected (keyword overlap against the user's turns, re-derived
@@ -300,7 +301,7 @@ final class LiveSessionViewModel {
         // review is the one long reply — sized with PromptBuilder's 32K
         // transcript cap so a 43-min meeting fits untrimmed (2026-09-04).
         // Post-call only — ASR and the in-call runner are already gone.
-        try await OllamaClient(model: model, numCtx: 12_288, numPredict: 1500)
+        try await AIClient(model: model, numCtx: 12_288, numPredict: 1500)
             .complete(system: system, user: user)
     }
 
@@ -600,6 +601,16 @@ final class LiveSessionViewModel {
             return settleDeterministic("semantic coaching disabled")
         }
 
+        if settings.usesCloudAI {
+            let candidate = settings.effectiveModel
+            sessionModelState = .pinned(sessionID, candidate)
+            semanticCoach = SemanticCoach(model: candidate, tuning: setup.tuning,
+                                          customSignals: setup.customSignals, noteExamples: setup.noteExamples)
+            nameInference = SpeakerNameInference(model: candidate)
+            startSemanticHeartbeat(ollamaManager: ollamaManager, settings: settings)
+            return
+        }
+
         // The ladder can only step down to something installed, so the list
         // has to be current before memory is even consulted.
         await settings.refreshModels()
@@ -677,7 +688,7 @@ final class LiveSessionViewModel {
         // Same engine, separate cadence: propose real names for diarized
         // speakers from transcript evidence ("thanks Sarah").
         nameInference = SpeakerNameInference(model: candidate)
-        startSemanticHeartbeat(ollamaManager: ollamaManager)
+        startSemanticHeartbeat(ollamaManager: ollamaManager, settings: settings)
         startMemoryPressureWatch()
         mclog("[Session] Pinned \(candidate)")
     }
@@ -687,7 +698,7 @@ final class LiveSessionViewModel {
     /// at Stop, and a session replaced by a new one. Safe to call with a
     /// state that never pinned anything.
     private func releaseSessionModel(_ state: SessionModelState?) async {
-        guard let model = state?.pinnedModel else { return }
+        guard let model = state?.pinnedModel, AIConfiguration.cloud(from: model) == nil else { return }
         await Self.unloadModel(model)
         mclog("[Session] Released \(model)")
     }
@@ -904,6 +915,7 @@ final class LiveSessionViewModel {
         talkStats.reset()
         error = nil
         meetingReview = nil
+        reviewAIError = nil
         askedPlannedQuestions = []
         manuallyUncheckedQuestions = []
         elapsedTime = 0
@@ -1413,6 +1425,7 @@ final class LiveSessionViewModel {
         }
         isGeneratingSummary = true
         meetingReview = nil
+        reviewAIError = nil
 
         let durationMin = max(1, Int(elapsedTime) / 60)
 
@@ -1421,7 +1434,7 @@ final class LiveSessionViewModel {
         // Mock mode and known-empty model lists get the instant review too,
         // instead of spinning up an engine that has nothing to run.
         if isDemo || settings.useMock ||
-            (settings.hasCheckedModels && settings.ollamaReachable && settings.availableModels.isEmpty) {
+            (!settings.usesCloudAI && settings.hasCheckedModels && settings.ollamaReachable && settings.availableModels.isEmpty) {
             let ended = sessionModelState
             sessionModelState = nil
             finishReview(instantReview(durationMinutes: durationMin))
@@ -1461,34 +1474,21 @@ final class LiveSessionViewModel {
             languageName: sessionLanguage?.englishName
         )
 
-        if ollamaManager.status == .stopped {
-            ollamaManager.start()
-        }
-
         Task {
-            // Wait for Ollama to be ready before sending the request
-            if ollamaManager.status != .running {
-                for _ in 1...30 {
-                    try? await Task.sleep(for: .milliseconds(500))
-                    if ollamaManager.status == .running { break }
-                    if case .error = ollamaManager.status { break }
-                }
-            }
-
             var summary: String?
-            if ollamaManager.status == .running {
-                // Engine is up — but a fresh install may have no models (the
-                // earlier check couldn't reach it); skip the doomed request
-                // instead of waiting out a model-not-found error.
-                await settings.refreshModels()
-                if !settings.availableModels.isEmpty {
-                    do {
-                        summary = try await Self.completeReview(reviewModel, system, user)
-                    } catch {
-                        // The LLM path failed (engine died, timeout) — the
-                        // instant review is still better than an error string.
-                        mclog("[Review] LLM review failed, using instant review: \(error.localizedDescription)")
-                    }
+            let cloud = AIConfiguration.cloud(from: reviewModel) != nil
+            let ready: Bool
+            if cloud {
+                ready = true
+            } else {
+                ready = await ollamaManager.ensureRunning()
+            }
+            if ready {
+                do {
+                    summary = try await Self.completeReview(reviewModel, system, user)
+                } catch {
+                    reviewAIError = "\(error.localizedDescription) A basic recap is shown; retry from the saved meeting."
+                    mclog("[Review] AI unavailable; using instant review")
                 }
             }
             if let summary {
@@ -1635,7 +1635,7 @@ final class LiveSessionViewModel {
 
     // MARK: - Semantic heartbeat (tier 2)
 
-    private func startSemanticHeartbeat(ollamaManager: OllamaManager) {
+    private func startSemanticHeartbeat(ollamaManager: OllamaManager, settings: SettingsViewModel) {
         semanticTask = Task { @MainActor [weak self] in
             // Let the meeting build some context before the first pass.
             try? await Task.sleep(for: .seconds(90))
@@ -1653,7 +1653,12 @@ final class LiveSessionViewModel {
             var analyzedCount = 0
             var interval = SemanticCoach.heartbeatSeconds
             while !Task.isCancelled, let self, self.isLive {
-                if ollamaManager.status == .running, let coach = self.semanticCoach,
+                guard settings.semanticCoachEnabled else {
+                    self.shedSessionModel(settings: nil)
+                    break
+                }
+                let cloud = self.sessionModelState?.pinnedModel.flatMap(AIConfiguration.cloud(from:)) != nil
+                if cloud || ollamaManager.status == .running, let coach = self.semanticCoach,
                    self.utterances.count - analyzedCount >= 3 {
                     analyzedCount = self.utterances.count
                     let newNudges = await coach.analyze(
@@ -1661,7 +1666,15 @@ final class LiveSessionViewModel {
                         elapsed: self.elapsedTime,
                         context: self.sessionContext
                     )
-                    guard self.isLive else { break }
+                    guard self.isLive, !Task.isCancelled else { break }
+                    if cloud {
+                        if let error = coach.lastError {
+                            self.basicModeNotice = .init(cause: "Cloud AI unavailable",
+                                                        detail: "\(error) Transcription and built-in coaching continue.")
+                        } else {
+                            self.basicModeNotice = nil
+                        }
+                    }
                     interval = newNudges.isEmpty
                         ? min(interval + 30, 120)
                         : SemanticCoach.heartbeatSeconds
@@ -1671,7 +1684,7 @@ final class LiveSessionViewModel {
                         mclog("[Semantic] \(nudge.type.rawValue): \(nudge.text)")
                     }
                 }
-                if ollamaManager.status == .running, let inference = self.nameInference {
+                if cloud || ollamaManager.status == .running, let inference = self.nameInference {
                     // Piggybacks the heartbeat; throttles itself and skips
                     // entirely when every speaker is already named.
                     let suggestions = await inference.analyze(

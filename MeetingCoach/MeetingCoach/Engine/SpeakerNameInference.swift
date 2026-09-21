@@ -43,14 +43,14 @@ final class SpeakerNameInference {
     /// would save a voice profile named "Them 2").
     static let unnamedPattern = #/^(Them|Speaker|Meeting)( \d+)?$/#
 
-    private let client: OllamaClient
+    private let client: AIClient
     private var lastRun: TimeInterval = -.infinity
     private var isAnalyzing = false
 
     init(model: String) {
         // 4096 ctx, matching SemanticCoach — in-call requests share one
         // runner config so no reload happens between the two callers.
-        client = OllamaClient(model: model, timeout: 45, numCtx: 4096)
+        client = AIClient(model: model, timeout: 45, numCtx: 4096)
     }
 
     /// Propose names for unnamed speaker labels in the transcript.

@@ -238,7 +238,7 @@ struct GeneralSettingsView: View {
                 }
                 Text(mcpHelperPath == nil
                      ? "Agent server not found in this build."
-                     : "Lets Claude and other agents search and read your saved transcripts. Runs locally over stdio; nothing leaves this Mac.")
+                     : "Lets Claude and other agents search and read your saved transcripts. The server runs locally; connected agents may send the text to their AI provider.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

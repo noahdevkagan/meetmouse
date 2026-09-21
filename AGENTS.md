@@ -10,7 +10,7 @@ This file is the seed doc — it auto-loads into every session. Three habits kee
 2. **Log the why.** When you make (or reverse) a non-obvious design choice, append one entry to `decisions.md`: what was decided and why. Read it before re-litigating anything.
 3. **Hand off at the end.** When the user wraps up ("done", "that's it for today"), run the `/handoff` skill: it rewrites `HANDOFF.md` (state, outstanding, next-session prompt) and commits. A SessionStart hook in `.claude/settings.json` injects `HANDOFF.md` into every new session automatically.
 
-**What this is:** a local-first, zero-telemetry macOS menu-bar + window app (SwiftUI) that listens to live meetings, applies a coaching rubric, and nudges the user in real time. Transcription is on-device (Parakeet/SFSpeech); the LLM runs locally via an embedded Ollama pinned to `127.0.0.1`. Hard constraint: the app must fully work with WiFi off (only model downloads need network).
+**What this is:** a local-first, zero-telemetry macOS menu-bar + window app (SwiftUI) that listens to live meetings, applies a coaching rubric, and nudges the user in real time. Transcription is on-device (Parakeet/SFSpeech); the LLM defaults to an embedded Ollama pinned to `127.0.0.1`. Users may explicitly enable Claude/OpenAI BYOK in Settings → AI; only that opt-in permits sending AI text/context to the selected provider. Audio/transcription always remain on-device. Local mode must fully work with WiFi off.
 
 ## Setup (one time)
 
@@ -71,7 +71,7 @@ Push a tag: `git tag vX.Y.Z && git push origin vX.Y.Z`. CI first runs the full t
 
 ## Conventions
 
-- Local-first is non-negotiable: no telemetry, no network calls except explicit model/update downloads.
+- Local-first is non-negotiable: no telemetry. Network access is limited to explicit model/update downloads and user-enabled Claude/OpenAI BYOK text inference. Keep keys in device-only Keychain; never weaken Ollama’s loopback restriction.
 - Signals reason over coalesced speaker *turns*, not raw ASR fragments (`Engine/TranscriptAnalysis.swift`).
 - Rubrics are YAML (`Resources/default_rubric.yaml`, user copy under Application Support); round-tripping must never drop fields.
 - UI style: shared card language via `.cardStyle()` in `ContentView.swift` — white surfaces, hairline borders, continuous corners; don't introduce new one-off card styles.

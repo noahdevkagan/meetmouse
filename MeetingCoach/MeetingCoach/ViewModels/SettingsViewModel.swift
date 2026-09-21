@@ -4,6 +4,41 @@ import ServiceManagement
 
 @MainActor @Observable
 final class SettingsViewModel {
+    private(set) var aiConfiguration = AIConfiguration.current
+    var usesCloudAI: Bool { aiConfiguration.provider != .local }
+
+    func enableCloudAI(_ configuration: AIConfiguration, key: String) throws {
+        guard configuration.provider != .local,
+              configuration.provider.models.contains(configuration.model) else {
+            throw AIError.message("Choose a supported cloud model.")
+        }
+        if !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            try AIKeychain.save(key, for: configuration.provider)
+        }
+        guard let saved = try AIKeychain.read(configuration.provider), !saved.isEmpty else {
+            throw AIError.message("Enter an API key first.")
+        }
+        cancelDownload()
+        downloadError = nil
+        configuration.save()
+        aiConfiguration = configuration
+        useMock = false
+    }
+
+    func useLocalAI() {
+        let configuration = AIConfiguration()
+        configuration.save()
+        aiConfiguration = configuration
+    }
+
+    /// Cloud requests need no local model, engine or memory checks.
+    func prepareAI(ollamaManager: OllamaManager) async -> Bool {
+        if usesCloudAI { return true }
+        guard await ollamaManager.ensureRunning() else { return false }
+        await refreshModels()
+        return !availableModels.isEmpty
+    }
+
     var selectedModel: String
     var rubricPath: String
     var availableModels: [OllamaModel] = []
@@ -162,6 +197,7 @@ final class SettingsViewModel {
     /// 9.6 GB gemma lying around ran it instead of the intended ~3.4 GB
     /// qwen, costing ~6 GB of a meeting's headroom for marginal quality.
     var effectiveModel: String {
+        if usesCloudAI { return aiConfiguration.modelReference }
         guard !availableModels.isEmpty else { return selectedModel }
         let fitting = availableModels.filter { ModelMemory.fits($0) }
         if let selected = availableModels.first(where: { $0.name == selectedModel }),
@@ -178,6 +214,7 @@ final class SettingsViewModel {
     /// User-facing one-liner when the selected model can't run comfortably
     /// on this Mac. nil when everything is fine.
     var modelFitNote: String? {
+        guard !usesCloudAI else { return nil }
         guard let selected = availableModels.first(where: { $0.name == selectedModel }),
               !ModelMemory.fits(selected) else { return nil }
         let ram = ModelMemory.physicalRAMGB
@@ -247,6 +284,7 @@ final class SettingsViewModel {
     static let autoModelPullAttemptedKey = "autoModelPullAttempted"
 
     func autoDownloadRecommendedIfNeeded() async {
+        guard !usesCloudAI else { return }
         guard !UserDefaults.standard.bool(forKey: Self.autoModelPullAttemptedKey),
               !useMock, downloadingModel == nil else { return }
         // Transcript-first users opted out of the LLM — no surprise ~6.6 GB
@@ -257,6 +295,7 @@ final class SettingsViewModel {
             return
         }
         await refreshModels()
+        guard !usesCloudAI, semanticCoachEnabled else { return }
         guard availableModels.isEmpty else {
             // Already set up (any model counts) — never auto-pull over it.
             UserDefaults.standard.set(true, forKey: Self.autoModelPullAttemptedKey)
@@ -273,6 +312,7 @@ final class SettingsViewModel {
             mclog("[Settings] Auto-pull skipped: engine unavailable")
             return
         }
+        guard !usesCloudAI, semanticCoachEnabled else { return }
         let recommended = recommendedCatalogModel
         UserDefaults.standard.set(true, forKey: Self.autoModelPullAttemptedKey)
         mclog("[Settings] Auto-pulling recommended model \(recommended.fullName)")
@@ -310,7 +350,9 @@ final class SettingsViewModel {
                 }
                 self.downloadStatus = "Starting..."
             }
+            guard !Task.isCancelled else { return }
             for await progress in await client.pullModel(name: fullName) {
+                guard !Task.isCancelled else { return }
                 self.downloadStatus = progress.status
                 if progress.total > 0 {
                     self.downloadProgress = progress.fraction
@@ -369,6 +411,7 @@ final class SettingsViewModel {
     /// workload). Callers should refresh the installed list first — a stale
     /// list makes the ladder step down to something that isn't there.
     func modelForCurrentMemory() -> String? {
+        if usesCloudAI { return effectiveModel }
         guard !useMock else { return effectiveModel }
         // Memory unreadable — don't second-guess the user's choice.
         guard let availableGB = ModelMemory.availableGB else { return effectiveModel }
@@ -395,6 +438,7 @@ final class SettingsViewModel {
     /// is real (see LiveSessionViewModel.activateSessionModel), and a second
     /// warming path is how two runners end up resident at once.
     func verifyDownloadedModelLoads(keepAlive: String = "10m") async {
+        guard !usesCloudAI else { return }
         guard !useMock, downloadingModel == nil else { return }
         await refreshModels()
         let name = effectiveModel

@@ -4,7 +4,9 @@ A local-first, zero-telemetry real-time leadership coach for macOS. It listens t
 
 Forked from [anarlog](https://github.com/fastrepl/anarlog) (MIT), which already handles audio capture, on-device transcription, and bring-your-own-LLM including local models. The coaching layer is the new work.
 
-**Hard constraints:** transcription is fully on-device; the LLM runs locally via Ollama pinned to `127.0.0.1`; telemetry is zero (the app must run with WiFi off).
+**Privacy:** transcription is fully on-device and telemetry is zero. AI runs locally via Ollama (`127.0.0.1`) by default and local mode works with WiFi off. Users can explicitly enable Claude or OpenAI in **Settings → AI** using their own API key. Cloud mode sends the text and context needed by AI features directly to the selected provider; audio stays on-device. API usage is billed by that provider. Keys are stored in device-only macOS Keychain.
+
+To enable cloud AI, choose a provider and model, paste an API key, optionally test the connection, accept text sharing, then click **Save and enable**. **Use local AI** stops future cloud requests. Provider changes apply to the next meeting and the next on-demand AI request. A connection failure leaves transcription and built-in coaching working.
 
 See [`PLAN.md`](./PLAN.md) for the full build plan and [`findings.md`](./findings.md) for the Phase 0 recon.
 

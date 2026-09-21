@@ -135,13 +135,13 @@ struct OnboardingChecklistView: View {
     }
 
     @ViewBuilder private var coachModelRow: some View {
-        let hasModel = settings.map { !$0.availableModels.isEmpty } ?? false
+        let hasModel = settings.map { $0.usesCloudAI || !$0.availableModels.isEmpty } ?? false
         let downloading = settings?.downloadingModel != nil
         checklistRow(done: hasModel,
                      active: downloading,
                      title: "AI coach model",
                      titleBadge: "optional",
-                     caption: "Smarter nudges + meeting reviews. 100% local (\(recommendedCatalogModel.diskSize)).") {
+                     caption: settings?.usesCloudAI == true ? "Cloud AI enabled. Meeting text goes to your selected provider." : "Smarter nudges + meeting reviews. Local model (\(recommendedCatalogModel.diskSize)), or choose cloud AI in Settings.") {
             if let settings, !hasModel {
                 if downloading {
                     Button("Cancel") { settings.cancelDownload() }

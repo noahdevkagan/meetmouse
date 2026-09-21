@@ -166,6 +166,8 @@ struct MeetMouseApp: App {
         // and Stats (session trends + learned sensitivity).
         Settings {
             TabView {
+                AISettingsView(settings: settings, liveSession: liveSession)
+                    .tabItem { Label("AI", systemImage: "sparkles") }
                 GeneralSettingsView(detection: detection, settings: settings,
                                     updater: updaterController.updater)
                     .tabItem { Label("General", systemImage: "gear") }
