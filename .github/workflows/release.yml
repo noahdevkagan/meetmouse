@@ -89,8 +89,13 @@ jobs:
             exit 1
           fi
           npm ci --no-audit --no-fund
-          npx wrangler d1 migrations apply meetingcoach-shares --remote
-          npm run deploy
+          # Best-effort until CLOUDFLARE_API_TOKEN carries the Workers/D1
+          # permissions (v0.25.1 hit a 7403 on D1 here). A failure surfaces as
+          # a warning on the run and the app still ships; deploy by hand.
+          if ! { npx wrangler d1 migrations apply meetingcoach-shares --remote \
+                 && npm run deploy; }; then
+            echo "::warning::Note-sharing Worker NOT deployed (token lacks Workers Scripts/D1/Routes Edit?). Manual fallback: cd web-share && npm run deploy"
+          fi
 
       # The Ollama zip is pinned — cache it so releases don't re-download ~80MB
       # (and don't flake on a transient fetch failure).
