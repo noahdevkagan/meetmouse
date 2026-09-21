@@ -5,12 +5,13 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-09-21): Merge release/site main updates — resolved
+## Current state (2026-09-21): Merge release/site main updates — validated
 
 Merged latest origin/main's homepage restyle, best-effort Worker deployment, and
 released 0.25.1 changelog. Resolved the changelog conflict by preserving released
 notes exactly and retaining automatic AI-note generation under Unreleased.
-App source unchanged. Changelog freshness and diff checks pass; push gate pending.
+App source unchanged. Full push gate passed with no scorecard regressions; merge
+pushed to PR #17. Log: .context/merge-site-main-push.log.
 
 ## Current state (2026-09-21): Merge release-workflow main update — validated
 
