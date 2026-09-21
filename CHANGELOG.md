@@ -7,33 +7,16 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
-## Unreleased
+## 0.25.0 — 2026-09-21
 
-- Optional Claude and OpenAI API keys in Settings → AI for coaching, reviews and Ask AI. Local remains the default; cloud sharing requires opt-in and keys stay in macOS Keychain.
-
-- Watching the demo no longer blocks the Meetings and Coaching progress buttons; the demo result stays visible until you navigate away
-- Meeting chat keeps relevant details from later in long speaker turns; sharing abuse limits also cover cancelled uploads without blocking existing owners from stopping sharing
-
-- Shared links keep recovery controls through failed uploads, multiple app instances, and local meeting deletion; manage them from Meetings → Shared links
-- Post-meeting notes refresh when AI generation completes, and shared pages match MeetMouse with automatic light/dark appearance
-
-- Shared notes open without an account, with easy forwarding and copyable next steps; recipients can discover MeetMouse after reading
-
-- Share saved meeting notes with an encrypted, expiring web link. Preview the notes, send or copy the link, and stop sharing from the meeting; transcripts and AI chats are excluded
-
-- Meeting chats now save locally and restore when you return. Click a valid answer timestamp to jump to its transcript source
-- Scrolling back through a live transcript pauses auto-scroll; use Back to live to resume following
-
-- Simplified the sidebar with a compact Start button, roomier meeting rows, clearer selection, and a quieter saved confirmation
-
-- Live transcripts have larger text, clearer speaker headings, a pauseable auto-scroll control, and a coaching pane that opens by default during meetings and can be hidden. Hide the slimmer sidebar to focus on the conversation
-
-- Meetings now open into a dedicated AI chat, with suggested questions, follow-ups, copyable answers, and a stop button. Notes, transcripts, and coaching remain one click away
-- A cleaner meetings home replaces the coaching dashboard as the starting view; coaching progress stays available in the sidebar
-- Meeting questions keep the topic of recent follow-ups and more surrounding transcript context, with timestamp citations requested from the local model
-
-- Speaker names no longer carry over from an unconfirmed previous meeting. Saved voices are used only for guests confirmed in this call's setup; other speakers stay neutral until identified
-- Group calls keep each named speaker separate, and unassigned live text no longer inherits the first person's name. Saved voice samples exclude detected overlapping speech
+- Meetings are now the home screen. A cleaner meetings list replaces the coaching dashboard as the starting view; coaching progress stays one click away in the sidebar
+- Open a saved meeting and it lands in a dedicated AI chat: suggested questions, follow-ups, copyable answers, and a stop button. Chats save locally and restore when you return, and clicking an answer's timestamp jumps to that spot in the transcript. Notes, transcript, and coaching stay one click away
+- Share meeting notes with an encrypted, expiring web link: click Share notes on any saved meeting. Only your curated notes and next steps go out — never the transcript, coaching, or chats — encrypted on your Mac before upload, and links expire after 30 days. Preview first, then copy or send; stop sharing anytime from the meeting or from Meetings → Shared links
+- Recipients open shared notes without an account, can forward the link or copy the next steps, and see a small MeetMouse mention after the content
+- Optional cloud AI: add a Claude or OpenAI API key in Settings → AI to run coaching, reviews, and Ask AI on a cloud model. Local stays the default. Meeting text is shared only after you opt in, audio is never uploaded, and keys live in the macOS Keychain on this device only
+- Live view: larger transcript text with clearer speaker headings, a coaching pane that opens by default and can be hidden, and a slimmer sidebar you can hide to focus on the conversation. Scrolling back pauses auto-scroll; Back to live resumes it
+- Meeting questions keep the topic of recent follow-ups, pull in more surrounding transcript context, and cite timestamps from the local model
+- Post-meeting notes now refresh as soon as AI generation finishes, and watching the demo no longer blocks the Meetings and Coaching buttons
 
 ## 0.24.0 — 2026-09-17
 
