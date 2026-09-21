@@ -68,6 +68,30 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      # The note-sharing backend (web-share/: Cloudflare Worker + D1 behind the
+      # rhinovoice.app routes) ships with every release, BEFORE the app is
+      # built, so no published DMG can run ahead of its backend. The deploy is
+      # idempotent — an unchanged Worker just re-publishes the same code.
+      # Uses the same CLOUDFLARE_API_TOKEN as the site step, which must also
+      # carry Workers Scripts:Edit + D1:Edit (account) and Workers Routes:Edit
+      # on the rhinovoice.app zone. Fails loudly for the same reason the site
+      # step does: a silent skip is how a stale backend would ship.
+      - name: Deploy note-sharing Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        working-directory: web-share
+        run: |
+          set -euo pipefail
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN is not set — Worker NOT deployed."
+            echo "Manual fallback: cd web-share && npm run deploy"
+            exit 1
+          fi
+          npm ci --no-audit --no-fund
+          npx wrangler d1 migrations apply meetingcoach-shares --remote
+          npm run deploy
+
       # The Ollama zip is pinned — cache it so releases don't re-download ~80MB
       # (and don't flake on a transient fetch failure).
       - name: Cache Ollama runtime download
