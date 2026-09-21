@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="no-referrer">
+  <title>Private meeting notes — MeetMouse</title>
+  <link rel="stylesheet" href="/p/assets/viewer-v4.css">
+  <script defer src="/p/assets/viewer-v4.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="https://meetmouse.com" aria-label="MeetMouse home"><span class="mark">M</span><span>MeetMouse</span></a>
+      <span class="privacy-pill">🔒 Encrypted private link</span>
+    </header>
+
+    <article class="note">
+      <div id="loading" class="state-card">
+        <span class="spinner" aria-hidden="true"></span>
+        <h1>Opening private notes…</h1>
+        <p>The note is being decrypted in this browser.</p>
+      </div>
+
+      <div id="error" class="state-card" hidden>
+        <span class="state-icon" aria-hidden="true">⌁</span>
+        <h1 id="errorTitle">This note is unavailable</h1>
+        <p id="errorMessage"></p>
+      </div>
+
+      <div id="content" hidden>
+        <header class="hero">
+          <div class="hero-actions">
+            <p class="eyebrow">Shared meeting notes</p>
+            <div class="share-wrap">
+              <div class="note-tools">
+                <button id="copyNotesButton" class="share-button" type="button">Copy notes</button>
+                <button id="shareButton" class="share-button" type="button"><span aria-hidden="true">↗</span> Send notes</button>
+              </div>
+              <span id="shareStatus" class="share-status" role="status" aria-live="polite"></span>
+            </div>
+          </div>
+          <h1 id="title"></h1>
+          <div id="meta" class="meta"></div>
+          <p class="reader-hint">No account needed. Read, copy, or send to someone who needs the next steps.</p>
+        </header>
+        <div id="sections" class="content"></div>
+        <aside class="product-cta">
+          <div>
+            <p class="cta-eyebrow">Made with MeetMouse</p>
+            <h2>Be the person who sends the next steps.</h2>
+            <p>MeetMouse turns your meetings into useful notes. Keep transcripts on your Mac and share only when you choose.</p>
+          </div>
+          <a class="cta-button" href="https://meetmouse.com" rel="noreferrer">Try MeetMouse for Mac <span aria-hidden="true">↗</span></a>
+        </aside>
+      </div>
+    </article>
+
+    <p class="foot"><strong>Decrypted in your browser.</strong> MeetMouse stores this note in encrypted form and never receives the key contained in the link.</p>
+  </main>
+</body>
+</html>

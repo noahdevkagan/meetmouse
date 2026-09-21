@@ -9,6 +9,27 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Watching the demo no longer blocks the Meetings and Coaching progress buttons; the demo result stays visible until you navigate away
+- Meeting chat keeps relevant details from later in long speaker turns; sharing abuse limits also cover cancelled uploads without blocking existing owners from stopping sharing
+
+- Shared links keep recovery controls through failed uploads, multiple app instances, and local meeting deletion; manage them from Meetings → Shared links
+- Post-meeting notes refresh when AI generation completes, and shared pages match MeetMouse with automatic light/dark appearance
+
+- Shared notes open without an account, with easy forwarding and copyable next steps; recipients can discover MeetMouse after reading
+
+- Share saved meeting notes with an encrypted, expiring web link. Preview the notes, send or copy the link, and stop sharing from the meeting; transcripts and AI chats are excluded
+
+- Meeting chats now save locally and restore when you return. Click a valid answer timestamp to jump to its transcript source
+- Scrolling back through a live transcript pauses auto-scroll; use Back to live to resume following
+
+- Simplified the sidebar with a compact Start button, roomier meeting rows, clearer selection, and a quieter saved confirmation
+
+- Live transcripts have larger text, clearer speaker headings, a pauseable auto-scroll control, and a coaching pane that opens by default during meetings and can be hidden. Hide the slimmer sidebar to focus on the conversation
+
+- Meetings now open into a dedicated AI chat, with suggested questions, follow-ups, copyable answers, and a stop button. Notes, transcripts, and coaching remain one click away
+- A cleaner meetings home replaces the coaching dashboard as the starting view; coaching progress stays available in the sidebar
+- Meeting questions keep the topic of recent follow-ups and more surrounding transcript context, with timestamp citations requested from the local model
+
 - Speaker names no longer carry over from an unconfirmed previous meeting. Saved voices are used only for guests confirmed in this call's setup; other speakers stay neutral until identified
 - Group calls keep each named speaker separate, and unassigned live text no longer inherits the first person's name. Saved voice samples exclude detected overlapping speech
 
