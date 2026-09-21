@@ -1079,12 +1079,42 @@ func runTests() async {
             question: "what about creative testing?", transcriptLines: tLines,
             review: "### Team direction\n- JR owns one lane.")
         check(scopedHit.contains("JR owns one lane")
-              && scopedHit.contains("[00:20]") && !scopedHit.contains("Sounds good"),
-              "session ask keeps notes + matching moments, drops filler")
+              && scopedHit.contains("[00:20]") && scopedHit.contains("Sounds good"),
+              "session ask keeps notes + neighboring context around matching moments")
         let scopedGeneric = MeetingAsk.sessionExcerpts(
             question: "how did it go?", transcriptLines: tLines, review: "")
         check(scopedGeneric.contains("[00:05]"),
               "generic question samples the meeting instead of going empty")
+        let longLines = (0..<100).map { "[\($0):00] Them: Routine update \($0)." }
+        let genericLong = MeetingAsk.sessionExcerpts(question: "summarize", transcriptLines: longLines, review: "")
+        check(genericLong.contains("[0:00]") && genericLong.contains("[99:00]"),
+              "generic session retrieval includes the beginning and final decisions")
+        let withTopic = longLines + ["[100:00] You: The renewal is assigned to Alex."]
+        let followContext = MeetingAsk.sessionExcerpts(question: "who owns it?", transcriptLines: withTopic,
+                                                       review: "", priorQuestions: ["What about the renewal?"])
+        check(followContext.contains("assigned to Alex"), "follow-up retrieval retains the earlier question's subject")
+        let bounded = MeetingAsk.sessionExcerpts(question: "update", transcriptLines: longLines,
+                                                 review: String(repeating: "notes ", count: 500), budget: 150)
+        check(bounded.count <= 150, "session retrieval honors the entire context budget")
+        let longTurn = "[04:12] Them: " + String(repeating: "Background discussion. ", count: 40)
+            + "The launch deadline is October 15."
+        let lateAnswer = MeetingAsk.sessionExcerpts(question: "What is the launch deadline?",
+                                                    transcriptLines: [longTurn], review: "")
+        check(lateAnswer.contains("October 15") && lateAnswer.contains("[04:12] Them:")
+              && lateAnswer.count <= 720,
+              "long-turn retrieval keeps late evidence and its citation within the cap")
+        let unicodeTurn = "[05:00] José: Budget discussion. " + String(repeating: "👩🏽‍💻 café discussion. ", count: 60)
+            + "The budget for launch is €5000."
+        let strongest = MeetingAsk.sessionExcerpts(question: "What is the budget for launch?",
+                                                   transcriptLines: [unicodeTurn], review: "")
+        check(strongest.contains("€5000") && strongest.contains("[05:00] José:"),
+              "long-turn retrieval prefers clustered matches and handles Unicode")
+        let smallWindow = MeetingAsk.sessionExcerpts(question: "launch deadline",
+                                                     transcriptLines: [longTurn], review: "", budget: 150)
+        check(smallWindow.count <= 150 && smallWindow.contains("October 15"),
+              "matching windows preserve evidence with a small context budget")
+        check(MeetingAsk.sessionExcerpts(question: "q", transcriptLines: longLines, review: "notes", budget: 0).isEmpty,
+              "zero context budget produces empty context")
         let (_, followUp) = MeetingAsk.sessionPrompt(
             question: "and the second one?", excerpts: "e",
             history: [(q: "first?", a: "answer one")])
@@ -1092,6 +1122,49 @@ func runTests() async {
               && followUp.contains("Question: and the second one?"),
               "follow-ups carry the prior turn")
     }
+
+    // Durable meeting chats and exact source links.
+    do {
+        let file = scratch.appendingPathComponent("chat-persistence.md")
+        try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+        try "Transcript".write(to: file, atomically: true, encoding: .utf8)
+        let turns = [MeetingChatTurn(q: "Who owns it?", a: "Zoë will send it [00:12].")]
+        check(try MeetingChatStore.load(for: file).isEmpty, "missing chat starts empty")
+        try MeetingChatStore.save(turns, for: file)
+        check(try MeetingChatStore.load(for: file) == turns, "chat round-trips IDs and Unicode answers")
+        let second = scratch.appendingPathComponent("other-meeting.md")
+        check(try MeetingChatStore.load(for: second).isEmpty, "chat stays scoped to its meeting")
+        try "Updated notes".write(to: file, atomically: true, encoding: .utf8)
+        check(try MeetingChatStore.load(for: file) == turns, "rewriting meeting notes preserves chat")
+        try MeetingChatStore.remove(for: file)
+        check(try MeetingChatStore.load(for: file).isEmpty, "clear chat survives reopening")
+        check(FileManager.default.fileExists(atPath: file.path), "clear chat preserves transcript")
+        try "broken JSON".write(to: MeetingChatStore.file(for: file), atomically: true, encoding: .utf8)
+        do {
+            _ = try MeetingChatStore.load(for: file)
+            check(false, "corrupt chat reports an error")
+        } catch { check(true, "corrupt chat reports an error") }
+        try MeetingChatStore.remove(for: file)
+        try FileManager.default.removeItem(at: file)
+        do {
+            try MeetingChatStore.save(turns, for: file)
+            check(false, "deleted meeting cannot recreate a chat")
+        } catch { check(true, "deleted meeting cannot recreate a chat") }
+        let answer = "Zoë 🐭 [0:12], again [00:12], later [1:02:03], unknown [99:59], invalid [01:75]."
+        let refs = MeetingCitations.references(in: answer, stamps: ["00:12", "62:03"])
+        check(refs.map(\.line) == [0, 0, 1], "citations match exact times including hour notation")
+        check(refs.first.map { (answer as NSString).substring(with: $0.range) } == "[0:12]",
+              "citation ranges handle Unicode before timestamps")
+        check(MeetingCitations.references(in: "[04:12]", stamps: ["04:11", "04:13"]).isEmpty,
+              "unmatched citations never jump to a fabricated source")
+        let vm = LiveSessionViewModel()
+        try "Transcript".write(to: file, atomically: true, encoding: .utf8)
+        try MeetingChatStore.save(turns, for: file)
+        vm.savedPath = file.path
+        vm.deleteSession()
+        check(!FileManager.default.fileExists(atPath: MeetingChatStore.file(for: file).path),
+              "deleting a meeting removes its saved chat")
+    } catch { check(false, "chat persistence fixture", error.localizedDescription) }
 
     // 10. Same-person merge still works without treating an unknown call
     //     as one-on-one.

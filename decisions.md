@@ -1346,6 +1346,158 @@ freely and can never remove anything already live. workflow_dispatch is the
 recovery path for an already-pushed tag: it runs the workflow from main, so
 fixes apply without deleting/re-pushing the tag.
 
+
+## 2026-09-17 — Meeting chat is the primary experience; coaching is secondary
+
+Noah explicitly prefers chat over coaching as the main product. Saved meetings
+now open into Chat (search matches still open Transcript), and a meetings home
+replaces the progress dashboard. Progress remains in secondary navigation; the
+existing coaching and local-only inference behavior stays available. The shared
+card style and green palette remain, with simpler typography and a pinned composer.
+
+Reused the existing on-device Q&A rather than adding another provider. Retrieval
+carries recent question subjects into follow-ups, includes neighboring turns, and
+samples through the final turn for broad questions. Prompts require evidence and
+separate proposed follow-ups from explicit commitments. Chat is in-memory for the
+open meeting, as before; it does not modify the saved transcript. Request tasks
+cancel with view identity changes and check cancellation after each suspension so
+late answers cannot appear under a different meeting.
+
+Conductor's installed UI exposes no repository rename command (actions and Git /
+Misc settings checked); its CLI renames workspaces/sessions only. No managed paths
+or internal database records were altered to force a cosmetic rename.
+
+
+## 2026-09-17 — The live transcript owns the window
+
+Following Noah's request to extend the chat-first redesign into meetings, the
+always-visible coach rail becomes an on-demand popover. Live text gets a centered
+reading column with names/times above paragraphs rather than a three-column log.
+Talk-share moves beside coaching; capture warnings remain in the main pane. An
+explicit auto-scroll toggle lets users read earlier turns without new words pulling
+them away. Sidebar visibility is independent of recording, with Stop always in the
+meeting header. Presentation only: coalescing, speaker identity, word correction,
+and capture/coaching engines retain their existing behavior.
+
+
+## 2026-09-20 — Coaching stays open during meetings
+
+Supersedes the on-demand popover decision: Noah checks coaching routinely during
+calls and wants it visible by default. Restore a resizable pane beside the live
+transcript, with talk-share and coaching history. The header toggle can hide it
+for the current meeting; starting another meeting opens it again. Keep the compact
+header above both panes so its controls do not crowd the transcript. Chat remains
+the primary post-meeting experience.
+
+
+## 2026-09-20 — Sidebar navigation uses rows rather than stacked cards
+
+Noah's dark-mode screenshot showed an oversized Start pill, nested boxed sections,
+low-contrast captions, cramped dates, and a saved-file management block competing
+with meeting navigation. Removed the outer sidebar cards, used a compact native
+primary button, enlarged the search field, and stacked dates below meeting titles.
+Selected meetings get a subtle green fill. Saved status is one quiet row; the
+existing dismiss/reveal/delete actions live in its overflow menu. Keep never saved
+anything (the transcript was already saved); Dismiss now names that action honestly.
+
+
+## 2026-09-20 — Meeting chats persist separately; citations require an exact source
+
+Completed Q&A turns now live in an atomically written <meeting-stem>.chat.json
+sidecar beside the transcript. This survives title edits, regenerated notes, and
+reopening without mixing AI answers into source material or search results. Clear
+chat removes only that sidecar (with confirmation), and deleting a session removes
+its chat too. Failed reads report an error instead of silently replacing unreadable
+history; failed writes keep the answer visible and offer retry. Drafts/in-flight
+requests are not persisted.
+
+Bracketed timestamps become links only when their normalized time matches an actual
+transcript row. Clicking opens Transcript, scrolls to that row, and highlights it;
+unmatched model citations remain plain text. Never guess a nearby source.
+
+Live following pauses on native NSScrollView user-scroll notifications when the
+reader leaves the bottom. Content growth and programmatic scrollTo are not treated
+as user intent. Back to live explicitly restores following; the manual toggle
+remains available. Uses AppKit for macOS 14 compatibility.
+
+
+## 2026-09-20 — Restore the existing opt-in sharing loop in the redesigned app
+
+Noah remembered the viral sharing work in the milan workspace and asked to enable
+it here. Ported its encryption, share preview/success sheet, saved owner controls,
+Worker/D1 source, and regression tests without replacing redesigned session views.
+This is the explicitly requested exception to offline-only networking: no background
+upload or meeting sync; users preview and publish one curated notes snapshot.
+Transcript, coaching, audio, and persisted chat are excluded from the wire payload.
+
+Keep the established Cloudflare service/database and rhinovoice.app routes for
+compatibility. Both dev and release default to these HTTPS endpoints, so rebuilding
+does not silently point sharing to a missing localhost server. Recipient source is
+rebranded to MeetMouse with a meetmouse.com discovery CTA; deployment is still needed
+for that source change, since this sandbox has no outbound DNS. Existing live page
+branding may remain Rhino until deployed. No real meeting was uploaded in this task.
+
+
+## 2026-09-20 — Grow through useful, voluntarily forwarded notes
+
+The user asked for maximum respectful virality. Make Send prominent once a user
+creates a link, let recipients copy a complete useful recap or forward the complete
+private link, and place one MeetMouse invitation after the notes. Copied recaps
+include a small attribution that the user can edit in the destination. Preserve
+fragment keys during forwarding; cancelled native shares do not silently copy.
+No forced signup, contact import, automatic sending, tracking, or referral gates.
+Encrypted snapshots, expiry, revocation, and preview remain unchanged. This makes
+recipient value the reason to share, without pressuring senders or recipients.
+
+
+## 2026-09-20 — Durable sharing ownership and consistent recipient appearance
+
+Sharing capabilities are persisted before network I/O and retained on ambiguous
+failures. A stable flock lock file protects reload/mutate/atomic-write transactions
+across installed and dev processes. Records are keyed by share ID, so creating a
+second snapshot never discards the first snapshot's revocation token. Pending
+records do not expire locally until explicitly resolved. A Shared links manager
+on Meetings retains revocation access after local transcript deletion without
+forcing local deletion to require networking.
+
+The Worker keeps empty-ciphertext revocation tombstones until expiry, including for
+unknown IDs: a cancelled in-flight upload cannot arrive late and resurrect a link.
+No new schema or service is needed. Open meeting notes observe the latest session's
+review completion and show its generation state rather than encouraging duplicate
+work. The web viewer now follows system appearance using Dorado light/dark tokens,
+app-sized headings, neutral surfaces, and restrained green accents; no remote fonts.
+
+
+## 2026-09-21 — Isolate dependency Git from the push hook environment
+
+The app build passed in the user's Terminal but the SwiftPM ASR rig could not read
+its pinned FluidAudio tree. That tree exists; inheriting the app's GIT_DIR reproduces
+failed dependency lookup. Clear Git's declared repository-local environment in the
+push gate after entering the workspace, so nested dependency commands discover their
+own repositories. Also retain full Xcode diagnostics and its exit code instead of
+piping the build into grep -q. This preserves the gate rather than skipping tests.
+
+## 2026-09-21 — Bound cancellation storage and retain long-turn evidence
+
+Missing-ID revocations consume the same client-IP quota as share creation because
+both allocate database rows. Existing records remain revocable even when that
+quota is exhausted; owner-token checks still apply. Tombstones continue to block
+late uploads after cancellation.
+
+Long chat excerpts retain their original timestamp/speaker and choose a bounded
+window with the most distinct query matches. This preserves late decisions in
+coalesced turns while keeping the existing 700-character and total-context caps.
+
+## 2026-09-21 — Ended demo yields the main pane to explicit navigation
+
+A finished demo leaves `hasSession` true with no `savedPath`, which pinned the
+main pane to the live view and made the sidebar's Meetings / Coaching progress
+buttons silent no-ops. Rejected excluding demos from that branch outright: the
+"Demo meeting · Ended" header exists to keep the replayed result visible.
+Instead a `leftLiveView` flag records deliberate navigation away and is cleared
+when the next session starts, so the demo result persists until the user leaves
+it on purpose.
+
 ## 2026-09-21 — Explicit BYOK is an optional exception to local inference
 
 The user requested Claude and OpenAI API keys in Settings. Local AI remains the

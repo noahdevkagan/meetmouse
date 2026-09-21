@@ -1,0 +1,43 @@
+name = "meetingcoach-shares"
+main = "src/index.js"
+compatibility_date = "2026-09-15"
+# Production is reachable only through the narrow rhinovoice.app routes below.
+workers_dev = false
+
+[triggers]
+# Expired ciphertext is inaccessible at request time and physically removed
+# by this daily sweep even when nobody opens the old link again.
+crons = ["17 3 * * *"]
+
+# Replace this placeholder with the production D1 database id before deploy.
+# `wrangler dev --local` uses its own local SQLite database and does not need
+# a live Cloudflare account.
+[[d1_databases]]
+binding = "DB"
+database_name = "meetingcoach-shares"
+database_id = "2a547855-1861-44cc-854d-37fa910d3468"
+migrations_dir = "migrations"
+
+[[ratelimits]]
+name = "CREATE_RATE_LIMITER"
+# Unique to this account; Cloudflare uses it only to isolate this counter.
+namespace_id = "684231507"
+
+  [ratelimits.simple]
+  limit = 10
+  period = 60
+
+[[rules]]
+type = "Text"
+globs = ["**/*.html", "**/*.css", "**/*.js.txt"]
+fallthrough = true
+
+# Keep these path-specific so the existing rhinovoice.app Worker continues to
+# own every other page.
+[[routes]]
+pattern = "rhinovoice.app/p/*"
+zone_name = "rhinovoice.app"
+
+[[routes]]
+pattern = "rhinovoice.app/api/shared-notes/*"
+zone_name = "rhinovoice.app"
