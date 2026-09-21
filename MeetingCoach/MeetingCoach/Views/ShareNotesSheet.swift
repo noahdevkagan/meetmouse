@@ -1,18 +1,16 @@
 import AppKit
 import SwiftUI
 
-/// One deliberate checkpoint before any meeting text leaves the Mac.
+/// Opened by the explicit Share notes action; prepares and copies the link immediately.
 /// V1 is intentionally fixed: curated notes only, immutable, 30-day expiry.
 struct ShareNotesSheet: View {
     let sessionURL: URL
-    let title: String
-    let meetingDate: Date
-    let durationMinutes: Int
     let payload: SharedNotePayload
     let onShared: (SharedLinkRecord) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var creating = false
+    @State private var started = false
     @State private var errorMessage: String?
     @State private var createdRecord: SharedLinkRecord?
     @State private var copyConfirmed = false
@@ -25,138 +23,50 @@ struct ShareNotesSheet: View {
                 creationView
             }
         }
-        .frame(width: 580, height: createdRecord == nil ? 680 : 410)
+        .frame(width: 580, height: 410)
         .background(Dorado.surface)
         .interactiveDismissDisabled(creating && createdRecord == nil)
         .animation(.easeInOut(duration: 0.2), value: createdRecord?.shareID)
+        .onAppear {
+            guard !started else { return }
+            started = true
+            createShare()
+        }
     }
 
     private var creationView: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Share meeting notes")
-                        .font(Dorado.barlowXBold(26))
-                        .foregroundStyle(Dorado.midnight)
-                    Text("Creates an encrypted link on rhinovoice.app, hosted by Cloudflare. It expires in 30 days and is copied for you to send.")
-                        .font(Dorado.roboto(13))
-                        .foregroundStyle(Dorado.grey600)
-                }
-                Spacer()
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Dorado.grey500)
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.plain)
-                .help("Cancel")
-                .disabled(creating)
-            }
-            .padding(.init(top: 26, leading: 28, bottom: 20, trailing: 22))
-
-            Divider()
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(payload.title.isEmpty ? "Meeting notes" : payload.title)
-                            .font(Dorado.barlowBold(19))
-                            .foregroundStyle(Dorado.midnight)
-                        Text(metaLine)
-                            .font(Dorado.roboto(12))
-                            .foregroundStyle(Dorado.grey500)
-                    }
-
-                    if !payload.summary.isEmpty {
-                        previewSection("Summary") {
-                            Text(payload.summary)
-                                .font(Dorado.roboto(14))
-                                .foregroundStyle(Dorado.grey800)
-                                .lineSpacing(4)
-                        }
-                    }
-
-                    ForEach(Array(payload.sections.enumerated()), id: \.offset) { _, section in
-                        previewSection(section.heading) {
-                            VStack(alignment: .leading, spacing: 7) {
-                                ForEach(Array(section.bullets.enumerated()), id: \.offset) { _, bullet in
-                                    bulletRow(bullet)
-                                }
-                            }
-                        }
-                    }
-
-                    if !payload.nextSteps.isEmpty {
-                        previewSection("Next steps") {
-                            VStack(alignment: .leading, spacing: 8) {
-                                ForEach(Array(payload.nextSteps.enumerated()), id: \.offset) { _, action in
-                                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                        Image(systemName: action.isDone ? "checkmark.square.fill" : "square")
-                                            .foregroundStyle(action.isDone ? Color.green : Dorado.grey500)
-                                        Text(action.text)
-                                            .font(Dorado.roboto(14))
-                                            .foregroundStyle(Dorado.grey800)
-                                            .strikethrough(action.isDone)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Dorado.dollar)
-                            .padding(.top, 2)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("The transcript stays on this Mac")
-                                .font(Dorado.barlowBold(13))
-                                .foregroundStyle(Dorado.midnight)
-                            Text("Raw transcript, coaching nudges, wins, focus suggestions, and talk-time statistics are not included. Anyone with the complete link can read this snapshot.")
-                                .font(Dorado.roboto(12))
-                                .foregroundStyle(Dorado.grey600)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .padding(14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Dorado.surfaceSubtle)
-                    )
-                }
-                .padding(28)
-            }
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 10) {
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(Dorado.roboto(12))
-                        .foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                HStack {
-                    Button("Cancel") { dismiss() }
+        VStack(spacing: 20) {
+            if let errorMessage {
+                Image(systemName: "exclamationmark.circle")
+                    .font(.system(size: 42))
+                    .foregroundStyle(Dorado.grey600)
+                Text("Couldn’t create private link")
+                    .font(Dorado.barlowXBold(26))
+                    .foregroundStyle(Dorado.midnight)
+                Text(errorMessage)
+                    .font(Dorado.roboto(13))
+                    .foregroundStyle(Dorado.grey600)
+                    .multilineTextAlignment(.center)
+                HStack(spacing: 12) {
+                    Button("Done") { dismiss() }
                         .buttonStyle(DoradoOutlineButtonStyle())
-                        .disabled(creating)
-                    Spacer()
-                    Button {
-                        createShare()
-                    } label: {
-                        HStack(spacing: 8) {
-                            if creating { ProgressView().controlSize(.small) }
-                            Image(systemName: "link")
-                            Text(creating ? "Creating private link…" : "Create private link")
-                        }
-                    }
-                    .buttonStyle(DoradoOutlineButtonStyle())
-                    .disabled(creating)
+                    Button("Try again") { createShare() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Dorado.dollar)
                 }
+            } else {
+                ProgressView()
+                Text("Creating private link…")
+                    .font(Dorado.barlowXBold(26))
+                    .foregroundStyle(Dorado.midnight)
+                Text("Encrypting your summary, topic notes, and next steps. The link will be copied when it’s ready.")
+                    .font(Dorado.roboto(13))
+                    .foregroundStyle(Dorado.grey600)
+                    .multilineTextAlignment(.center)
             }
-            .padding(.init(top: 16, leading: 28, bottom: 22, trailing: 28))
         }
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func successView(_ record: SharedLinkRecord) -> some View {
@@ -243,35 +153,6 @@ struct ShareNotesSheet: View {
         }
     }
 
-    private var metaLine: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        var parts = [formatter.string(from: meetingDate)]
-        if durationMinutes > 0 { parts.append("\(durationMinutes) min") }
-        return parts.joined(separator: " · ")
-    }
-
-    private func previewSection<Content: View>(_ title: String,
-                                               @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
-            Text(title)
-                .font(Dorado.barlowBold(14))
-                .foregroundStyle(Dorado.midnight)
-            content()
-        }
-    }
-
-    private func bulletRow(_ text: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Circle().fill(Dorado.grey400).frame(width: 4, height: 4)
-            Text(text)
-                .font(Dorado.roboto(14))
-                .foregroundStyle(Dorado.grey800)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
     private func expiryText(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -287,9 +168,11 @@ struct ShareNotesSheet: View {
     }
 
     private func createShare() {
+        guard !creating else { return }
         creating = true
         errorMessage = nil
         Task {
+            defer { creating = false }
             do {
                 let service = WebShareService()
                 let record = try await service.create(
@@ -300,7 +183,6 @@ struct ShareNotesSheet: View {
                 createdRecord = record
             } catch {
                 errorMessage = "Couldn’t finish creating the link. Any pending upload is kept in Shared links so you can stop sharing. " + error.localizedDescription
-                creating = false
             }
         }
     }
