@@ -5,6 +5,12 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-21): Merge latest main — in progress
+
+Plan: merge origin/main, reconcile automatic AI-note preparation with main's
+direct-link sharing flow, retain unrelated main updates, run the push gate,
+and commit/push the resolved merge to the existing PR branch.
+
 ## Current state (2026-09-21): One-click share preparation — built
 
 Share notes generates missing AI notes and opens the preview on success, reuses
