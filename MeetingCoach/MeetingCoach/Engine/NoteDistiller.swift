@@ -129,7 +129,7 @@ enum NoteDistiller {
     /// processing plus ~500 tokens of JSON, and nothing blocks on this.
     static func distill(note: String, model: String) async throws -> Extraction {
         let (system, user) = prompt(note: note)
-        let reply = try await OllamaClient(model: model, timeout: 240)
+        let reply = try await AIClient(model: model, timeout: 240)
             .complete(system: system, user: user)
         return parse(reply)
     }

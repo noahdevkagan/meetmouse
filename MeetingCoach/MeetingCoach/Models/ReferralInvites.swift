@@ -22,7 +22,7 @@ enum ReferralInvites {
     /// into Slack, iMessage, or email unedited.
     static var inviteMessage: String {
         """
-        I've been using MeetMouse — an AI meeting coach that runs 100% on your Mac (nothing leaves your machine). It nudges you live when you're rambling, interrupting, or missing a buying signal.
+        I've been using MeetMouse — an AI meeting coach that runs locally by default, with optional Claude or OpenAI. It nudges you live when you're rambling, interrupting, or missing a buying signal.
 
         I get a few free copies to give away and thought of you. Redeem yours free on AppSumo with code \(code): \(redeemURL)
         """

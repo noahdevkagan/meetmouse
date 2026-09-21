@@ -381,6 +381,10 @@ struct LiveTimelineView: View {
                             .background(Color.blue.opacity(0.08))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
+                        if let error = liveSession.reviewAIError {
+                            Label(error, systemImage: "exclamationmark.triangle")
+                                .font(.caption).foregroundStyle(.orange)
+                        }
                         // Review card
                         if let review = liveSession.meetingReview {
                             MeetingReviewView(review: review, recapText: recapText(review)) { id in
@@ -1618,7 +1622,7 @@ struct SidebarView: View {
                                         settings: settings, ollamaManager: ollamaManager)
                         Divider()
                         ModelSection(settings: settings, liveSession: liveSession)
-                        Text("AI nudges and the meeting summary switch on automatically when a model is installed.")
+                        Text(settings.usesCloudAI ? "Cloud AI is enabled for coaching, reviews and questions. Audio stays on this Mac." : "AI nudges and the meeting summary switch on automatically when a model is installed.")
                             .font(.caption2).foregroundStyle(.tertiary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -1970,6 +1974,8 @@ struct ModelSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            SettingsLink { Label("AI provider settings…", systemImage: "gear") }
+                .font(.caption)
             // Transcript-first switch: off means no LLM during live sessions
             // (no preload, no engine launch) — transcript, speaker labels and
             // built-in nudges keep working, and any saved session can still
@@ -1992,7 +1998,11 @@ struct ModelSection: View {
                     }
             }
 
-            if hasModels {
+            if settings.usesCloudAI {
+                Label(settings.aiConfiguration.provider.title, systemImage: "cloud")
+                Text("\(AIProvider.modelTitle(settings.aiConfiguration.model)) · Meeting text is sent to this provider. Manage your key in Settings → AI.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else if hasModels {
                 DisclosureGroup(isExpanded: $isExpanded) {
                     VStack(alignment: .leading, spacing: 8) {
                         Picker("", selection: $settings.selectedModel) {
@@ -2693,30 +2703,17 @@ struct FeedbackSection: View {
     /// never changes what the coach watches silently.
     private func distillNote(text: String, exampleId: UUID) {
         guard !settings.useMock else { return }
-        if settings.hasCheckedModels && settings.ollamaReachable && settings.availableModels.isEmpty { return }
-
-        distillStatus = "Reading your note with the local coach…"
-        if ollamaManager.status == .stopped { ollamaManager.start() }
-        let model = settings.selectedModel
+        distillStatus = "Reading your note with AI…"
+        let model = settings.effectiveModel
 
         Task { @MainActor in
-            if ollamaManager.status != .running {
-                for _ in 1...30 {
-                    try? await Task.sleep(for: .milliseconds(500))
-                    if ollamaManager.status == .running { break }
-                    if case .error = ollamaManager.status { break }
-                }
-            }
-            guard ollamaManager.status == .running else { distillStatus = nil; return }
-            await settings.refreshModels()
-            guard !settings.availableModels.isEmpty else { distillStatus = nil; return }
-
+            guard await settings.prepareAI(ollamaManager: ollamaManager) else { distillStatus = nil; return }
             do {
                 let extraction = try await NoteDistiller.distill(note: text, model: model)
                 applyExtraction(extraction, exampleId: exampleId)
             } catch {
-                mclog("[Distill] failed: \(error.localizedDescription)")
-                distillStatus = nil
+                mclog("[Distill] AI unavailable")
+                distillStatus = "AI could not read this note: \(error.localizedDescription)"
             }
         }
     }
@@ -2794,7 +2791,7 @@ struct WelcomeSheet: View {
                 .frame(width: 72, height: 72)
             Text("Welcome to MeetMouse")
                 .font(.title2.bold())
-            Text("A live transcript and recap for every meeting — zero setup. The coach stays quiet unless something's genuinely worth saying. Everything runs on your Mac; audio never leaves it.")
+            Text("A live transcript and recap for every meeting — zero setup. The coach stays quiet unless something's genuinely worth saying. Transcription runs on your Mac. AI is local by default, with optional Claude or OpenAI in Settings.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: 400)

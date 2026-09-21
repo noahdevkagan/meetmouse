@@ -5,6 +5,27 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-21): Optional cloud AI / BYOK — built
+
+Settings → AI now offers Local / Claude / OpenAI, model selection, device-only
+Keychain keys, synthetic connection test, removal, and explicit text-sharing
+consent plus Save and enable. Local remains default. Shared AIClient routes
+coaching, names, reviews, Ask AI and note interpretation. Cloud sessions bypass
+Ollama downloads/memory/preload/unload; pinned provider references cannot switch
+mid-call, and every cloud completion checks the currently enabled preference.
+Cloud failure leaves local transcription/built-in signals running and shows errors.
+Audio is never uploaded. User explicitly authorized this optional exception to
+the old local-only network rule; AGENTS.md and decisions.md now record it.
+
+Validation: signed Debug xcodebuild passed; 35 provider/Keychain checks (mocked
+HTTP, isolated disposable Keychain service), 154 session checks, 27 nudge checks
+passed. New AI suite is in local and CI gates. Both provider forms inspected in
+the dev app; screenshot `.context/ai-settings.png`. Logs `.context/byok-*.log`.
+No real API key used, no meeting content uploaded; live provider verification
+still needs a user's key via Test connection. No release, push, or deployment.
+Homepage source and in-app privacy wording adjusted; Unreleased changelog added.
+The dev app is open to AI settings with Local still active.
+
 ## Current state: Review fixes — complete (2026-09-21)
 
 Applied both review fixes on the reviewed redesign/sharing baseline (892832b).
