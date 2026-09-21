@@ -5,12 +5,14 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-09-21): Merge release-workflow main update — resolved
+## Current state (2026-09-21): Merge release-workflow main update — validated
 
 Merged latest origin/main's Worker release deployment and release instructions.
 Resolved only benchmark-history conflicts, keeping both branches' records in
 chronological order. JSON validation confirms no record from either branch lost;
-app sources and release workflow match their intended parents. Push gate pending.
+app sources and release workflow match their intended parents. Full push gate
+passed with no scorecard regressions; merge pushed to PR #17. Validation log:
+.context/merge-release-main-push.log.
 The previously validated Share notes implementation remains unchanged.
 
 ## Current state (2026-09-21): Merge latest main — validated
