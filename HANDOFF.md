@@ -5,6 +5,20 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state: Review fixes — complete (2026-09-21)
+
+Applied both review fixes on the reviewed redesign/sharing baseline (892832b).
+Missing-ID revocations share creation's client-IP quota; existing owners can
+still revoke when quota is exhausted. Long chat turns preserve source labels
+and select bounded context around the strongest query matches.
+
+Validation: Debug xcodebuild succeeds; 169 session checks, 23 Swift sharing
+checks, and 13 Node checks pass. New coverage includes allocation denial,
+revocation under exhausted quota, shared client keys, late-turn evidence,
+Unicode, and small context budgets. Logs: .context/{session-fixes,sharing-fixes,
+review-fixes-build}.log. No deployment or replacement of the running app;
+the Worker must be deployed and the new app launched for these fixes to be live.
+
 ## Current state: Push build failure diagnosis — 2026-09-21
 
 User's initial push failed at build; hook discarded Xcode diagnostics. Capture build output

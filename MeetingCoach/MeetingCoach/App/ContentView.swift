@@ -19,6 +19,10 @@ struct ContentView: View {
     /// Session open in the main pane; nil = whatever else is active.
     @State private var selectedSessionURL: URL?
     @State private var showingProgress = false
+    /// The user navigated off an unsaved session's live pane (only an ended
+    /// demo lingers there — a real meeting saves and opens its own detail).
+    /// Cleared when the next session starts.
+    @State private var leftLiveView = false
     @State private var sidebarVisible = true
 
     private var activeSearch: String {
@@ -82,8 +86,8 @@ struct ContentView: View {
                                 searchQuery: $searchQuery,
                                 selectedSession: $selectedSessionURL,
                                 onToggleOverlay: toggleOverlay,
-                                onMeetings: { selectedSessionURL = nil; searchQuery = ""; showingProgress = false },
-                                onProgress: { selectedSessionURL = nil; searchQuery = ""; showingProgress = true })
+                                onMeetings: { selectedSessionURL = nil; searchQuery = ""; showingProgress = false; leftLiveView = true },
+                                onProgress: { selectedSessionURL = nil; searchQuery = ""; showingProgress = true; leftLiveView = true })
                 }
                 .frame(minWidth: 240, idealWidth: 260, maxWidth: 290)
                 .background(Dorado.surfaceSubtle)
@@ -108,7 +112,13 @@ struct ContentView: View {
                         selectedSessionURL = url
                     }
                     .frame(minWidth: 400)
-                } else if liveSession.isLive || (liveSession.hasSession && liveSession.savedPath == nil) {
+                // An ended demo never saves, so its transcript would pin this
+                // branch forever — the sidebar's Meetings / Coaching progress
+                // buttons have nothing else to clear. The result stays up
+                // until the user navigates away on purpose.
+                } else if liveSession.isLive
+                            || (liveSession.hasSession && liveSession.savedPath == nil
+                                && !leftLiveView) {
                     LiveTimelineView(liveSession: liveSession, settings: settings)
                         .frame(minWidth: 400)
                 } else if showingProgress {
@@ -168,6 +178,7 @@ struct ContentView: View {
             // "not this meeting".
             if isLive {
                 selectedSessionURL = nil; searchQuery = ""; showingProgress = false
+                leftLiveView = false
                 overlayDismissed = false; showOverlay()
             } else { hideOverlay() }
         }

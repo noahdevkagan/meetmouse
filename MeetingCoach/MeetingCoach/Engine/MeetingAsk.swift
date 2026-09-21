@@ -200,7 +200,7 @@ enum MeetingAsk {
         var selected: [(Int, String)] = []
         for i in order where remaining > 0 {
             // Bound individual turns so one long monologue cannot consume the context.
-            let line = String(transcriptLines[i].prefix(min(700, remaining)))
+            let line = matchingExcerpt(transcriptLines[i], words: words, limit: min(700, remaining))
             selected.append((i, line))
             remaining -= line.count + 1
         }
@@ -208,6 +208,42 @@ enum MeetingAsk {
             parts.append(label + selected.sorted { $0.0 < $1.0 }.map(\.1).joined(separator: "\n"))
         }
         return String(parts.joined(separator: "\n\n").prefix(budget))
+    }
+
+    /// Preserve the source label and select a window around the strongest match,
+    /// rather than discarding evidence that occurs late in a coalesced turn.
+    private static func matchingExcerpt(_ line: String, words: [String], limit: Int) -> String {
+        guard line.count > limit else { return line }
+        let headerEnd = line.range(of: ": ")?.upperBound ?? line.startIndex
+        let header = String(line[..<headerEnd])
+        let body = String(line[headerEnd...])
+        // Reserve space for ellipses at either end; even tiny budgets stay bounded.
+        let width = limit - header.count - 4
+        guard width > 0 else { return String(line.prefix(limit)) }
+        var starts = Set<Int>([0])
+        for word in words {
+            var searchStart = body.startIndex
+            while let match = body.range(of: word, options: [.caseInsensitive, .diacriticInsensitive],
+                                         range: searchStart..<body.endIndex) {
+                let offset = body.distance(from: body.startIndex, to: match.lowerBound)
+                starts.insert(min(max(0, offset - min(100, width / 4)), max(0, body.count - width)))
+                searchStart = match.upperBound
+            }
+        }
+        var bestStart = 0
+        var bestScore = -1
+        for start in starts.sorted() {
+            let begin = body.index(body.startIndex, offsetBy: start)
+            let window = String(body[begin...].prefix(width))
+            let score = words.filter {
+                window.range(of: $0, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+            }.count
+            if score > bestScore { bestScore = score; bestStart = start }
+        }
+        let begin = body.index(body.startIndex, offsetBy: bestStart)
+        let window = String(body[begin...].prefix(width))
+        return header + (bestStart > 0 ? "… " : "") + window
+            + (bestStart + window.count < body.count ? " …" : "")
     }
 
     /// Prompt for the in-session ask. Prior turns ride along so follow-ups

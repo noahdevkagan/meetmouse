@@ -49,3 +49,37 @@ test('expiry and rate limits are enforced by the handler',async t=>{
   f.env.CREATE_RATE_LIMITER.limit=async()=>({success:false});
   assert.equal((await f.create()).status,429);
 });
+
+test('missing-ID revocation shares creation quota without blocking existing owners', async t => {
+  const f = fixture(t);
+  let calls = 0;
+  f.env.CREATE_RATE_LIMITER.limit = async ({ key }) => {
+    assert.equal(key, 'local-development');
+    calls++;
+    return { success: false };
+  };
+  assert.equal((await f.revoke()).status, 429);
+  assert.equal(f.db.prepare('SELECT count(*) AS n FROM shared_notes').get().n, 0);
+  assert.equal(calls, 1);
+  f.env.CREATE_RATE_LIMITER.limit = async () => ({ success: true });
+  assert.equal((await f.create()).status, 201);
+  f.env.CREATE_RATE_LIMITER.limit = async () => { throw new Error('Existing revocations must not consume quota'); };
+  assert.equal((await f.revoke('wrong-token-with-enough-characters')).status, 403);
+  assert.equal((await f.read()).status, 200);
+  assert.equal((await f.revoke()).status, 204);
+  assert.equal((await f.revoke()).status, 204);
+  assert.equal((await f.read()).status, 404);
+});
+
+test('tombstone allocation uses the same client IP key as creation', async t => {
+  const f = fixture(t);
+  const keys = [];
+  f.env.CREATE_RATE_LIMITER.limit = async ({ key }) => {
+    keys.push(key);
+    return { success: keys.length === 1 };
+  };
+  const headers = { 'cf-connecting-ip': '192.0.2.1', Authorization: 'Bearer ' + token };
+  assert.equal((await f.req('/api/shared-notes/' + id, { method: 'DELETE', headers })).status, 204);
+  assert.equal((await f.req('/api/shared-notes/create', { method: 'POST', headers, body: JSON.stringify(body) })).status, 429);
+  assert.deepEqual(keys, ['192.0.2.1', '192.0.2.1']);
+});

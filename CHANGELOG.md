@@ -9,6 +9,9 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Watching the demo no longer blocks the Meetings and Coaching progress buttons; the demo result stays visible until you navigate away
+- Meeting chat keeps relevant details from later in long speaker turns; sharing abuse limits also cover cancelled uploads without blocking existing owners from stopping sharing
+
 - Shared links keep recovery controls through failed uploads, multiple app instances, and local meeting deletion; manage them from Meetings → Shared links
 - Post-meeting notes refresh when AI generation completes, and shared pages match MeetMouse with automatic light/dark appearance
 
