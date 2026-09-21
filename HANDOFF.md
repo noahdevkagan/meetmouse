@@ -5,12 +5,13 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-09-21): Merge social/site and release main updates — resolved
+## Current state (2026-09-21): Merge social/site and release main updates — validated
 
 Merged origin/main's social-card/site generator updates and strict Worker release
 deployment. Only benchmark histories conflicted; both branches' records are retained
 in date order and validated as JSON. App sources unchanged; incoming site and
-workflow files match main. Push-gate validation pending.
+workflow files match main. Full push gate passed with no scorecard regressions;
+merge pushed to PR #17. Log: .context/merge-social-main-push.log.
 
 ## Current state (2026-09-21): Merge release/site main updates — validated
 
