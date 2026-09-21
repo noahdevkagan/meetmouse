@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Share notes now generates missing AI notes automatically, then creates and copies the private link with visible progress and retryable errors, without an extra confirmation.
+
 ## 0.25.1 — 2026-09-21
 
 - Share notes is one click now: it creates and copies the private link right away and opens the ready-to-send screen, with no preview confirmation in between
