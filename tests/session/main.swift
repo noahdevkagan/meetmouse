@@ -666,6 +666,40 @@ func runTests() async {
         vm.deleteSession()
     }
 
+    // BYOK does not need an installed model, readable memory, or Ollama.
+    do {
+        resetSeams()
+        var preloaded = false
+        var unloaded = false
+        var reviewed: String?
+        LiveSessionViewModel.availableMemoryGB = { nil }
+        LiveSessionViewModel.preloadModel = { _ in preloaded = true; return "must not load" }
+        LiveSessionViewModel.unloadModel = { _ in unloaded = true }
+        LiveSessionViewModel.completeReview = { model, _, _ in reviewed = model; return "SUMMARY\nA cloud recap." }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings()
+        let target = AIConfiguration(provider: .openai, model: "gpt-4.1-mini").modelReference
+        settings.usesCloudAI = true
+        settings.selectedModel = target
+        settings.availableModels = []
+        settings.hasCheckedModels = true
+        settings.ollamaReachable = true
+        let manager = OllamaManager()
+        manager.engineAvailable = false
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == target, "cloud pins without local models or memory")
+        check(!preloaded && manager.status == .stopped, "cloud activation never starts Ollama")
+        AudioCaptureManager.last?.onPartialText?("You", "We agreed to follow up tomorrow.")
+        vm.stopLive()
+        settings.selectedModel = "changed-after-start"
+        vm.generateReview(ollamaManager: manager, settings: settings)
+        try? await Task.sleep(for: .milliseconds(150))
+        check(reviewed == target, "cloud recap keeps session's pinned provider with empty local inventory")
+        check(!unloaded && manager.status == .stopped, "cloud recap never loads or unloads Ollama")
+        vm.deleteSession()
+    }
+
     // A failed preload steps down to the next smaller installed rung instead
     // of giving up — the heuristic is a snapshot, the OOM verdict is the
     // engine's. The step-down happens at session start, never mid-meeting.

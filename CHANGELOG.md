@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Optional Claude and OpenAI API keys in Settings → AI for coaching, reviews and Ask AI. Local remains the default; cloud sharing requires opt-in and keys stay in macOS Keychain.
+
 - Speaker names no longer carry over from an unconfirmed previous meeting. Saved voices are used only for guests confirmed in this call's setup; other speakers stay neutral until identified
 - Group calls keep each named speaker separate, and unassigned live text no longer inherits the first person's name. Saved voice samples exclude detected overlapping speech
 

@@ -240,11 +240,14 @@ struct SessionDetailView: View {
                         .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey400)
                 }
 
+                if let reviewError {
+                    Text(reviewError).font(.caption).foregroundStyle(.red)
+                }
                 if settings != nil, !lines.isEmpty {
                     HStack(spacing: 8) {
                         if regenerating {
                             ProgressView().controlSize(.small)
-                            Text("Writing meeting notes with the local model…")
+                            Text("Writing meeting notes with AI…")
                                 .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey600)
                         } else {
                             Button {
@@ -257,7 +260,7 @@ struct SessionDetailView: View {
                                 }
                             }
                             .buttonStyle(DoradoOutlineButtonStyle())
-                            .help("Rewrites this session's notes with the installed local model — nothing leaves this Mac")
+                            .help("Uses your selected AI provider. Cloud AI sends meeting text to that provider.")
                         }
                     }
                 }
@@ -334,24 +337,14 @@ struct SessionDetailView: View {
     private func runSessionAsk(_ question: String) async {
         guard let settings, let ollamaManager else {
             askThread.append((q: question,
-                              a: "AI answers need a local model — install one in Settings → Model."))
+                              a: "Configure AI in Settings → AI, or install a local model."))
             return
         }
-        askBusy = "Reading this meeting with the local model…"
+        askBusy = "Reading this meeting with AI…"
         defer { askBusy = nil }
 
-        if ollamaManager.status == .stopped { ollamaManager.start() }
-        if ollamaManager.status != .running {
-            for _ in 1...30 {
-                try? await Task.sleep(for: .milliseconds(500))
-                if ollamaManager.status == .running { break }
-                if case .error = ollamaManager.status { break }
-            }
-        }
-        await settings.refreshModels()
-        guard ollamaManager.status == .running, !settings.availableModels.isEmpty else {
-            askThread.append((q: question,
-                              a: "The local model isn't available right now — check Settings → Model."))
+        guard await settings.prepareAI(ollamaManager: ollamaManager) else {
+            askThread.append((q: question, a: "AI is unavailable — check Settings → AI or install a local model."))
             return
         }
 
@@ -363,9 +356,9 @@ struct SessionDetailView: View {
                                                       history: Array(askThread.suffix(3)))
         // Same fast-path sizing as the search-pane ask (4096 matches the
         // in-call phase; 384 covers a 150-word answer).
-        let client = OllamaClient(model: settings.effectiveModel,
+        let client = AIClient(model: settings.effectiveModel,
                                   numCtx: 4096, numPredict: 384)
-        if await !client.runningModels().contains(settings.effectiveModel) {
+        if !settings.usesCloudAI, await !OllamaClient(model: settings.effectiveModel).runningModels().contains(settings.effectiveModel) {
             askBusy = "Loading \(settings.effectiveModel) — the first question pays this once, repeats are much faster…"
         }
         do {
@@ -378,27 +371,23 @@ struct SessionDetailView: View {
                               a: cleaned.isEmpty ? "The model returned nothing — try asking again." : cleaned))
         } catch {
             askThread.append((q: question,
-                              a: "The local model couldn't answer (\(error.localizedDescription))."))
+                              a: "The AI model couldn't answer (\(error.localizedDescription))."))
         }
     }
 
     /// Re-run the LLM review over this saved session's transcript and
     /// persist it into the file's "## Review" section.
+    @State private var reviewError: String?
+
     private func regenerateReview() async {
         guard let settings, let ollamaManager, !lines.isEmpty else { return }
         regenerating = true
         defer { regenerating = false }
-        if ollamaManager.status == .stopped { ollamaManager.start() }
-        if ollamaManager.status != .running {
-            for _ in 1...30 {
-                try? await Task.sleep(for: .milliseconds(500))
-                if ollamaManager.status == .running { break }
-                if case .error = ollamaManager.status { break }
-            }
+        guard await settings.prepareAI(ollamaManager: ollamaManager) else {
+            reviewError = "AI is unavailable — check Settings → AI or install a local model."
+            return
         }
-        guard ollamaManager.status == .running else { return }
-        await settings.refreshModels()
-        guard !settings.availableModels.isEmpty else { return }
+        reviewError = nil
 
         let transcript = lines.map { "\($0.speaker): \($0.text)" }.joined(separator: "\n")
         let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
@@ -407,9 +396,14 @@ struct SessionDetailView: View {
             languageName: languageCode.flatMap {
                 MeetingLanguageSelection.resolvedPersistedCode($0)?.englishName
             })
-        guard let text = try? await OllamaClient(model: settings.effectiveModel,
-                                                 numCtx: 12_288, numPredict: 1500)
-            .complete(system: system, user: user) else { return }
+        let text: String
+        do {
+            text = try await AIClient(model: settings.effectiveModel, numCtx: 12_288, numPredict: 1500)
+                .complete(system: system, user: user)
+        } catch {
+            reviewError = error.localizedDescription
+            return
+        }
         let parsed = MeetingReview.parse(llmText: text, talkShare: talkShareValue)
         review = parsed
         persistReview(parsed)
