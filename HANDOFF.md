@@ -5,16 +5,18 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-09-21): Merge latest main — resolved, validation pending
+## Current state (2026-09-21): Merge latest main — validated
 
 Merged origin/main's direct-link sharing and icon-only settings updates. Share notes
 now generates missing AI notes, then creates/copies the encrypted link directly.
 Existing notes immediately enter link creation; progress/errors and review reuse
 remain. Updated help text, changelog, and decisions to match the combined flow.
 
-Plan: run the push gate, commit/push the resolved merge to the existing PR branch.
-Earlier standalone Debug build and 36 sharing checks passed; merged validation is
-pending. No real meeting uploaded or installed app changed.
+Validation: merged Debug build and full push gate passed, including 36 sharing
+checks; scorecard found no regressions. Log: .context/merge-main-push.log.
+Merge committed and pushed to PR #17; PR description matches the direct-link flow.
+No real meeting uploaded or installed app changed; live AI-to-link verification
+remains outstanding.
 
 ## Current state (2026-09-21): Direct note sharing — built
 
