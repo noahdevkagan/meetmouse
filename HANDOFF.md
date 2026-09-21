@@ -5,6 +5,45 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-21): Merge social/site and release main updates — validated
+
+Merged origin/main's social-card/site generator updates and strict Worker release
+deployment. Only benchmark histories conflicted; both branches' records are retained
+in date order and validated as JSON. App sources unchanged; incoming site and
+workflow files match main. Full push gate passed with no scorecard regressions;
+merge pushed to PR #17. Log: .context/merge-social-main-push.log.
+
+## Current state (2026-09-21): Merge release/site main updates — validated
+
+Merged latest origin/main's homepage restyle, best-effort Worker deployment, and
+released 0.25.1 changelog. Resolved the changelog conflict by preserving released
+notes exactly and retaining automatic AI-note generation under Unreleased.
+App source unchanged. Full push gate passed with no scorecard regressions; merge
+pushed to PR #17. Log: .context/merge-site-main-push.log.
+
+## Current state (2026-09-21): Merge release-workflow main update — validated
+
+Merged latest origin/main's Worker release deployment and release instructions.
+Resolved only benchmark-history conflicts, keeping both branches' records in
+chronological order. JSON validation confirms no record from either branch lost;
+app sources and release workflow match their intended parents. Full push gate
+passed with no scorecard regressions; merge pushed to PR #17. Validation log:
+.context/merge-release-main-push.log.
+The previously validated Share notes implementation remains unchanged.
+
+## Current state (2026-09-21): Merge latest main — validated
+
+Merged origin/main's direct-link sharing and icon-only settings updates. Share notes
+now generates missing AI notes, then creates/copies the encrypted link directly.
+Existing notes immediately enter link creation; progress/errors and review reuse
+remain. Updated help text, changelog, and decisions to match the combined flow.
+
+Validation: merged Debug build and full push gate passed, including 36 sharing
+checks; scorecard found no regressions. Log: .context/merge-main-push.log.
+Merge committed and pushed to PR #17; PR description matches the direct-link flow.
+No real meeting uploaded or installed app changed; live AI-to-link verification
+remains outstanding.
+
 ## Current state (2026-09-21): Direct note sharing — built
 
 Share notes immediately creates/copies the curated encrypted snapshot, then shows

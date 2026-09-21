@@ -56,6 +56,7 @@ struct SessionDetailView: View {
     @State private var askError: String?
     @State private var sharedLink: SharedLinkRecord?
     @State private var showingShareSheet = false
+    @State private var preparingShare = false
     @State private var confirmingStopShare = false
     @State private var revokingShare = false
     @State private var shareError: String?
@@ -137,7 +138,21 @@ struct SessionDetailView: View {
         }
         .onChange(of: tab) { _, _ in load() }
         .onChange(of: reviewRevision) { _, _ in load() }
-        .onChange(of: reviewInProgress) { _, _ in load() }
+        .onChange(of: reviewInProgress) { _, inProgress in
+            load()
+            if preparingShare && !inProgress && !regenerating { prepareShare() }
+        }
+        .task(id: regenTick) {
+            guard regenTick > 0 else { return }
+            await regenerateReview()
+            guard !Task.isCancelled, preparingShare else { return }
+            preparingShare = false
+            if reviewError == nil, review?.hasShareableMeetingNotes == true {
+                showingShareSheet = true
+            } else {
+                shareError = reviewError ?? "AI didn't produce shareable meeting notes. Click Share notes to try again."
+            }
+        }
         .task(id: askTick) {
             guard askTick > 0, let question = pendingAsk else { return }
             await runSessionAsk(question)
@@ -266,19 +281,22 @@ struct SessionDetailView: View {
             .help("Copy, open, or stop sharing the encrypted notes snapshot")
         } else {
             Button {
-                load()
-                if review?.hasShareableMeetingNotes == true { showingShareSheet = true }
-                else { tab = .summary }
+                prepareShare()
             } label: {
                 HStack(spacing: 7) {
-                    Image(systemName: "link")
-                        .font(.system(size: 12)).foregroundStyle(Dorado.grey500)
-                    Text("Share notes")
+                    if preparingShare {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "link")
+                            .font(.system(size: 12)).foregroundStyle(Dorado.grey500)
+                    }
+                    Text(preparingShare ? "Preparing notes…" : "Share notes")
                 }
             }
             .buttonStyle(DoradoOutlineButtonStyle())
+            .disabled(preparingShare)
             .help(review?.hasShareableMeetingNotes != true
-                  ? "Generate AI meeting notes before sharing"
+                  ? "Generate notes with your selected AI provider, then create and copy a private link"
                   : "Create and copy an encrypted 30-day private link")
         }
     }
@@ -376,7 +394,7 @@ struct SessionDetailView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 if review?.hasShareableMeetingNotes != true {
-                    Text("Generate AI meeting notes below to create a shareable link. Your transcript and coaching stay private.")
+                    Text("Click Share notes to generate meeting notes and create your private link. Your transcript and coaching stay private.")
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 if let review {
@@ -399,6 +417,7 @@ struct SessionDetailView: View {
                                 .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey600)
                         } else {
                             Button {
+                                regenerating = true
                                 regenTick += 1
                             } label: {
                                 HStack(spacing: 7) {
@@ -414,13 +433,6 @@ struct SessionDetailView: View {
                 }
             }
             .padding(.init(top: 20, leading: 44, bottom: 20, trailing: 44))
-        }
-        // .task(id:) instead of a hand-rolled Task: its closure is
-        // @MainActor @Sendable on every SDK (the Xcode 16.2 strict-
-        // concurrency lesson from v0.11.1).
-        .task(id: regenTick) {
-            guard regenTick > 0 else { return }
-            await regenerateReview()
         }
     }
 
@@ -666,14 +678,39 @@ struct SessionDetailView: View {
     /// persist it into the file's "## Review" section.
     @State private var reviewError: String?
 
-    private func regenerateReview() async {
-        guard let settings, let ollamaManager, !lines.isEmpty else { return }
+    /// The explicit Share notes action prepares missing notes, then opens link creation.
+    private func prepareShare() {
+        load()
+        if review?.hasShareableMeetingNotes == true {
+            preparingShare = false
+            showingShareSheet = true
+            return
+        }
+        preparingShare = true
+        if regenerating || reviewInProgress { return }
+        guard settings != nil, ollamaManager != nil, !lines.isEmpty else {
+            preparingShare = false
+            shareError = lines.isEmpty
+                ? "This meeting has no transcript to generate notes from."
+                : "AI is unavailable. Check Settings → AI, then click Share notes again."
+            return
+        }
         regenerating = true
+        regenTick += 1
+    }
+
+    private func regenerateReview() async {
         defer { regenerating = false }
+        guard let settings, let ollamaManager, !lines.isEmpty else {
+            reviewError = "AI is unavailable or this meeting has no transcript."
+            return
+        }
+        regenerating = true
         guard await settings.prepareAI(ollamaManager: ollamaManager) else {
             reviewError = "AI is unavailable — check Settings → AI or install a local model."
             return
         }
+        guard !Task.isCancelled else { return }
         reviewError = nil
 
         let transcript = lines.map { "\($0.speaker): \($0.text)" }.joined(separator: "\n")
@@ -691,6 +728,7 @@ struct SessionDetailView: View {
             reviewError = error.localizedDescription
             return
         }
+        guard !Task.isCancelled else { return }
         let parsed = MeetingReview.parse(llmText: text, talkShare: talkShareValue)
         review = parsed
         persistReview(parsed)
