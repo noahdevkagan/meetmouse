@@ -52,3 +52,6 @@ tests/language/.build/
 .wrangler/
 tests/session/.build
 tests/granola/.build/
+
+# Encrypted-sharing regression binaries
+tests/sharing/.build/

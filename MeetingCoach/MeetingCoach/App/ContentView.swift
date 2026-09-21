@@ -18,6 +18,8 @@ struct ContentView: View {
     @State private var searchQuery = ""
     /// Session open in the main pane; nil = whatever else is active.
     @State private var selectedSessionURL: URL?
+    @State private var showingProgress = false
+    @State private var sidebarVisible = true
 
     private var activeSearch: String {
         let q = searchQuery.trimmingCharacters(in: .whitespaces)
@@ -43,6 +45,17 @@ struct ContentView: View {
                 }
                 Spacer()
             }
+            .overlay(alignment: .leading) {
+                Button { sidebarVisible.toggle() } label: {
+                    Image(systemName: "sidebar.left")
+                        .font(.system(size: 15)).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, 82)
+                .help(sidebarVisible ? "Hide sidebar" : "Show sidebar")
+                .accessibilityLabel(sidebarVisible ? "Hide sidebar" : "Show sidebar")
+                .keyboardShortcut("s", modifiers: [.command, .control])
+            }
             .overlay(alignment: .trailing) {
                 Button { openSettings() } label: {
                     Image(systemName: "gearshape.fill")
@@ -60,28 +73,33 @@ struct ContentView: View {
             .frame(height: 46)
             .background(Dorado.surface)
 
-            // Noah's call (2026-08-04): Dorado paint, 0.12.0 bones — the
-            // pre-redesign sidebar and main-pane flow stay exactly as they
-            // were; only colors/type/buttons carry the design language.
+            // The transcript/chat owns the window; navigation can tuck away.
             HSplitView {
+                if sidebarVisible {
                 VStack(spacing: 0) {
                     SidebarView(settings: settings,
                                 liveSession: liveSession, ollamaManager: ollamaManager,
                                 searchQuery: $searchQuery,
                                 selectedSession: $selectedSessionURL,
-                                onToggleOverlay: toggleOverlay)
+                                onToggleOverlay: toggleOverlay,
+                                onMeetings: { selectedSessionURL = nil; searchQuery = ""; showingProgress = false },
+                                onProgress: { selectedSessionURL = nil; searchQuery = ""; showingProgress = true })
                 }
-                .frame(minWidth: 280, idealWidth: 300, maxWidth: 340)
-                .background(Dorado.surface)
+                .frame(minWidth: 240, idealWidth: 260, maxWidth: 290)
+                .background(Dorado.surfaceSubtle)
+                }
 
                 // Main content — an opened session wins (closing returns
                 // you), then search (clearing the box returns you), then
                 // live session or progress
                 if let sessionURL = selectedSessionURL {
                     SessionDetailView(url: sessionURL, highlightQuery: activeSearch,
-                                      settings: settings, ollamaManager: ollamaManager) {
+                                      settings: settings, ollamaManager: ollamaManager,
+                                      reviewRevision: sessionURL.path == liveSession.savedPath ? liveSession.meetingReview : nil,
+                                      reviewInProgress: sessionURL.path == liveSession.savedPath && liveSession.isGeneratingSummary) {
                         selectedSessionURL = nil
                     }
+                    .id(sessionURL)
                     .frame(minWidth: 400)
                 } else if !activeSearch.isEmpty {
                     SearchResultsView(query: activeSearch,
@@ -90,11 +108,16 @@ struct ContentView: View {
                         selectedSessionURL = url
                     }
                     .frame(minWidth: 400)
-                } else if liveSession.isLive || liveSession.hasSession {
+                } else if liveSession.isLive || (liveSession.hasSession && liveSession.savedPath == nil) {
                     LiveTimelineView(liveSession: liveSession, settings: settings)
                         .frame(minWidth: 400)
-                } else {
+                } else if showingProgress {
                     ProgressDashboardView(liveSession: liveSession, settings: settings)
+                        .frame(minWidth: 400)
+                } else {
+                    MeetingsHomeView(refreshKey: liveSession.savedPath,
+                                     onOpen: { selectedSessionURL = $0 },
+                                     onSearch: { searchQuery = $0 })
                         .frame(minWidth: 400)
                 }
             }
@@ -143,7 +166,10 @@ struct ContentView: View {
         .onChange(of: liveSession.isLive) { _, isLive in
             // A new session gets a fresh overlay — a close only ever means
             // "not this meeting".
-            if isLive { overlayDismissed = false; showOverlay() } else { hideOverlay() }
+            if isLive {
+                selectedSessionURL = nil; searchQuery = ""; showingProgress = false
+                overlayDismissed = false; showOverlay()
+            } else { hideOverlay() }
         }
         .onChange(of: settings.showCoachOverlay) { _, on in
             if !on { hideOverlay() } else if liveSession.isLive { showOverlay() }
@@ -155,6 +181,9 @@ struct ContentView: View {
         // key still says "first session" — it also grandfathers everyone
         // who already saw the prompt under the old first-meeting rule.)
         .onChange(of: liveSession.showPostSession) { _, shown in
+            if shown, let path = liveSession.savedPath {
+                selectedSessionURL = URL(fileURLWithPath: path)
+            }
             guard shown,
                   !ReferralInvites.firstSessionPromptShown,
                   ReferralInvites.completedMeetingCount >= 2 else { return }
@@ -165,6 +194,9 @@ struct ContentView: View {
             GiveMeetMouseView(asSheet: true)
         }
         // Typing a new search closes an open session so results show.
+        .onChange(of: liveSession.savedPath) { old, new in
+            if new == nil, let old, selectedSessionURL?.path == old { selectedSessionURL = nil }
+        }
         .onChange(of: searchQuery) { _, _ in
             selectedSessionURL = nil
         }
@@ -230,23 +262,70 @@ struct LiveTimelineView: View {
     // For the basic-mode banner's fallback-model download.
     @Bindable var settings: SettingsViewModel
 
-    var body: some View {
-        HSplitView {
-            // Left, dominant: the live transcript — the product.
-            transcriptPanel
-                .frame(minWidth: 380)
+    @State private var showCoach = true
+    @State private var followLive = true
 
-            // Right: the coach rail. Quiet by design — a few high-bar
-            // nudges, not a feed to monitor. Freely resizable: the old
-            // 340pt cap made the split divider stop dead while the review
-            // card stayed cramped. The 280 floor is the nudge card's real
-            // minimum (timestamp gutter + fixed-size badge) — any narrower
-            // and the whole rail's content overflows and clips.
-            nudgesPanel
-                .frame(minWidth: 280, idealWidth: 300, maxWidth: 560)
+    var body: some View {
+        VStack(spacing: 0) {
+            meetingHeader
+            HSplitView {
+                transcriptPanel
+                    .frame(minWidth: 360)
+                if showCoach {
+                    VStack(spacing: 0) {
+                        AmbientStatsStrip(liveSession: liveSession).padding(12)
+                        nudgesPanel
+                    }
+                    .frame(minWidth: 300, idealWidth: 320, maxWidth: 440)
+                }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(MCTheme.canvas)
+        .background(Dorado.surface)
+        .onChange(of: liveSession.isLive) { _, isLive in
+            // Each meeting starts with the coach available for routine glances.
+            if isLive { showCoach = true }
+        }
+    }
+
+    private var meetingHeader: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(liveSession.isDemo ? "Demo meeting" : (liveSession.isLive ? "This meeting" : "Meeting transcript"))
+                    .font(.system(size: 24, weight: .semibold))
+                HStack(spacing: 7) {
+                    Circle().fill(liveSession.isLive ? Dorado.dollar : Dorado.grey500)
+                        .frame(width: 6, height: 6)
+                    Text(liveSession.isLive ? "Listening" : "Ended")
+                    Text("·")
+                    Text(liveSession.elapsedFormatted).monospacedDigit()
+                    Text(liveSession.isDemo ? "· Sample transcript" : "· On this Mac")
+                }
+                .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            Toggle(isOn: $followLive) {
+                Image(systemName: "arrow.down.to.line")
+            }
+            .toggleStyle(.button)
+            .help(followLive ? "Auto-scroll on — turn off to read earlier turns" : "Resume auto-scroll")
+            .accessibilityLabel("Auto-scroll transcript")
+            Button { showCoach.toggle() } label: {
+                Image(systemName: "sparkles")
+            }
+            .buttonStyle(.bordered)
+            .help(showCoach ? "Hide coaching and talk time" : "Show coaching and talk time")
+            .accessibilityLabel(showCoach ? "Hide coaching" : "Show coaching")
+            if liveSession.isLive {
+                Button { liveSession.stopLive() } label: {
+                    Image(systemName: "stop.fill")
+                }
+                .buttonStyle(.bordered).tint(.red)
+                .help(liveSession.isDemo ? "Stop demo" : "End meeting")
+                .accessibilityLabel(liveSession.isDemo ? "Stop demo" : "End meeting")
+            }
+        }
+        .padding(.horizontal, 28).padding(.top, 24).padding(.bottom, 16)
     }
 
     private var nudgesPanel: some View {
@@ -558,7 +637,7 @@ struct LiveTimelineView: View {
             // never a judgment (no warning colors here; the overlay keeps
             // its own cue). Isolated in a child view so per-second clock
             // ticks and talkStats mutations re-render only this strip.
-            AmbientStatsStrip(liveSession: liveSession)
+            // Talk-share stats live with the optional coach.
 
             // Pre-loaded questions as a live checklist, ticking off as the
             // transcript covers them.
@@ -566,10 +645,9 @@ struct LiveTimelineView: View {
                 PlannedQuestionsCard(liveSession: liveSession)
             }
 
-            LiveTranscriptPane(liveSession: liveSession)
+            LiveTranscriptPane(liveSession: liveSession, followLive: $followLive)
         }
-        .padding(12)
-        .background(MCTheme.canvas)
+        .background(Dorado.surface)
     }
 
     private func recapText(_ review: MeetingReview) -> String {
@@ -866,9 +944,9 @@ private struct TranscriptTurnRow: View, Equatable {
     }
 
     var body: some View {
-        // Columnar: speaker | time | text — reads like a chat log, scans by
-        // color down the speaker gutter.
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
+        // Speaker and time sit above the text, leaving a full reading column.
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
             speakerLabel
                 .popover(isPresented: $showRenamePopover, arrowEdge: .bottom) {
                     renamePopover
@@ -876,16 +954,17 @@ private struct TranscriptTurnRow: View, Equatable {
             Text(turn.formattedTime)
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.tertiary)
-                .frame(width: 40, alignment: .leading)
+            Spacer(minLength: 0)
+            }
             // Long unattributed turns (mic-only mode) read as a wall —
             // break into paragraphs for display only; signal analysis
             // still sees one turn.
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(Array(paragraphs(turn.text).enumerated()), id: \.offset) { _, para in
                     Text(onFixTerm != nil ? Self.clickableWords(para) : AttributedString(para))
-                        .font(Dorado.roboto(14))
+                        .font(.system(size: 15))
                         .foregroundStyle(Dorado.grey800)
-                        .lineSpacing(4)
+                        .lineSpacing(6)
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1059,6 +1138,7 @@ private struct NameSuggestionBar: View {
 
 private struct LiveTranscriptPane: View {
     var liveSession: LiveSessionViewModel
+    @Binding var followLive: Bool
     /// One-time hint that speaker labels are editable — set here on
     /// dismiss, and by the view model on the first successful rename.
     @AppStorage("hasSeenSpeakerNamingHint") private var hasSeenNamingHint = false
@@ -1088,7 +1168,7 @@ private struct LiveTranscriptPane: View {
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .cardStyle()
+            .background(Dorado.surface)
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
@@ -1136,42 +1216,121 @@ private struct LiveTranscriptPane: View {
                                     liveSession.fixMisheardTerm(wrote: wrote, canonical: shouldBe)
                                 })
                                 .equatable()
-                                .padding(.horizontal, 14).padding(.vertical, 9)
-                            Divider().opacity(0.35).padding(.leading, 14)
+                                .padding(.vertical, 14)
                         }
                         // Live pending line(s): what the recognizer hears right
                         // now, before it's committed as a turn — dictation feel.
                         ForEach(pendingLines, id: \.speaker) { line in
                             let pendingName = liveSession.displaySpeaker(line.speaker)
-                            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 8) {
                                 Text(line.speaker == "Meeting" ? "" : pendingName)
                                     .font(.caption.bold())
                                     .foregroundStyle(speakerColor(pendingName).opacity(0.6))
                                     .frame(minWidth: 42, alignment: .leading)
                                 Text(line.text)
-                                    .font(.callout.italic())
+                                    .font(.system(size: 15))
+                                    .lineSpacing(6)
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
-                                Spacer(minLength: 0)
                             }
-                            .padding(.horizontal, 14).padding(.vertical, 9)
+                            .padding(.vertical, 14)
                         }
                         Color.clear.frame(height: 1).id("transcript-bottom")
                     }
-                    .padding(.vertical, 4)
+                    .frame(maxWidth: 760, alignment: .leading)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 28).padding(.vertical, 8)
+                    .background(LiveScrollObserver {
+                        followLive = false
+                    })
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .cardStyle()
+                .background(Dorado.surface)
+                .overlay(alignment: .bottom) {
+                    if !followLive {
+                        Button {
+                            followLive = true
+                            proxy.scrollTo("transcript-bottom", anchor: .bottom)
+                        } label: {
+                            Label(liveSession.isLive ? "Back to live" : "Latest turn", systemImage: "arrow.down")
+                                .font(.system(size: 13, weight: .semibold))
+                                .padding(.horizontal, 14).padding(.vertical, 9)
+                                .cardStyle(cornerRadius: 16)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.bottom, 12)
+                    }
+                }
+                .onAppear {
+                    if followLive { proxy.scrollTo("transcript-bottom", anchor: .bottom) }
+                }
+                .onChange(of: followLive) { _, follow in
+                    if follow { proxy.scrollTo("transcript-bottom", anchor: .bottom) }
+                }
                 .onChange(of: liveSession.turns.count) { _, _ in
-                    proxy.scrollTo("transcript-bottom", anchor: .bottom)
+                    if followLive { proxy.scrollTo("transcript-bottom", anchor: .bottom) }
                 }
                 .onChange(of: liveSession.turns.last?.text) { _, _ in
-                    proxy.scrollTo("transcript-bottom", anchor: .bottom)
+                    if followLive { proxy.scrollTo("transcript-bottom", anchor: .bottom) }
                 }
                 .onChange(of: pendingLines.first?.text) { _, _ in
-                    proxy.scrollTo("transcript-bottom", anchor: .bottom)
+                    if followLive { proxy.scrollTo("transcript-bottom", anchor: .bottom) }
                 }
             }
+        }
+    }
+}
+
+/// Listen only to native user scrolling. Content growth and scrollTo calls must
+/// not pause following; geometry-only observers cannot distinguish those cases.
+private struct LiveScrollObserver: NSViewRepresentable {
+    var onReadHistory: () -> Void
+
+    func makeNSView(context: Context) -> TrackingView {
+        let view = TrackingView()
+        view.onReadHistory = onReadHistory
+        return view
+    }
+
+    func updateNSView(_ view: TrackingView, context: Context) {
+        view.onReadHistory = onReadHistory
+    }
+
+    static func dismantleNSView(_ view: TrackingView, coordinator: ()) {
+        view.stopObserving()
+    }
+
+    final class TrackingView: NSView {
+        var onReadHistory: (() -> Void)?
+        private weak var observed: NSScrollView?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window == nil { stopObserving(); return }
+            // SwiftUI attaches this background before installing the scroll ancestor.
+            DispatchQueue.main.async { [weak self] in self?.observeScrollView() }
+        }
+
+        private func observeScrollView() {
+            guard window != nil, let scroll = enclosingScrollView, observed !== scroll else { return }
+            stopObserving()
+            observed = scroll
+            NotificationCenter.default.addObserver(self, selector: #selector(userScrolled),
+                name: NSScrollView.didLiveScrollNotification, object: scroll)
+        }
+
+        func stopObserving() {
+            NotificationCenter.default.removeObserver(self)
+            observed = nil
+        }
+
+        @objc private func userScrolled(_ notification: Notification) {
+            guard let scroll = observed, let document = scroll.documentView else { return }
+            let visible = scroll.documentVisibleRect
+            let distance = document.isFlipped
+                ? document.bounds.maxY - visible.maxY
+                : visible.minY - document.bounds.minY
+            if distance > 8 { onReadHistory?() }
         }
     }
 }
@@ -1393,15 +1552,21 @@ struct SidebarView: View {
     @Binding var searchQuery: String
     @Binding var selectedSession: URL?
     var onToggleOverlay: () -> Void
-    // Open by default (the section shrank in the zero-config pivot); a
-    // user's collapse sticks across launches. Sub-sections inside keep
-    // their own collapsed-by-default state.
-    @AppStorage("sidebarAdvancedExpanded") private var showAdvanced = true
+    var onMeetings: () -> Void
+    var onProgress: () -> Void
+    // Configuration stays secondary; the user's disclosure preference persists.
+    @AppStorage("sidebarAdvancedExpanded") private var showAdvanced = false
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+                    Button(action: onMeetings) {
+                        Label("Meetings", systemImage: "bubble.left.and.text.bubble.right")
+                            .font(.system(size: 15, weight: .semibold))
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(10)
+                    }
+                    .buttonStyle(.plain)
                     // Engine auto-starts when Go Live / review needs it,
                     // so only surface transient or error states here
                     switch ollamaManager.status {
@@ -1411,16 +1576,12 @@ struct SidebarView: View {
                         OllamaStatusBar(manager: ollamaManager)
                     }
 
-                    // Live coaching — the main feature. Everything else is
-                    // configuration, and configuration lives behind the
-                    // Advanced door pinned at the bottom: nobody has to
-                    // think before Go Live.
+                    // A compact primary action above the meeting library.
                     LiveSection(liveSession: liveSession,
                                 settings: settings,
                                 onToggleOverlay: onToggleOverlay,
                                 ollamaManager: ollamaManager)
-                        .padding(12)
-                        .cardStyle()
+                        .padding(.horizontal, 8)
 
                     SessionsSection(searchQuery: $searchQuery,
                                 selectedSession: $selectedSession,
@@ -1431,8 +1592,14 @@ struct SidebarView: View {
             .background(MCTheme.canvas)
 
             Divider()
+            Button(action: onProgress) {
+                Label("Coaching progress", systemImage: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 13)).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(14)
+            }
+            .buttonStyle(.plain)
             DisclosureGroup(isExpanded: $showAdvanced) {
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 14) {
                         PlannedQuestionsSection()
                         Divider()
@@ -1512,14 +1679,26 @@ private struct SessionsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("SESSIONS")
-                .font(.caption2.weight(.semibold))
-                .kerning(1.0)
-                .foregroundStyle(.tertiary)
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("Search or ask…", text: $searchQuery)
+                    .textFieldStyle(.plain)
+                if !searchQuery.isEmpty {
+                    Button { searchQuery = "" } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain).accessibilityLabel("Clear search")
+                }
+            }
+            .font(.system(size: 13))
+            .padding(.horizontal, 12).padding(.vertical, 10)
+            .cardStyle(cornerRadius: 8)
+            .padding(.bottom, 12)
 
-            TextField("Search chats…", text: $searchQuery)
-                .textFieldStyle(.roundedBorder)
-                .controlSize(.small)
+            Text("Recent meetings")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8).padding(.bottom, 2)
 
             if liveSession.isLive {
                 HStack {
@@ -1535,18 +1714,23 @@ private struct SessionsSection: View {
                     // away (context menu) for people who want the editor.
                     selectedSession = item.url
                 } label: {
-                    HStack {
-                        Text(item.title)
-                            .font(.caption).foregroundStyle(.primary).lineLimit(1)
-                        Spacer()
-                        if let date = TranscriptSearch.shortDate(for: item.url) {
-                            Text(date)
-                                .font(.caption2).foregroundStyle(.tertiary)
-                                .fixedSize()
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.title)
+                                .font(.system(size: 13, weight: selectedSession == item.url ? .semibold : .regular))
+                                .foregroundStyle(.primary).lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                            if let date = TranscriptSearch.shortDate(for: item.url) {
+                                Text(date)
+                                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                            }
                         }
-                        Image(systemName: "arrow.up.right")
-                            .font(.caption2).foregroundStyle(.tertiary)
+                        Spacer(minLength: 0)
                     }
+                    .padding(.horizontal, 10).padding(.vertical, 9)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(selectedSession == item.url ? Dorado.doradoTint : Color.clear,
+                                in: RoundedRectangle(cornerRadius: 8))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -1570,17 +1754,17 @@ private struct SessionsSection: View {
                 } label: {
                     HStack(spacing: 5) {
                         Text(showAll ? "Show recent" : "See all \(recent.count)")
-                            .font(Dorado.roboto(12, .medium))
+                            .font(.system(size: 12, weight: .medium))
                         Image(systemName: "chevron.down")
                             .font(.system(size: 9, weight: .semibold))
                             .rotationEffect(.degrees(showAll ? 180 : 0))
                         Spacer()
                     }
-                    .foregroundStyle(Dorado.grey500)
+                    .foregroundStyle(.secondary)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .padding(.top, 2)
+                .padding(.horizontal, 10).padding(.top, 8)
             }
 
             if recent.isEmpty && !liveSession.isLive {
@@ -1588,8 +1772,7 @@ private struct SessionsSection: View {
                     .font(.caption2).foregroundStyle(.tertiary)
             }
         }
-        .padding(12)
-        .cardStyle()
+        .padding(.horizontal, 6)
         // Refresh when a session ends and saves.
         .task(id: liveSession.hasSession && !liveSession.isLive) {
             reloadRecent()
@@ -2260,11 +2443,16 @@ struct LiveSection: View {
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "antenna.radiowaves.left.and.right")
-                            .font(.system(size: 14, weight: .bold))
-                        Text("Go live")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Start meeting")
                     }
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 3)
                 }
-                .buttonStyle(DoradoPillButtonStyle())
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .tint(Dorado.dollar)
                 .help("Listens to your meeting audio and coaches you in real time. Instant nudges (talk time, interruptions, unanswered questions) are always on.")
                 .sheet(isPresented: $liveSession.showPreCallForm) {
                     PreCallFormView(context: $liveSession.preCallContext) {
@@ -2282,45 +2470,44 @@ struct LiveSection: View {
                 // No goal step, no AI-nudges toggle: the app decides. Goal
                 // setup lives under Advanced; the semantic coach runs
                 // automatically whenever a local model is installed.
-                Text("Transcript saves automatically.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                if !liveSession.showPostSession {
+                    Text("Saves automatically on this Mac")
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
             }
 
             // Post-session: save/delete + review
             if !liveSession.isLive && liveSession.hasSession {
-                Divider()
-
                 if liveSession.showPostSession {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if let path = liveSession.savedPath {
-                            HStack(spacing: 6) {
-                                Image(systemName: "checkmark.circle.fill").foregroundStyle(Dorado.dollar)
-                                Text("Saved").font(.caption.bold())
-                            }
-                            Text(path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                                .font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                    HStack(spacing: 6) {
+                        if liveSession.savedPath != nil {
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(Dorado.dollar)
+                            Text("Meeting saved").foregroundStyle(.secondary)
+                        } else {
+                            Text("Meeting ended").foregroundStyle(.secondary)
                         }
-
-                        HStack(spacing: 8) {
-                            Button {
-                                liveSession.dismissPostSession()
-                            } label: {
-                                Label("Keep", systemImage: "checkmark")
-                                    .frame(maxWidth: .infinity)
+                        Spacer()
+                        Menu {
+                            Button("Dismiss") { liveSession.dismissPostSession() }
+                            if let path = liveSession.savedPath {
+                                Button("Show in Finder") {
+                                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+                                }
                             }
-                            .buttonStyle(.bordered)
-
-                            Button {
-                                liveSession.deleteSession()
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(.red)
+                            Divider()
+                            Button("Delete meeting", role: .destructive) { liveSession.deleteSession() }
+                                .help("Deletes the local meeting. Shared links remain manageable from Meetings → Shared links.")
+                        } label: {
+                            Image(systemName: "ellipsis")
                         }
+                        .menuStyle(.borderlessButton)
+                        .menuIndicator(.hidden)
+                        .fixedSize()
+                        .accessibilityLabel("Saved meeting actions")
                     }
+                    .font(.system(size: 12))
+                    .padding(.horizontal, 4).padding(.top, 2)
                 }
 
                 if liveSession.isGeneratingSummary {
