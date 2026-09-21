@@ -881,6 +881,7 @@ final class LiveSessionViewModel {
             try? FileManager.default.removeItem(
                 at: URL(fileURLWithPath: path).deletingPathExtension()
                     .appendingPathExtension("json"))
+            try? MeetingChatStore.remove(for: URL(fileURLWithPath: path))
             savedPath = nil
         }
         resetSessionState()

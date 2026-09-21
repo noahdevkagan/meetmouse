@@ -16,6 +16,15 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# Push hooks inherit repository-local Git variables (notably GIT_DIR).
+# SwiftPM invokes Git inside dependency checkouts; those variables can make it
+# look for a dependency's pinned revision in the app repository instead.
+# Resolve the worktree above, then let each nested Git command find its own repo.
+while IFS= read -r git_local_variable; do
+    unset "$git_local_variable"
+done < <(git rev-parse --local-env-vars)
+
+
 # A benchmark-record commit touches only the bench history files.
 # Re-running the gate on it appends yet more lines, so the tree never
 # comes clean.
@@ -55,11 +64,23 @@ if command -v xcodegen >/dev/null 2>&1; then
 else
     echo "(xcodegen not installed — building with the existing project)"
 fi
-if ! xcodebuild -project MeetingCoach/MeetingCoach.xcodeproj -scheme MeetingCoach \
-     -configuration Debug -derivedDataPath MeetingCoach/build build 2>&1 \
-     | grep -q "BUILD SUCCEEDED"; then
-    echo "BUILD FAILED — rerun xcodebuild for details"
-    exit 1
+# Keep Xcode's actual status and diagnostics. A grep-only pipe hid the reason
+# for failures and could mistake a closed output pipe for a failed build.
+mkdir -p .context
+build_log="$PWD/.context/push-gate-build.log"
+if xcodebuild -project MeetingCoach/MeetingCoach.xcodeproj -scheme MeetingCoach \
+     -configuration Debug -derivedDataPath MeetingCoach/build build > "$build_log" 2>&1; then
+    if ! grep -q "BUILD SUCCEEDED" "$build_log"; then
+        echo "BUILD FAILED — success marker missing. Log: $build_log"
+        tail -60 "$build_log"
+        exit 1
+    fi
+else
+    build_status=$?
+    echo "BUILD FAILED (exit $build_status). Log: $build_log"
+    grep -n -A3 -B2 -E '(error|fatal error):' "$build_log" | head -100 || true
+    tail -30 "$build_log"
+    exit "$build_status"
 fi
 echo "build: PASS"
 
@@ -102,6 +123,7 @@ bash tests/ai/run.sh || { echo "AI PROVIDER GATE FAILED"; exit 1; }
 bash tests/session/run.sh || { echo "SESSION GATE FAILED"; exit 1; }
 bash tests/demo/run.sh || { echo "DEMO GATE FAILED"; exit 1; }
 bash tests/granola/run.sh || { echo "GRANOLA GATE FAILED"; exit 1; }
+bash tests/sharing/run.sh || { echo "WEB SHARING GATE FAILED"; exit 1; }
 
 echo "--- [4/4] ship scorecard (informational)"
 # Refresh the nudge-signal record from real saved sessions when this

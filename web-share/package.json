@@ -1,0 +1,16 @@
+{
+  "name": "meetingcoach-web-share",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.13.0" },
+  "scripts": {
+    "db:local": "wrangler d1 migrations apply meetingcoach-shares --local",
+    "db:remote": "wrangler d1 migrations apply meetingcoach-shares --remote",
+    "dev": "wrangler dev --local --port 8787",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.32.0"
+  }
+}
