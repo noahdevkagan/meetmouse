@@ -15,11 +15,14 @@ struct SessionDetailView: View {
     /// model was installed.
     var settings: SettingsViewModel?
     var ollamaManager: OllamaManager?
+    var reviewRevision: MeetingReview? = nil
+    var reviewInProgress = false
     let onClose: () -> Void
 
     enum Tab: String, CaseIterable {
+        case chat = "Chat"
         case transcript = "Transcript"
-        case summary = "Summary"
+        case summary = "Notes"
         case coaching = "Coaching"
     }
 
@@ -29,8 +32,8 @@ struct SessionDetailView: View {
     @State private var lines: [(stamp: String, speaker: String, text: String)] = []
     @State private var nudgeLines: [String] = []
     @State private var rawContent = ""
-    // Default tab. To default to Summary instead, change this one line.
-    @State private var tab: Tab = .transcript
+    // Chat is the primary post-meeting experience; search opens the transcript.
+    @State private var tab: Tab = .chat
     @State private var renaming = false
     @State private var renameText = ""
     @FocusState private var renameFocused: Bool
@@ -39,14 +42,24 @@ struct SessionDetailView: View {
     @State private var durationMinutes = 0
     @State private var talkShareValue: Double?
     @State private var languageCode: String?
-    // In-session ask thread (Granola-style "chat with the meeting",
-    // Noah 2026-09-04). Lives here, not in the tab, so it survives
-    // switching between Transcript and Summary.
-    @State private var askThread: [(q: String, a: String)] = []
+    // Completed turns persist in this meeting's local chat sidecar.
+    // In-flight requests and drafts stay in memory; tab switches keep them intact.
+    @State private var askThread: [MeetingChatTurn] = []
+    @State private var chatLoadFailed = false
+    @State private var chatSaveFailed = false
+    @State private var confirmClearChat = false
+    @State private var citedLine: Int?
     @State private var askInput = ""
     @State private var askBusy: String?
     @State private var pendingAsk: String?
     @State private var askTick = 0
+    @State private var askError: String?
+    @State private var sharedLink: SharedLinkRecord?
+    @State private var showingShareSheet = false
+    @State private var confirmingStopShare = false
+    @State private var revokingShare = false
+    @State private var shareError: String?
+    @FocusState private var askFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -56,13 +69,80 @@ struct SessionDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Dorado.surface)
         .task(id: url) {
-            tab = .transcript   // resets per session (spec)
+            tab = highlightQuery.isEmpty ? .chat : .transcript
             askThread = []; askInput = ""; askBusy = nil; pendingAsk = nil
             load()
+            do {
+                askThread = try MeetingChatStore.load(for: url)
+                chatLoadFailed = false
+            } catch {
+                chatLoadFailed = true
+                askError = "Saved chat couldn't be read. Clear it to start over; your transcript is unchanged."
+            }
+            do {
+                let record = try await SharedLinksStore.shared.record(for: url)
+                guard !Task.isCancelled else { return }
+                sharedLink = record
+            } catch {
+                guard !Task.isCancelled else { return }
+                shareError = "Saved sharing controls couldn't be read: \(error.localizedDescription)"
+            }
         }
+        .sheet(isPresented: $showingShareSheet, onDismiss: {
+            Task {
+                do { sharedLink = try await SharedLinksStore.shared.record(for: url) }
+                catch { shareError = error.localizedDescription }
+            }
+        }) {
+            if let review,
+               let payload = SharedNotePayload.make(
+                   title: title,
+                   date: TranscriptSearch.sessionDate(for: url) ?? Date(),
+                   durationMinutes: durationMinutes,
+                   review: review
+               ) {
+                ShareNotesSheet(
+                    sessionURL: url,
+                    title: title,
+                    meetingDate: TranscriptSearch.sessionDate(for: url) ?? Date(),
+                    durationMinutes: durationMinutes,
+                    payload: payload
+                ) { record in
+                    sharedLink = record
+                }
+            }
+        }
+        .confirmationDialog(
+            "Stop sharing these notes?",
+            isPresented: $confirmingStopShare,
+            titleVisibility: .visible
+        ) {
+            Button("Stop sharing", role: .destructive) {
+                guard let sharedLink else { return }
+                Task { await stopSharing(sharedLink) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The private link will stop working. Your local meeting notes are not affected.")
+        }
+        .alert("Couldn't update sharing", isPresented: Binding(
+            get: { shareError != nil },
+            set: { if !$0 { shareError = nil } }
+        )) {
+            Button("OK", role: .cancel) { shareError = nil }
+        } message: {
+            Text(shareError ?? "Unknown error")
+        }
+        .confirmationDialog("Clear this meeting's saved chat?", isPresented: $confirmClearChat) {
+            Button("Clear chat", role: .destructive) { clearChat() }
+        } message: {
+            Text("This removes the questions and answers. Your meeting transcript and notes stay saved.")
+        }
+        .onChange(of: tab) { _, _ in load() }
+        .onChange(of: reviewRevision) { _, _ in load() }
+        .onChange(of: reviewInProgress) { _, _ in load() }
         .task(id: askTick) {
             guard askTick > 0, let question = pendingAsk else { return }
-            pendingAsk = nil
             await runSessionAsk(question)
         }
     }
@@ -79,14 +159,14 @@ struct SessionDetailView: View {
                     if renaming {
                         TextField("Session title", text: $renameText)
                             .textFieldStyle(.plain)
-                            .font(Dorado.barlowXBold(32))
+                            .font(.system(size: 26, weight: .semibold))
                             .foregroundStyle(Dorado.midnight)
                             .focused($renameFocused)
                             .onSubmit { commitRename() }
                             .onExitCommand { renaming = false }
                     } else {
                         Text(title)
-                            .font(Dorado.barlowXBold(32))
+                            .font(.system(size: 26, weight: .semibold))
                             .foregroundStyle(Dorado.midnight)
                             .lineLimit(2)
                             .onTapGesture {
@@ -134,17 +214,76 @@ struct SessionDetailView: View {
                         HStack(spacing: 7) {
                             Image(systemName: "house")
                                 .font(.system(size: 12)).foregroundStyle(Dorado.grey500)
-                            Text("Home")
+                            Text("Meetings")
                         }
                     }
                     .buttonStyle(DoradoOutlineButtonStyle())
-                    .help("Back to your progress")
+                    .help("Back to your meetings")
                 }
             }
 
             tabBar
         }
-        .padding(.init(top: 28, leading: 44, bottom: 0, trailing: 44))
+        .padding(.init(top: 28, leading: 28, bottom: 0, trailing: 28))
+    }
+
+    @ViewBuilder
+    private var shareControl: some View {
+        if let record = sharedLink {
+            Menu {
+                if record.pending != true, let url = record.url {
+                    ShareLink(
+                        item: url,
+                        subject: Text(title.isEmpty ? "Meeting notes" : title),
+                        message: Text("Here are the meeting notes and next steps.")
+                    ) {
+                        Label("Send notes…", systemImage: "paperplane.fill")
+                    }
+                }
+                Button("Copy private link") { copyPrivateLink(record) }
+                    .disabled(record.pending == true)
+                Button("Open private link") {
+                    if let url = record.url { NSWorkspace.shared.open(url) }
+                }
+                .disabled(record.pending == true)
+                Divider()
+                Button("Stop sharing…", role: .destructive) {
+                    confirmingStopShare = true
+                }
+            } label: {
+                HStack(spacing: 7) {
+                    if revokingShare {
+                        ProgressView().controlSize(.mini)
+                    } else {
+                        Image(systemName: "checkmark.shield")
+                            .font(.system(size: 12)).foregroundStyle(Dorado.dollar)
+                    }
+                    Text(record.pending == true ? "Sharing pending" : "Shared")
+                }
+            }
+            .menuStyle(.button)
+            .buttonStyle(DoradoOutlineButtonStyle())
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .disabled(revokingShare)
+            .help("Copy, open, or stop sharing the encrypted notes snapshot")
+        } else {
+            Button {
+                load()
+                if review?.hasShareableMeetingNotes == true { showingShareSheet = true }
+                else { tab = .summary }
+            } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: "link")
+                        .font(.system(size: 12)).foregroundStyle(Dorado.grey500)
+                    Text("Share notes")
+                }
+            }
+            .buttonStyle(DoradoOutlineButtonStyle())
+            .help(review?.hasShareableMeetingNotes != true
+                  ? "Generate AI meeting notes before sharing"
+                  : "Preview and create an encrypted 30-day private link")
+        }
     }
 
     private var tabBar: some View {
@@ -163,6 +302,7 @@ struct SessionDetailView: View {
                 .buttonStyle(.plain)
             }
             Spacer()
+            shareControl.padding(.bottom, 10)
         }
         .overlay(alignment: .bottom) { Dorado.divider.frame(height: 1) }
     }
@@ -172,6 +312,7 @@ struct SessionDetailView: View {
     @ViewBuilder
     private var tabBody: some View {
         switch tab {
+        case .chat: chatTab
         case .transcript: transcriptTab
         case .summary: summaryTab
         case .coaching: coachingTab
@@ -182,8 +323,6 @@ struct SessionDetailView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
-                    askCard
-                        .padding(.bottom, 4)
                     ForEach(Array(lines.enumerated()), id: \.offset) { i, line in
                         HStack(alignment: .top, spacing: 16) {
                             Text(line.stamp)
@@ -203,6 +342,9 @@ struct SessionDetailView: View {
                                     .frame(maxWidth: 640, alignment: .leading)
                             }
                         }
+                        .padding(8)
+                        .background(citedLine == i ? Dorado.doradoTint : Color.clear,
+                                    in: RoundedRectangle(cornerRadius: 8))
                         .id(i)
                     }
                     if lines.isEmpty {
@@ -211,7 +353,7 @@ struct SessionDetailView: View {
                     }
                     Color.clear.frame(height: 40)
                 }
-                .padding(.init(top: 20, leading: 44, bottom: 0, trailing: 44))
+                .padding(.init(top: 20, leading: 28, bottom: 0, trailing: 28))
             }
             .mask(
                 // Bottom scroll fade over the last ~40px (spec).
@@ -222,7 +364,13 @@ struct SessionDetailView: View {
                         .frame(height: 40)
                 }
             )
-            .onAppear { scrollToFirstHit(proxy) }
+            .onAppear {
+                if let citedLine { proxy.scrollTo(citedLine, anchor: .center) }
+                else { scrollToFirstHit(proxy) }
+            }
+            .onChange(of: citedLine) { _, line in
+                if let line { proxy.scrollTo(line, anchor: .center) }
+            }
             .onChange(of: highlightQuery) { _, _ in scrollToFirstHit(proxy) }
         }
     }
@@ -230,7 +378,10 @@ struct SessionDetailView: View {
     private var summaryTab: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
-                askCard
+                if review?.hasShareableMeetingNotes != true {
+                    Text("Generate AI meeting notes below to create a shareable link. Your transcript and coaching stay private.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
                 if let review {
                     MeetingReviewView(review: review) { id in
                         toggleActionItem(id)
@@ -242,7 +393,7 @@ struct SessionDetailView: View {
 
                 if settings != nil, !lines.isEmpty {
                     HStack(spacing: 8) {
-                        if regenerating {
+                        if regenerating || reviewInProgress {
                             ProgressView().controlSize(.small)
                             Text("Writing meeting notes with the local model…")
                                 .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey600)
@@ -275,110 +426,246 @@ struct SessionDetailView: View {
 
     // MARK: in-session ask
 
-    /// "Chat with the meeting": prior Q&A turns, a busy line, and the ask
-    /// field. Answers come from THIS session only (notes + best transcript
-    /// moments), with the last turns passed back so follow-ups work.
-    @ViewBuilder
-    private var askCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ForEach(Array(askThread.enumerated()), id: \.offset) { _, turn in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(turn.q)
-                        .font(Dorado.barlowBold(13))
-                        .foregroundStyle(Dorado.grey500)
-                    Text(turn.a)
-                        .font(Dorado.roboto(14))
-                        .foregroundStyle(Dorado.grey800)
-                        .lineSpacing(4)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
+    private let starterQuestions = [
+        "What did we decide, and why?",
+        "What should I follow up on?",
+        "What risks or open questions did we leave unresolved?"
+    ]
+
+    private var chatTab: some View {
+        VStack(spacing: 0) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 28) {
+                        if askThread.isEmpty && pendingAsk == nil {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Image(systemName: "bubble.left.and.text.bubble.right")
+                                    .font(.system(size: 28)).foregroundStyle(Dorado.dollar)
+                                Text("Put this meeting to work")
+                                    .font(.system(size: 24, weight: .semibold))
+                                Text("Find the decisions, connect the dots, or work out your next move.")
+                                    .font(.system(size: 14)).foregroundStyle(.secondary)
+                                VStack(alignment: .leading, spacing: 8) {
+                                    ForEach(starterQuestions, id: \.self) { question in
+                                        Button {
+                                            askInput = question
+                                            submitAsk()
+                                        } label: {
+                                            HStack {
+                                                Text(question).multilineTextAlignment(.leading)
+                                                Spacer()
+                                                Image(systemName: "arrow.up.right")
+                                            }
+                                            .padding(12).frame(maxWidth: .infinity)
+                                            .cardStyle()
+                                        }
+                                        .buttonStyle(.plain)
+                                        .disabled(askBusy != nil || lines.isEmpty || chatLoadFailed)
+                                    }
+                                }
+                                .padding(.top, 12)
+                            }
+                            .padding(.top, 28)
+                        }
+                        ForEach(Array(askThread.enumerated()), id: \.offset) { _, turn in
+                            VStack(alignment: .leading, spacing: 16) {
+                                HStack {
+                                    Spacer(minLength: 32)
+                                    Text(turn.q)
+                                        .padding(12)
+                                        .background(Dorado.surfaceSubtle, in: RoundedRectangle(cornerRadius: 12))
+                                }
+                                Label("MeetMouse", systemImage: "sparkles")
+                                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                                Text(linkedAnswer(turn.a))
+                                    .environment(\.openURL, OpenURLAction { link in
+                                        guard link.scheme == "meetmouse-citation",
+                                              let index = Int(link.lastPathComponent),
+                                              lines.indices.contains(index) else { return .discarded }
+                                        citedLine = index
+                                        tab = .transcript
+                                        return .handled
+                                    })
+                                    .font(.system(size: 15)).lineSpacing(5)
+                                    .textSelection(.enabled)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                HStack {
+                                    CopyButton(help: "Copy answer") { turn.a }
+                                    Button("View transcript") { tab = .transcript }
+                                        .buttonStyle(.plain).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        if let question = pendingAsk {
+                            Text(question).font(.system(size: 15, weight: .medium))
+                        }
+                        if let busy = askBusy {
+                            HStack(spacing: 8) {
+                                ProgressView().controlSize(.small)
+                                Text(busy).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        if let askError {
+                            Text(askError).font(.callout).foregroundStyle(.secondary)
+                            if chatSaveFailed {
+                                Button("Retry saving chat") {
+                                    do {
+                                        try MeetingChatStore.save(askThread, for: url)
+                                        self.askError = nil
+                                        chatSaveFailed = false
+                                    } catch { self.askError = "Couldn't save chat: \(error.localizedDescription)" }
+                                }
+                                .disabled(askBusy != nil)
+                            }
+                        }
+                        Color.clear.frame(height: 1).id("chat-bottom")
+                    }
+                    .frame(maxWidth: 720, alignment: .leading)
+                    .frame(maxWidth: .infinity)
+                    .padding(28)
                 }
+                .onAppear { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+                .onChange(of: askThread.count) { _, _ in proxy.scrollTo("chat-bottom", anchor: .bottom) }
+                .onChange(of: askBusy) { _, _ in proxy.scrollTo("chat-bottom", anchor: .bottom) }
             }
-            if let busy = askBusy {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text(busy)
-                        .font(Dorado.roboto(12)).foregroundStyle(Dorado.grey500)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .bottom, spacing: 12) {
+                    TextField("Ask this meeting…", text: $askInput, axis: .vertical)
+                        .textFieldStyle(.plain).font(.system(size: 15))
+                        .lineLimit(1...5).focused($askFocused)
+                        .onSubmit(submitAsk)
+                        .disabled(askBusy != nil || lines.isEmpty || chatLoadFailed)
+                    if askBusy != nil {
+                        Button("Stop") {
+                            askTick += 1
+                            askInput = pendingAsk ?? ""
+                            pendingAsk = nil
+                            askBusy = nil
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button(action: submitAsk) {
+                            Image(systemName: "arrow.up.circle.fill").font(.system(size: 26))
+                        }
+                        .buttonStyle(.plain).foregroundStyle(Dorado.dollar)
+                        .disabled(askInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || lines.isEmpty || chatLoadFailed)
+                        .accessibilityLabel("Send question")
+                    }
                 }
+                .padding(16).cardStyle(cornerRadius: 14)
+                HStack {
+                    Label(lines.isEmpty ? "This meeting has no transcript yet" : "Only this meeting · AI runs on your Mac", systemImage: "lock")
+                    Spacer()
+                    if !askThread.isEmpty || chatLoadFailed {
+                        Button("Clear chat") { confirmClearChat = true }
+                            .buttonStyle(.plain).disabled(askBusy != nil)
+                    }
+                }
+                .font(.caption).foregroundStyle(.secondary)
             }
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 12)).foregroundStyle(Dorado.grey500)
-                TextField("Ask about this meeting…", text: $askInput)
-                    .textFieldStyle(.plain)
-                    .font(Dorado.roboto(14))
-                    .onSubmit(submitAsk)
-                    .disabled(askBusy != nil)
-            }
-            .padding(.horizontal, 12).padding(.vertical, 9)
-            .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(Color.white)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .stroke(Dorado.divider, lineWidth: 1)
-            )
+            .frame(maxWidth: 720).frame(maxWidth: .infinity)
+            .padding(.horizontal, 28).padding(.bottom, 22).padding(.top, 12)
         }
-        .frame(maxWidth: 640, alignment: .leading)
+    }
+
+    private func clearChat() {
+        do {
+            try MeetingChatStore.remove(for: url)
+            askThread = []; askError = nil; chatLoadFailed = false; chatSaveFailed = false
+        } catch { askError = "Couldn't clear the saved chat: \(error.localizedDescription)" }
+    }
+
+    private func linkedAnswer(_ text: String) -> AttributedString {
+        var result = AttributedString(text)
+        for reference in MeetingCitations.references(in: text, stamps: lines.map(\.stamp)) {
+            guard let range = Range(reference.range, in: text),
+                  let start = AttributedString.Index(range.lowerBound, within: result),
+                  let end = AttributedString.Index(range.upperBound, within: result) else { continue }
+            result[start..<end].link = URL(string: "meetmouse-citation://transcript/\(reference.line)")
+            result[start..<end].foregroundColor = Dorado.bolt
+        }
+        return result
     }
 
     private func submitAsk() {
-        let q = askInput.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty, askBusy == nil else { return }
+        let q = String(askInput.trimmingCharacters(in: .whitespacesAndNewlines).prefix(2_000))
+        guard !q.isEmpty, askBusy == nil, !lines.isEmpty, !chatLoadFailed else { return }
         askInput = ""
         pendingAsk = q
+        askError = nil
+        askBusy = "Reading this meeting…"
         askTick += 1
     }
 
     private func runSessionAsk(_ question: String) async {
+        defer {
+            if !Task.isCancelled { askBusy = nil; pendingAsk = nil }
+        }
         guard let settings, let ollamaManager else {
-            askThread.append((q: question,
-                              a: "AI answers need a local model — install one in Settings → Model."))
+            askError = "AI answers need a local model — install one in Settings → Model."
+            askInput = question
             return
         }
-        askBusy = "Reading this meeting with the local model…"
-        defer { askBusy = nil }
 
         if ollamaManager.status == .stopped { ollamaManager.start() }
         if ollamaManager.status != .running {
             for _ in 1...30 {
                 try? await Task.sleep(for: .milliseconds(500))
+                guard !Task.isCancelled else { return }
                 if ollamaManager.status == .running { break }
                 if case .error = ollamaManager.status { break }
             }
         }
+        guard !Task.isCancelled else { return }
         await settings.refreshModels()
+        guard !Task.isCancelled else { return }
         guard ollamaManager.status == .running, !settings.availableModels.isEmpty else {
-            askThread.append((q: question,
-                              a: "The local model isn't available right now — check Settings → Model."))
+            askError = "The local model isn't available right now — check Settings → Model."
+            askInput = question
             return
         }
 
+        load()
         let transcriptLines = lines.map { "[\($0.stamp)] \($0.speaker): \($0.text)" }
         let excerpts = MeetingAsk.sessionExcerpts(question: question,
                                                   transcriptLines: transcriptLines,
-                                                  review: review?.recapMarkdown ?? "")
+                                                  review: review?.recapMarkdown ?? "",
+                                                  priorQuestions: askThread.suffix(2).map(\.q))
         let (system, user) = MeetingAsk.sessionPrompt(question: question, excerpts: excerpts,
-                                                      history: Array(askThread.suffix(3)))
+                                                      history: askThread.suffix(3).map { (q: $0.q, a: $0.a) })
         // Same fast-path sizing as the search-pane ask (4096 matches the
         // in-call phase; 384 covers a 150-word answer).
         let client = OllamaClient(model: settings.effectiveModel,
                                   numCtx: 4096, numPredict: 384)
         if await !client.runningModels().contains(settings.effectiveModel) {
-            askBusy = "Loading \(settings.effectiveModel) — the first question pays this once, repeats are much faster…"
+            guard !Task.isCancelled else { return }
+            askBusy = "Warming up the local model…"
         }
+        guard !Task.isCancelled else { return }
         do {
             let text = try await client.complete(system: system, user: user)
+            guard !Task.isCancelled else { return }
             let cleaned = text.components(separatedBy: .newlines)
                 .map(MeetingReview.clean)
                 .joined(separator: "\n")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            askThread.append((q: question,
-                              a: cleaned.isEmpty ? "The model returned nothing — try asking again." : cleaned))
+            guard !cleaned.isEmpty else {
+                askError = "The model returned nothing — try asking again."
+                askInput = question
+                return
+            }
+            askThread.append(MeetingChatTurn(q: question, a: cleaned))
+            do {
+                try MeetingChatStore.save(askThread, for: url)
+                chatSaveFailed = false
+            } catch {
+                chatSaveFailed = true
+                askError = "Couldn't save this chat. Keep this meeting open and retry saving."
+            }
         } catch {
-            askThread.append((q: question,
-                              a: "The local model couldn't answer (\(error.localizedDescription))."))
+            guard !Task.isCancelled else { return }
+            askError = "The local model couldn't answer (\(error.localizedDescription)). Try again."
+            askInput = question
         }
     }
 
@@ -515,6 +802,24 @@ struct SessionDetailView: View {
         }
         guard panel.runModal() == .OK, let dest = panel.url else { return }
         try? content.write(to: dest, atomically: true, encoding: .utf8)
+    }
+
+    private func copyPrivateLink(_ record: SharedLinkRecord) {
+        guard let url = record.url else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url.absoluteString, forType: .string)
+    }
+
+    private func stopSharing(_ record: SharedLinkRecord) async {
+        revokingShare = true
+        defer { revokingShare = false }
+        do {
+            try await WebShareService().revoke(record)
+            try await SharedLinksStore.shared.remove(record)
+            sharedLink = nil
+        } catch {
+            shareError = error.localizedDescription
+        }
     }
 
     // MARK: load
