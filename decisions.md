@@ -1525,3 +1525,20 @@ failed background reviews can fall through to explicit generation. Generation li
 on the meeting view rather than the Notes tab so switching tabs cannot restart it.
 Unavailable AI/empty results show errors and allow retry. Existing curated notes
 open immediately; encryption and explicit Create private link remain unchanged.
+
+
+## 2026-09-21 — Share notes directly prepares the private link
+
+The user explicitly requested skipping Create private link and going directly
+to the ready/copied screen. Share notes now authorizes creation of the curated,
+encrypted 30-day snapshot; no second preview confirmation is required. Show a
+brief progress state and explicit retry on failure, retaining durable pending
+ownership and all existing payload exclusions. Existing shared-link controls
+remain available. This supersedes the prior mandatory preview checkpoint.
+
+## 2026-09-21 — Merge automatic note generation with direct sharing
+
+Preserve main's explicitly authorized direct-link flow while retaining this branch's
+missing-note generation, duplicate-request guard, and retryable errors. Once notes
+are ready, the existing sharing sheet creates/copies the encrypted snapshot; there
+is no restored preview checkpoint. Update help text and changelog to match.

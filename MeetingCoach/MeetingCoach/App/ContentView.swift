@@ -1975,6 +1975,8 @@ struct ModelSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             SettingsLink { Label("AI provider settings…", systemImage: "gear") }
+                .labelStyle(.iconOnly)
+                .help("AI provider settings…")
                 .font(.caption)
             // Transcript-first switch: off means no LLM during live sessions
             // (no preload, no engine launch) — transcript, speaker labels and
