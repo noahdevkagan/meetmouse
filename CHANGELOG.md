@@ -7,9 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
-## Unreleased
+## 0.25.1 — 2026-09-21
 
-- Share notes now creates and copies the private link immediately, opening the ready-to-send screen without an extra confirmation
+- Share notes is one click now: it creates and copies the private link right away and opens the ready-to-send screen, with no preview confirmation in between
+- The AI provider control in the bottom-left of the sidebar is now a compact gear icon; hover it for the label
 
 ## 0.25.0 — 2026-09-21
 
