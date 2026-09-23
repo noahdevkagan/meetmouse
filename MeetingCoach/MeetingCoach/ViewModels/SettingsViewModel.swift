@@ -12,11 +12,13 @@ final class SettingsViewModel {
               configuration.provider.models.contains(configuration.model) else {
             throw AIError.message("Choose a supported cloud model.")
         }
-        if !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            try AIKeychain.save(key, for: configuration.provider)
-        }
-        guard let saved = try AIKeychain.read(configuration.provider), !saved.isEmpty else {
-            throw AIError.message("Enter an API key first.")
+        if configuration.provider.requiresAPIKey {
+            if !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                try AIKeychain.save(key, for: configuration.provider)
+            }
+            guard let saved = try AIKeychain.read(configuration.provider), !saved.isEmpty else {
+                throw AIError.message("Enter an API key first.")
+            }
         }
         cancelDownload()
         downloadError = nil
