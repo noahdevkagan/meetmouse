@@ -114,6 +114,67 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
         } catch { check(error.localizedDescription.contains("changed"), "switching providers revokes old clients") }
         let local = try await AIClient(model: "qwen3.5:4b").complete(system: "s", user: "u")
         check(local == "local-only", "local reference remains local")
+        let account = AIConfiguration(provider: .claudeAccount, model: "haiku")
+        account.save(to: defaults)
+        check(AIConfiguration.read(from: defaults) == account, "Claude account configuration round trips")
+        check(AIConfiguration.cloud(from: account.modelReference) == account, "account reference cannot become API/local")
+        check(!AIProvider.claudeAccount.requiresAPIKey, "account provider needs no API key")
+        do {
+            _ = try CloudAI.request(configuration: account, key: "test-key", system: "s", user: "u", maxTokens: 20, timeout: 1)
+            check(false, "account must not hit direct API")
+        } catch { check(true, "account rejected by direct API transport") }
+        AIConfiguration().save()
+        do {
+            _ = try await AIClient(model: account.modelReference).complete(system: "private", user: "meeting")
+            check(false, "disabled account must not launch CLI")
+        } catch { check(error.localizedDescription.contains("disabled"), "disabled account rejected before CLI launch") }
+        let environment = ClaudeAccount.environment(["ANTHROPIC_API_KEY": "secret", "ANTHROPIC_BASE_URL": "https://evil.invalid",
+            "NODE_OPTIONS": "injected", "CLAUDE_CODE_OAUTH_TOKEN": "secret", "HTTPS_PROXY": "proxy", "PATH": "/bad", "LANG": "en_US.UTF-8"])
+        check(environment["ANTHROPIC_API_KEY"] == nil && environment["ANTHROPIC_BASE_URL"] == nil && environment["NODE_OPTIONS"] == nil
+              && environment["CLAUDE_CODE_OAUTH_TOKEN"] == nil && environment["HTTPS_PROXY"] == nil, "account environment excludes credentials and overrides")
+        check(environment["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] == "1" && environment["DISABLE_TELEMETRY"] == "1", "CLI telemetry disabled")
+        check(environment["CLAUDE_CODE_DISABLE_ATTACHMENTS"] == "1", "transcript mentions cannot attach local files")
+        check(environment["MAX_THINKING_TOKENS"] == "0", "thinking cannot exhaust short coaching output budgets")
+        let args = ClaudeAccount.arguments(model: "haiku")
+        check(args.contains("--safe-mode") && args.contains("--strict-mcp-config") && args.contains("--no-session-persistence"), "customizations MCP and persistence disabled")
+        check(args[args.firstIndex(of: "--tools")! + 1].isEmpty, "CLI has no tools")
+        check(ClaudeAccount.isSubscription(Data(#"{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"firstParty"}"#.utf8)), "subscription authentication accepted")
+        for auth in [#"{"loggedIn":false}"#, #"{"loggedIn":true,"authMethod":"api_key","apiProvider":"firstParty"}"#, "bad"] {
+            check(!ClaudeAccount.isSubscription(Data(auth.utf8)), "missing API-only or malformed authentication rejected")
+        }
+        let result = try ClaudeAccount.parse(Data(#"{"type":"result","subtype":"success","is_error":false,"num_turns":1,"result":"OK"}"#.utf8), exitCode: 0)
+        check(result == "OK", "CLI result decoded")
+        for body in ["bad", #"{"type":"result","subtype":"success","is_error":false,"result":""}"#,
+                     #"{"type":"result","subtype":"success","is_error":false,"stop_reason":"max_tokens","result":"partial"}"#,
+                     // Output-limit recovery: success, but `result` is only the last turn's tail.
+                     #"{"type":"result","subtype":"success","is_error":false,"stop_reason":"end_turn","num_turns":3,"result":"NEXT MEETING FOCUS: tail"}"#,
+                     #"{"type":"result","subtype":"success","is_error":false,"result":"no turn count"}"#,
+                     #"{"type":"result","subtype":"error_during_execution","is_error":true,"result":"private meeting secret"}"#] {
+            do { _ = try ClaudeAccount.parse(Data(body.utf8), exitCode: 0); check(false, "bad CLI response must throw") }
+            catch { check(!error.localizedDescription.contains("private meeting"), "invalid CLI response rejected without leaking payload") }
+        }
+        let cat = URL(fileURLWithPath: "/bin/cat")
+        let payload = Data(repeating: 120, count: 400_000)
+        let echoed = try await ClaudeAccount.run(executable: cat, arguments: [], input: payload, timeout: 5)
+        check(echoed.data == payload && echoed.code == 0, "large stdin/stdout drained without pipe deadlock")
+        do {
+            _ = try await ClaudeAccount.run(executable: cat, arguments: [], input: Data(repeating: 120, count: 2_200_000), timeout: 5)
+            check(false, "oversized output must fail")
+        } catch { check(error.localizedDescription.contains("too much"), "CLI output bounded in memory") }
+        let sleeper = URL(fileURLWithPath: "/bin/sleep")
+        let started = ContinuousClock.now
+        do {
+            _ = try await ClaudeAccount.run(executable: sleeper, arguments: ["10"], timeout: 0.1)
+            check(false, "timeout must fail")
+        } catch { check(error.localizedDescription.contains("timed out") && started.duration(to: .now) < .seconds(3), "timeout kills only owned subprocess promptly") }
+        let task = Task { try await ClaudeAccount.run(executable: sleeper, arguments: ["10"], timeout: 15) }
+        try await Task.sleep(for: .milliseconds(100))
+        task.cancel()
+        do { _ = try await task.value; check(false, "cancel must fail") }
+        catch is CancellationError { check(true, "cancellation terminates owned subprocess") }
+        let early = try await ClaudeAccount.run(executable: URL(fileURLWithPath: "/usr/bin/false"), arguments: [], input: payload, timeout: 3)
+        check(early.code != 0, "early stdin closure cannot crash parent with SIGPIPE")
+        defaults.removeObject(forKey: AIConfiguration.defaultsKey)
         UserDefaults.standard.removeObject(forKey: AIConfiguration.defaultsKey)
         print("\(count) AI provider checks passed; no live API calls.")
     }

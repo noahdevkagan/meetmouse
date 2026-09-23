@@ -5,5 +5,6 @@ mkdir -p tests/ai/.build
 swiftc -swift-version 6 -parse-as-library -o tests/ai/.build/aicheck \
   tests/ai/main.swift \
   MeetingCoach/MeetingCoach/Engine/AIProvider.swift \
-  MeetingCoach/MeetingCoach/Engine/AIClient.swift
+  MeetingCoach/MeetingCoach/Engine/AIClient.swift \
+  MeetingCoach/MeetingCoach/Engine/ClaudeAccount.swift
  tests/ai/.build/aicheck

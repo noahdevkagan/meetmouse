@@ -1553,3 +1553,38 @@ window closed still open their saved detail. Skip that initial replay while a
 call is live: the flag and saved path outlive the next Start, so they would
 cover the live transcript with the previous meeting. This supersedes the September 17
 Chat-default choice without changing capture, saving, or review generation.
+
+## 2026-09-23 — Claude subscription through the official local CLI
+
+User explicitly requested enabling their Claude account for in-app coaching and
+reviews. Add a separate Claude account provider to shared AIClient, retaining
+local defaults and the existing consent/pinned-provider checks. Anthropic's
+current support notice says CLI/SDK subscription usage continues while its planned
+billing changes are paused:
+https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan
+
+Use the installed official CLI (minimum 2.1.280, which supports safe mode), never
+extract tokens or build a private OAuth client. Subscription auth is verified on
+each completion; inherited API/provider/proxy/debug settings are excluded. Safe
+mode, no tools, strict empty MCP, no skills/browser integration or file-mention expansion, no session
+persistence and disabled nonessential traffic prevent coding-agent behavior.
+Prompts travel on stdin, not argv/files. Bound output, terminate only the owned
+process on timeout/cancellation, and redact raw CLI failures. Haiku is the default
+for latency; Sonnet is optional. CLI/plan limits remain provider-controlled.
+The UI's sample test is the only explicit path that bypasses meeting-text consent.
+
+The installed release is actively recording during implementation. Do not replace,
+restart, or change its running session mid-call. Official browser login and live
+synthetic Haiku/Sonnet checks subsequently succeeded. At the user's explicit
+request, save Claude account / Haiku for the next launch of the updated build;
+the old running release/session remains local. No real meeting content was sent.
+
+### Claude account: hard output cap far above the soft target; reject multi-turn results (2026-09-23)
+Root cause of the truncated long-meeting notes: when a reply exceeds
+CLAUDE_CODE_MAX_OUTPUT_TOKENS, CLI 2.1.280 silently continues in new turns and
+`--output-format json` reports success (`stop_reason: end_turn`, `num_turns: 3`)
+with `result` holding only the last turn — e.g. only NEXT MEETING FOCUS. Verified
+with a synthetic five-section prompt: cap 256 → only section five; cap 8192 → all
+five, `num_turns: 1`. The cap is now max(8192, 4× budget) as a runaway guard only
+(length is steered by the prompt's soft target), and `parse` requires
+`num_turns == 1` so any recovery fails loudly instead of saving partial notes.
