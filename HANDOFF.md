@@ -5,6 +5,51 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-23): Live Claude validation — mixed results
+
+User authorized testing notes/coaching with the connected account. Dev UI confirms
+Claude account / Haiku enabled. Regenerated the saved 58-minute Matt meeting twice:
+first result had only action items + next focus; second had only next focus (also
+in summary fallback). The UI persisted these incomplete results over the earlier
+review; transcript is unchanged. Long-meeting notes therefore FAIL completeness.
+Root cause since confirmed and fixed (see decisions.md): CLI output-limit recovery
+returned only the last turn. Re-run the 58-minute regeneration to confirm all five
+sections before calling notes validated.
+
+Standalone harness compiles real SemanticCoach + AIClient + ClaudeAccount, reads
+app provider configuration into its own volatile defaults, and sends synthetic
+conversation only. Haiku returned hedgeNotPinned in ~1.4–1.5 seconds; repeat
+pass suppressed duplicate. Short synthetic notes passed real PromptBuilder and
+MeetingReview parser (summary, two topics, two actions). Evidence:
+.context/claude-coaching-live.swift, .context/claude-coaching-live.log,
+.context/claude-notes-synthetic.txt. No live capture/overlay validation performed.
+No app code changed in this test session; no push/release/sharing upload.
+
+## Current state (2026-09-23): Claude account — built, connected, selected
+
+Added Claude account (Haiku default / Sonnet) in Settings → AI, backed by the
+installed official Claude Code CLI >=2.1.280. Shared AIClient covers coaching,
+reviews, notes and chat. Official browser login completed successfully; real
+synthetic requests through ClaudeAccount passed on both models (~1.1 / 1.3 s).
+User authorized enablement; saved Claude account / Haiku into the real app's
+preferences and verified it. No real meeting content sent.
+
+The installed v0.25.2 app is actively recording. It was NOT stopped/replaced or
+restarted. The new selection takes effect when the updated build is launched:
+MeetingCoach/build/Build/Products/Debug/MeetMouse.app. After the call, quit the
+installed copy before opening this build. Native settings visual QA and real-call
+latency validation remain; do not claim the running old release uses Claude.
+
+Isolation: sanitized env (no API keys/provider overrides), official auth-status
+check, no tools/MCP/customizations/file-mention expansion, no session persistence,
+nonessential traffic off, stdin-only prompts, bounded output, owned-process timeout
+and cancellation. Per-request consent preserved, no API fallback. Sign-in/status,
+synthetic test, cancel, consent and enable controls included.
+
+Validation: signed Debug xcodebuild passed; 60 AI checks and 173 session checks
+passed. Logs: .context/claude-account-{build,ai-tests,session-tests,smoke}.log.
+No push/tag/release. Changelog generator run (Unreleased excluded from site).
+
 ## Current state (2026-09-21): Merge social/site and release main updates — validated
 
 Merged origin/main's social-card/site generator updates and strict Worker release

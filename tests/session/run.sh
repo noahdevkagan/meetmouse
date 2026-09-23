@@ -24,6 +24,7 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/OllamaClient.swift" \
   "$SRC/Engine/AIProvider.swift" \
   "$SRC/Engine/AIClient.swift" \
+  "$SRC/Engine/ClaudeAccount.swift" \
   "$SRC/Engine/TalkStats.swift" \
   "$SRC/Engine/Mclog.swift" \
   "$SRC/Engine/DemoScript.swift" \

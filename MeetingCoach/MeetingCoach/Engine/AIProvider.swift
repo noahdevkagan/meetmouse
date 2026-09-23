@@ -2,20 +2,23 @@ import Foundation
 import Security
 
 enum AIProvider: String, Codable, CaseIterable, Identifiable, Sendable {
-    case local, anthropic, openai
+    case local, anthropic, openai, claudeAccount
     var id: String { rawValue }
     var title: String {
-        switch self { case .local: "Local (on this Mac)"; case .anthropic: "Claude (Anthropic)"; case .openai: "OpenAI" }
+        switch self { case .local: "Local (on this Mac)"; case .anthropic: "Claude API"; case .claudeAccount: "Claude account"; case .openai: "OpenAI" }
     }
     var models: [String] {
         switch self {
         case .local: []
+        case .claudeAccount: ["haiku", "sonnet"]
         case .anthropic: ["claude-haiku-4-5-20251001", "claude-sonnet-5"]
         case .openai: ["gpt-4.1-mini", "gpt-4.1"]
         }
     }
     static func modelTitle(_ model: String) -> String {
         switch model {
+        case "haiku": "Claude Haiku (fast)"
+        case "sonnet": "Claude Sonnet"
         case "claude-haiku-4-5-20251001": "Claude Haiku 4.5 (fast)"
         case "claude-sonnet-5": "Claude Sonnet 5"
         case "gpt-4.1-mini": "GPT-4.1 mini (fast)"
@@ -23,6 +26,7 @@ enum AIProvider: String, Codable, CaseIterable, Identifiable, Sendable {
         default: model
         }
     }
+    var requiresAPIKey: Bool { self == .anthropic || self == .openai }
     var keyURL: URL {
         URL(string: self == .anthropic ? "https://platform.claude.com/settings/keys" : "https://platform.openai.com/api-keys")!
     }
@@ -84,7 +88,7 @@ enum AIKeychain {
     }
     static func save(_ key: String, for provider: AIProvider, serviceName: String = service) throws {
         let value = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard provider != .local, !value.isEmpty, !value.contains(where: { $0.isWhitespace }) else {
+        guard provider.requiresAPIKey, !value.isEmpty, !value.contains(where: { $0.isWhitespace }) else {
             throw AIError.message("Enter a valid API key without spaces.")
         }
         let attributes: [String: Any] = [kSecValueData as String: Data(value.utf8),
