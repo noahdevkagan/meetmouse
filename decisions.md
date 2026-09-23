@@ -1542,3 +1542,14 @@ Preserve main's explicitly authorized direct-link flow while retaining this bran
 missing-note generation, duplicate-request guard, and retryable errors. Once notes
 are ready, the existing sharing sheet creates/copies the encrypted snapshot; there
 is no restored preview checkpoint. Update help text and changelog to match.
+
+## 2026-09-23 — Notes is the default for saved meetings
+
+The user wants meeting notes immediately after a call rather than the meetings
+home or empty chat. Saved meeting details now default to Notes; transcript search
+continues to open Transcript, and Chat remains available as a tab. Observe the
+post-session flag on initial window presentation too, so calls ended with the
+window closed still open their saved detail. Skip that initial replay while a
+call is live: the flag and saved path outlive the next Start, so they would
+cover the live transcript with the previous meeting. This supersedes the September 17
+Chat-default choice without changing capture, saving, or review generation.
