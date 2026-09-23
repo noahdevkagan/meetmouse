@@ -21,6 +21,10 @@ actor AIClient {
         guard AIConfiguration.current == cloud else {
             throw AIError.message("AI provider changed or cloud AI was disabled. Start a new session to use the new selection.")
         }
+        if cloud.provider == .claudeAccount {
+            return try await ClaudeAccount.complete(configuration: cloud, system: system, user: user,
+                                                     maxTokens: numPredict, timeout: timeout)
+        }
         guard let key = try AIKeychain.read(cloud.provider), !key.isEmpty else {
             throw AIError.message("Add your \(cloud.provider.title) API key in Settings → AI.")
         }
@@ -54,7 +58,7 @@ enum CloudAI {
 
     static func request(configuration: AIConfiguration, key: String, system: String, user: String,
                         maxTokens: Int, timeout: TimeInterval) throws -> URLRequest {
-        guard configuration.provider != .local else { throw AIError.message("Select a cloud provider first.") }
+        guard configuration.provider.requiresAPIKey else { throw AIError.message("Select a cloud provider first.") }
         let key = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty, !key.contains(where: { $0.isWhitespace }) else { throw AIError.message("Enter a valid API key.") }
         let anthropic = configuration.provider == .anthropic

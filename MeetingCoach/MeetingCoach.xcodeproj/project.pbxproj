@@ -99,6 +99,7 @@
 		D77C09AA85DC5397A7D1B114 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 2ADB653C496B73D902CC4DFD /* Sparkle */; };
 		D7E82BEB63E8D0037A2EB59E /* MeetingLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41E79DEE155A7764611418A7 /* MeetingLanguage.swift */; };
 		DC339E0767F4891CCD3BAF02 /* ReferralInvites.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947B36BFD468E1C108A1381C /* ReferralInvites.swift */; };
+		DE181E8AC775C3A1A5D25586 /* ClaudeAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19B7667AB6FE7520A5EF29D1 /* ClaudeAccount.swift */; };
 		DEB20958B6B4DC26619F9B5F /* AppBundleNameMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03360FE07AA3CD101D27116 /* AppBundleNameMigration.swift */; };
 		E50CF069AE16583B2665E1BE /* AppSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F05A5F9043EE4F2C14B8D5 /* AppSupport.swift */; };
 		E64A1CF9A596EDF1578EA6E0 /* InterruptionSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88673BD63F55A97082E19D05 /* InterruptionSignal.swift */; };
@@ -140,6 +141,7 @@
 		14D8000DD43FC31EDFC5A989 /* bird_chirp.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = bird_chirp.wav; sourceTree = "<group>"; };
 		16524492B9725FF3E217054B /* TranscriptCleanup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptCleanup.swift; sourceTree = "<group>"; };
 		169665A106EBBC6CCDA1F018 /* AudioCaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureManager.swift; sourceTree = "<group>"; };
+		19B7667AB6FE7520A5EF29D1 /* ClaudeAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeAccount.swift; sourceTree = "<group>"; };
 		1AD95CCA3F1885640ECB50DE /* demo_meeting.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = demo_meeting.txt; sourceTree = "<group>"; };
 		1E8658BF35A80CECD00D0FBE /* VoiceProfileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceProfileStore.swift; sourceTree = "<group>"; };
 		208023EBBD04229F5503508A /* ParticipantStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParticipantStore.swift; sourceTree = "<group>"; };
@@ -317,6 +319,7 @@
 				57C620F6E74ECD3050EDCC99 /* AIClient.swift */,
 				440E3EC8B273A32FED50F776 /* AIProvider.swift */,
 				169665A106EBBC6CCDA1F018 /* AudioCaptureManager.swift */,
+				19B7667AB6FE7520A5EF29D1 /* ClaudeAccount.swift */,
 				8143978E87DDB116AC0D3FD8 /* DemoScript.swift */,
 				2FBAD9FDD0A26CB47962E922 /* DeterministicReview.swift */,
 				85881F8DA1B5854DE7BA9F7A /* EchoFilter.swift */,
@@ -629,6 +632,7 @@
 				DEB20958B6B4DC26619F9B5F /* AppBundleNameMigration.swift in Sources */,
 				E50CF069AE16583B2665E1BE /* AppSupport.swift in Sources */,
 				80A3C6A385E3EE4BE0E678BD /* AudioCaptureManager.swift in Sources */,
+				DE181E8AC775C3A1A5D25586 /* ClaudeAccount.swift in Sources */,
 				47D5418F46BB2B90178F534E /* CoachingOverlayPanel.swift in Sources */,
 				831AAAE68BDAAC75DC37FB2B /* ContentView.swift in Sources */,
 				965F05D47B12F506C3B6CE55 /* DemoScript.swift in Sources */,
