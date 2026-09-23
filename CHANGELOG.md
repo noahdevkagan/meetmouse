@@ -10,6 +10,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 ## Unreleased
 
 - Connect your Claude subscription in Settings → AI to power coaching, meeting reviews and chat through Claude Code, with no API key required. Text sharing remains opt-in; audio stays on your Mac.
+- Finished meetings open directly to Notes, including when you reopen the window after a call.
 
 ## 0.25.2 — 2026-09-22
 
