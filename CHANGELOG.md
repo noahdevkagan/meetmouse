@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Finished meetings open directly to Notes, including when you reopen the window after a call.
+
 ## 0.25.2 — 2026-09-22
 
 - Share notes now generates missing AI notes automatically, then creates and copies the private link with visible progress and retryable errors, without an extra confirmation.
