@@ -5,6 +5,13 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-23): Open ended meetings on Notes — validated
+
+Saved meeting details now default to Notes while preserving transcript search.
+Post-session navigation also runs when the window opens after a meeting ended.
+Debug xcodebuild and git diff --check passed; log: .context/notes-default-build.log.
+Capture/end-of-meeting engine logic is unchanged. No live-call UI check or release.
+
 ## Current state (2026-09-21): Merge social/site and release main updates — validated
 
 Merged origin/main's social-card/site generator updates and strict Worker release

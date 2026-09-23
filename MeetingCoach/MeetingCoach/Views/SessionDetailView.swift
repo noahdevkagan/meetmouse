@@ -32,8 +32,8 @@ struct SessionDetailView: View {
     @State private var lines: [(stamp: String, speaker: String, text: String)] = []
     @State private var nudgeLines: [String] = []
     @State private var rawContent = ""
-    // Chat is the primary post-meeting experience; search opens the transcript.
-    @State private var tab: Tab = .chat
+    // Open saved meetings on Notes; search still opens the matching transcript.
+    @State private var tab: Tab = .summary
     @State private var renaming = false
     @State private var renameText = ""
     @FocusState private var renameFocused: Bool
@@ -70,7 +70,7 @@ struct SessionDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Dorado.surface)
         .task(id: url) {
-            tab = highlightQuery.isEmpty ? .chat : .transcript
+            tab = highlightQuery.isEmpty ? .summary : .transcript
             askThread = []; askInput = ""; askBusy = nil; pendingAsk = nil
             load()
             do {

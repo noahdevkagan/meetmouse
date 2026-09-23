@@ -191,7 +191,10 @@ struct ContentView: View {
         // never set showPostSession so they can't trigger it. (The flag
         // key still says "first session" — it also grandfathers everyone
         // who already saw the prompt under the old first-meeting rule.)
-        .onChange(of: liveSession.showPostSession) { _, shown in
+        // Also route an already-ended meeting when its window first opens.
+        // The flag outlives the next Start, so never replay it over a live call.
+        .onChange(of: liveSession.showPostSession, initial: true) { _, shown in
+            guard !liveSession.isLive else { return }
             if shown, let path = liveSession.savedPath {
                 selectedSessionURL = URL(fileURLWithPath: path)
             }
