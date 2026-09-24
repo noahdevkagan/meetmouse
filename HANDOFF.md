@@ -5,6 +5,16 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-24): Compact meeting bubble concepts
+
+Implemented the approved 144 × 44 ambient bubble with 7-point, top-down
+You/Them session-share edges, speaker-colored waveform, and optional timer.
+Expanded nudges/warnings, dismissal and saved positioning are preserved.
+Debug build passed; native SwiftUI fixture verified compact/expanded/restored
+panel sizes and top-right anchoring, both speakers, unknown share, and clock off.
+Evidence: `.context/overlay-preview.log` and `.context/overlay-*-native.png`.
+Next: run the push gate, then push and open a PR to main.
+
 ## Current state (2026-09-23): Live Claude validation — mixed results
 
 User authorized testing notes/coaching with the connected account. Dev UI confirms

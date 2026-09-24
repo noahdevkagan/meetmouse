@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- The floating meeting overlay is now a compact bubble with a timer, speaker-colored activity bars, and vertical talk-share edges. Coaching nudges and warnings still expand when needed.
+
 - Connect your Claude subscription in Settings → AI to power coaching, meeting reviews and chat through Claude Code, with no API key required. Text sharing remains opt-in; audio stays on your Mac.
 - Finished meetings open directly to Notes, including when you reopen the window after a call.
 

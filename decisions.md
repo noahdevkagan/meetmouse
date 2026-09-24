@@ -1588,3 +1588,20 @@ with a synthetic five-section prompt: cap 256 → only section five; cap 8192 �
 five, `num_turns: 1`. The cap is now max(8192, 4× budget) as a runaway guard only
 (length is steered by the prompt's soft target), and `parse` requires
 `num_turns == 1` so any recovery fails loudly instead of saving partial notes.
+
+
+## 2026-09-24 — Compact ambient overlay with cumulative share edges
+
+The user selected a 144 × 44 bubble with no speaker labels. Use 7-point green
+(You) and blue (Them) edges, filled top-down by session share; only the waveform
+changes color with the active speaker. Reuse TalkStats' existing word-based
+estimate, not elapsed meeting time or a new capture-derived metric. Silence does
+not add share, and absent/unknown attribution stays unfilled instead of inventing
+50/50. The tooltip and accessibility value call this an estimated talk share.
+Recognition events drive the decorative waveform, with a 2.5-second expiry;
+it is not a raw audio-level/VAD meter and can lag speech recognition.
+
+Nudges and actionable memory/basic-mode notices retain their expanded presentation.
+A borderless NSPanel fits its content while anchoring the top-right corner and
+preserving saved drag positions. The ambient bubble has a Hide overlay context
+menu and accessibility action, keeping a persistent close icon out of the design.
