@@ -19,6 +19,7 @@ swiftc -O -o "$OUT/mc-backtest" \
   "$SRC/Engine/OllamaClient.swift" \
   "$SRC/Engine/AIProvider.swift" \
   "$SRC/Engine/AIClient.swift" \
+  "$SRC/Engine/ClaudeAccount.swift" \
   "$SRC/Models/Utterance.swift" \
   "$SRC/Models/TrainingExample.swift" \
   "$SRC/Models/Nudge.swift" \
