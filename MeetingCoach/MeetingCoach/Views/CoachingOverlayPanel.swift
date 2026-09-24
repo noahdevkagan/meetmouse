@@ -7,8 +7,8 @@ final class CoachingOverlayPanel: NSPanel {
 
     init() {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 66),
-            styleMask: [.nonactivatingPanel, .titled, .closable, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: 156, height: 56),
+            styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: true
         )
@@ -27,8 +27,13 @@ final class CoachingOverlayPanel: NSPanel {
         // A dragged position is the user telling us where the overlay
         // belongs — restore it forever after (Noah moved it repeatedly and
         // every nudge snapped it back to the main screen's top-right).
-        if let saved = Self.savedUserFrame(), Self.isOnSomeScreen(saved) {
-            setFrame(saved, display: false)
+        if let saved = Self.savedUserFrame(),
+           let visible = NSScreen.screens.first(where: { $0.visibleFrame.intersects(saved) })?.visibleFrame {
+            // A saved wide overlay may only partly intersect the display;
+            // clamp the smaller replacement so it cannot land off-screen.
+            setFrameOrigin(NSPoint(
+                x: min(max(saved.maxX - frame.width, visible.minX), visible.maxX - frame.width),
+                y: min(max(saved.maxY - frame.height, visible.minY), visible.maxY - frame.height)))
         } else {
             positionAtTopRight(of: NSScreen.main)
         }
@@ -71,14 +76,25 @@ final class CoachingOverlayPanel: NSPanel {
         inProgrammaticMove = false
     }
 
+    /// Keep the top-right corner anchored when a nudge expands the bubble.
+    /// Resizing is not a user drag and must not overwrite their saved position.
+    func fitContent(_ size: CGSize) {
+        guard frame.size != size else { return }
+        repositionProgrammatically {
+            var next = NSRect(x: frame.maxX - size.width, y: frame.maxY - size.height,
+                              width: size.width, height: size.height)
+            if let visible = screen?.visibleFrame {
+                next.origin.x = min(max(next.minX, visible.minX), visible.maxX - size.width)
+                next.origin.y = min(max(next.minY, visible.minY), visible.maxY - size.height)
+            }
+            setFrame(next, display: true)
+        }
+    }
+
     private static func savedUserFrame() -> NSRect? {
         guard let s = UserDefaults.standard.string(forKey: userFrameKey) else { return nil }
         let rect = NSRectFromString(s)
         return rect.isEmpty ? nil : rect
-    }
-
-    private static func isOnSomeScreen(_ rect: NSRect) -> Bool {
-        NSScreen.screens.contains { $0.visibleFrame.intersects(rect) }
     }
 
     // Allow the panel to become key for dragging but not steal focus
@@ -98,8 +114,8 @@ final class CoachingOverlayPanel: NSPanel {
 
     private func positionAtTopRight(of screen: NSScreen?) {
         guard let screen else { return }
-        let x = screen.visibleFrame.maxX - 320
-        let y = screen.visibleFrame.maxY - 86
+        let x = screen.visibleFrame.maxX - frame.width - 20
+        let y = screen.visibleFrame.maxY - frame.height - 20
         setFrameOrigin(NSPoint(x: x, y: y))
     }
 
@@ -129,18 +145,120 @@ final class CoachingOverlayPanel: NSPanel {
     }
 }
 
-/// SwiftUI view shown inside the overlay panel: a single-line nudge display
-/// with a persistent talk-share meter underneath. Observes the session
-/// directly (@Observable), so the meter and nudges update without the host
-/// rebuilding the panel's content view.
+/// A compact ambient bubble that expands only for coaching or actionable notices.
 struct CoachingOverlayView: View {
     var liveSession: LiveSessionViewModel
     var settings: SettingsViewModel
     let onClose: () -> Void
+    var onSizeChange: (CGSize) -> Void = { _ in }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var expanded: Bool {
+        activeNudge != nil || liveSession.memoryPressureTipVisible || liveSession.basicModeNotice != nil
+    }
+
+    private var sessionShare: Double? {
+        guard !liveSession.micOnly, let share = liveSession.talkStats.sessionShare else { return nil }
+        return min(1, max(0, share))
+    }
+
+    private var shareDescription: String {
+        guard let share = sessionShare else { return "Talk share unavailable" }
+        return "Estimated talk share: you \(Int((share * 100).rounded())) percent, others \(Int(((1 - share) * 100).rounded())) percent"
+    }
 
     private var activeNudge: Nudge? { liveSession.activeNudge }
 
     var body: some View {
+        Group {
+            if expanded {
+                expandedContent
+            } else {
+                compactContent
+            }
+        }
+        .fixedSize()
+        .padding(6)
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { onSizeChange(geometry.size) }
+                    .onChange(of: geometry.size) { _, size in onSizeChange(size) }
+            }
+        }
+        .contextMenu {
+            Button("Hide overlay", action: onClose)
+        }
+        .accessibilityAction(named: "Hide overlay", onClose)
+    }
+
+    private var compactContent: some View {
+        TimelineView(.periodic(from: .now, by: 0.2)) { context in
+            let speaking = liveSession.isLive && context.date.timeIntervalSince(liveSession.overlaySpeechAt) < 2.5
+            let color: Color = !speaking || liveSession.micOnly || liveSession.overlaySpeaker == "Meeting"
+                ? .secondary : liveSession.overlaySpeaker == "You" ? Dorado.dollar : .blue
+            let activity = !speaking ? "Listening" : liveSession.micOnly || liveSession.overlaySpeaker == "Meeting"
+                ? "Speech detected" : liveSession.overlaySpeaker == "You" ? "You speaking" : "Others speaking"
+            HStack(spacing: 11) {
+                HStack(spacing: 3) {
+                    ForEach(0..<5) { index in
+                        Capsule()
+                            .fill(color)
+                            .frame(width: 3, height: barHeight(index, speaking: speaking, at: context.date))
+                    }
+                }
+                .frame(width: 27, height: 20)
+                .accessibilityHidden(true)
+                if settings.showOverlayClock {
+                    Text(liveSession.elapsedFormatted)
+                        .font(.system(size: 13, weight: .medium, design: .rounded).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(width: 144, height: 44)
+            .background(Dorado.surface)
+            .overlay(alignment: .leading) {
+                shareEdge(sessionShare, color: Dorado.dollar)
+            }
+            .overlay(alignment: .trailing) {
+                shareEdge(sessionShare.map { 1 - $0 }, color: .blue)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Meeting activity")
+            .accessibilityValue("\(activity). \(liveSession.elapsedFormatted) elapsed. \(shareDescription)")
+        }
+        .help("\(shareDescription). Drag to move; right-click to hide.")
+    }
+
+    private func shareEdge(_ share: Double?, color: Color) -> some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .top) {
+                color.opacity(0.12)
+                color.frame(height: geometry.size.height * (share ?? 0))
+            }
+        }
+        .frame(width: 7)
+        .accessibilityHidden(true)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.4), value: share)
+    }
+
+    private func barHeight(_ index: Int, speaking: Bool, at date: Date) -> CGFloat {
+        guard speaking else { return 4 }
+        let heights: [CGFloat] = [8, 15, 20, 12, 7]
+        guard !reduceMotion else { return heights[index] }
+        let phase = date.timeIntervalSinceReferenceDate * 7 + Double(index) * 1.7
+        return 5 + (heights[index] - 5) * CGFloat((sin(phase) + 1) / 2)
+    }
+
+    private var expandedContent: some View {
         VStack(spacing: 5) {
             HStack(spacing: 8) {
                 // Status dot
@@ -154,10 +272,11 @@ struct CoachingOverlayView: View {
                         .fill(nudgeColor(nudge))
                         .frame(width: 8, height: 8)
 
-                    // Nudge text
+                    // Let short coaching text wrap when feedback controls need room.
                     Text(nudge.text)
                         .font(.callout.bold())
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     Spacer()
 
@@ -179,7 +298,8 @@ struct CoachingOverlayView: View {
                         .font(.caption)
                     Text("Memory pressure — turn off AI?")
                         .font(.caption)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer()
                     Button("Turn off") {
                         liveSession.shedSessionModel(settings: settings)
@@ -209,22 +329,6 @@ struct CoachingOverlayView: View {
                             .foregroundStyle(.tertiary)
                     }
                     Spacer()
-                } else {
-                    // Ambient state
-                    Image(systemName: "waveform")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                    Text("Listening...")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                    // Session clock — the only always-visible place to see
-                    // how long the meeting has run without opening a window.
-                    if settings.showOverlayClock {
-                        Text(liveSession.elapsedFormatted)
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(.tertiary)
-                    }
-                    Spacer()
                 }
 
                 // Close
@@ -248,7 +352,8 @@ struct CoachingOverlayView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .frame(minWidth: 280, maxWidth: 300, minHeight: 36)
+        .frame(width: 300)
+        .frame(minHeight: 36)
         // Tint wash under the material while a nudge shows — positives get
         // an unmistakable green; corrections a lighter cue.
         .background(activeNudge.map { nudgeColor($0).opacity($0.type.isPositive ? 0.22 : 0.12) } ?? Color.clear)
@@ -259,8 +364,6 @@ struct CoachingOverlayView: View {
                 .stroke(activeNudge.map { nudgeColor($0).opacity(0.55) } ?? Color.primary.opacity(0.08),
                         lineWidth: activeNudge == nil ? 1 : 1.5)
         )
-        .padding(6)
-        .animation(.easeInOut(duration: 0.3), value: activeNudge?.id)
     }
 
     private func feedbackButton(nudge: Nudge, feedback: NudgeFeedback, icon: String, color: Color) -> some View {
