@@ -1605,3 +1605,8 @@ Nudges and actionable memory/basic-mode notices retain their expanded presentati
 A borderless NSPanel fits its content while anchoring the top-right corner and
 preserving saved drag positions. The ambient bubble has a Hide overlay context
 menu and accessibility action, keeping a persistent close icon out of the design.
+
+The push gate exposed an existing backtest build-list omission: AIClient now
+references ClaudeAccount but bench/backtest.sh did not compile that file. Add
+its source to the harness so nudge golden replays can run; no signal behavior
+or golden expectations change.
