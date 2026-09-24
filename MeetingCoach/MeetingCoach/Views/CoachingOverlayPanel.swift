@@ -387,8 +387,9 @@ struct CoachingOverlayView: View {
     }
 }
 
-/// Thin two-tone you/them bar with a percentage label. Orange past 65% —
-/// the point where coaching notes consistently call the floor hogged.
+/// Thin two-tone you/them bar with a percentage label. Your share is green,
+/// matching the compact bubble's You edge. Orange past 65% — the point where
+/// coaching notes consistently call the floor hogged.
 struct TalkMeterBar: View {
     let share: Double
     var warnAt: Double = TalkStats.warnShare
@@ -403,7 +404,7 @@ struct TalkMeterBar: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.secondary.opacity(0.25))
                     Capsule()
-                        .fill(share >= warnAt ? Color.orange : Color.blue)
+                        .fill(share >= warnAt ? Color.orange : Dorado.dollar)
                         .frame(width: max(3, geo.size.width * share))
                 }
             }
