@@ -12,6 +12,25 @@ import Foundation
 /// transcripts folder. Foundation-only on purpose — test rigs compile this
 /// file standalone next to AppSupport/TranscriptSearch.
 enum TranscriptStore {
+    static let didDeleteMeeting = Notification.Name("TranscriptStore.didDeleteMeeting")
+
+    /// Remove sidecars first so a cleanup failure keeps the meeting visible for retry.
+    /// Missing files are harmless. Keep the append-only index and shared-link
+    /// ownership records: readers skip absent transcripts, and links stay revocable.
+    static func deleteMeeting(at transcript: URL) throws {
+        let stem = transcript.deletingPathExtension()
+        let files = [stem.appendingPathExtension("chat.json"),
+                     stem.appendingPathExtension("json"), transcript]
+        for file in files {
+            do {
+                try FileManager.default.removeItem(at: file)
+            } catch let error as CocoaError where error.code == .fileNoSuchFile {
+                continue
+            }
+        }
+        NotificationCenter.default.post(name: didDeleteMeeting, object: transcript)
+    }
+
     // MARK: - Filenames
 
     /// Filesystem-safe slug: lowercased ASCII letters/digits joined by

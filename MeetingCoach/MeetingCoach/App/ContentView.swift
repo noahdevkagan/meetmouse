@@ -103,6 +103,15 @@ struct ContentView: View {
                                       reviewInProgress: sessionURL.path == liveSession.savedPath && liveSession.isGeneratingSummary) {
                         selectedSessionURL = nil
                     }
+                    .onReceive(NotificationCenter.default.publisher(for: TranscriptStore.didDeleteMeeting)) { notification in
+                        guard let deleted = notification.object as? URL else { return }
+                        if liveSession.savedPath == deleted.path {
+                            liveSession.savedPath = nil
+                            liveSession.dismissPostSession()
+                        }
+                        leftLiveView = true
+                        searchQuery = ""
+                    }
                     .id(sessionURL)
                     .frame(minWidth: 400)
                 } else if !activeSearch.isEmpty {
@@ -1793,6 +1802,9 @@ private struct SessionsSection: View {
             }
         }
         .padding(.horizontal, 6)
+        .onReceive(NotificationCenter.default.publisher(for: TranscriptStore.didDeleteMeeting)) { _ in
+            reloadRecent()
+        }
         // Refresh when a session ends and saves.
         .task(id: liveSession.hasSession && !liveSession.isLive) {
             reloadRecent()
