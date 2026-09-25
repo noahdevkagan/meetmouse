@@ -26,6 +26,8 @@ struct SessionDetailView: View {
         case coaching = "Coaching"
     }
 
+    @State private var confirmingDelete = false
+    @State private var deleteError: String?
     @State private var title = ""
     @State private var metaLine = ""
     @State private var review: MeetingReview?
@@ -110,6 +112,21 @@ struct SessionDetailView: View {
                 }
             }
         }
+        .confirmationDialog("Delete “\(title)”?", isPresented: $confirmingDelete,
+                            titleVisibility: .visible) {
+            Button("Delete meeting", role: .destructive) { deleteMeeting() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes the local transcript, notes, and saved chat. Shared links stay active; manage them in Meetings → Shared links.")
+        }
+        .alert("Couldn't delete meeting", isPresented: Binding(
+            get: { deleteError != nil },
+            set: { if !$0 { deleteError = nil } }
+        )) {
+            Button("OK", role: .cancel) { deleteError = nil }
+        } message: {
+            Text(deleteError ?? "Please try again.")
+        }
         .confirmationDialog(
             "Stop sharing these notes?",
             isPresented: $confirmingStopShare,
@@ -156,6 +173,20 @@ struct SessionDetailView: View {
         .task(id: askTick) {
             guard askTick > 0, let question = pendingAsk else { return }
             await runSessionAsk(question)
+        }
+    }
+
+    private var meetingIsBusy: Bool {
+        reviewInProgress || regenerating || preparingShare || askBusy != nil || pendingAsk != nil
+    }
+
+    private func deleteMeeting() {
+        guard !meetingIsBusy else { return }
+        do {
+            try TranscriptStore.deleteMeeting(at: url)
+            onClose()
+        } catch {
+            deleteError = "Some files couldn't be removed. Please try again. \(error.localizedDescription)"
         }
     }
 
@@ -221,6 +252,15 @@ struct SessionDetailView: View {
                     .buttonStyle(DoradoOutlineButtonStyle())
                     .menuIndicator(.hidden)
                     .fixedSize()
+
+                    Button(role: .destructive) { confirmingDelete = true } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 13))
+                    }
+                    .buttonStyle(DoradoOutlineButtonStyle())
+                    .disabled(meetingIsBusy)
+                    .accessibilityLabel("Delete meeting")
+                    .help(meetingIsBusy ? "Wait for the current meeting operation to finish" : "Delete meeting")
 
                     Button { onClose() } label: {
                         HStack(spacing: 7) {
