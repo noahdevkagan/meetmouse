@@ -5,6 +5,22 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-24): Compact meeting bubble concepts
+
+Implemented the approved 144 × 44 ambient bubble with 7-point, top-down
+You/Them session-share edges, speaker-colored waveform, and optional timer.
+Expanded nudges/warnings, dismissal and saved positioning are preserved.
+Debug build passed; native SwiftUI fixture verified compact/expanded/restored
+panel sizes and top-right anchoring, both speakers, unknown share, and clock off.
+Evidence: `.context/overlay-preview.log` and `.context/overlay-*-native.png`.
+PR: https://github.com/noahdevkagan/meetmouse/pull/20 (open, mergeable).
+Full push gate passed (730s), including every regression suite and scorecard.
+Informational synthetic-hard ASR WER rose to 5.6% from 4.5%; ASR source is
+unchanged. The saved-meeting replay has a new corpus, so no comparable baseline. Logs: `.context/bubble-push-gate-retry.log` and
+`.context/bubble-final-build.log`. Fixed the existing missing ClaudeAccount source
+in bench/backtest.sh so nudge goldens compile; expectations are unchanged.
+No installed app replacement, live call validation, merge, or release.
+
 ## Current state (2026-09-23): Live Claude validation — mixed results
 
 User authorized testing notes/coaching with the connected account. Dev UI confirms

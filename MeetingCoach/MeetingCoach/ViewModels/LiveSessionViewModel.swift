@@ -14,6 +14,11 @@ final class LiveSessionViewModel {
     /// line under the committed transcript. Cleared on emit/stop.
     var livePartials: [String: String] = [:]
 
+    /// Recognition activity for the compact overlay, not an audio-level meter.
+    /// Expired by the view so silence cannot leave a speaker lit indefinitely.
+    private(set) var overlaySpeaker: String?
+    private(set) var overlaySpeechAt: Date = .distantPast
+
     /// Capture couldn't get system audio this session (Screen Recording
     /// declined) — the transcript can't tell You from the meeting.
     var micOnly = false
@@ -502,6 +507,8 @@ final class LiveSessionViewModel {
                 self.livePartials.removeValue(forKey: speaker)
             } else {
                 self.livePartials[speaker] = text
+                self.overlaySpeaker = speaker
+                self.overlaySpeechAt = Date()
             }
         }
 
@@ -914,6 +921,8 @@ final class LiveSessionViewModel {
         nudges = []
         activeNudge = nil
         talkStats.reset()
+        overlaySpeaker = nil
+        overlaySpeechAt = .distantPast
         error = nil
         meetingReview = nil
         reviewAIError = nil
@@ -1378,6 +1387,10 @@ final class LiveSessionViewModel {
     /// Insert keeping chronological order — the You and Them pipelines emit
     /// independently, so arrivals can be slightly out of order.
     private func insertUtterance(_ u: Utterance) {
+        if elapsedTime - u.endT < 3 {
+            overlaySpeaker = u.speaker
+            overlaySpeechAt = Date()
+        }
         var u = u
         // Remote names are a reversible display alias until diarization
         // identifies the voice. A bare "Them" rename must not permanently
