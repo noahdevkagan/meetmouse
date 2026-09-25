@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- The meeting bubble’s activity bars move faster and more smoothly.
+
 - Delete saved meetings from their detail view, with confirmation and cleanup of the local transcript, notes, and chat.
 
 ## 0.26.0 — 2026-09-25
