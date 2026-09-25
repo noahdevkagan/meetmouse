@@ -200,11 +200,14 @@ struct CoachingOverlayView: View {
             let activity = !speaking ? "Listening" : liveSession.micOnly || liveSession.overlaySpeaker == "Meeting"
                 ? "Speech detected" : liveSession.overlaySpeaker == "You" ? "You speaking" : "Others speaking"
             HStack(spacing: 11) {
-                HStack(spacing: 3) {
-                    ForEach(0..<5) { index in
-                        Capsule()
-                            .fill(color)
-                            .frame(width: 3, height: barHeight(index, speaking: speaking, at: context.date))
+                // Only the bars redraw at 30 Hz, and only while someone is speaking.
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !speaking || reduceMotion)) { bars in
+                    HStack(spacing: 3) {
+                        ForEach(0..<5) { index in
+                            Capsule()
+                                .fill(color)
+                                .frame(width: 3, height: barHeight(index, speaking: speaking, at: bars.date))
+                        }
                     }
                 }
                 .frame(width: 27, height: 20)
@@ -254,7 +257,7 @@ struct CoachingOverlayView: View {
         guard speaking else { return 4 }
         let heights: [CGFloat] = [8, 15, 20, 12, 7]
         guard !reduceMotion else { return heights[index] }
-        let phase = date.timeIntervalSinceReferenceDate * 7 + Double(index) * 1.7
+        let phase = date.timeIntervalSinceReferenceDate * 14 + Double(index) * 1.7
         return 5 + (heights[index] - 5) * CGFloat((sin(phase) + 1) / 2)
     }
 

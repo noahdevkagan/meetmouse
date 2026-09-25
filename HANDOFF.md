@@ -5,6 +5,14 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-25): Snappier bubble bars — built
+
+Center bars animate at 30 Hz (pulse speed doubled) only while someone is
+speaking; the rest of the bubble stays on the 5 Hz tick, bars pause when idle.
+Reduced-motion static bars and existing speech attribution/expiry are preserved.
+Debug xcodebuild and diff checks passed. Log: `.context/snappy-bars-build.log`.
+No app launch or installed-app replacement; visual feel has not been checked live.
+
 ## Current state (2026-09-25): Local coaching memory fix — built and tested
 
 Session activation now uses a 1 GB post-capture growth reserve instead of the
