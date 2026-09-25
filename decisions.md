@@ -1635,3 +1635,19 @@ The growth allowance is still a heuristic, not claimed hardware calibration;
 this development host has 32 GB, so real 16 GB M4 meeting validation remains.
 Use selected/installed wording instead of claiming active/ready before loading,
 and explain safety-budget rejection rather than asserting a proven load failure.
+
+
+## 2026-09-25 — Semantic meeting titles, no new keyword guesses
+
+The screenshot's “Spanish · spanish & team” comes from the sidebar's frequency
+heuristic, which confuses capitalized words and mentioned people with attendees.
+Stop creating those titles; use the date until AI notes provide a purpose-based
+name with confirmed participant/company context. Keep the legacy heuristic frozen
+for recognizing and upgrading existing machine titles when notes are regenerated.
+Record new AI titles in a header comment so regeneration can improve them; manual
+renames/clears remove that provenance. Existing unmarked non-heuristic names remain
+protected because their origin is ambiguous. No extra AI requests or provider changes.
+
+Legacy topic order varied across launches because dictionary ties were unsorted.
+Migration compares the topic words independent of order while requiring the same
+participant prefix; otherwise real old keyword titles can be stranded.
