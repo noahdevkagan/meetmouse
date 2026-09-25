@@ -218,8 +218,8 @@ final class LiveSessionViewModel {
 
     /// Free memory left after the model loads under which the tip shows
     /// immediately, without waiting for a pressure event — the "this call is
-    /// starting tight" case. Below the activation ladder's ~3 GB headroom on
-    /// purpose: crossing it means the load itself consumed the margin.
+    /// starting tight" case. This early warning is intentionally above the
+    /// post-capture admission reserve; a small model may load but warrant a tip.
     private static let postPinFreeGBFloor = 2.0
 
     private func startMemoryPressureWatch() {
@@ -629,13 +629,14 @@ final class LiveSessionViewModel {
         let candidates = ModelMemory.candidatesForCurrentMemory(
             chosen: settings.effectiveModel,
             installed: settings.availableModels,
-            availableGB: availableGB)
+            availableGB: availableGB,
+            headroomGB: ModelMemory.postCaptureHeadroomGB)
         guard !candidates.isEmpty else {
             return settleDeterministic(
                 String(format: "%.1f GB free fits nothing installed", availableGB),
                 notice: .init(
                     cause: "low memory",
-                    detail: String(format: "Only %.0f GB of memory is free — no installed AI model fits. Close some apps and restart the session for full coaching.",
+                    detail: String(format: "About %.1f GB of memory is available — below the safety budget for your installed models, including runtime overhead and room for growth. Close some apps, then start a new session to retry AI coaching.",
                                    availableGB),
                     lowMemory: true))
         }
