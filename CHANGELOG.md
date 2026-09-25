@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Delete saved meetings from their detail view, with confirmation and cleanup of the local transcript, notes, and chat.
+
 ## 0.26.0 — 2026-09-25
 
 - Local AI coaching no longer reserves transcription memory twice at meeting startup, allowing smaller models to run with less available memory. Model selection labels now distinguish installed models from running AI.

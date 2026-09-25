@@ -1454,6 +1454,44 @@ func runTests() async {
               "got \(capped.map(\.name))")
     }
 
+    // Deleting a saved meeting removes only its own files, including chat.
+    do {
+        let fm = FileManager.default
+        let folder = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: folder) }
+        let transcript = folder.appendingPathComponent("2026-09-24T10-00_delete.md")
+        let metadata = transcript.deletingPathExtension().appendingPathExtension("json")
+        let chat = MeetingChatStore.file(for: transcript)
+        let index = folder.appendingPathComponent("index.jsonl")
+        let neighbor = folder.appendingPathComponent("2026-09-24T11-00_keep.md")
+        for file in [transcript, metadata, chat, index, neighbor] {
+            try "fixture".write(to: file, atomically: true, encoding: .utf8)
+        }
+        try TranscriptStore.deleteMeeting(at: transcript)
+        check([transcript, metadata, chat].allSatisfy { !fm.fileExists(atPath: $0.path) },
+              "delete removes transcript, notes metadata and saved chat")
+        check([index, neighbor].allSatisfy { fm.fileExists(atPath: $0.path) },
+              "delete preserves append-only index and neighboring meetings")
+        try TranscriptStore.deleteMeeting(at: transcript)
+        check(true, "delete tolerates already removed files")
+        do {
+            try MeetingChatStore.save([], for: transcript)
+            check(false, "late chat save cannot resurrect deleted meeting")
+        } catch {
+            check(!fm.fileExists(atPath: chat.path), "late chat save cannot resurrect deleted meeting")
+        }
+        // A regular file as a parent is an actual filesystem error, not a missing meeting.
+        do {
+            try TranscriptStore.deleteMeeting(at: neighbor.appendingPathComponent("meeting.md"))
+            check(false, "delete surfaces filesystem errors")
+        } catch {
+            check(true, "delete surfaces filesystem errors")
+        }
+    } catch {
+        check(false, "saved meeting deletion fixtures", error.localizedDescription)
+    }
+
     // Mixed-channel profile audio must exclude every overlapping voice.
     do {
         check(VoiceClipSelection.soloRanges(start: 0, end: 10, excluding: []) == [0..<10],
