@@ -1610,3 +1610,14 @@ The push gate exposed an existing backtest build-list omission: AIClient now
 references ClaudeAccount but bench/backtest.sh did not compile that file. Add
 its source to the harness so nudge golden replays can run; no signal behavior
 or golden expectations change.
+
+
+## 2026-09-24 — Delete from saved meeting details
+
+Expose a discreet, accessible trash button beside Export, with a named confirmation
+and visible filesystem failures. Remove chat and metadata before the transcript so
+cleanup failures leave the meeting available to retry (some sidecars may already
+be gone). Preserve the append-only index contract and shared-link ownership so
+existing links can still be revoked from Meetings → Shared links, as explained
+in the confirmation. Disable deletion during notes/chat generation to avoid racing
+writes. Notify the sidebar and clear the latest saved path after successful removal.

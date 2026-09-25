@@ -5,6 +5,17 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-24): Delete saved meetings — implemented
+
+Saved meeting details have an accessible trash button, named confirmation, and
+filesystem error reporting. Deletes transcript/notes, metadata, and chat; returns
+to Meetings and refreshes sidebar. Busy AI operations disable deletion. Shared-link
+ownership and append-only index remain intact, per decisions.md.
+Debug xcodebuild and 178 session checks passed, including isolated deletion,
+neighbor preservation, missing files, filesystem errors, and late chat writes.
+Logs: `.context/delete-meeting-{build,tests}.log`. `git diff --check` passed.
+No installed app replacement or manual UI validation performed.
+
 ## Current state (2026-09-24): Compact meeting bubble concepts
 
 Implemented the approved 144 × 44 ambient bubble with 7-point, top-down

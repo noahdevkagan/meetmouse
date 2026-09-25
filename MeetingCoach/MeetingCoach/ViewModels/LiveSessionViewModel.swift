@@ -881,14 +881,12 @@ final class LiveSessionViewModel {
 
     func deleteSession() {
         if let path = savedPath {
-            try? FileManager.default.removeItem(atPath: path)
-            // The metadata sidecar describes the file that just went away.
-            // The index.jsonl line stays — the index is append-only by
-            // contract; readers resolve against files that still exist.
-            try? FileManager.default.removeItem(
-                at: URL(fileURLWithPath: path).deletingPathExtension()
-                    .appendingPathExtension("json"))
-            try? MeetingChatStore.remove(for: URL(fileURLWithPath: path))
+            do {
+                try TranscriptStore.deleteMeeting(at: URL(fileURLWithPath: path))
+            } catch {
+                self.error = "Couldn't delete meeting: \(error.localizedDescription)"
+                return
+            }
             savedPath = nil
         }
         resetSessionState()
