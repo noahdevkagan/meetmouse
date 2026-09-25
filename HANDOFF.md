@@ -5,6 +5,20 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-25): Local coaching memory fix — built and tested
+
+Session activation now uses a 1 GB post-capture growth reserve instead of the
+3 GB pre-capture reserve (transcription is already resident at this point).
+Weights + runtime overhead, preload fallback, and pressure monitoring remain.
+Granite at 5 GB available reaches preload; it pins only on successful loading.
+Selected/installed UI wording no longer promises a running model or next-session
+success; the low-memory notice explains the safety budget.
+Validation: all 185 session checks and Debug xcodebuild passed; diff check clean.
+Logs: `.context/memory-session-tests.log`, `.context/memory-build.log`.
+Changelog generator run. No app launch, installed-app replacement, or release.
+This host has 32 GB RAM: real 16 GB M4 meeting validation remains outstanding,
+and the growth reserve is explicitly still a heuristic, not measured calibration.
+
 ## Current state (2026-09-24): Compact meeting bubble concepts
 
 Implemented the approved 144 × 44 ambient bubble with 7-point, top-down

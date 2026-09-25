@@ -1610,3 +1610,18 @@ The push gate exposed an existing backtest build-list omission: AIClient now
 references ClaudeAccount but bench/backtest.sh did not compile that file. Add
 its source to the harness so nudge golden replays can run; no signal behavior
 or golden expectations change.
+
+
+## 2026-09-25 — Separate post-capture growth from pre-capture memory reserve
+
+A 16 GB M4 user reported Granite installed but rejected with 5 GB available.
+The 3 GB provisional reserve includes capture even though session activation now
+reads free + inactive memory after capture initializes. Keep that reserve for
+pre-capture callers; explicitly pass a 1 GB growth-only reserve at activation.
+Weights and 1.5 billion bytes of runtime overhead remain budgeted separately.
+This admits ~2.1 GiB Granite at 5 GiB while still rejecting the original 9B/8 GiB
+case. Preload must succeed before pinning, and pressure monitoring remains.
+The growth allowance is still a heuristic, not claimed hardware calibration;
+this development host has 32 GB, so real 16 GB M4 meeting validation remains.
+Use selected/installed wording instead of claiming active/ready before loading,
+and explain safety-budget rejection rather than asserting a proven load failure.
