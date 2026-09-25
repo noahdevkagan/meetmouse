@@ -577,6 +577,24 @@ func runTests() async {
                                                 installed: [installed("mystery:model", 0)],
                                                 availableGB: 64) == nil,
               "unknown size is unsafe, not assumed small")
+        // The reported 16 GB Mac has 5 GB available AFTER transcription loads.
+        // Keep the pre-capture policy conservative, but don't reserve ASR twice.
+        let granite = installed("granite4:3b", 2.1)
+        check(ModelMemory.modelForCurrentMemory(chosen: granite.name,
+                                                installed: [granite], availableGB: 5) == nil,
+              "pre-capture policy still reserves room for transcription")
+        let reserve = ModelMemory.postCaptureHeadroomGB
+        let boundary = ModelMemory.runtimeNeedGB(installedBytes: granite.size) + reserve
+        for (available, expected) in [(5.0, true), (boundary, true), (boundary - 0.01, false), (3.0, false)] {
+            check((ModelMemory.modelForCurrentMemory(chosen: granite.name,
+                                                     installed: [granite], availableGB: available,
+                                                     headroomGB: reserve) == granite.name) == expected,
+                  "post-capture Granite eligibility at \(available) GB")
+        }
+        check(ModelMemory.modelForCurrentMemory(chosen: "qwen3.5:9b",
+                                                installed: pool, availableGB: 8,
+                                                headroomGB: reserve) == "qwen3.5:4b",
+              "post-capture policy still blocks the original oversized 9B case")
         // Candidate order: the selection first, then strictly smaller
         // installed rungs as preload fallbacks — never a larger one, which
         // would fail harder than the model that just OOMed.
@@ -697,6 +715,30 @@ func runTests() async {
         try? await Task.sleep(for: .milliseconds(150))
         check(reviewed == target, "cloud recap keeps session's pinned provider with empty local inventory")
         check(!unloaded && manager.status == .stopped, "cloud recap never loads or unloads Ollama")
+        vm.deleteSession()
+    }
+
+    // Real activation must use the post-capture budget, not just the pure helper.
+    // A successful load pins Granite; a failed load still leaves built-in coaching.
+    for loadFails in [false, true] {
+        resetSeams()
+        var preloaded: [String] = []
+        LiveSessionViewModel.availableMemoryGB = { 5 }
+        LiveSessionViewModel.preloadModel = {
+            preloaded.append($0)
+            return loadFails ? "out of memory" : nil
+        }
+        let settings = liveSettings("granite4:3b")
+        settings.availableModels = [installed("granite4:3b", 2.1)]
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: OllamaManager())
+        try? await Task.sleep(for: .milliseconds(500))
+        check(preloaded == ["granite4:3b"], "Granite at 5 GB reaches preload")
+        check(vm.sessionModelState?.pinnedModel == (loadFails ? nil : "granite4:3b"),
+              "Granite is pinned only when preload succeeds")
+        check((vm.basicModeNotice != nil) == loadFails,
+              "Granite load failure still explains basic mode")
+        vm.stopLive()
         vm.deleteSession()
     }
 
