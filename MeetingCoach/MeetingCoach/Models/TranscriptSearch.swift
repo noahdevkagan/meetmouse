@@ -15,6 +15,7 @@ struct TranscriptHit: Identifiable, Sendable {
 /// target compiles this exact file standalone, so in-app search and agent
 /// search can never drift.
 enum TranscriptSearch {
+    static let didChangeTitle = Notification.Name("MeetMouse.meetingTitleDidChange")
     /// A file the app treats as a saved session: the current
     /// "yyyy-MM-ddTHH-mm[_title[_participants]].md" shape or the legacy
     /// "session_yyyy-MM-dd_HH-mm.md" one (pre-0.21 files are never renamed).
@@ -281,30 +282,42 @@ enum TranscriptSearch {
         return false
     }
 
-    /// Rename a session: write (or, when cleared, blank out) the Title
-    /// header line. The date-based filename is untouched — it's the sort
-    /// key and is parsed for the session date.
-    /// Adopt a generated (LLM review) title unless a human or a real
-    /// meeting name got there first. Machine titles are reproducible: a
-    /// header title that matches what `suggestedTitle` would produce for
-    /// this content was machine-written by the sidebar, so upgrading it
-    /// loses nothing. Anything else (rename, window title, pre-call
-    /// person·subject) wins, and a bare Title line is the user's
-    /// cleared-title sentinel — the date stays.
+    // Keep the old heuristic unchanged ONLY to recognize titles written by
+    // older versions. Changing its output would strand those titles forever.
+    private static let generatedTitlePrefix = "<!-- meetmouse-generated-title: "
+
+    /// Upgrade automatic titles; preserve explicit names and cleared titles.
     static func adoptGeneratedTitle(_ title: String, for file: URL) {
-        guard let content = try? String(contentsOf: file, encoding: .utf8) else { return }
+        let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty, !cleaned.contains("\n"), !cleaned.contains("\r"),
+              let content = try? String(contentsOf: file, encoding: .utf8) else { return }
+        guard !content.components(separatedBy: "\n").prefix(16).contains("<!-- meetmouse-title: manual -->") else { return }
         if let current = headerTitle(in: content) {
-            guard current == suggestedTitle(in: content) else { return }
+            let marker = generatedTitlePrefix + current + " -->"
+            let isGenerated = content.components(separatedBy: "\n").prefix(16).contains(marker)
+            // Old equal-frequency topics came from Dictionary iteration, so
+            // their ordering can change between launches. Compare topic sets
+            // but keep the inferred participant portion exact.
+            func legacyParts(_ value: String) -> [String] {
+                let parts = value.components(separatedBy: " · ")
+                let topics = (parts.last ?? "").components(separatedBy: CharacterSet(charactersIn: ",&"))
+                    .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.sorted()
+                return [parts.count > 1 ? parts[0] : ""] + topics
+            }
+            let isLegacy = suggestedTitle(in: content).map { legacyParts(current) == legacyParts($0) } ?? false
+            guard isGenerated || isLegacy else { return }
         } else if hasTitleLine(in: content) {
             return
         }
-        setTitle(title, for: file)
+        setTitle(cleaned, for: file, generated: true)
     }
 
-    static func setTitle(_ title: String, for file: URL) {
+    static func setTitle(_ title: String, for file: URL, generated: Bool = false) {
         guard let content = try? String(contentsOf: file, encoding: .utf8) else { return }
         var lines = content.components(separatedBy: "\n")
         let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        // A manual rename (including clear) removes automatic provenance.
+        lines.removeAll { $0.hasPrefix(generatedTitlePrefix) || $0 == "<!-- meetmouse-title: manual -->" }
         if let i = lines.firstIndex(where: { $0.hasPrefix("**Title:**") }) {
             // Cleared: keep a bare "**Title:**" marker (see hasTitleLine).
             lines[i] = cleaned.isEmpty ? "**Title:**" : "**Title:** \(cleaned)"
@@ -313,7 +326,13 @@ enum TranscriptSearch {
                 .map { lines.index(after: $0) } ?? 0
             lines.insert("**Title:** \(cleaned)", at: insertAt)
         }
-        try? lines.joined(separator: "\n").write(to: file, atomically: true, encoding: .utf8)
+        if let i = lines.firstIndex(where: { $0.hasPrefix("**Title:**") }) {
+            lines.insert(generated ? generatedTitlePrefix + cleaned + " -->"
+                         : "<!-- meetmouse-title: manual -->", at: i + 1)
+        }
+        do {
+            try lines.joined(separator: "\n").write(to: file, atomically: true, encoding: .utf8)
+        } catch { return }
 
         // Keep the metadata sidecar's title in step — external AI tools
         // read it instead of the markdown header. (The index.jsonl line is
@@ -331,6 +350,7 @@ enum TranscriptSearch {
                 try? out.write(to: sidecar)
             }
         }
+        NotificationCenter.default.post(name: didChangeTitle, object: file)
     }
 
     /// The words of a query, for all-words matching and highlighting.

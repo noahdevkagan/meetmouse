@@ -5,6 +5,17 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-25): Smarter meeting titles — built and tested
+
+Retired new sidebar keyword/name guesses; AI notes now request purpose + confirmed
+participant/company titles. Generated title provenance allows future improvements;
+manual renames/clears remain protected. Regenerating notes upgrades legacy heuristic
+titles, including unstable topic-order ties. Title changes refresh sidebar/detail.
+Validation: 199 session checks, Debug xcodebuild, and diff check passed.
+Logs: `.context/title-session-tests.log`, `.context/title-build.log`.
+No live AI quality validation, saved-meeting regeneration, app launch, or release.
+Existing titles improve when notes are regenerated in the updated build.
+
 ## Current state (2026-09-25): Snappier bubble bars — built
 
 Center bars animate at 30 Hz (pulse speed doubled) only while someone is
