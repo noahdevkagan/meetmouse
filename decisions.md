@@ -1621,3 +1621,17 @@ be gone). Preserve the append-only index contract and shared-link ownership so
 existing links can still be revoked from Meetings → Shared links, as explained
 in the confirmation. Disable deletion during notes/chat generation to avoid racing
 writes. Notify the sidebar and clear the latest saved path after successful removal.
+
+## 2026-09-25 — Separate post-capture growth from pre-capture memory reserve
+
+A 16 GB M4 user reported Granite installed but rejected with 5 GB available.
+The 3 GB provisional reserve includes capture even though session activation now
+reads free + inactive memory after capture initializes. Keep that reserve for
+pre-capture callers; explicitly pass a 1 GB growth-only reserve at activation.
+Weights and 1.5 billion bytes of runtime overhead remain budgeted separately.
+This admits ~2.1 GiB Granite at 5 GiB while still rejecting the original 9B/8 GiB
+case. Preload must succeed before pinning, and pressure monitoring remains.
+The growth allowance is still a heuristic, not claimed hardware calibration;
+this development host has 32 GB, so real 16 GB M4 meeting validation remains.
+Use selected/installed wording instead of claiming active/ready before loading,
+and explain safety-budget rejection rather than asserting a proven load failure.

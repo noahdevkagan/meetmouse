@@ -86,6 +86,13 @@ enum ModelMemory {
     /// calibration against a real session before anyone tightens it.
     static let currentHeadroomGB: Double = 3
 
+    /// Session activation reads memory AFTER capture/ASR initialization. The
+    /// capture allocation is already reflected in that reading; reserve only
+    /// subsequent growth here, not another copy of the transcription budget.
+    /// This remains a heuristic, not a measured guarantee for every workload.
+    /// Runtime overhead is separate; preload and pressure monitoring still apply.
+    static let postCaptureHeadroomGB: Double = 1
+
     /// Free + inactive pages, in GB.
     ///
     /// A heuristic, and deliberately labelled as one. Inactive pages are
