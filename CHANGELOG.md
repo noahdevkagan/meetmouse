@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Meeting titles now describe the purpose, confirmed participants, and company context instead of guessing names from repeated words. Regenerating notes upgrades old keyword titles while preserving manual renames.
+
 - The meeting bubble’s activity bars move faster and more smoothly.
 
 - Delete saved meetings from their detail view, with confirmation and cleanup of the local transcript, notes, and chat.

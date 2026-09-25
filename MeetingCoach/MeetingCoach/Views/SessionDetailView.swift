@@ -154,6 +154,11 @@ struct SessionDetailView: View {
             Text("This removes the questions and answers. Your meeting transcript and notes stay saved.")
         }
         .onChange(of: tab) { _, _ in load() }
+        .onReceive(NotificationCenter.default.publisher(for: TranscriptSearch.didChangeTitle)) { notification in
+            guard notification.object as? URL == url else { return }
+            title = TranscriptSearch.displayTitle(for: url)
+            if let content = try? String(contentsOf: url, encoding: .utf8) { rawContent = content }
+        }
         .onChange(of: reviewRevision) { _, _ in load() }
         .onChange(of: reviewInProgress) { _, inProgress in
             load()
