@@ -25,6 +25,44 @@ func runTests() async {
         UserDefaults.standard.removePersistentDomain(forName: ProcessInfo.processInfo.processName)
     }
 
+    // Automatic titles may improve; explicit names (even legacy-looking ones)
+    // and clears must survive later AI completions.
+    do {
+        try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+        let file = scratch.appendingPathComponent("title-regression.md")
+        let body = "# Meeting\n\n## Transcript\n- [00:01] You: Spanish team Spanish team Spanish team\n- [00:05] Them: Spanish team Spanish team Spanish team\n"
+        try body.write(to: file, atomically: true, encoding: .utf8)
+        let title = "Sales chat with Diego (AppSumo)"
+        TranscriptSearch.adoptGeneratedTitle(title, for: file)
+        check(TranscriptSearch.headerTitle(at: file) == title, "semantic title includes purpose, participant and company")
+        TranscriptSearch.adoptGeneratedTitle("Sales follow-up with Diego (AppSumo)", for: file)
+        check(TranscriptSearch.headerTitle(at: file) == "Sales follow-up with Diego (AppSumo)", "regeneration improves an automatic title")
+        TranscriptSearch.setTitle("My chosen title", for: file)
+        TranscriptSearch.adoptGeneratedTitle(title, for: file)
+        check(TranscriptSearch.headerTitle(at: file) == "My chosen title", "manual title survives regeneration")
+        TranscriptSearch.setTitle("", for: file)
+        TranscriptSearch.adoptGeneratedTitle(title, for: file)
+        check(TranscriptSearch.headerTitle(at: file) == nil, "cleared title survives regeneration")
+        let legacy = TranscriptSearch.suggestedTitle(in: body)!
+        try body.replacingOccurrences(of: "# Meeting", with: "# Meeting\n**Title:** \(legacy)").write(to: file, atomically: true, encoding: .utf8)
+        TranscriptSearch.adoptGeneratedTitle(title, for: file)
+        check(TranscriptSearch.headerTitle(at: file) == title, "legacy keyword title upgrades")
+        TranscriptSearch.setTitle(legacy, for: file)
+        TranscriptSearch.adoptGeneratedTitle(title, for: file)
+        check(TranscriptSearch.headerTitle(at: file) == legacy, "explicit legacy-looking rename stays protected")
+        try body.replacingOccurrences(of: "# Meeting", with: "# Meeting\n**Title:** Customer appointment").write(to: file, atomically: true, encoding: .utf8)
+        TranscriptSearch.adoptGeneratedTitle(title, for: file)
+        check(TranscriptSearch.headerTitle(at: file) == "Customer appointment", "existing window or human title stays protected")
+        try body.write(to: file, atomically: true, encoding: .utf8)
+        TranscriptSearch.adoptGeneratedTitle(" ", for: file)
+        check(TranscriptSearch.headerTitle(at: file) == nil, "empty AI title cannot clear a meeting")
+        let parsed = MeetingReview.parse(llmText: "TITLE:\n\(title)\nSUMMARY:\nReviewed the sales pipeline.")
+        check(parsed.title == title, "review parser preserves natural title and company")
+        try FileManager.default.removeItem(at: file)
+    } catch {
+        check(false, "title regression fixtures", error.localizedDescription)
+    }
+
     // 1. The regression: speech still in the recognizers' pending line
     //    (nothing committed yet) must survive Stop — as committed
     //    utterances AND as visible turns. Before the fix the pane

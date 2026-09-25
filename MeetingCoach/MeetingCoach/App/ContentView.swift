@@ -1805,6 +1805,9 @@ private struct SessionsSection: View {
         .onReceive(NotificationCenter.default.publisher(for: TranscriptStore.didDeleteMeeting)) { _ in
             reloadRecent()
         }
+        .onReceive(NotificationCenter.default.publisher(for: TranscriptSearch.didChangeTitle)) { _ in
+            reloadRecent()
+        }
         // Refresh when a session ends and saves.
         .task(id: liveSession.hasSession && !liveSession.isLive) {
             reloadRecent()
@@ -1828,23 +1831,10 @@ private struct SessionsSection: View {
     }
 
     private func reloadRecent() {
-        // Untitled sessions get a topic-derived title automatically —
-        // written into the file so search and the dashboard agree with the
-        // sidebar. Rename (context menu) still overrides.
+        // AI reviews supply semantic titles. Until then use the saved title
+        // or date, rather than persisting guesses from word frequency.
         recent = TranscriptSearch.sessionFiles().map { url in
-            if let content = try? String(contentsOf: url, encoding: .utf8) {
-                if let header = TranscriptSearch.headerTitle(in: content) {
-                    return (url: url, title: header)
-                }
-                // A bare Title line is the user's cleared-title sentinel —
-                // show the date and do NOT re-suggest over it.
-                if !TranscriptSearch.hasTitleLine(in: content),
-                   let suggested = TranscriptSearch.suggestedTitle(in: content) {
-                    TranscriptSearch.setTitle(suggested, for: url)
-                    return (url: url, title: suggested)
-                }
-            }
-            return (url: url, title: TranscriptSearch.title(for: url))
+            (url: url, title: TranscriptSearch.displayTitle(for: url))
         }
     }
 }
