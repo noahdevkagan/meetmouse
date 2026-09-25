@@ -568,7 +568,7 @@ struct LiveTimelineView: View {
                            let ready = recommendationLadder.reversed().first(where: { name in
                                settings.availableModels.contains { $0.name == name }
                            }) {
-                            Text("\(ready) is installed and ready — a new session picks it up automatically when memory allows.")
+                            Text("\(ready) is installed — a new session checks available memory before loading it.")
                                 .font(.caption2).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -1968,10 +1968,10 @@ struct ModelSection: View {
         case .preparing:
             return nil
         case .deterministic:
-            return "This session is coaching without AI — \(settings.selectedModel) starts with your next session."
+            return "This session is coaching without AI. Your selected model will be checked again when you start a new session."
         case .pinned(_, let model):
             guard model != settings.selectedModel else { return nil }
-            return "This session keeps using \(model) — \(settings.selectedModel) starts with your next session."
+            return "This session keeps using \(model). Your new selection will be checked when you start the next session."
         }
     }
 
@@ -2026,6 +2026,10 @@ struct ModelSection: View {
                         .onChange(of: settings.selectedModel) { _, _ in
                             settings.save()
                         }
+
+                        Text("Installed models are checked for available memory and loaded when a meeting starts. Selecting a model does not mean it is running.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
 
                         if let hint = liveSelectionHint {
                             Text(hint)
@@ -2276,7 +2280,7 @@ struct InstalledModelRow: View {
                 HStack(spacing: 6) {
                     Text(model.name).font(.body.bold()).lineLimit(1)
                     if isSelected {
-                        Text("active")
+                        Text("selected")
                             .font(.caption2)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
