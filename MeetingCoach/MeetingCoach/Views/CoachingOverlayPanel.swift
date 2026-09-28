@@ -151,6 +151,7 @@ struct CoachingOverlayView: View {
     var settings: SettingsViewModel
     let onClose: () -> Void
     var onSizeChange: (CGSize) -> Void = { _ in }
+    var onOpenApp: () -> Void = {}
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var expanded: Bool {
@@ -237,8 +238,11 @@ struct CoachingOverlayView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Meeting activity")
             .accessibilityValue("\(activity). \(liveSession.elapsedFormatted) elapsed. \(shareDescription)")
+            .accessibilityAction(named: "Open MeetMouse", onOpenApp)
         }
-        .help("\(shareDescription). Drag to move; right-click to hide.")
+        // Double-click only: a single click or drag still just moves the bubble.
+        .onTapGesture(count: 2, perform: onOpenApp)
+        .help("\(shareDescription). Double-click to open MeetMouse; drag to move; right-click to hide.")
     }
 
     private func shareEdge(_ share: Double?, color: Color) -> some View {

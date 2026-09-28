@@ -31,6 +31,7 @@ struct ContentView: View {
     }
 
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(spacing: 0) {
@@ -201,7 +202,8 @@ struct ContentView: View {
         // key still says "first session" — it also grandfathers everyone
         // who already saw the prompt under the old first-meeting rule.)
         // Also route an already-ended meeting when its window first opens.
-        // The flag outlives the next Start, so never replay it over a live call.
+        // Start clears the flag so every Stop is a false→true change; the
+        // live guard still covers a window opened mid-call.
         .onChange(of: liveSession.showPostSession, initial: true) { _, shown in
             guard !liveSession.isLive else { return }
             if shown, let path = liveSession.savedPath {
@@ -265,6 +267,10 @@ struct ContentView: View {
                 panel?.orderOut(nil)
             }, onSizeChange: { [weak panel] size in
                 panel?.fitContent(size)
+            }, onOpenApp: {
+                // The main window may have been closed during the call.
+                openWindow(id: "main")
+                NSApp.activate(ignoringOtherApps: true)
             })
             panel.contentView = NSHostingView(rootView: view)
         }
@@ -341,14 +347,6 @@ struct LiveTimelineView: View {
             .buttonStyle(.bordered)
             .help(showCoach ? "Hide coaching and talk time" : "Show coaching and talk time")
             .accessibilityLabel(showCoach ? "Hide coaching" : "Show coaching")
-            if liveSession.isLive {
-                Button { liveSession.stopLive() } label: {
-                    Image(systemName: "stop.fill")
-                }
-                .buttonStyle(.bordered).tint(.red)
-                .help(liveSession.isDemo ? "Stop demo" : "End meeting")
-                .accessibilityLabel(liveSession.isDemo ? "Stop demo" : "End meeting")
-            }
         }
         .padding(.horizontal, 28).padding(.top, 24).padding(.bottom, 16)
     }
