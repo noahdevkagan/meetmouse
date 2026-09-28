@@ -1,0 +1,57 @@
+name: Auto release
+
+# Pushing a "## X.Y.Z" changelog section to main IS the release: if the top
+# numbered version in CHANGELOG.md has no tag yet, dispatch release.yml,
+# which runs the gate, then creates tag vX.Y.Z and ships. No local tag push
+# is needed (Claude Code's auto mode blocks those). Editing an already
+# released section is a no-op because its tag exists.
+#
+# Dispatch rather than tag here: a tag pushed with GITHUB_TOKEN would not
+# trigger release.yml's tag-push event.
+
+on:
+  push:
+    branches: [main]
+    paths: [CHANGELOG.md]
+
+permissions:
+  contents: read
+  actions: write           # gh workflow run
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # tags, for the already-released check
+
+      - name: Dispatch release for a new changelog version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(grep -m1 -oE '^## [0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | cut -c4- || true)"
+          if [ -z "$VERSION" ]; then
+            echo "No numbered version in CHANGELOG.md — nothing to release."
+            exit 0
+          fi
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "v$VERSION is already tagged — nothing to release."
+            exit 0
+          fi
+          # A release run for this version may already be in flight (tag
+          # pushed by hand, or an earlier changelog push).
+          if gh run list --workflow release.yml --limit 20 \
+               --json status,displayTitle,headBranch \
+               --jq '.[] | select(.status != "completed") | .headBranch' \
+             | grep -qx "v$VERSION"; then
+            echo "A release run for v$VERSION is already in progress."
+            exit 0
+          fi
+          echo "Releasing v$VERSION"
+          gh workflow run release.yml --ref main -f version="$VERSION"
