@@ -476,6 +476,13 @@ final class LiveSessionViewModel {
         status = resolvedLanguage.isEnglish
             ? "Starting — coaching loaded"
             : "Starting — multilingual coaching loaded"
+        // A new meeting has no post-session state yet. Leaving the previous
+        // Stop's flag up meant the next Stop set true→true, so the window
+        // never routed to the just-ended meeting's notes. Clear the saved
+        // path too: an empty meeting saves nothing, and must not route to
+        // (or auto-recap over) the previous meeting's file.
+        showPostSession = false
+        savedPath = nil
         isLive = true
 
         let manager = AudioCaptureManager(language: resolvedLanguage)
