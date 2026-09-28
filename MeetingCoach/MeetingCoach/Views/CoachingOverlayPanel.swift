@@ -5,6 +5,19 @@ import AppKit
 /// Uses sharingType = .none so it's invisible during screen shares.
 final class CoachingOverlayPanel: NSPanel {
 
+    /// Double-click opens the main window. Handled here rather than with a
+    /// SwiftUI tap gesture, which would claim mouse-down and stop
+    /// isMovableByWindowBackground from dragging the bubble.
+    var onDoubleClick: (() -> Void)?
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown, event.clickCount == 2, let onDoubleClick {
+            onDoubleClick()
+            return
+        }
+        super.sendEvent(event)
+    }
+
     init() {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 156, height: 56),
@@ -151,6 +164,7 @@ struct CoachingOverlayView: View {
     var settings: SettingsViewModel
     let onClose: () -> Void
     var onSizeChange: (CGSize) -> Void = { _ in }
+    var onOpenApp: () -> Void = {}
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var expanded: Bool {
@@ -237,8 +251,9 @@ struct CoachingOverlayView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Meeting activity")
             .accessibilityValue("\(activity). \(liveSession.elapsedFormatted) elapsed. \(shareDescription)")
+            .accessibilityAction(named: "Open MeetMouse", onOpenApp)
         }
-        .help("\(shareDescription). Drag to move; right-click to hide.")
+        .help("\(shareDescription). Double-click to open MeetMouse; drag to move; right-click to hide.")
     }
 
     private func shareEdge(_ share: Double?, color: Color) -> some View {

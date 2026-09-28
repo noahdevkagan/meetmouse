@@ -7,6 +7,12 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Ending a meeting now always opens its notes. Previously only the first meeting after launching the app did; later ones went back to the home screen.
+- Double-click the meeting bubble to open MeetMouse.
+- Removed the extra stop button from the top of the live meeting view. End a meeting from the Stop button in the sidebar or the menu bar.
+
 ## 0.27.0 — 2026-09-25
 
 - Delete saved meetings from their detail view, with confirmation and cleanup of the local transcript, notes, and chat.
