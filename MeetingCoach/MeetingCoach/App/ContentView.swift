@@ -267,18 +267,21 @@ struct ContentView: View {
                 panel?.orderOut(nil)
             }, onSizeChange: { [weak panel] size in
                 panel?.fitContent(size)
-            }, onOpenApp: {
-                // The main window may have been closed during the call.
-                openWindow(id: "main")
-                NSApp.activate(ignoringOtherApps: true)
-            })
+            }, onOpenApp: openMainWindow)
             panel.contentView = NSHostingView(rootView: view)
+            panel.onDoubleClick = openMainWindow
         }
         // Follow the user's attention: position on the screen holding the
         // frontmost app's window (the call) — unless the user has dragged
         // the panel somewhere, which wins permanently.
         panel.repositionToActiveScreen()
         panel.orderFront(nil)
+    }
+
+    // The main window may have been closed during the call.
+    private func openMainWindow() {
+        openWindow(id: "main")
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func hideOverlay() {
