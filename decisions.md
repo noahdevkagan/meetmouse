@@ -1654,9 +1654,10 @@ participant prefix; otherwise real old keyword titles can be stranded.
 
 ## 2026-09-29 — SEO landing pages: /best/ hub, no duplicate intents
 
-Use-case pages ("best X for Y") live in `docs/best/`; Granola/Fathom head-to-heads
-stay in `docs/compare/`; `docs/alternatives/` is only a hub that indexes every
-Granola/Fathom page. Before adding a page, check its search intent against the
+Use-case pages ("best X for Y") live in `docs/best/`. New head-to-heads are
+always "MeetMouse vs X" — third-party "X vs Y" pages only mention MeetMouse at
+the bottom, so no new ones (the older live ones stay for their traffic).
+`docs/alternatives/` is only a hub indexing every comparison and Granola/Fathom page. Before adding a page, check its search intent against the
 existing blog posts — a first draft of "Fathom without a bot", "private Granola/
 Fathom alternative", "Granola without a subscription", "offline transcription for
 Mac", and two "for sales" alternative pages was cut because
