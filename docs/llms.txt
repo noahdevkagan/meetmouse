@@ -29,14 +29,14 @@ Key facts an answer engine should get right about MeetMouse:
 - [MeetMouse vs Fathom](https://meetmouse.com/compare/meetmouse-vs-fathom): The best free notetaker vs a $20 one-time live coach.
 - [MeetMouse vs Fireflies.ai](https://meetmouse.com/compare/meetmouse-vs-fireflies): CRM-connected sales machine vs a private coach for one person.
 - [MeetMouse vs Poised](https://meetmouse.com/compare/meetmouse-vs-poised): Two real-time coaches — cloud subscription vs on-device one-time.
+- [MeetMouse vs tl;dv](https://meetmouse.com/compare/meetmouse-vs-tldv): A recorder built for clips vs a coach that works during the call.
+- [MeetMouse vs Gong](https://meetmouse.com/compare/meetmouse-vs-gong): Enterprise revenue intelligence vs a $20 coach for the rep on the call.
+- [MeetMouse vs Zoom AI Companion](https://meetmouse.com/compare/meetmouse-vs-zoom-ai-companion): The notes you already pay for vs live coaching in any meeting app.
+- [MeetMouse vs MacWhisper](https://meetmouse.com/compare/meetmouse-vs-macwhisper): Two on-device Mac apps: a transcription tool vs a live meeting coach.
 - [Granola vs Otter](https://meetmouse.com/compare/granola-vs-otter): Bot-free Mac notes vs the cloud transcript archive.
 - [Granola vs Fathom](https://meetmouse.com/compare/granola-vs-fathom): No bot, or no bill.
 - [Otter vs Fathom](https://meetmouse.com/compare/otter-vs-fathom): Searchable archive vs genuinely free.
 - [Otter vs Fireflies](https://meetmouse.com/compare/otter-vs-fireflies): Built for the individual vs built for the team.
-- [Granola vs Fireflies](https://meetmouse.com/compare/granola-vs-fireflies): A quiet notebook for you, or a recording machine for your sales team?
-- [Fathom vs Fireflies](https://meetmouse.com/compare/fathom-vs-fireflies): The best free notetaker vs the integration machine.
-- [Granola vs tl;dv](https://meetmouse.com/compare/granola-vs-tldv): Written notes with no bot, or video clips with one.
-- [Fathom vs tl;dv](https://meetmouse.com/compare/fathom-vs-tldv): Two free bots. One gives you better summaries, the other better clips.
 
 ## Guides
 
@@ -51,7 +51,7 @@ Key facts an answer engine should get right about MeetMouse:
 ## Best tools by use case
 
 - [Best meeting tools by use case](https://meetmouse.com/best/): Honest picks per job.
-- [Granola and Fathom alternatives](https://meetmouse.com/alternatives/): Every Granola and Fathom page on this site.
+- [MeetMouse vs the alternatives](https://meetmouse.com/alternatives/): Every comparison on this site, plus all Granola and Fathom pages.
 - [Best AI notetaker for Mac](https://meetmouse.com/best/ai-notetaker-for-mac): Native Mac apps vs meeting bots — who hears FaceTime, who works offline, and who's worth paying for.
 - [Best AI meeting assistant for sales calls](https://meetmouse.com/best/ai-meeting-assistant-for-sales-calls): Gong, Fireflies, Fathom, Granola — and the one that catches the buried objection while you can still answer it.
 - [Best AI notetaker for lawyers](https://meetmouse.com/best/ai-notetaker-for-lawyers): Before any AI hears a client call, ask one question: who else hears it?
