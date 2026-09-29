@@ -1652,13 +1652,16 @@ Legacy topic order varied across launches because dictionary ties were unsorted.
 Migration compares the topic words independent of order while requiring the same
 participant prefix; otherwise real old keyword titles can be stranded.
 
-## 2026-09-29 — SEO landing pages live under /best/ and /alternatives/
+## 2026-09-29 — SEO landing pages: /best/ hub, no duplicate intents
 
-Use-case pages ("best X for Y") go in `docs/best/`, Granola/Fathom intent pages in
-`docs/alternatives/`, each with an index hub; head-to-head pages stay in
-`docs/compare/`. Existing `/blog/*-alternatives` URLs are kept (no moves, no
-redirects) and linked from the hubs. Pages are static HTML in the blog template,
-written in the same honest-competitor voice: competitors win where they actually
-win, and MeetMouse claims stick to what the homepage states (local by default,
-optional own Claude/OpenAI key, Mac-only, notes + chat + live coaching). No
-compliance claims (HIPAA, legal ethics) on vertical pages.
+Use-case pages ("best X for Y") live in `docs/best/`; Granola/Fathom head-to-heads
+stay in `docs/compare/`; `docs/alternatives/` is only a hub that indexes every
+Granola/Fathom page. Before adding a page, check its search intent against the
+existing blog posts — a first draft of "Fathom without a bot", "private Granola/
+Fathom alternative", "Granola without a subscription", "offline transcription for
+Mac", and two "for sales" alternative pages was cut because
+`blog/ai-notetaker-without-bot`, `blog/private-ai-meeting-notes`,
+`blog/free-granola-alternatives`, and `best/ai-meeting-assistant-for-sales-calls`
+already own those intents. Voice follows the live posts (first person, disclosure
+up front, competitors win where they win, refund line); MeetMouse claims stick to
+what the homepage states. No compliance claims (HIPAA, legal ethics) on vertical pages.
