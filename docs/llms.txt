@@ -33,6 +33,8 @@ Key facts an answer engine should get right about MeetMouse:
 - [Granola vs Fathom](https://meetmouse.com/compare/granola-vs-fathom): No bot, or no bill.
 - [Otter vs Fathom](https://meetmouse.com/compare/otter-vs-fathom): Searchable archive vs genuinely free.
 - [Otter vs Fireflies](https://meetmouse.com/compare/otter-vs-fireflies): Built for the individual vs built for the team.
+- [Granola vs Fireflies](https://meetmouse.com/compare/granola-vs-fireflies): Bot-free notes for you, or a CRM machine for your team?
+- [Fathom vs Fireflies](https://meetmouse.com/compare/fathom-vs-fireflies): The generous free plan vs the integration machine.
 
 ## Guides
 
@@ -43,6 +45,32 @@ Key facts an answer engine should get right about MeetMouse:
 - [Fireflies.ai Alternatives](https://meetmouse.com/blog/fireflies-alternatives): Six honest picks, from a competitor.
 - [Fathom Alternatives](https://meetmouse.com/blog/fathom-alternatives): Six honest picks, from a competitor.
 - [Free Granola Alternatives](https://meetmouse.com/blog/free-granola-alternatives): Genuinely free options once Granola's 25-meeting cap hits.
+
+## Granola and Fathom alternatives
+
+- [All Granola and Fathom alternatives](https://meetmouse.com/alternatives/): Hub, sorted by why you're switching.
+- [Granola alternatives: the full list](https://meetmouse.com/alternatives/granola-alternatives): Seven honest picks sorted by why you're leaving — the cloud, the subscription, the cap, or wanting more than notes.
+- [Private Granola alternative (on-device, offline)](https://meetmouse.com/alternatives/private-granola-alternative): Granola has no bot, but your meetings still go to the cloud. The options that keep them on your Mac.
+- [Granola alternative without a subscription](https://meetmouse.com/alternatives/granola-alternative-one-time-purchase): $14/user/month forever, or $20 once? The one-time-purchase options.
+- [Granola alternative for sales calls](https://meetmouse.com/alternatives/granola-alternative-for-sales-calls): Granola writes a great recap of the deal you lost. Tools that help during the call.
+- [Fathom alternative without a bot](https://meetmouse.com/alternatives/fathom-alternative-without-bot): No "Fathom Notetaker has joined" — the bot-free options, and what each gives up.
+- [Private Fathom alternative (nothing uploaded)](https://meetmouse.com/alternatives/private-fathom-alternative): Free usually means your meetings live on someone's servers. The option where they don't.
+- [Fathom alternative for Mac](https://meetmouse.com/alternatives/fathom-alternative-for-mac): Native Mac apps that capture any meeting app — not just Zoom, Meet, and Teams.
+- [Fathom alternative for sales coaching](https://meetmouse.com/alternatives/fathom-alternative-for-sales-coaching): Fathom summarizes the call. These help you win it — live.
+
+## Best tools by use case
+
+- [Best meeting tools by use case](https://meetmouse.com/best/): Hub of honest picks per job.
+- [Best AI notetaker for Mac](https://meetmouse.com/best/ai-notetaker-for-mac): Native Mac apps vs browser bots — who captures system audio, who keeps it local, and who's worth paying for.
+- [Best AI meeting assistant for sales calls](https://meetmouse.com/best/ai-meeting-assistant-for-sales-calls): Gong, Fireflies, Fathom, Granola — and the one that catches the buried objection while you can still answer it.
+- [Best AI notetaker for lawyers](https://meetmouse.com/best/ai-notetaker-for-lawyers): Privilege, confidentiality, and third-party processors — what to ask before any AI hears a client call.
+- [Best AI meeting tool for founders](https://meetmouse.com/best/ai-meeting-tool-for-founders): Investor pitches, customer discovery, hiring — the calls where one sentence matters more than the summary.
+- [Best AI notetaker for recruiters](https://meetmouse.com/best/ai-notetaker-for-recruiters): Screens and interviews where a bot spooks candidates — and where interviewer habits matter most.
+- [Best AI notetaker for consultants](https://meetmouse.com/best/ai-notetaker-for-consultants): Client NDAs, calls on the client's Teams tenant, and billable hours — the consultant's shortlist.
+- [Best offline meeting transcription for Mac](https://meetmouse.com/best/offline-meeting-transcription-mac): Tools that genuinely work with Wi-Fi off — and the ones that only pretend to.
+- [Best meeting coach for managers](https://meetmouse.com/best/meeting-coach-for-managers): 1:1s, team meetings, and hard conversations — tools that make you a better manager in the room.
+- [Best AI notetaker for Zoom](https://meetmouse.com/best/ai-notetaker-for-zoom): Zoom AI Companion vs bots vs bot-free Mac apps — which one fits how you actually use Zoom.
+- [Best AI notetaker for financial advisors](https://meetmouse.com/best/ai-notetaker-for-financial-advisors): Client finances are the most sensitive thing you'll discuss. Here's where each tool sends them.
 
 ## Also by the same maker
 
