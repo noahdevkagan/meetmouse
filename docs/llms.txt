@@ -37,6 +37,10 @@ Key facts an answer engine should get right about MeetMouse:
 - [Granola vs Fathom](https://meetmouse.com/compare/granola-vs-fathom): No bot, or no bill.
 - [Otter vs Fathom](https://meetmouse.com/compare/otter-vs-fathom): Searchable archive vs genuinely free.
 - [Otter vs Fireflies](https://meetmouse.com/compare/otter-vs-fireflies): Built for the individual vs built for the team.
+- [Granola vs Fireflies](https://meetmouse.com/compare/granola-vs-fireflies): A quiet notebook for you, or a recording machine for your sales team?
+- [Fathom vs Fireflies](https://meetmouse.com/compare/fathom-vs-fireflies): The best free notetaker vs the integration machine.
+- [Granola vs tl;dv](https://meetmouse.com/compare/granola-vs-tldv): Written notes with no bot, or video clips with one.
+- [Fathom vs tl;dv](https://meetmouse.com/compare/fathom-vs-tldv): Two free bots. One gives you better summaries, the other better clips.
 
 ## Guides
 
