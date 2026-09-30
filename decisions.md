@@ -1666,3 +1666,19 @@ Mac", and two "for sales" alternative pages was cut because
 already own those intents. Voice follows the live posts (first person, disclosure
 up front, competitors win where they win, refund line); MeetMouse claims stick to
 what the homepage states. No compliance claims (HIPAA, legal ethics) on vertical pages.
+
+## 2026-09-30 — Marketing pages are generated from one template, shared with Rhino Voice
+
+`/best`, `/compare`, `/blog` and the hubs were hand-written HTML with inline styles,
+so each page drifted and none matched the homepage. They are now built by
+`site/build.py` from data (`site/content/best.py`, `compare.py`, `links.py`) and
+freeform fragments (`site/articles/*.html`, extracted once from the old pages),
+styled by one `docs/site.css` ported from rhinovoice.app's doc pages (same tokens,
+green accent). This copies Rhino's 2026-09-17/09-29 decisions: page = content
+object, one component owns breadcrumb, answer box, table, JSON-LD, buy form,
+checked-on note and cross-links, and a single page list drives hubs, llms.txt and
+the check. `site/build.py --check` (run by deploy-site.yml before every deploy)
+fails on broken internal links, invalid JSON-LD, stale output, sitemap gaps, or a
+guide without a "mine" pick. Writing and cross-linking rules live in
+`SITE-PLAYBOOK.md`, kept identical in both repos. Invented anecdotes were removed
+from the guides per the playbook (Rhino's "no invented anecdotes" rule).

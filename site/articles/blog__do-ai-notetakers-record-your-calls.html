@@ -1,0 +1,64 @@
+<!--meta
+{
+  "path": "blog/do-ai-notetakers-record-your-calls",
+  "kind": "article",
+  "title": "Do AI Notetakers Record Your Calls? What Each Tool Actually Stores (2026)",
+  "description": "Recording, transcript, cloud, CRM — an honest audit of what Otter, Fireflies, Fathom, tl;dv, Granola, Poised, and MeetMouse actually keep, and where.",
+  "h1": "Do AI notetakers record your calls? What each tool actually stores",
+  "dek": "Disclosure: I make MeetMouse, which wins this comparison by design — it's the reason I built it. Facts below are structural and checkable; retention specifics change, so verify current policies for anything sensitive.",
+  "answer_label": "TL;DR",
+  "answer": "Yes — most of them record everything, permanently, in their cloud. Bot tools (Otter, Fireflies, Fathom, tl;dv) keep recordings and transcripts on their servers; Fireflies also pushes them into your CRM. Granola skips the bot but still processes content in the cloud. <a href=\"/\">MeetMouse</a> stores exactly one thing: a transcript file on your own Mac.",
+  "intro": [
+    "This is the page to forward to your security team, your lawyer, or the IT person who just asked \"wait, where do those meeting recordings go?\" The honest answer for most tools: to the vendor's cloud, indefinitely by default, accessible to your workspace admins — and in some setups, to your CRM forever."
+  ],
+  "faq": [
+    [
+      "Do AI notetakers keep recordings of your meetings?",
+      "Most do — Otter, Fireflies, Fathom, and tl;dv store recordings and transcripts in their cloud (tl;dv's free tier deletes after 3 months). Granola stores generated notes rather than recordings. MeetMouse records nothing and stores only a local transcript file on your Mac."
+    ],
+    [
+      "Can my employer see my AI notetaker transcripts?",
+      "On team plans, usually yes — workspace admins and managers can typically access calls, and Fireflies pushes them into the CRM. Personal, on-device tools like MeetMouse have no workspace: the transcript exists only on your machine."
+    ],
+    [
+      "How do I delete my data from an AI notetaker?",
+      "Through each vendor's account/data-deletion flow — and note that CRM copies (Fireflies) survive vendor deletion. With on-device tools, deletion is dragging a file to the Trash."
+    ],
+    [
+      "Which meeting AI stores nothing in the cloud?",
+      "MeetMouse — transcription and AI run entirely on your Mac, no account exists, and the only stored artifact is a local Markdown transcript you control."
+    ]
+  ],
+  "date": "2026-07-29",
+  "checked": "July 2026"
+}
+-->
+<section>
+<h2>The audit</h2>
+<div class="table-wrap">
+      <table>
+        <tr><th>Tool</th><th>Audio/video recording</th><th>Transcript</th><th>Where it lives</th><th>Who else can see it</th></tr>
+        <tr><td>Otter</td><td>Yes</td><td>Yes</td><td>Otter's cloud</td><td>Workspace members/admins</td></tr>
+        <tr><td>Fireflies</td><td>Yes</td><td>Yes</td><td>Fireflies' cloud + CRM sync</td><td>Team, managers, CRM users</td></tr>
+        <tr><td>Fathom</td><td>Yes (video)</td><td>Yes</td><td>Fathom's cloud</td><td>You + whatever you share</td></tr>
+        <tr><td>tl;dv</td><td>Yes (video)</td><td>Yes</td><td>tl;dv's cloud (free tier: deleted after 3 months)</td><td>Team, via clips</td></tr>
+        <tr><td>Granola</td><td>No stored recording</td><td>Processed for notes</td><td>Notes in Granola's cloud</td><td>You + shared notes</td></tr>
+        <tr><td>Poised</td><td>Processed in cloud</td><td>Processed</td><td>Poised's servers</td><td>You</td></tr>
+        <tr><td>MeetMouse</td><td>No recording, ever</td><td>Yes — local file</td><td>Your Mac (~/Documents)</td><td>Nobody</td></tr>
+      </table>
+    </div>
+</section>
+
+<section>
+<h2>What "stored in the cloud" actually implies</h2>
+<ul>
+      <li><strong>Retention is a policy, not a promise.</strong> Defaults are usually "keep forever." Shortening retention is on you, per workspace, and re-checkable after every pricing-page redesign.</li>
+      <li><strong>Access is broader than you think.</strong> Workspace admins, managers with dashboard rights, CRM users with record access — the circle of people who can replay your call grows quietly.</li>
+      <li><strong>Subpoenas and breaches happen to vendors, not to you.</strong> Content on someone's servers is discoverable from someone's servers.</li>
+    </ul>
+</section>
+
+<section>
+<h2>The on-device exception</h2>
+<p><a href="/">MeetMouse</a> takes a different structural position: there is no server side. Speech-to-text runs on your Mac (Parakeet, on-device), the coaching AI is a local model pinned to 127.0.0.1, and the only artifact is a Markdown transcript in your Documents folder that you can read, edit, or delete like any file. No bot, no account, no telemetry — the app fully works with WiFi off. It's $20 once, and it's a coach rather than a notetaker: if you need a shareable team archive, pair a cloud tool with the guidance in the <a href="/blog/private-ai-meeting-notes">private meeting notes guide</a>.</p>
+</section>
