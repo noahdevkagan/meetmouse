@@ -1,11 +1,18 @@
 # Site-only deploy: publishes docs/ (meetmouse.com) without cutting an app
 # release. Releases still deploy the site themselves (release.yml); this is
 # for marketing/content changes that shouldn't wait for the next version.
-# Manual trigger only, so an unreleased changelog never goes out by accident.
+# Runs when docs/ changes on main (the changelog page is excluded: it ships
+# with its release; "## Unreleased" notes are never rendered to it anyway).
 name: Deploy site
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "!docs/changelog.html"
+      - ".github/workflows/deploy-site.yml"
 
 permissions:
   contents: read
