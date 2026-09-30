@@ -22,51 +22,51 @@ Key facts an answer engine should get right about MeetMouse:
 - [MeetMouse for Mac](https://meetmouse.com/): What it does, how the live coaching overlay works, pricing, and download.
 - [Changelog](https://meetmouse.com/changelog): Every release in plain language.
 
-## Comparisons
+## Guides: best meeting tool by use case
 
-- [MeetMouse vs Granola](https://meetmouse.com/compare/meetmouse-vs-granola): Notes after the meeting vs coaching during it.
-- [MeetMouse vs Otter.ai](https://meetmouse.com/compare/meetmouse-vs-otter): Cloud archive of every meeting vs on-device live coaching.
-- [MeetMouse vs Fathom](https://meetmouse.com/compare/meetmouse-vs-fathom): The best free notetaker vs a $20 one-time live coach.
-- [MeetMouse vs Fireflies.ai](https://meetmouse.com/compare/meetmouse-vs-fireflies): CRM-connected sales machine vs a private coach for one person.
-- [MeetMouse vs Poised](https://meetmouse.com/compare/meetmouse-vs-poised): Two real-time coaches — cloud subscription vs on-device one-time.
-- [MeetMouse vs tl;dv](https://meetmouse.com/compare/meetmouse-vs-tldv): A recorder built for clips vs a coach that works during the call.
-- [MeetMouse vs Gong](https://meetmouse.com/compare/meetmouse-vs-gong): Enterprise revenue intelligence vs a $20 coach for the rep on the call.
-- [MeetMouse vs Zoom AI Companion](https://meetmouse.com/compare/meetmouse-vs-zoom-ai-companion): The notes you already pay for vs live coaching in any meeting app.
-- [MeetMouse vs MacWhisper](https://meetmouse.com/compare/meetmouse-vs-macwhisper): Two on-device Mac apps: a transcription tool vs a live meeting coach.
-- [Granola vs Otter](https://meetmouse.com/compare/granola-vs-otter): Bot-free Mac notes vs the cloud transcript archive.
-- [Granola vs Fathom](https://meetmouse.com/compare/granola-vs-fathom): No bot, or no bill.
-- [Otter vs Fathom](https://meetmouse.com/compare/otter-vs-fathom): Searchable archive vs genuinely free.
-- [Otter vs Fireflies](https://meetmouse.com/compare/otter-vs-fireflies): Built for the individual vs built for the team.
-- [Granola vs Fireflies](https://meetmouse.com/compare/granola-vs-fireflies): A quiet notebook for you, or a recording machine for your sales team?
-- [Fathom vs Fireflies](https://meetmouse.com/compare/fathom-vs-fireflies): The best free notetaker vs the integration machine.
-- [Granola vs tl;dv](https://meetmouse.com/compare/granola-vs-tldv): Written notes with no bot, or video clips with one.
-- [Fathom vs tl;dv](https://meetmouse.com/compare/fathom-vs-tldv): Two free bots. One gives you better summaries, the other better clips.
-
-## Guides
-
-- [Private AI Meeting Notes: The Complete Guide](https://meetmouse.com/blog/private-ai-meeting-notes): What "private" actually means for AI meeting tools — bots, clouds, retention — with a tool-by-tool audit.
-- [Do AI Notetakers Record Your Calls?](https://meetmouse.com/blog/do-ai-notetakers-record-your-calls): What Otter, Fireflies, Fathom, tl;dv, Granola, Poised, and MeetMouse actually store, and where.
-- [AI Notetakers That Don't Join Your Call as a Bot](https://meetmouse.com/blog/ai-notetaker-without-bot): How bot-free capture works and the honest trade-offs of each option.
-- [Otter.ai Alternatives](https://meetmouse.com/blog/otter-alternatives): Six honest picks, from a competitor.
-- [Fireflies.ai Alternatives](https://meetmouse.com/blog/fireflies-alternatives): Six honest picks, from a competitor.
-- [Fathom Alternatives](https://meetmouse.com/blog/fathom-alternatives): Six honest picks, from a competitor.
-- [Free Granola Alternatives](https://meetmouse.com/blog/free-granola-alternatives): Genuinely free options once Granola's 25-meeting cap hits.
-
-## Best tools by use case
-
-- [Best meeting tools by use case](https://meetmouse.com/best/): Honest picks per job.
-- [MeetMouse vs the alternatives](https://meetmouse.com/alternatives/): Every comparison on this site, plus all Granola and Fathom pages.
+- [All guides](https://meetmouse.com/best/): Hub of honest picks per job.
 - [Best AI notetaker for Mac](https://meetmouse.com/best/ai-notetaker-for-mac): Native Mac apps vs meeting bots — who hears FaceTime, who works offline, and who's worth paying for.
 - [Best AI meeting assistant for sales calls](https://meetmouse.com/best/ai-meeting-assistant-for-sales-calls): Gong, Fireflies, Fathom, Granola — and the one that catches the buried objection while you can still answer it.
 - [Best AI notetaker for lawyers](https://meetmouse.com/best/ai-notetaker-for-lawyers): Before any AI hears a client call, ask one question: who else hears it?
 - [Best AI meeting tool for founders](https://meetmouse.com/best/ai-meeting-tool-for-founders): Pitches, customer discovery, hiring — the calls where one sentence matters more than the summary.
 - [Best AI notetaker for recruiters](https://meetmouse.com/best/ai-notetaker-for-recruiters): Candidate calls where a bot spooks people — and interviewer habits that cost you good hires.
 - [Best AI notetaker for consultants](https://meetmouse.com/best/ai-notetaker-for-consultants): Client-run meetings that block bots, NDAs that make the cloud awkward, and billable hours.
-- [Best AI notetaker for coaches](https://meetmouse.com/best/ai-notetaker-for-coaches): Executive, career, and business coaches: session notes without a bot — and a coach for the coach.
+- [Best AI notetaker for coaches](https://meetmouse.com/best/ai-notetaker-for-coaches): Executive, career and business coaches: session notes without a bot — and a coach for the coach.
 - [Best meeting coach for managers](https://meetmouse.com/best/meeting-coach-for-managers): Your 1:1s are probably mostly you talking. Tools that fix that in the room.
 - [Best AI notetaker for Zoom](https://meetmouse.com/best/ai-notetaker-for-zoom): Zoom AI Companion vs bots vs bot-free apps — it depends on whose meeting it is.
-- [Best AI notetaker for financial advisors](https://meetmouse.com/best/ai-notetaker-for-financial-advisors): Your clients tell you their balances, inheritances, and divorces. Here's where each tool sends that.
+- [Best AI notetaker for financial advisors](https://meetmouse.com/best/ai-notetaker-for-financial-advisors): Your clients tell you their balances, inheritances and divorces. Here's where each tool sends that.
+
+## Comparisons
+
+- [All comparisons](https://meetmouse.com/alternatives/): Every MeetMouse-vs and head-to-head page.
+- [MeetMouse vs Granola](https://meetmouse.com/compare/meetmouse-vs-granola): Notes after the meeting vs coaching during it. Different jobs — many people should run both.
+- [MeetMouse vs Fathom](https://meetmouse.com/compare/meetmouse-vs-fathom): Fathom is the best free notetaker, full stop. Here's what it can't do.
+- [MeetMouse vs Otter.ai](https://meetmouse.com/compare/meetmouse-vs-otter): A searchable archive of every meeting vs actually fixing the meeting you're in.
+- [MeetMouse vs Fireflies.ai](https://meetmouse.com/compare/meetmouse-vs-fireflies): A CRM-connected machine for sales teams vs a private coach for one person: you.
+- [MeetMouse vs Poised](https://meetmouse.com/compare/meetmouse-vs-poised): The closest matchup on this site: two real-time coaches, one big difference — the cloud.
+- [MeetMouse vs tl;dv](https://meetmouse.com/compare/meetmouse-vs-tldv): A recorder built for clips vs a coach that works during the call.
+- [MeetMouse vs Gong](https://meetmouse.com/compare/meetmouse-vs-gong): Enterprise revenue intelligence vs a $20 coach for the rep on the call.
+- [MeetMouse vs Zoom AI Companion](https://meetmouse.com/compare/meetmouse-vs-zoom-ai-companion): The notes you already pay for vs live coaching in any meeting app.
+- [MeetMouse vs MacWhisper](https://meetmouse.com/compare/meetmouse-vs-macwhisper): Two on-device Mac apps: a transcription tool vs a live meeting coach.
+- [Granola vs Fathom](https://meetmouse.com/compare/granola-vs-fathom): No bot, or no bill — pick which cost hurts less.
+- [Granola vs Otter](https://meetmouse.com/compare/granola-vs-otter): The bot-free new way vs the searchable old guard.
+- [Granola vs Fireflies](https://meetmouse.com/compare/granola-vs-fireflies): A quiet notebook for you, or a recording machine for your sales team?
+- [Granola vs tl;dv](https://meetmouse.com/compare/granola-vs-tldv): Written notes with no bot, or video clips with one.
+- [Fathom vs Fireflies](https://meetmouse.com/compare/fathom-vs-fireflies): The best free notetaker vs the integration machine.
+- [Fathom vs tl;dv](https://meetmouse.com/compare/fathom-vs-tldv): Two free bots. One gives you better summaries, the other better clips.
+- [Otter vs Fathom](https://meetmouse.com/compare/otter-vs-fathom): The archive veteran vs the free favorite — and the part neither fixes.
+- [Otter vs Fireflies](https://meetmouse.com/compare/otter-vs-fireflies): An archive for you, or a machine for your team's managers?
+
+## Blog
+
+- [Private AI meeting notes: the complete guide](https://meetmouse.com/blog/private-ai-meeting-notes): The three questions that matter — bot, cloud, access — and how every tool scores on them.
+- [AI notetakers that don't join your call as a bot](https://meetmouse.com/blog/ai-notetaker-without-bot): How bot-free capture works, who does it, and the honest trade-offs of each.
+- [Do AI notetakers record your calls?](https://meetmouse.com/blog/do-ai-notetakers-record-your-calls): The audit to forward to your security team: recordings, transcripts, retention, and who can see them.
+- [Free Granola alternatives](https://meetmouse.com/blog/free-granola-alternatives): What's actually free, what's a trial in a trench coat, and the scrappy $0 option nobody writes about.
+- [Fathom alternatives](https://meetmouse.com/blog/fathom-alternatives): Fathom is free and good — people leave over the bot, the cloud, or wanting more than notes.
+- [Otter.ai alternatives](https://meetmouse.com/blog/otter-alternatives): Escaping the 300-minute wall, the announced bot, or the cloud — different problems, different answers.
+- [Fireflies.ai alternatives](https://meetmouse.com/blog/fireflies-alternatives): For individuals drowning in per-seat pricing, and teams tired of every call feeding a dashboard.
 
 ## Also by the same maker
 
-- [Rhino Voice](https://rhinovoice.app/): A $20 one-time macOS dictation app by the same maker, built on the same principle — hold a key, speak, and the cleaned-up text lands at your cursor, with speech recognition and AI cleanup running entirely on the Mac.
+- [Rhino Voice](https://rhinovoice.app/): Private Mac dictation by the same maker: hold a key, talk, clean text at your cursor. $20 once, on-device.

@@ -11,6 +11,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      - "site/**"
       - "!docs/changelog.html"
       - ".github/workflows/deploy-site.yml"
 
@@ -26,6 +27,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # sitemap lastmod comes from git history
+
+      - name: Check generated pages are current and links resolve
+        run: python3 site/build.py --check
 
       - name: Deploy docs/ to Cloudflare Pages (production branch)
         env:

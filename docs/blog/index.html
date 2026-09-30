@@ -4,183 +4,117 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Blog — MeetMouse</title>
-<meta name="description" content="Honest writing about meeting tools from Noah Kagan, founder of MeetMouse — comparisons, alternatives, and why coaching beats note-taking.">
+<meta name="description" content="Honest writing about meeting tools by Noah Kagan, the guy who makes MeetMouse. Including the parts where competitors win.">
 <link rel="canonical" href="https://meetmouse.com/blog/">
 <link rel="icon" type="image/png" href="/icon.png">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://meetmouse.com/blog/">
 <meta property="og:title" content="Blog — MeetMouse">
-<meta property="og:description" content="Honest writing about meeting tools from MeetMouse's founder — comparisons, alternatives, and why coaching beats note-taking.">
+<meta property="og:description" content="Honest writing about meeting tools by Noah Kagan, the guy who makes MeetMouse. Including the parts where competitors win.">
 <meta property="og:image" content="https://meetmouse.com/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="MeetMouse: coached live, nothing leaves your Mac. $20 once, macOS, on-device.">
 <meta name="twitter:card" content="summary_large_image">
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    background: #fff;
-    color: #1a1a1a;
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-  }
-  main { max-width: 620px; margin: 0 auto; padding: 48px 24px 96px; }
-  .crumb { font-size: 14px; margin-bottom: 40px; }
-  .crumb a { color: #888; text-decoration: none; }
-  .crumb a:hover { color: #1a1a1a; }
-  h1 { font-size: 34px; line-height: 1.2; letter-spacing: -0.02em; font-weight: 700; }
-  .sub { font-size: 17px; color: #555; margin-top: 14px; }
-  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; color: #999; font-weight: 600; margin: 48px 0 8px; }
-  .post {
-    display: block;
-    text-decoration: none;
-    color: inherit;
-    border: 1px solid #e5e5e5;
-    border-radius: 14px;
-    padding: 20px 22px;
-    margin-top: 14px;
-  }
-  .post:hover { border-color: #bbb; }
-  .post strong { display: block; font-size: 17px; letter-spacing: -0.01em; margin-bottom: 4px; }
-  .post p { color: #555; font-size: 14px; }
-  footer {
-    margin-top: 88px;
-    padding-top: 24px;
-    border-top: 1px solid #eee;
-    font-size: 13px;
-    color: #999;
-  }
-  footer a { color: #999; }
-  @media (max-width: 480px) { h1 { font-size: 28px; } }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@500..700&display=swap">
+<link rel="stylesheet" href="/site.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "MeetMouse", "item": "https://meetmouse.com/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://meetmouse.com/blog/"}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "ItemList", "name": "Blog — MeetMouse", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Private AI meeting notes: the complete guide", "url": "https://meetmouse.com/blog/private-ai-meeting-notes"}, {"@type": "ListItem", "position": 2, "name": "AI notetakers that don't join your call as a bot", "url": "https://meetmouse.com/blog/ai-notetaker-without-bot"}, {"@type": "ListItem", "position": 3, "name": "Do AI notetakers record your calls?", "url": "https://meetmouse.com/blog/do-ai-notetakers-record-your-calls"}, {"@type": "ListItem", "position": 4, "name": "Free Granola alternatives", "url": "https://meetmouse.com/blog/free-granola-alternatives"}, {"@type": "ListItem", "position": 5, "name": "Fathom alternatives", "url": "https://meetmouse.com/blog/fathom-alternatives"}, {"@type": "ListItem", "position": 6, "name": "Otter.ai alternatives", "url": "https://meetmouse.com/blog/otter-alternatives"}, {"@type": "ListItem", "position": 7, "name": "Fireflies.ai alternatives", "url": "https://meetmouse.com/blog/fireflies-alternatives"}, {"@type": "ListItem", "position": 8, "name": "Best AI notetaker for Mac", "url": "https://meetmouse.com/best/ai-notetaker-for-mac"}, {"@type": "ListItem", "position": 9, "name": "Best AI meeting assistant for sales calls", "url": "https://meetmouse.com/best/ai-meeting-assistant-for-sales-calls"}, {"@type": "ListItem", "position": 10, "name": "Best AI notetaker for lawyers", "url": "https://meetmouse.com/best/ai-notetaker-for-lawyers"}, {"@type": "ListItem", "position": 11, "name": "All guides", "url": "https://meetmouse.com/best/"}, {"@type": "ListItem", "position": 12, "name": "MeetMouse vs Granola", "url": "https://meetmouse.com/compare/meetmouse-vs-granola"}, {"@type": "ListItem", "position": 13, "name": "MeetMouse vs Fathom", "url": "https://meetmouse.com/compare/meetmouse-vs-fathom"}, {"@type": "ListItem", "position": 14, "name": "MeetMouse vs Otter.ai", "url": "https://meetmouse.com/compare/meetmouse-vs-otter"}, {"@type": "ListItem", "position": 15, "name": "MeetMouse vs Fireflies.ai", "url": "https://meetmouse.com/compare/meetmouse-vs-fireflies"}, {"@type": "ListItem", "position": 16, "name": "All comparisons", "url": "https://meetmouse.com/alternatives/"}]}</script>
 </head>
 <body>
-<main>
-  <p class="crumb"><a href="/">← MeetMouse</a></p>
+<div class="doc-page">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="MeetMouse home">
+      <span class="mark"><img src="/icon.png" alt=""></span>
+      <span>MeetMouse</span>
+    </a>
+    <nav aria-label="Main navigation">
+      <a href="/best/">Guides</a>
+      <a href="/alternatives/">Comparisons</a>
+      <a href="/blog/">Blog</a>
+      <form class="buy-form buy-form-compact" action="https://www.paypal.com/cgi-bin/webscr" method="post">
+      <input type="hidden" name="cmd" value="_xclick">
+      <input type="hidden" name="business" value="paypal@okdork.com">
+      <input type="hidden" name="item_name" value="MeetMouse for Mac">
+      <input type="hidden" name="amount" value="20.00">
+      <input type="hidden" name="currency_code" value="USD">
+      <input type="hidden" name="no_shipping" value="1">
+      <input type="hidden" name="return" value="https://meetmouse.com/thanks.html">
+      <input type="hidden" name="cancel_return" value="https://meetmouse.com/">
+      <button class="button button-compact" type="submit">Buy — $20</button>
+    </form>
+    </nav>
+  </header>
+  <main class="doc" id="main">
+    <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">MeetMouse</a><span aria-hidden="true">/</span><span>Blog</span></nav>
 
-  <h1>Blog</h1>
-  <p class="sub">Honest writing about meeting tools, by me, Noah — the guy who makes MeetMouse. Including the parts where competitors win.</p>
+    <h1>Blog</h1>
 
-  <h2>Best tools by use case</h2>
-  <a class="post" href="/best/">
-    <strong>The best meeting tools, by who you are</strong>
-    <p>Sales, law, recruiting, consulting, coaching, founders, managers, financial advisors, Zoom, and Mac — honest picks for each.</p>
-  </a>
-  <a class="post" href="/best/ai-notetaker-for-mac">
-    <strong>Best AI notetaker for Mac</strong>
-    <p>Native Mac apps vs meeting bots — who hears FaceTime, who works offline, and who's worth paying for.</p>
-  </a>
-  <a class="post" href="/best/ai-meeting-assistant-for-sales-calls">
-    <strong>Best AI meeting assistant for sales calls</strong>
-    <p>Gong, Fireflies, Fathom, Granola — and the one that catches the buried objection while you can still answer it.</p>
-  </a>
+    <p class="dek">Honest writing about meeting tools, by me, Noah — the guy who makes MeetMouse. Including the parts where competitors win.</p>
 
-  <h2>Guides</h2>
-  <a class="post" href="/blog/free-granola-alternatives">
-    <strong>Free Granola alternatives (from a guy who competes with them)</strong>
-    <p>What's actually free, what's a trial in a trench coat, and the scrappy $0 option nobody writes about.</p>
-  </a>
-  <a class="post" href="/blog/otter-alternatives">
-    <strong>Otter.ai alternatives: what to use instead</strong>
-    <p>Escaping the 300-minute wall, the announced bot, or the cloud — different problems, different answers.</p>
-  </a>
-  <a class="post" href="/blog/fireflies-alternatives">
-    <strong>Fireflies.ai alternatives: what to use instead</strong>
-    <p>For individuals drowning in per-seat pricing, and teams tired of every call feeding a dashboard.</p>
-  </a>
-  <a class="post" href="/blog/fathom-alternatives">
-    <strong>Fathom alternatives: what to use instead</strong>
-    <p>Fathom is free and good — people leave over the bot, the cloud, or wanting more than notes.</p>
-  </a>
+    <section class="hub-group">
+      <h2>Posts</h2>
+    <ul class="hub-list">
+      <li><a href="/blog/private-ai-meeting-notes"><strong>Private AI meeting notes: the complete guide</strong><span>The three questions that matter — bot, cloud, access — and how every tool scores on them.</span></a></li>
+      <li><a href="/blog/ai-notetaker-without-bot"><strong>AI notetakers that don&#x27;t join your call as a bot</strong><span>How bot-free capture works, who does it, and the honest trade-offs of each.</span></a></li>
+      <li><a href="/blog/do-ai-notetakers-record-your-calls"><strong>Do AI notetakers record your calls?</strong><span>The audit to forward to your security team: recordings, transcripts, retention, and who can see them.</span></a></li>
+      <li><a href="/blog/free-granola-alternatives"><strong>Free Granola alternatives</strong><span>What&#x27;s actually free, what&#x27;s a trial in a trench coat, and the scrappy $0 option nobody writes about.</span></a></li>
+      <li><a href="/blog/fathom-alternatives"><strong>Fathom alternatives</strong><span>Fathom is free and good — people leave over the bot, the cloud, or wanting more than notes.</span></a></li>
+      <li><a href="/blog/otter-alternatives"><strong>Otter.ai alternatives</strong><span>Escaping the 300-minute wall, the announced bot, or the cloud — different problems, different answers.</span></a></li>
+      <li><a href="/blog/fireflies-alternatives"><strong>Fireflies.ai alternatives</strong><span>For individuals drowning in per-seat pricing, and teams tired of every call feeding a dashboard.</span></a></li>
+    </ul>
+    </section>
 
-  <h2>Privacy</h2>
-  <a class="post" href="/blog/private-ai-meeting-notes">
-    <strong>Private AI meeting notes: the complete guide</strong>
-    <p>The three questions that matter — bot, cloud, access — and how every tool scores on them.</p>
-  </a>
-  <a class="post" href="/blog/ai-notetaker-without-bot">
-    <strong>AI notetakers that don't join your call as a bot</strong>
-    <p>How bot-free capture works, who does it, and the honest trade-offs of each.</p>
-  </a>
-  <a class="post" href="/blog/do-ai-notetakers-record-your-calls">
-    <strong>Do AI notetakers record your calls? What each tool actually stores</strong>
-    <p>The audit to forward to your security team: recordings, transcripts, retention, and who can see them.</p>
-  </a>
+    <section class="hub-group">
+      <h2>Guides</h2>
+    <ul class="hub-list">
+      <li><a href="/best/ai-notetaker-for-mac"><strong>Best AI notetaker for Mac</strong><span>Native Mac apps vs meeting bots — who hears FaceTime, who works offline, and who&#x27;s worth paying for.</span></a></li>
+      <li><a href="/best/ai-meeting-assistant-for-sales-calls"><strong>Best AI meeting assistant for sales calls</strong><span>Gong, Fireflies, Fathom, Granola — and the one that catches the buried objection while you can still answer it.</span></a></li>
+      <li><a href="/best/ai-notetaker-for-lawyers"><strong>Best AI notetaker for lawyers</strong><span>Before any AI hears a client call, ask one question: who else hears it?</span></a></li>
+      <li><a href="/best/"><strong>All guides</strong><span>Every best-for guide.</span></a></li>
+    </ul>
+    </section>
 
-  <h2>Comparisons</h2>
-  <a class="post" href="/compare/otter-vs-fathom">
-    <strong>Otter vs Fathom</strong>
-    <p>The archive veteran vs the free favorite — and the part neither fixes.</p>
-  </a>
-  <a class="post" href="/compare/otter-vs-fireflies">
-    <strong>Otter vs Fireflies</strong>
-    <p>An archive for you, or a machine for your team's managers?</p>
-  </a>
-  <a class="post" href="/compare/granola-vs-fathom">
-    <strong>Granola vs Fathom</strong>
-    <p>No bot, or no bill — pick which cost hurts less.</p>
-  </a>
-  <a class="post" href="/compare/granola-vs-otter">
-    <strong>Granola vs Otter</strong>
-    <p>The bot-free new way vs the searchable old guard.</p>
-  </a>
-  <a class="post" href="/compare/granola-vs-fireflies">
-    <strong>Granola vs Fireflies</strong>
-    <p>A quiet notebook for you, or a recording machine for your sales team?</p>
-  </a>
-  <a class="post" href="/compare/fathom-vs-fireflies">
-    <strong>Fathom vs Fireflies</strong>
-    <p>The best free notetaker vs the integration machine.</p>
-  </a>
-  <a class="post" href="/compare/granola-vs-tldv">
-    <strong>Granola vs tl;dv</strong>
-    <p>Written notes with no bot, or video clips with one.</p>
-  </a>
-  <a class="post" href="/compare/fathom-vs-tldv">
-    <strong>Fathom vs tl;dv</strong>
-    <p>Two free bots. One gives you better summaries, the other better clips.</p>
-  </a>
-  <a class="post" href="/compare/meetmouse-vs-granola">
-    <strong>MeetMouse vs Granola</strong>
-    <p>Notes after the meeting vs coaching during it. Different jobs — many people should run both.</p>
-  </a>
-  <a class="post" href="/compare/meetmouse-vs-fathom">
-    <strong>MeetMouse vs Fathom</strong>
-    <p>Fathom is the best free notetaker, full stop. Here's what it can't do.</p>
-  </a>
-  <a class="post" href="/compare/meetmouse-vs-otter">
-    <strong>MeetMouse vs Otter.ai</strong>
-    <p>A searchable archive of every meeting vs actually fixing the meeting you're in.</p>
-  </a>
-  <a class="post" href="/compare/meetmouse-vs-fireflies">
-    <strong>MeetMouse vs Fireflies.ai</strong>
-    <p>A CRM-connected machine for sales teams vs a private coach for one person: you.</p>
-  </a>
-  <a class="post" href="/compare/meetmouse-vs-poised">
-    <strong>MeetMouse vs Poised</strong>
-    <p>The closest matchup on this site: two real-time coaches, one big difference — the cloud.</p>
-  </a>
-  <a class="post" href="/compare/meetmouse-vs-tldv">
-    <strong>MeetMouse vs tl;dv</strong>
-    <p>A recorder built for clips vs a coach that works during the call.</p>
-  </a>
-  <a class="post" href="/compare/meetmouse-vs-gong">
-    <strong>MeetMouse vs Gong</strong>
-    <p>Enterprise revenue intelligence vs a $20 coach for the rep on the call.</p>
-  </a>
-  <a class="post" href="/compare/meetmouse-vs-zoom-ai-companion">
-    <strong>MeetMouse vs Zoom AI Companion</strong>
-    <p>The notes you already pay for vs live coaching in any meeting app.</p>
-  </a>
-  <a class="post" href="/compare/meetmouse-vs-macwhisper">
-    <strong>MeetMouse vs MacWhisper</strong>
-    <p>Two on-device Mac apps: a transcription tool vs a live meeting coach.</p>
-  </a>
+    <section class="hub-group">
+      <h2>Comparisons</h2>
+    <ul class="hub-list">
+      <li><a href="/compare/meetmouse-vs-granola"><strong>MeetMouse vs Granola</strong><span>Notes after the meeting vs coaching during it. Different jobs — many people should run both.</span></a></li>
+      <li><a href="/compare/meetmouse-vs-fathom"><strong>MeetMouse vs Fathom</strong><span>Fathom is the best free notetaker, full stop. Here&#x27;s what it can&#x27;t do.</span></a></li>
+      <li><a href="/compare/meetmouse-vs-otter"><strong>MeetMouse vs Otter.ai</strong><span>A searchable archive of every meeting vs actually fixing the meeting you&#x27;re in.</span></a></li>
+      <li><a href="/compare/meetmouse-vs-fireflies"><strong>MeetMouse vs Fireflies.ai</strong><span>A CRM-connected machine for sales teams vs a private coach for one person: you.</span></a></li>
+      <li><a href="/alternatives/"><strong>All comparisons</strong><span>Every MeetMouse-vs and head-to-head page.</span></a></li>
+    </ul>
+    </section>
 
+    <section class="doc-cta">
+      <h2>Try MeetMouse</h2>
+      <p>$20 once. No subscription, no account, and your meetings stay on your Mac. Try it for 30 days; if it's not worth it, email me and I'll refund you.</p>
+      <form class="buy-form" action="https://www.paypal.com/cgi-bin/webscr" method="post">
+      <input type="hidden" name="cmd" value="_xclick">
+      <input type="hidden" name="business" value="paypal@okdork.com">
+      <input type="hidden" name="item_name" value="MeetMouse for Mac">
+      <input type="hidden" name="amount" value="20.00">
+      <input type="hidden" name="currency_code" value="USD">
+      <input type="hidden" name="no_shipping" value="1">
+      <input type="hidden" name="return" value="https://meetmouse.com/thanks.html">
+      <input type="hidden" name="cancel_return" value="https://meetmouse.com/">
+      <button class="button" type="submit">Buy MeetMouse — $20</button>
+    </form>
+    </section>
+  </main>
   <footer>
-    <p>MeetMouse · <a href="mailto:support@meetmouse.com">support@meetmouse.com</a> · <a href="/">Home</a> · <a href="/best/">Best tools</a> · <a href="/alternatives/">MeetMouse vs</a> · <a href="/changelog">Changelog</a></p>
+    <span>MeetMouse</span>
+    <a href="mailto:support@meetmouse.com">support@meetmouse.com</a>
+    <a href="/best/">Meeting tool guides</a>
+    <a href="/alternatives/">Comparisons</a>
+    <a href="/blog/">Blog</a>
+    <a href="/changelog">Changelog</a>
+    <a href="https://github.com/noahdevkagan/meeting-coach-releases/releases">Releases on GitHub</a>
+    <a href="https://rhinovoice.app/">Also by me: Rhino Voice, private Mac dictation</a>
   </footer>
-</main>
+</div>
 </body>
 </html>
