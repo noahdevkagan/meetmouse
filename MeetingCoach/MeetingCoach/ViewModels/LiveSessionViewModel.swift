@@ -289,7 +289,9 @@ final class LiveSessionViewModel {
     static var preloadModel: (String) async -> String? = livePreload
     /// Frees a model if it is resident.
     static var unloadModel: (String) async -> Void = liveUnload
-    /// Runs the post-call review prompt against the pinned model.
+    @ObservationIgnored private var reviewGenerationID = UUID()
+
+    /// Runs the post-call review prompt against the resolved model.
     static var completeReview: (String, String, String) async throws -> String = liveCompleteReview
 
     nonisolated static func liveAvailableMemoryGB() -> Double? { ModelMemory.availableGB }
@@ -905,6 +907,8 @@ final class LiveSessionViewModel {
     /// Clear all per-session UI state. Shared by live start, demo start,
     /// and delete — a new per-session field must reset here, in one place.
     private func resetSessionState() {
+        reviewGenerationID = UUID()
+        isGeneratingSummary = false
         utterances = []
         turns = []
         livePartials = [:]
@@ -1436,6 +1440,7 @@ final class LiveSessionViewModel {
     // MARK: - Post-call review
 
     func generateReview(ollamaManager: OllamaManager, settings: SettingsViewModel) {
+        guard !isGeneratingSummary else { return }
         guard !utterances.isEmpty else {
             // An empty session still holds whatever it pinned.
             let ended = sessionModelState
@@ -1451,10 +1456,8 @@ final class LiveSessionViewModel {
 
         // Demo sessions never reach the LLM: reviewing a scripted meeting as
         // if it were real would be the user's first review experience.
-        // Mock mode and known-empty model lists get the instant review too,
-        // instead of spinning up an engine that has nothing to run.
-        if isDemo || settings.useMock ||
-            (!settings.usesCloudAI && settings.hasCheckedModels && settings.ollamaReachable && settings.availableModels.isEmpty) {
+        // Mock mode also stays deterministic.
+        if isDemo || settings.useMock {
             let ended = sessionModelState
             sessionModelState = nil
             finishReview(instantReview(durationMinutes: durationMin))
@@ -1462,19 +1465,12 @@ final class LiveSessionViewModel {
             return
         }
 
-        // Only a model this session actually pinned may be used. A session
-        // still `preparing` never settled, and a `deterministic` one settled
-        // against loading anything — neither gets to fall back to the current
-        // preference here, where the heaviest call of the workflow would run
-        // at the tightest moment for memory.
-        guard case .pinned(_, let reviewModel) = sessionModelState else {
-            mclog("[Review] session never pinned a model — instant review only")
-            let ended = sessionModelState
-            sessionModelState = nil
-            finishReview(instantReview(durationMinutes: durationMin))
-            Task { [weak self] in await self?.releaseSessionModel(ended) }
-            return
-        }
+        // Post-call notes are independent of live coaching. Capture is stopped,
+        // so a coaching-off/basic-mode meeting can now prepare AI just like the
+        // saved meeting's Regenerate action. Keep an existing pinned provider.
+        let pinnedModel = sessionModelState?.pinnedModel
+        let generationID = UUID()
+        reviewGenerationID = generationID
 
         // Speaker-labeled TURNS, not raw utterances — the review has to
         // attribute commitments and positions, which needs who-said-what,
@@ -1496,37 +1492,49 @@ final class LiveSessionViewModel {
 
         Task {
             var summary: String?
-            let cloud = AIConfiguration.cloud(from: reviewModel) != nil
             let ready: Bool
-            if cloud {
-                ready = true
+            if let pinnedModel {
+                if AIConfiguration.cloud(from: pinnedModel) != nil {
+                    ready = true
+                } else {
+                    ready = await ollamaManager.ensureRunning()
+                }
             } else {
-                ready = await ollamaManager.ensureRunning()
+                ready = await settings.prepareAI(ollamaManager: ollamaManager)
             }
+            guard reviewGenerationID == generationID else { return }
+            let reviewModel = pinnedModel ?? settings.effectiveModel
             if ready {
+                // Give a notes-only model the same ownership as a live model,
+                // so a replacing meeting can release it through the lifecycle.
+                if pinnedModel == nil {
+                    sessionModelState = .pinned(sessionModelState?.sessionID ?? UUID(), reviewModel)
+                }
                 do {
                     summary = try await Self.completeReview(reviewModel, system, user)
                 } catch {
+                    guard reviewGenerationID == generationID else { return }
                     reviewAIError = "\(error.localizedDescription) A basic recap is shown; retry from the saved meeting."
                     mclog("[Review] AI unavailable; using instant review")
                 }
+            } else {
+                reviewAIError = "AI is unavailable. A basic recap is shown; check Settings → AI, then retry from the saved meeting."
             }
-            if let summary {
+            guard reviewGenerationID == generationID else { return }
+            if let summary, !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 finishReview(MeetingReview.parse(llmText: summary,
                                                  talkShare: talkStats.sessionShare))
             } else {
+                if reviewAIError == nil {
+                    reviewAIError = "AI returned no notes. A basic recap is shown; retry from the saved meeting."
+                }
                 finishReview(instantReview(durationMinutes: durationMin))
             }
-            // The recap was the model's last job — give the multi-GB of
-            // KV/compute memory back instead of letting keep_alive hold it.
-            // Skipped when another meeting already started: that session owns
-            // its own model now, and this one's was already released when it
-            // replaced this session.
-            if !isLive {
-                let ended = sessionModelState
-                sessionModelState = nil
-                await releaseSessionModel(ended)
-            }
+            // Release the post-call model, including one loaded only for notes.
+            // A new meeting invalidates this generation and owns its own model.
+            let ended = sessionModelState
+            sessionModelState = nil
+            await releaseSessionModel(ended)
         }
     }
 

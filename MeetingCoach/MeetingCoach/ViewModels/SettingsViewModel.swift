@@ -69,8 +69,8 @@ final class SettingsViewModel {
 
     /// Tier-2 semantic coaching: local-LLM heartbeat during live sessions.
     /// Surfaced in Settings as "AI coaching". Off = transcript-first mode:
-    /// no model preload or engine launch at session start; on-demand AI
-    /// review of saved sessions still works.
+    /// no model preload or engine launch at session start; AI notes
+    /// still generate automatically after the call.
     var semanticCoachEnabled: Bool {
         didSet {
             UserDefaults.standard.set(semanticCoachEnabled, forKey: "semanticCoachEnabled")
