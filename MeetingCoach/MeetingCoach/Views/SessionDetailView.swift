@@ -17,6 +17,8 @@ struct SessionDetailView: View {
     var ollamaManager: OllamaManager?
     var reviewRevision: MeetingReview? = nil
     var reviewInProgress = false
+    var automaticReviewError: String? = nil
+    @State private var attemptedRegeneration = false
     let onClose: () -> Void
 
     enum Tab: String, CaseIterable {
@@ -453,6 +455,8 @@ struct SessionDetailView: View {
 
                 if let reviewError {
                     Text(reviewError).font(.caption).foregroundStyle(.red)
+                } else if !attemptedRegeneration, let automaticReviewError {
+                    Text(automaticReviewError).font(.caption).foregroundStyle(.orange)
                 }
                 if settings != nil, !lines.isEmpty {
                     HStack(spacing: 8) {
@@ -745,6 +749,7 @@ struct SessionDetailView: View {
     }
 
     private func regenerateReview() async {
+        attemptedRegeneration = true
         defer { regenerating = false }
         guard let settings, let ollamaManager, !lines.isEmpty else {
             reviewError = "AI is unavailable or this meeting has no transcript."

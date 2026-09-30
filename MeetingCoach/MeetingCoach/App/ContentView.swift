@@ -101,7 +101,8 @@ struct ContentView: View {
                     SessionDetailView(url: sessionURL, highlightQuery: activeSearch,
                                       settings: settings, ollamaManager: ollamaManager,
                                       reviewRevision: sessionURL.path == liveSession.savedPath ? liveSession.meetingReview : nil,
-                                      reviewInProgress: sessionURL.path == liveSession.savedPath && liveSession.isGeneratingSummary) {
+                                      reviewInProgress: sessionURL.path == liveSession.savedPath && liveSession.isGeneratingSummary,
+                                      automaticReviewError: sessionURL.path == liveSession.savedPath ? liveSession.reviewAIError : nil) {
                         selectedSessionURL = nil
                     }
                     .onReceive(NotificationCenter.default.publisher(for: TranscriptStore.didDeleteMeeting)) { notification in
@@ -605,7 +606,7 @@ struct LiveTimelineView: View {
                         // degradation a choice. Persisting the setting means
                         // future sessions are transcript-first and silent.
                         if notice.lowMemory {
-                            Text("Or turn off AI coaching — sessions start faster and use far less memory. You can still generate the AI review after any call.")
+                            Text("Or turn off AI coaching — sessions start faster and use far less memory. AI notes generate automatically after each call.")
                                 .font(.caption2).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                             Button("Turn off AI coaching") {
@@ -640,7 +641,7 @@ struct LiveTimelineView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Your Mac is under memory pressure")
                             .font(.caption.bold())
-                        Text("Turning off AI coaching frees several GB right now — the transcript and built-in nudges keep going, and you can get the AI review after the call.")
+                        Text("Turning off AI coaching frees several GB right now — the transcript and built-in nudges keep going, and AI notes generate automatically after the call.")
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -1988,12 +1989,11 @@ struct ModelSection: View {
                 .font(.caption)
             // Transcript-first switch: off means no LLM during live sessions
             // (no preload, no engine launch) — transcript, speaker labels and
-            // built-in nudges keep working, and any saved session can still
-            // generate its AI review on demand.
+            // built-in nudges keep working, and AI notes generate after the call.
             HStack(spacing: 6) {
                 Label("AI coaching", systemImage: "sparkles")
                     .font(.subheadline.weight(.semibold))
-                HelpDot(text: "Turning this off makes your Mac faster during calls — the live transcript, speaker labels, and built-in nudges keep working. You can still get the AI review after any meeting, from its Summary tab.")
+                HelpDot(text: "Turning this off makes your Mac faster during calls — the live transcript, speaker labels, and built-in nudges keep working. AI notes generate automatically after each meeting in the Notes tab.")
                 Spacer(minLength: 0)
                 Toggle("", isOn: $settings.semanticCoachEnabled)
                     .labelsHidden()
