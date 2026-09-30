@@ -180,7 +180,9 @@ def table(header, rows, caption=None, mine_row=None, mm_first=False):
     body = ""
     for r in rows:
         mine = ' class="is-mine"' if mine_row and mine_row(r) else ""
-        body += f'\n          <tr{mine}><th scope="row">{r[0]}</th>' + "".join(f"<td>{c}</td>" for c in r[1:]) + "</tr>"
+        labels = [re.sub(r"<[^>]+>", "", h).strip() for h in header[1:]]
+        body += f'\n          <tr{mine}><th scope="row">{r[0]}</th>' + "".join(
+            f'<td data-label="{esc(l)}">{c}</td>' for l, c in zip(labels, r[1:])) + "</tr>"
     return (f'    <div class="table-wrap">\n      <table class="{cls}">{cap}\n        <thead><tr>{th}</tr></thead>'
             f"\n        <tbody>{body}\n        </tbody>\n      </table>\n    </div>")
 
