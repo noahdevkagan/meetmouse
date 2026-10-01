@@ -5,13 +5,17 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-10-01): Ship talk bubble defaults — in progress
+## Current state (2026-10-01): Ship talk bubble defaults — release pending
 
-User approved shipping. Plan: default unset placement/layout to Right edge /
-Vertical while honoring saved choices; release 0.28.0 with the bubble and already
-merged automatic AI notes. Run full push gate, review final diff, commit/push,
-merge into main, and monitor automatic release through signed DMG/appcast/site.
-No capture/detection/end-of-meeting logic changed by this branch.
+User approved shipping 0.28.0. Unset placement/layout now defaults to Right edge /
+Vertical; explicit selections survive. Release includes already-merged automatic
+AI notes. Commit 7aa5d45 reviewed. Push gate build and every required suite passed;
+optional saved-session replay hung in macOS directory open on Documents (sample
+in `.context/push-gate-sample.txt`). Stopped that push and ran scorecard --record
+separately: no regressions. Logs: `.context/bubble-release-{push,scorecard}.log`.
+Re-push uses SKIP_GATE=1 only to avoid repeating passed suites / blocked optional
+replay. CI release gate will run independently. Next: push, PR merge, monitor
+signed DMG, public appcast, and site publication.
 
 ## Current state (2026-10-01): Rounder, shorter bubble — built and rendered
 
