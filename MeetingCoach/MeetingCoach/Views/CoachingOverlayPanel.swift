@@ -60,12 +60,59 @@ final class CoachingOverlayPanel: NSPanel {
         NotificationCenter.default.addObserver(
             self, selector: #selector(didMove),
             name: NSWindow.didMoveNotification, object: self)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(didResize),
+            name: NSWindow.didResizeNotification, object: self)
+    }
+
+    private(set) var placement: TalkBubblePlacement = .floating
+
+    func setPlacement(_ placement: TalkBubblePlacement) {
+        guard self.placement != placement else { return }
+        self.placement = placement
+        isMovableByWindowBackground = placement == .floating
+        repositionProgrammatically {
+            if placement == .rightEdge {
+                positionAtRightEdge(of: screen ?? NSScreen.main)
+            } else if let saved = Self.savedUserFrame(),
+                      let target = NSScreen.screens.first(where: { $0.visibleFrame.intersects(saved) }) {
+                var restored = frame
+                restored.origin = NSPoint(x: saved.maxX - frame.width, y: saved.maxY - frame.height)
+                setFrame(clamped(restored, to: target.visibleFrame), display: true)
+            } else {
+                positionAtTopRight(of: screen ?? NSScreen.main)
+            }
+        }
+    }
+
+    private func clamped(_ rect: NSRect, to visible: NSRect) -> NSRect {
+        var result = rect
+        result.origin.x = max(visible.minX, min(rect.minX, visible.maxX - rect.width))
+        result.origin.y = max(visible.minY, min(rect.minY, visible.maxY - rect.height))
+        return result
+    }
+
+    private func positionAtRightEdge(of target: NSScreen?) {
+        guard let target else { return }
+        setFrameOrigin(NSPoint(x: target.frame.maxX - frame.width,
+                               y: target.visibleFrame.midY - frame.height / 2))
+    }
+
+    // Docked mode deliberately reaches the physical display edge, including
+    // when the macOS Dock reduces visibleFrame on the right.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        placement == .rightEdge ? frameRect : super.constrainFrameRect(frameRect, to: screen)
     }
 
     @objc private func screenConfigChanged() {
-        // Clamp only; the saved preference survives — the user's display
-        // will usually come back.
-        if screen == nil { repositionProgrammatically { positionAtTopRight(of: NSScreen.main) } }
+        repositionProgrammatically {
+            let target = screen ?? NSScreen.main
+            if placement == .rightEdge {
+                positionAtRightEdge(of: target)
+            } else if let target {
+                setFrame(clamped(frame, to: target.visibleFrame), display: true)
+            }
+        }
     }
 
     // MARK: - User-position memory
@@ -78,8 +125,15 @@ final class CoachingOverlayPanel: NSPanel {
         UserDefaults.standard.string(forKey: Self.userFrameKey) != nil
     }
 
+    @objc private func didResize() {
+        // NSHostingView can resize the native window after fitContent or when
+        // installed, preserving its left edge. Re-anchor that final size too.
+        guard !inProgrammaticMove, placement == .rightEdge else { return }
+        repositionProgrammatically { positionAtRightEdge(of: screen ?? NSScreen.main) }
+    }
+
     @objc private func didMove() {
-        guard !inProgrammaticMove else { return }
+        guard !inProgrammaticMove, placement == .floating else { return }
         UserDefaults.standard.set(NSStringFromRect(frame), forKey: Self.userFrameKey)
     }
 
@@ -92,11 +146,14 @@ final class CoachingOverlayPanel: NSPanel {
     /// Keep the top-right corner anchored when a nudge expands the bubble.
     /// Resizing is not a user drag and must not overwrite their saved position.
     func fitContent(_ size: CGSize) {
-        guard frame.size != size else { return }
+        guard frame.size != size || placement == .rightEdge else { return }
         repositionProgrammatically {
+            let target = screen ?? NSScreen.main
             var next = NSRect(x: frame.maxX - size.width, y: frame.maxY - size.height,
                               width: size.width, height: size.height)
-            if let visible = screen?.visibleFrame {
+            if placement == .rightEdge, let target {
+                next.origin = NSPoint(x: target.frame.maxX - size.width, y: target.visibleFrame.midY - size.height / 2)
+            } else if let visible = target?.visibleFrame {
                 next.origin.x = min(max(next.minX, visible.minX), visible.maxX - size.width)
                 next.origin.y = min(max(next.minY, visible.minY), visible.maxY - size.height)
             }
@@ -119,10 +176,13 @@ final class CoachingOverlayPanel: NSPanel {
     /// A user who has ever dragged the panel has picked its home — never
     /// override that (follow-the-action only serves the default position).
     func repositionToActiveScreen() {
-        guard !hasUserPosition else { return }
+        guard placement == .rightEdge || !hasUserPosition else { return }
         guard let target = Self.screenOfFrontmostWindow() ?? NSScreen.main else { return }
-        if isVisible, screen == target { return }
-        repositionProgrammatically { positionAtTopRight(of: target) }
+        if placement == .floating, isVisible, screen == target { return }
+        repositionProgrammatically {
+            if placement == .rightEdge { positionAtRightEdge(of: target) }
+            else { positionAtTopRight(of: target) }
+        }
     }
 
     private func positionAtTopRight(of screen: NSScreen?) {
@@ -192,7 +252,8 @@ struct CoachingOverlayView: View {
             }
         }
         .fixedSize()
-        .padding(6)
+        .padding(EdgeInsets(top: 6, leading: 6, bottom: 6,
+                            trailing: settings.talkBubblePlacement == .rightEdge ? 0 : 6))
         .background {
             GeometryReader { geometry in
                 Color.clear
@@ -213,7 +274,9 @@ struct CoachingOverlayView: View {
                 ? .secondary : liveSession.overlaySpeaker == "You" ? Dorado.dollar : .blue
             let activity = !speaking ? "Listening" : liveSession.micOnly || liveSession.overlaySpeaker == "Meeting"
                 ? "Speech detected" : liveSession.overlaySpeaker == "You" ? "You speaking" : "Others speaking"
-            HStack(spacing: 11) {
+            let vertical = settings.talkBubbleLayout == .vertical
+            let layout = vertical ? AnyLayout(VStackLayout(spacing: 9)) : AnyLayout(HStackLayout(spacing: 11))
+            layout {
                 // Only the bars redraw at 30 Hz, and only while someone is speaking.
                 TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !speaking || reduceMotion)) { bars in
                     HStack(spacing: 3) {
@@ -228,14 +291,14 @@ struct CoachingOverlayView: View {
                 .accessibilityHidden(true)
                 if settings.showOverlayClock {
                     Text(liveSession.elapsedFormatted)
-                        .font(.system(size: 13, weight: .medium, design: .rounded).monospacedDigit())
+                        .font(.system(size: vertical ? 10 : 13, weight: .medium, design: .rounded).monospacedDigit())
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .minimumScaleFactor(vertical ? 0.65 : 0.8)
                 }
             }
-            .padding(.horizontal, 14)
-            .frame(width: 144, height: 44)
+            .padding(.horizontal, vertical ? 6 : 14)
+            .frame(width: vertical ? 44 : 144, height: vertical ? 84 : 44)
             .background(Dorado.surface)
             .overlay(alignment: .leading) {
                 shareEdge(sessionShare, color: Dorado.dollar)
@@ -243,9 +306,9 @@ struct CoachingOverlayView: View {
             .overlay(alignment: .trailing) {
                 shareEdge(sessionShare.map { 1 - $0 }, color: .blue)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(bubbleShape)
             .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                bubbleShape
                     .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
             }
             .accessibilityElement(children: .ignore)
@@ -253,7 +316,11 @@ struct CoachingOverlayView: View {
             .accessibilityValue("\(activity). \(liveSession.elapsedFormatted) elapsed. \(shareDescription)")
             .accessibilityAction(named: "Open MeetMouse", onOpenApp)
         }
-        .help("\(shareDescription). Double-click to open MeetMouse; drag to move; right-click to hide.")
+        .help("\(shareDescription). Double-click to open MeetMouse; \(settings.talkBubblePlacement == .floating ? "drag to move; " : "")right-click to hide.")
+    }
+
+    private var bubbleShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
     }
 
     private func shareEdge(_ share: Double?, color: Color) -> some View {
@@ -263,7 +330,7 @@ struct CoachingOverlayView: View {
                 color.frame(height: geometry.size.height * (share ?? 0))
             }
         }
-        .frame(width: 7)
+        .frame(width: settings.talkBubbleLayout == .vertical ? 4 : 7)
         .accessibilityHidden(true)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.4), value: share)
     }

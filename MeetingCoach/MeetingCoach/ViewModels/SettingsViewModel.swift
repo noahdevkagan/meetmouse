@@ -2,6 +2,16 @@ import Foundation
 import SwiftUI
 import ServiceManagement
 
+enum TalkBubblePlacement: String, CaseIterable {
+    case floating, rightEdge
+    var title: String { self == .floating ? "Floating" : "Right edge" }
+}
+
+enum TalkBubbleLayout: String, CaseIterable {
+    case horizontal, vertical
+    var title: String { self == .horizontal ? "Horizontal" : "Vertical" }
+}
+
 @MainActor @Observable
 final class SettingsViewModel {
     private(set) var aiConfiguration = AIConfiguration.current
@@ -95,6 +105,14 @@ final class SettingsViewModel {
         didSet { UserDefaults.standard.set(showOverlayClock, forKey: "showOverlayClock") }
     }
 
+    var talkBubblePlacement: TalkBubblePlacement {
+        didSet { UserDefaults.standard.set(talkBubblePlacement.rawValue, forKey: "talkBubblePlacement") }
+    }
+
+    var talkBubbleLayout: TalkBubbleLayout {
+        didSet { UserDefaults.standard.set(talkBubbleLayout.rawValue, forKey: "talkBubbleLayout") }
+    }
+
     /// Default scheduled length for calls started without the goal form
     /// (0 = not timed). Arms the time-based nudges on one-click Go Live.
     var defaultMeetingMinutes: Int {
@@ -123,6 +141,8 @@ final class SettingsViewModel {
         self.semanticCoachEnabled = UserDefaults.standard.object(forKey: "semanticCoachEnabled") as? Bool ?? true
         self.showCoachOverlay = UserDefaults.standard.object(forKey: "showCoachOverlay") as? Bool ?? true
         self.showOverlayClock = UserDefaults.standard.object(forKey: "showOverlayClock") as? Bool ?? true
+        self.talkBubblePlacement = TalkBubblePlacement(rawValue: UserDefaults.standard.string(forKey: "talkBubblePlacement") ?? "") ?? .rightEdge
+        self.talkBubbleLayout = TalkBubbleLayout(rawValue: UserDefaults.standard.string(forKey: "talkBubbleLayout") ?? "") ?? .vertical
         self.defaultMeetingMinutes = UserDefaults.standard.object(forKey: "defaultMeetingMinutes") as? Int ?? 0
         let storedLaunchAtLogin = UserDefaults.standard.object(forKey: "launchAtLogin") as? Bool
         self.launchAtLogin = storedLaunchAtLogin ?? true

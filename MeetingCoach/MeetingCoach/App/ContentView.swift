@@ -193,6 +193,9 @@ struct ContentView: View {
                 overlayDismissed = false; showOverlay()
             } else { hideOverlay() }
         }
+        .onChange(of: settings.talkBubblePlacement) { _, placement in
+            overlayPanel?.setPlacement(placement)
+        }
         .onChange(of: settings.showCoachOverlay) { _, on in
             if !on { hideOverlay() } else if liveSession.isLive { showOverlay() }
         }
@@ -256,6 +259,7 @@ struct ContentView: View {
             overlayPanel = CoachingOverlayPanel()
         }
         guard let panel = overlayPanel else { return }
+        panel.setPlacement(settings.talkBubblePlacement)
         // Install content BEFORE ordering front (NSPanel ships a placeholder
         // contentView, so assign unconditionally). The view observes the
         // session (@Observable), so one hosting view tracks nudges and the
@@ -275,8 +279,8 @@ struct ContentView: View {
         // Follow the user's attention: position on the screen holding the
         // frontmost app's window (the call) — unless the user has dragged
         // the panel somewhere, which wins permanently.
-        panel.repositionToActiveScreen()
         panel.orderFront(nil)
+        panel.repositionToActiveScreen()
     }
 
     // The main window may have been closed during the call.

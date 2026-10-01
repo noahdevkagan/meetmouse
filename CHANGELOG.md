@@ -9,6 +9,9 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+## 0.28.0 — 2026-10-01
+
+- The talk bubble now defaults to a slim, rounded vertical shape on the right edge of your screen. Choose Floating or Right edge and Horizontal or Vertical in General settings; your saved choices are preserved.
 - AI notes now generate automatically after meetings even when live AI coaching is off or could not load. If AI is unavailable, a basic recap remains available.
 
 ## 0.27.1 — 2026-09-28
