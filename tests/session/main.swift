@@ -825,11 +825,15 @@ func runTests() async {
         vm.deleteSession()
     }
 
-    // No fitting model stays deterministic through the recap: the recap is
-    // the heaviest call and must not resurrect a model on its own.
+    // Live memory rejection does not prevent AI notes after capture stops.
     do {
         resetSeams()
         var preloaded: [String] = []
+        var reviewed: String?
+        LiveSessionViewModel.completeReview = { model, _, _ in
+            reviewed = model
+            return "SUMMARY:\nAutomatic AI notes after capture."
+        }
         LiveSessionViewModel.availableMemoryGB = { 2 }        // nothing fits
         LiveSessionViewModel.preloadModel = { preloaded.append($0); return nil }
         let vm = LiveSessionViewModel()
@@ -849,10 +853,83 @@ func runTests() async {
         vm.stopLive()
         try? await Task.sleep(for: .milliseconds(500))
         check(preloaded.isEmpty,
-              "no fitting model stays deterministic through recap — nothing loaded",
+              "post-call generation does not preload live coaching",
               "preloaded: \(preloaded)")
-        check(vm.meetingReview != nil, "a deterministic recap is still produced",
+        check(reviewed == settings.effectiveModel, "memory-rejected coaching still generates AI notes after stop")
+        check(vm.meetingReview != nil, "automatic AI recap is produced",
               "utterances: \(vm.utterances.count), state: \(String(describing: vm.sessionModelState)), generating: \(vm.isGeneratingSummary)")
+        vm.deleteSession()
+    }
+
+    // Coaching-off calls still prepare notes; failures retain the transcript
+    // and basic recap. No real AI or audio hardware is used in these checks.
+    for mode in ["local", "cloud", "unavailable", "failure", "empty"] {
+        resetSeams()
+        var reviewed: String?
+        var unloaded: [String] = []
+        LiveSessionViewModel.unloadModel = { unloaded.append($0) }
+        LiveSessionViewModel.completeReview = { model, _, _ in
+            reviewed = model
+            if mode == "failure" { throw NSError(domain: "test", code: 1) }
+            return mode == "empty" ? "" : "SUMMARY:\nAutomatic notes are ready."
+        }
+        let settings = liveSettings()
+        settings.semanticCoachEnabled = false
+        if mode == "cloud" {
+            settings.usesCloudAI = true
+            settings.selectedModel = AIConfiguration(provider: .openai, model: "gpt-4.1-mini").modelReference
+            settings.availableModels = []
+        }
+        let manager = OllamaManager()
+        manager.engineAvailable = mode != "unavailable" && mode != "cloud"
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(150))
+        check(vm.sessionModelState?.pinnedModel == nil, "coaching off never pins a model (\(mode))")
+        AudioCaptureManager.last?.onUtterance?(Utterance(t: 1, speaker: "You", text: "Send the proposal tomorrow.", endT: 3))
+        vm.stopLive()
+        try? await Task.sleep(for: .milliseconds(150))
+        check(!vm.isGeneratingSummary && vm.meetingReview != nil, "stop produces notes without a click (\(mode))")
+        check((reviewed != nil) == (mode != "unavailable"), "automatic AI attempts follow availability (\(mode))")
+        check((vm.reviewAIError != nil) == ["unavailable", "failure", "empty"].contains(mode), "fallback reports retryable error (\(mode))")
+        check(unloaded.isEmpty == ["cloud", "unavailable"].contains(mode), "post-call local model is released (\(mode))")
+        if let path = vm.savedPath, let saved = try? String(contentsOfFile: path, encoding: .utf8) {
+            check(saved.contains("## Review"), "automatic notes persist (\(mode))")
+        } else { check(false, "automatic notes have a saved file (\(mode))") }
+        vm.deleteSession()
+    }
+
+    // A delayed post-call result must never become the next meeting's notes.
+    do {
+        resetSeams()
+        let gate = AsyncStream<Void>.makeStream()
+        var calls = 0
+        LiveSessionViewModel.completeReview = { _, _, _ in
+            calls += 1
+            var iterator = gate.stream.makeAsyncIterator()
+            _ = await iterator.next()
+            return "SUMMARY:\nOld meeting result."
+        }
+        let settings = liveSettings()
+        settings.semanticCoachEnabled = false
+        let manager = OllamaManager()
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(150))
+        AudioCaptureManager.last?.onUtterance?(Utterance(t: 1, speaker: "You", text: "Old meeting transcript.", endT: 3))
+        vm.stopLive()
+        try? await Task.sleep(for: .milliseconds(100))
+        vm.generateReview(ollamaManager: manager, settings: settings)
+        check(calls == 1, "automatic notes reject duplicate generation while busy")
+        vm.deleteSession()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(100))
+        gate.continuation.yield(())
+        gate.continuation.finish()
+        try? await Task.sleep(for: .milliseconds(100))
+        check(vm.meetingReview == nil && !vm.isGeneratingSummary,
+              "late notes cannot overwrite a new meeting")
+        vm.stopLive()
         vm.deleteSession()
     }
 

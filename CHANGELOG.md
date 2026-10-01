@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- AI notes now generate automatically after meetings even when live AI coaching is off or could not load. If AI is unavailable, a basic recap remains available.
+
 ## 0.27.1 — 2026-09-28
 
 - Ending a meeting now always opens its notes. Previously only the first meeting after launching the app did; later ones went back to the home screen.
