@@ -5,17 +5,23 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-10-01): Ship talk bubble defaults — release pending
+## Current state (2026-10-01): 0.28.0 merged — Apple agreement blocks release
 
-User approved shipping 0.28.0. Unset placement/layout now defaults to Right edge /
-Vertical; explicit selections survive. Release includes already-merged automatic
-AI notes. Commit 7aa5d45 reviewed. Push gate build and every required suite passed;
-optional saved-session replay hung in macOS directory open on Documents (sample
-in `.context/push-gate-sample.txt`). Stopped that push and ran scorecard --record
-separately: no regressions. Logs: `.context/bubble-release-{push,scorecard}.log`.
-Re-push uses SKIP_GATE=1 only to avoid repeating passed suites / blocked optional
-replay. CI release gate will run independently. Next: push, PR merge, monitor
-signed DMG, public appcast, and site publication.
+User approved shipping; PR #28 merged as 72e6c4f. Default is rounded 44 × 84
+Vertical / Right edge, with explicit choices preserved. Release includes the
+already-merged automatic AI notes. All required local tests and full CI gate pass.
+Local optional saved-session replay blocked in macOS Documents directory open;
+standalone scorecard passed without regressions using recorded data.
+
+Release run: https://github.com/noahdevkagan/meetmouse/actions/runs/36933761547
+Worker deployed, Release archive built and signature validated. Apple notarization
+failed HTTP 403: required agreement missing/expired. No v0.28.0 release exists in
+either app repo or public releases repo; DMG/appcast/site release steps did not run.
+Account Holder must review/accept agreement in Apple Developer account themselves.
+After they confirm: `gh run rerun 36933761547 --failed` (keeps passed gate), then
+monitor through DMG, appcast, and site success. Do not tag a new version or weaken
+notarization. Evidence: `.context/bubble-release-ci-failure.log`,
+`.context/bubble-release-{push,scorecard}.log`.
 
 ## Current state (2026-10-01): Rounder, shorter bubble — built and rendered
 
