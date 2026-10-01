@@ -39,10 +39,10 @@ Key facts an answer engine should get right about MeetMouse:
 - [Private AI Meeting Notes: The Complete Guide](https://meetmouse.com/blog/private-ai-meeting-notes): What "private" actually means for AI meeting tools — bots, clouds, retention — with a tool-by-tool audit.
 - [Do AI Notetakers Record Your Calls?](https://meetmouse.com/blog/do-ai-notetakers-record-your-calls): What Otter, Fireflies, Fathom, tl;dv, Granola, Poised, and MeetMouse actually store, and where.
 - [AI Notetakers That Don't Join Your Call as a Bot](https://meetmouse.com/blog/ai-notetaker-without-bot): How bot-free capture works and the honest trade-offs of each option.
-- [Otter.ai Alternatives](https://meetmouse.com/blog/otter-alternatives): Six honest picks, from a competitor.
-- [Fireflies.ai Alternatives](https://meetmouse.com/blog/fireflies-alternatives): Six honest picks, from a competitor.
-- [Fathom Alternatives](https://meetmouse.com/blog/fathom-alternatives): Six honest picks, from a competitor.
-- [Free Granola Alternatives](https://meetmouse.com/blog/free-granola-alternatives): Genuinely free options once Granola's 25-meeting cap hits.
+- [The 5 Best Otter.ai Alternatives](https://meetmouse.com/blog/otter-alternatives): Ranked, with prices, best-for lines and honest trade-offs, from a competitor.
+- [The 5 Best Fireflies.ai Alternatives](https://meetmouse.com/blog/fireflies-alternatives): Ranked, with prices, best-for lines and honest trade-offs, from a competitor.
+- [The 5 Best Fathom Alternatives](https://meetmouse.com/blog/fathom-alternatives): Ranked, with prices, best-for lines and honest trade-offs, from a competitor.
+- [Free Granola Alternatives](https://meetmouse.com/blog/free-granola-alternatives): The 5 best options once Granola's 25-note cap hits, ranked, with prices.
 
 ## Also by the same maker
 
