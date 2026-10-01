@@ -82,6 +82,12 @@ final class SettingsViewModel {
     var availableModels: [OllamaModel] = []
     var meetingLanguage: MeetingLanguageSelection = .english
     func loadRubricOrDefault() throws -> Rubric { Rubric() }
+    func prepareAI(ollamaManager: OllamaManager) async -> Bool {
+        if usesCloudAI { return true }
+        guard await ollamaManager.ensureRunning() else { return false }
+        await refreshModels()
+        return !availableModels.isEmpty
+    }
 
     // Test hooks. The real path reads this machine's free memory and talks to
     // an engine; these let a test choose the outcome and then assert what the

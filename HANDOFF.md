@@ -5,6 +5,18 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-09-30): Automatic AI notes — built and tested
+
+Post-call notes now prepare AI independently when live coaching never pinned a
+model, including coaching-off/basic-mode calls. Existing pinned providers and cloud
+consent checks remain. Errors/empty responses produce basic notes with a retry
+message on Notes; duplicate generation and stale completions are guarded. Local
+notes-only models use the existing release lifecycle. Settings/help explain the
+new coaching-off behavior; rationale in decisions.md.
+Validation: 232 session checks, Debug xcodebuild, changelog generation and diff
+check passed. Logs: `.context/automatic-notes-{tests,build}.log`.
+No installed-app replacement, live-call/manual call-matrix validation, or release.
+
 ## Current state (2026-09-25): Smarter meeting titles — built and tested
 
 Retired new sidebar keyword/name guesses; AI notes now request purpose + confirmed

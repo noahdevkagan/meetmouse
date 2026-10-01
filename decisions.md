@@ -1682,3 +1682,17 @@ fails on broken internal links, invalid JSON-LD, stale output, sitemap gaps, or 
 guide without a "mine" pick. Writing and cross-linking rules live in
 `SITE-PLAYBOOK.md`, kept identical in both repos. Invented anecdotes were removed
 from the guides per the playbook (Rhino's "no invented anecdotes" rule).
+
+
+## 2026-09-30 — AI notes run automatically without live coaching
+
+The user had to click Regenerate with AI after meetings to get useful notes.
+Automatic review required a model pinned during capture, so coaching-off and
+basic-mode meetings silently received deterministic notes. Post-call review now
+prepares AI independently using the saved-detail regeneration preparation path
+when nothing was pinned. This supersedes the older "no LLM unless I ask" meaning
+of coaching-off: the toggle controls live coaching, while notes run after capture
+stops. Existing pinned providers remain stable; AIClient still checks cloud consent.
+No automatic model downloads or new cloud enablement. Failure/empty output keeps a
+basic recap and a retry message. A generation identity prevents delayed completions
+from overwriting another meeting, and local notes models are unloaded on completion.
