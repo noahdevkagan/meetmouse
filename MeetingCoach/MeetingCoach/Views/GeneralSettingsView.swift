@@ -112,14 +112,31 @@ struct GeneralSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Coaching overlay") {
-                Toggle("Show floating overlay during meetings", isOn: $settings.showCoachOverlay)
-                Text("The small \u{201C}Listening\u{201D} pill that floats above your call. Turn it off and nudges appear only in the MeetMouse window. Wherever you drag it, it stays.")
+            Section("Talk bubble") {
+                Toggle("Show talk bubble during meetings", isOn: $settings.showCoachOverlay)
+                Text("See speaking activity, talk share, and coaching above your call. When hidden, nudges still appear in the MeetMouse window.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Picker("Placement", selection: $settings.talkBubblePlacement) {
+                    ForEach(TalkBubblePlacement.allCases, id: \.self) { placement in
+                        Text(placement.title).tag(placement)
+                    }
+                }
+                .disabled(!settings.showCoachOverlay)
+                Text(settings.talkBubblePlacement == .floating
+                     ? "Drag the bubble anywhere. It remembers your floating position."
+                     : "Attached to the middle of the screen’s right edge. Switch to Floating to move it freely.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Picker("Shape", selection: $settings.talkBubbleLayout) {
+                    ForEach(TalkBubbleLayout.allCases, id: \.self) { layout in
+                        Text(layout.title).tag(layout)
+                    }
+                }
+                .disabled(!settings.showCoachOverlay)
                 Toggle("Show session timer", isOn: $settings.showOverlayClock)
                     .disabled(!settings.showCoachOverlay)
-                Text("A small clock next to \u{201C}Listening\u{201D} in the floating overlay, so you always know how long the meeting has run.")
+                Text("Changes apply immediately. Coaching messages expand into a readable card in either shape.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
