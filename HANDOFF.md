@@ -5,6 +5,59 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-10-01): Ship talk bubble defaults — in progress
+
+User approved shipping. Plan: default unset placement/layout to Right edge /
+Vertical while honoring saved choices; release 0.28.0 with the bubble and already
+merged automatic AI notes. Run full push gate, review final diff, commit/push,
+merge into main, and monitor automatic release through signed DMG/appcast/site.
+No capture/detection/end-of-meeting logic changed by this branch.
+
+## Current state (2026-10-01): Rounder, shorter bubble — built and rendered
+
+Restored rounded right corners while retaining flush edge anchoring. Vertical
+body is now 44 × 84 points (height was 96). Debug build and diff check passed;
+real SwiftUI compact view rendered and visually checked. Evidence:
+`.context/round-bubble-build.log`, `.context/round-bubble-preview.png`.
+No app restart: the running meeting remains uninterrupted; relaunch loads this
+refinement and the prior permanent native-resize anchoring fix.
+
+## Current state (2026-10-01): Live docking offset — fixed and checked
+
+Observed actual dev panel x=2084,width=50 on a 2240-point screen. NSHostingView
+shrunk the initial 156-point window without correcting its left edge. Added native
+resize re-anchoring and post-presentation positioning. Debug build passed;
+actual NSHostingView installation and expanded/compact resizing all retain zero
+edge gap. Logs: `.context/dock-resize-{build,check}.log`.
+Reapplied Floating → Right edge in the current dev session: confirmed x=2190,
+width=50 (zero gap) without stopping the live meeting. Permanent fix is built but
+requires relaunch after this meeting. Installed app untouched. Diff check passed.
+
+## Current state (2026-10-01): Slimmer edge bubble — built and checked
+
+Vertical bubble is now 44 × 96 (previously 76 × 112), with a smaller timer and
+4-point share edges. Right-edge mode removes trailing transparent padding,
+squares trailing corners, and anchors to the physical display edge even with
+a right-side Dock. Floating positioning remains preserved.
+Debug build and native geometry checks passed; real compact SwiftUI view rendered
+and visually checked at 50 × 108 including padding. Evidence:
+`.context/slim-bubble-build.log`, `.context/bubble-panel-check.log`,
+`.context/slim-bubble-preview.png`. Diff check passed.
+Running dev app had an active session, so it was not restarted; changes require
+a relaunch. Installed app untouched; no push or release.
+
+## Current state (2026-10-01): Talk bubble settings — built and checked
+
+General settings now offers Floating / Right edge placement and Horizontal /
+Vertical shape, persisted and applied live. Defaults retain existing behavior.
+Docking centers on the usable right edge; returning to floating restores the
+saved dragged position. Nudges keep the readable expanded card in both shapes.
+Debug xcodebuild and native AppKit geometry checks passed: docking through both
+sizes and expansion, floating restoration, and saved-position preservation.
+Logs: `.context/talk-bubble-build.log`, `.context/bubble-panel-check.log`.
+Changelog generated; diff check passed. No app launch, live visual validation,
+installed-app replacement, push, or release.
+
 ## Current state (2026-09-30): Automatic AI notes — built and tested
 
 Post-call notes now prepare AI independently when live coaching never pinned a

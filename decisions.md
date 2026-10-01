@@ -1696,3 +1696,51 @@ stops. Existing pinned providers remain stable; AIClient still checks cloud cons
 No automatic model downloads or new cloud enablement. Failure/empty output keeps a
 basic recap and a retry message. A generation identity prevents delayed completions
 from overwriting another meeting, and local notes models are unloaded on completion.
+
+
+## 2026-10-01 — Independent talk bubble placement and shape
+
+Keep Floating + Horizontal as defaults so existing bubble positioning survives.
+Right edge pins the panel to the vertical center of the display’s usable right
+edge and disables dragging; switching back restores the saved floating position.
+Docking, resizing, and display changes never overwrite that position. Placement
+and shape are independent and apply live. Vertical stacks the waveform and timer
+with the same You/Them share edges; actionable notices still use the readable
+expanded card instead of squeezing text into a narrow column.
+
+
+## 2026-10-01 — Slim vertical bubble and flush physical edge
+
+User found the 76-point vertical bubble bulky and docking insufficiently close.
+Reduce it to 44 × 96 with 4-point share edges and a smaller scalable timer.
+Docked placement now uses the physical screen’s right edge, not visibleFrame
+(which reserves room for a side Dock), removes the 6-point trailing inset,
+and squares the compact bubble’s trailing corners to look attached. Keep the
+usable vertical midpoint and preserve floating position memory.
+
+
+## 2026-10-01 — Re-anchor after native hosting resizes
+
+Live inspection found a 50-point panel at x=2084 on a 2240-point screen, a
+106-point gap equal to its initial 156-to-50 width change. NSHostingView can
+resize outside fitContent while keeping the left edge. Observe native didResize,
+re-anchor docked panels even when fitContent sees the same size, and position
+after ordering front. Native hosting and expanded/compact resize checks now
+verify zero edge gap. Reapplying Floating → Right edge corrected the currently
+running meeting without restarting it; permanent code takes effect on relaunch.
+
+
+## 2026-10-01 — Rounded docked bubble, shorter vertical shape
+
+User prefers a bubble silhouette over squared attachment corners. Restore all
+four 16-point corners even when docked, retain zero trailing inset and physical
+edge anchoring, and shorten vertical height from 96 to 84 points (width stays 44).
+
+
+## 2026-10-01 — Ship vertical/right-edge as the default
+
+After live review, the user approved the slim rounded bubble and asked to make
+it the default and ship. Missing/invalid placement and layout preferences now
+resolve to Right edge and Vertical. Existing explicit selections remain intact;
+no migration overwrites a user’s choice. Release 0.28.0 includes the automatic
+AI notes change already merged on main.
