@@ -51,6 +51,9 @@ struct MeetingPromptView: View {
     let source: String
     /// Real icon of the detected meeting app (Zoom, Teams, the browser…).
     var icon: NSImage?
+    /// Meeting language: shown in the subtitle, changeable from the ▾ menu.
+    /// Nil on Intel (English only).
+    var settings: SettingsViewModel?
     let onStart: () -> Void
     var onStartWithGoal: (() -> Void)?
     let onDismiss: () -> Void
@@ -93,9 +96,20 @@ struct MeetingPromptView: View {
                 Text("Meeting Detected")
                     .font(.system(size: 14, weight: .semibold))
                     .fixedSize()
-                Text(source)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Text(source)
+                        .foregroundStyle(.secondary)
+                    if let settings {
+                        Text("·").foregroundStyle(.tertiary)
+                        Image(systemName: "globe")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(.secondary)
+                        Text(settings.meetingLanguage.quickName)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .font(.caption)
+                .lineLimit(1)
             }
 
             Spacer(minLength: 10)
@@ -136,6 +150,15 @@ struct MeetingPromptView: View {
                     // Advanced path can still deep-link a goal start.)
                     Button(detection.autoStartCountdown != nil ? "Cancel auto-start" : "Not now",
                            action: onDismiss)
+                    if let settings {
+                        Divider()
+                        Menu("Language") {
+                            MeetingLanguageMenuItems(
+                                current: settings.meetingLanguage.resolved().language) {
+                                settings.meetingLanguage = $0
+                            }
+                        }
+                    }
                 } label: {
                     Image(systemName: "chevron.down")
                         .font(.caption.weight(.semibold))

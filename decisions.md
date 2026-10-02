@@ -1744,3 +1744,43 @@ it the default and ship. Missing/invalid placement and layout preferences now
 resolve to Right edge and Vertical. Existing explicit selections remain intact;
 no migration overwrites a user’s choice. Release 0.28.0 includes the automatic
 AI notes change already merged on main.
+
+## 2026-10-01 — Meeting language: opt-in Auto-detect + mid-call switch (amends 2026-08-12)
+User feedback (multilingual users changing Settings before every call; Granola
+offers multi-language mode plus an in-meeting switch). The 2026-08-12 policy
+stands for the default: Mac language → English stays the default, because v2
+English accuracy and full English coaching matter most to most users. What
+changes:
+
+- **Auto-detect is an explicit option**, not the default. It is Parakeet v3
+  with *no* script hint — v3 already identifies the language per window; the
+  hint was only a Latin/Cyrillic/Greek token filter. It runs as a non-English
+  session (multilingual-safe signals only). Intel resolves it to English.
+- **The session language may change mid-call, but only from the live header.**
+  Settings changes still never touch a running call. Same-model switches (any
+  v3 language ↔ Auto) only retarget the decoder hint. v2↔v3 holds both
+  Parakeet pipelines (audio keeps buffering; the whole tick is the in-flight
+  unit so no window is cleared then sent to a model being unloaded), swaps the
+  single loaded model, then transcribes the held audio with the new one. A
+  missing v3 downloads while the current engine keeps transcribing. English
+  with v2 not on disk stays on v3 (it hears English) rather than blocking on a
+  download. Failure reloads the old model and keeps the old language.
+- **Coaching downgrade is one-way within a call.** Switching to a non-English
+  language drops the English-tuned monitors; switching back does not re-arm
+  them, because their turn history now holds non-English text.
+- **Every language control remembers the pick** (like Granola) and feeds a
+  three-item recent list, so a trilingual user's languages are one click away.
+- **Detection is text-only, on-device NLLanguageRecognizer**, constrained to
+  the 25 languages with a 0.6 confidence floor. Tested on meeting lines: all
+  2+ word sentences correct except Slovenian→Croatian; one-word lines fall
+  below the floor. It names what Auto hears, tags lines only when ≥2 languages
+  each hold ≥15% of words, and picks the notes language for Auto/switched
+  meetings. Those save `**Language:** auto` and regeneration re-detects.
+- **Notes language** is a two-way setting (meeting's language / English):
+  cheap, and the one Granola option multilingual teams rely on.
+- **Parakeet model loads are serialized; the last request wins.** A mid-call
+  switch's load can outlive its meeting. Before this, a new meeting starting in
+  that window raced the stale load on the shared engine, and if the stale one
+  finished last, every transcribe in the new meeting returned nil. The switch
+  also skips the load if the meeting stopped during the hold, and a pipeline's
+  final flush waits for the hold to end so it isn't sent to an unloaded model.
