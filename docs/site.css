@@ -59,7 +59,7 @@ button { font: inherit; }
   transition: transform 0.16s ease, background 0.16s ease;
 }
 .button:hover { background: #3ccb4f; transform: translateY(-2px); }
-.button-compact { min-height: 42px; padding: 0 17px; border-radius: 11px; font-size: 14px; box-shadow: none; }
+.button-compact { min-height: 42px; padding: 0 17px; border-radius: 11px; font-size: 14px; box-shadow: none; white-space: nowrap; }
 .button:focus-visible, a:focus-visible { outline: 3px solid color-mix(in srgb, var(--green) 44%, transparent); outline-offset: 3px; }
 
 /* Page frame */
@@ -201,6 +201,11 @@ footer span { color: var(--ink); font-weight: 700; }
   .site-header nav { gap: 14px; }
   .site-header nav > a { display: none; }
   footer { width: calc(100% - 28px); padding: 20px 0; }
+}
+@media (max-width: 380px) {
+  .brand { font-size: 19px; gap: 8px; }
+  .mark { width: 36px; height: 36px; }
+  .button-compact { padding: 0 13px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
