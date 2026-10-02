@@ -16,8 +16,8 @@ REPO = Path(__file__).resolve().parent.parent
 BLOG = REPO / "docs" / "blog"
 BASE = "https://meetmouse.com"
 
-CHECKED = "July 29, 2026"
-MODIFIED = "2026-10-01"
+CHECKED = "October 2, 2026"
+MODIFIED = "2026-10-02"
 
 TOOLS = {
     "meetmouse": {
@@ -57,7 +57,7 @@ TOOLS = {
         "bot": "Yes",
         "audio": "Their cloud",
         "review": (
-            "The best free notetaker, and I said so on my own comparison page. Recordings, "
+            "The best free notetaker on the market. Recordings, "
             "transcripts and AI summaries with no minute cap. The trade is a visible bot in "
             "your calls and every meeting in their cloud. If neither bothers you, get Fathom."
         ),
@@ -76,13 +76,13 @@ TOOLS = {
         "site": "https://www.granola.ai",
         "vs": "/compare/meetmouse-vs-granola",
         "best": "Notes with no bot in the call",
-        "price": "Free with a 25-note history cap. Business $14/user/month.",
+        "price": "Free with 30 days of meeting history. Business $14/user/month.",
         "cell": "Free, then $14/user/mo",
-        "free": "Unlimited meetings, history capped at 25 notes",
+        "free": "Unlimited meetings, 30 days of history",
         "bot": "No",
         "audio": "Cloud AI for notes",
         "review": (
-            "The tool I respect most on this list. Granola captures system audio on your Mac, "
+            "Granola captures system audio on your Mac, "
             "so nobody named Granola joins the call and the notes are excellent. Notes are "
             "written with cloud AI, so it isn't the privacy pick. Pick it if the bot is your problem."
         ),
@@ -93,7 +93,7 @@ TOOLS = {
         ],
         "bad": [
             "Notes are generated with cloud AI",
-            "Free history caps at 25 notes on a rolling window",
+            "Free plan keeps only 30 days of meeting history",
         ],
     },
     "otter": {
@@ -151,19 +151,19 @@ TOOLS = {
         "name": "tl;dv",
         "site": "https://tldv.io",
         "best": "Sharing clips with your team",
-        "price": "Free unlimited recordings. Pro $29/month flat, not per seat.",
-        "cell": "Free, then $29/mo",
-        "free": "Unlimited recordings, deleted after 3 months",
+        "price": "Free with unlimited recordings and AI notes on 10 meetings. Pro $29/seat/month.",
+        "cell": "Free, then $29/seat/mo",
+        "free": "Unlimited recordings, AI notes on 10 meetings, data kept up to 3 months",
         "bot": "Yes",
         "audio": "Their cloud",
         "review": (
             "If what you share with your team is \"watch these 40 seconds,\" tl;dv's clipping "
-            "beats everyone's. Pro is one flat price for a small team. Free recordings delete "
-            "after 3 months, so the free plan has a shot clock."
+            "beats everyone's. The free plan records without limits, but AI notes stop after "
+            "10 meetings and data is kept up to 3 months. Pro is $29 per seat per month."
         ),
         "good": [
             "Best clip-sharing on the list",
-            "Pro is $29/month flat, not per seat",
+            "Free plan records unlimited meetings",
         ],
         "bad": [
             "Free recordings delete after 3 months",
@@ -183,8 +183,7 @@ NOT_RANKED = {
     "memo": (
         "Voice memo + an AI chat",
         "$0. Record with QuickTime or Voice Memos, drop the file into ChatGPT or Claude and ask "
-        "for a summary with action items. No bot, no subscription, just a few manual steps. "
-        "I did this for months.",
+        "for a summary with action items. No bot, no subscription, just a few manual steps.",
         None,
     ),
 }
@@ -206,10 +205,10 @@ PAGES = [
             "if you're really a sales team."
         ),
         "intro": (
-            "Fathom is the best free notetaker on the market, and I'm not walking that back. "
+            "Fathom is the best free notetaker on the market. "
             "People leave it for three reasons: a bot named Fathom joins every call, every "
             "recording lives on their servers, or six months of beautiful summaries never made "
-            "anyone better at meetings. Yes, I make MeetMouse, so it's first. Every other tool "
+            "anyone better at meetings. I make MeetMouse, so it's listed first. Each tool "
             "below says what it does better than us."
         ),
         "enough": (
@@ -220,7 +219,7 @@ PAGES = [
         "not_ranked": ["poised", "memo"],
         "faqs": [
             ("Is any Fathom alternative as good for free?",
-             "For pure free notetaking, no. Granola's free plan caps history at 25 notes, Otter's stops at 300 minutes a month, and tl;dv deletes free recordings after 3 months. People switch over the bot, the cloud, or wanting more than notes."),
+             "For pure free notetaking, no. Granola's free plan keeps 30 days of history, Otter's stops at 300 minutes a month, and tl;dv's free AI notes stop after 10 meetings. People switch over the bot, the cloud, or wanting more than notes."),
             ("What's the best Fathom alternative without a bot?",
              "Granola, which captures system audio on your Mac so no participant joins the call. MeetMouse is also bot-free and keeps transcription and AI on your Mac by default."),
             ("Is there a Fathom alternative that doesn't store meetings in the cloud?",
@@ -248,7 +247,7 @@ PAGES = [
             "People leave Otter for one of three reasons: 300 free minutes a month disappear in a "
             "week of real meetings, the \"Otter.ai has joined\" announcement makes every call a "
             "little more awkward, or every word of every meeting is sitting in someone else's "
-            "cloud. Yes, I make MeetMouse, so it's first. Every other tool below says what it does "
+            "cloud. I make MeetMouse, so it's listed first. Each tool below says what it does "
             "better than us."
         ),
         "enough": (
@@ -280,14 +279,14 @@ PAGES = [
             "wants a private coach instead of a recorded dashboard: $20 once, against Fireflies "
             "Pro from $18 per user per month. Pick <strong>Fathom</strong> if you need the "
             "individual basics free, <strong>Granola</strong> for notes with no bot, and "
-            "<strong>tl;dv</strong> for a small team on a budget."
+            "<strong>Otter</strong> if transcript search is what you'd miss."
         ),
         "intro": (
             "Fireflies is built for sales orgs: record every call, score it, push it to the CRM. "
             "People look for alternatives from two directions. You're one person and $18 per user "
             "per month for enterprise machinery is absurd, or you're on a team and every "
-            "conversation being recorded and reviewable started to itch. Yes, I make MeetMouse, "
-            "so it's first. Every other tool below says what it does better than us."
+            "conversation being recorded and reviewable started to itch. I make MeetMouse, "
+            "so it's listed first. Each tool below says what it does better than us."
         ),
         "enough": (
             "If you manage a sales team that needs every call in the CRM and scored for managers, "
@@ -297,13 +296,13 @@ PAGES = [
         "not_ranked": ["poised", "memo"],
         "faqs": [
             ("What is the best free alternative to Fireflies?",
-             "For individuals, Fathom: free with no minute cap, covering recording, transcription and summaries. Fireflies' own free plan exists but limits AI credits."),
+             "For individuals, Fathom: free with no minute cap, covering recording, transcription and summaries. Fireflies' own free plan exists but limits AI summaries."),
             ("Is there a Fireflies alternative that doesn't send a bot into meetings?",
              "Granola takes notes with no bot by capturing system audio on your Mac. MeetMouse is also bot-free and keeps transcription and AI on your Mac by default."),
             ("Do any Fireflies alternatives coach you during the call?",
              "MeetMouse does, with live cues like talk balance, buried asks and vague commitments in an overlay only you see. Fireflies and the other notetakers analyze calls after they end."),
-            ("What's the cheapest Fireflies alternative for a small team?",
-             "tl;dv. Pro is $29 a month flat rather than per seat, versus Fireflies from $18 per user per month. For one person, Fathom's free plan beats both."),
+            ("Is there a cheaper Fireflies alternative for a team?",
+             "Not by much. Billed monthly, Fireflies Pro is $18 per seat, Otter Pro is $16.99, Fathom Team is $19 and tl;dv Pro is $29. For one person, Fathom's free plan beats all of them."),
         ],
     },
     {
@@ -311,39 +310,39 @@ PAGES = [
         "incumbent": "Granola",
         "topic": "Free Granola alternatives",
         "title": "Free Granola Alternatives: The 5 Best Options in 2026 (Ranked)",
-        "description": "The best free Granola alternatives once the 25-note cap hits, ranked by a founder who competes with them: Fathom, tl;dv, Otter, Fireflies, plus MeetMouse at $20 once.",
+        "description": "The best free Granola alternatives once the 30-day history limit hits, ranked: Fathom, tl;dv, Otter, Fireflies, plus MeetMouse as a $20 one-time paid upgrade.",
         "h1": "Free Granola alternatives: the 5 best options in 2026",
-        "order": ["meetmouse", "fathom", "tldv", "otter", "fireflies"],
-        "badge": "Best value",
+        "order": ["fathom", "meetmouse", "tldv", "otter", "fireflies"],
+        "badge": "Best paid upgrade",
+        "us_best": "A paid upgrade: $20 once, no subscription",
         "quick": (
             "If it has to be free, use <strong>Fathom</strong>: unlimited recordings and summaries "
             "with no monthly cap, but a bot joins your calls. If you'll pay once instead of every "
             "month, <strong>MeetMouse</strong> is $20 once, against Granola Business at $14 per user "
-            "per month, and it coaches you live without a bot. Under 25 meetings worth keeping? "
+            "per month, and it coaches you live without a bot. Only need the last 30 days? "
             "Granola's own free plan is enough."
         ),
         "intro": (
-            "Granola is genuinely good, and its free plan is genuinely free, until your note "
-            "history hits 25 meetings on a rolling window. Take meetings for a living and you hit "
-            "that in two weeks. Then it's $14 per user per month, forever. MeetMouse isn't free, "
-            "so I'm saying it up front: it's first because $20 once is the cheapest way off a "
-            "subscription. Every other tool below says what it does better than us."
+            "Granola is genuinely good, and its free plan is genuinely free, but it only keeps 30 "
+            "days of meeting history. Keeping more costs $14 per user per month. I make MeetMouse, "
+            "so it's on this list even though it isn't free: it's $20 once. Each tool below says "
+            "what it does better than us."
         ),
         "enough": (
-            "If you have fewer than about 25 meetings worth remembering at any time, Granola's "
-            "free plan might already be everything you need. It's bot-free, the notes are "
-            "excellent, and the history cap is the whole business model. Under it? Stop shopping."
+            "If you only need your last 30 days of meetings, Granola's free plan might already be "
+            "everything you need. It's bot-free and the notes are excellent. The history limit is "
+            "the whole business model. Inside it? Stop shopping."
         ),
         "not_ranked": ["memo", "poised"],
         "faqs": [
             ("What is the best free alternative to Granola?",
              "Fathom. Its free plan has unlimited recordings and summaries with no monthly cap. The catch is that a bot joins your calls and meetings are stored in Fathom's cloud."),
             ("Is there a free Granola alternative without a bot?",
-             "Granola's own free plan is the bot-free free option, until the 25-note history cap. Recording with Voice Memos and pasting into an AI chat is also bot-free and costs nothing."),
+             "Granola's own free plan is the bot-free free option, with 30 days of meeting history. Recording with Voice Memos and pasting into an AI chat is also bot-free and costs nothing."),
             ("Is there a Granola alternative without a subscription?",
              "MeetMouse is $20 one time, with no subscription and no account. It coaches you live instead of writing notes afterward."),
-            ("Why does Granola's free plan stop working?",
-             "Granola's free plan keeps your last 25 notes on a rolling window. Past that, only your latest 25 stay in your history unless you pay $14 per user per month for Business."),
+            ("What are the limits of Granola's free plan?",
+             "Granola's free Basic plan keeps 30 days of meeting history. Unlimited history needs Business at $14 per user per month."),
         ],
     },
 ]
@@ -421,8 +420,9 @@ PAYPAL = """<form action="https://www.paypal.com/cgi-bin/webscr" method="post">
 e = html.escape
 
 
-def card(key, n, badge):
+def card(key, n, badge, us_best=None):
     t = TOOLS[key]
+    best = (us_best if key == "meetmouse" and us_best else t["best"])
     us = key == "meetmouse"
     head = f'<h3><span class="num">{n:02d}</span>{e(t["name"])}'
     if us:
@@ -443,7 +443,7 @@ def card(key, n, badge):
     return f"""
     <section class="tool{' us' if us else ''}" id="{key}">
       {head}
-      <p class="best">Best for: {e(t["best"][0].lower() + t["best"][1:])}</p>
+      <p class="best">Best for: {e(best[0].lower() + best[1:])}</p>
       <p class="facts"><span>Price</span> {e(t["price"])}</p>
       {shot}
       <p>{e(t["review"])}</p>
@@ -465,7 +465,7 @@ def page(p):
         b = f'<span class="badge">{badge}</span>' if k == "meetmouse" else ""
         cls = ' class="us"' if k == "meetmouse" else ""
         rows += (f'<tr{cls}><td>{i}</td>'
-                 f'<td><a href="#{k}">{e(t["name"])}</a>{b}</td><td>{e(t["best"])}</td><td>{e(t["cell"])}</td></tr>')
+                 f'<td><a href="#{k}">{e(t["name"])}</a>{b}</td><td>{e(p.get("us_best") if k == "meetmouse" and p.get("us_best") else t["best"])}</td><td>{e(t["cell"])}</td></tr>')
     grid_keys = order + ([] if p["incumbent"].lower() in order else [p["incumbent"].lower()])
     grid = ""
     for k in grid_keys:
@@ -473,7 +473,7 @@ def page(p):
         cls = ' class="us"' if k == "meetmouse" else ""
         grid += (f'<tr{cls}><td>{e(t["name"])}</td><td>{e(t["free"])}</td>'
                  f'<td>{e(t["price"])}</td><td>{t["bot"]}</td><td>{e(t["audio"])}</td></tr>')
-    cards = "".join(card(k, i, badge) for i, k in enumerate(order, 1))
+    cards = "".join(card(k, i, badge, p.get("us_best")) for i, k in enumerate(order, 1))
     nr = ""
     for k in p["not_ranked"]:
         name, why, link = NOT_RANKED[k]
