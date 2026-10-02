@@ -11,8 +11,10 @@ let supportedCodes: Set<String> = [
     "hu", "it", "lv", "lt", "mt", "pl", "pt", "ro", "ru", "sk", "sl",
     "es", "sv", "uk",
 ]
-let explicit = MeetingLanguageSelection.allCases.filter { $0 != .system }
+let explicit = MeetingLanguageSelection.specificLanguages
 check(explicit.count == 25, "exposes 25 explicit languages")
+check(Set(MeetingLanguageSelection.allCases) == Set(explicit + [.system, .auto]),
+      "policies are exactly Mac language and Auto-detect")
 check(Set(explicit.map(\.rawValue)) == supportedCodes, "ISO mapping is exact")
 check(explicit.allSatisfy { !$0.englishName.isEmpty && !$0.pickerName.isEmpty },
       "every language has picker copy")
@@ -70,6 +72,72 @@ check(persisted?.language == .ukrainian && persisted?.englishName == "Ukrainian"
       "saved ISO language restores review policy")
 check(MeetingLanguageSelection.resolvedPersistedCode("ja") == nil,
       "unsupported saved ISO stays legacy/dominant-language mode")
+
+// Auto-detect: Parakeet v3 with no script hint, never English-only coaching.
+let auto = MeetingLanguageSelection.auto.resolved(localeIdentifier: "en_US",
+                                                  neuralModelsSupported: true)
+check(auto.isAuto && auto.code == "auto" && !auto.isEnglish
+      && auto.preferredEngine == .parakeetV3 && !auto.shouldFoldVietnameseArtifacts,
+      "Auto-detect routes to v3 as a non-English session")
+check(auto.transcriptionName == "multi-language" && MeetingLanguageSelection.auto.quickName == "Auto-detect",
+      "Auto-detect has readable status copy")
+let intelAuto = MeetingLanguageSelection.auto.resolved(localeIdentifier: "en_US",
+                                                       neuralModelsSupported: false)
+check(intelAuto.code == "en" && intelAuto.intelFallbackFrom == .auto,
+      "Intel Auto-detect resolves to English and says why")
+check(MeetingLanguageSelection.resolvedPersistedCode("auto") == nil,
+      "saved auto sessions re-detect their notes language")
+
+// Recent languages: newest first, deduplicated, three max, policies skipped.
+let recentDefaults = UserDefaults(suiteName: "language-check-recents")!
+recentDefaults.removePersistentDomain(forName: "language-check-recents")
+for language in [MeetingLanguageSelection.english, .polish, .auto, .system, .german, .polish, .french] {
+    MeetingLanguageSelection.noteUsed(language, defaults: recentDefaults)
+}
+check(MeetingLanguageSelection.recent(recentDefaults) == [.french, .polish, .german],
+      "recent languages keep the last three distinct picks")
+recentDefaults.removePersistentDomain(forName: "language-check-recents")
+
+// Notes language: the meeting's own language, the detected main language
+// for multi-language meetings, or always English.
+check(NotesLanguagePreference.meeting.notesLanguageName(meetingLanguage: .spanish, detected: .english) == "Spanish",
+      "notes follow a single-language meeting")
+check(NotesLanguagePreference.meeting.notesLanguageName(meetingLanguage: nil, detected: .polish) == "Polish",
+      "multi-language notes follow the detected main language")
+check(NotesLanguagePreference.meeting.notesLanguageName(meetingLanguage: .auto, detected: nil) == nil,
+      "undetectable notes fall back to the dominant-language prompt")
+check(NotesLanguagePreference.english.notesLanguageName(meetingLanguage: .polish, detected: .polish) == "English",
+      "English notes preference overrides the meeting language")
+check(NotesLanguagePreference.current == .meeting, "notes default to the meeting language")
+
+// On-device detection (NLLanguageRecognizer) on meeting-style lines.
+let lines: [(MeetingLanguageSelection, String)] = [
+    (.english, "Sounds good, I can send the updated timeline to everyone by Friday."),
+    (.polish, "Dobra, to w takim razie przesuwamy launch na przyszły tydzień?"),
+    (.german, "Ja, das klingt gut, ich schicke dir morgen die Unterlagen."),
+    (.czech, "Dobře, tak to posuneme na příští týden a uvidíme."),
+    (.slovak, "Dobre, tak to posunieme na budúci týždeň a uvidíme."),
+    (.ukrainian, "Добре, тоді перенесемо це на наступний тиждень."),
+    (.russian, "Хорошо, тогда перенесём это на следующую неделю."),
+    (.portuguese, "Tudo bem, então vamos mudar para a próxima semana."),
+    (.spanish, "Vale, entonces lo movemos a la semana que viene."),
+]
+check(lines.allSatisfy { TranscriptLanguageDetector.language(of: $0.1) == $0.0 },
+      "detector names meeting sentences across scripts and close pairs")
+check(TranscriptLanguageDetector.language(of: "OK.") == nil
+      && TranscriptLanguageDetector.language(of: "123 — 456") == nil,
+      "detector declines one-word and letterless lines")
+
+var tally = TranscriptLanguageDetector.Tally()
+tally.add(lines[1].1)
+tally.add("Tak, ale najpierw muszę to potwierdzić z zespołem w Berlinie.")
+check(!tally.isMultilingual && tally.dominant == .polish, "one-language tally is not multilingual")
+tally.add(lines[0].1)
+check(tally.isMultilingual && tally.spoken == [.polish, .english],
+      "a real second language makes the tally multilingual, most-spoken first")
+var stray = TranscriptLanguageDetector.tally(Array(repeating: lines[1].1, count: 8))
+stray.add("Sounds good.")
+check(!stray.isMultilingual, "a stray line in another language stays below the 15% share")
 
 UserDefaults.standard.set("fr", forKey: MeetingLanguageSelection.defaultsKey)
 check(MeetingLanguageSelection.current == .french, "stored global selection loads")

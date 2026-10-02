@@ -51,6 +51,7 @@
 		602166D3A6873647DC911FDE /* bird_chirp.wav in Resources */ = {isa = PBXBuildFile; fileRef = 14D8000DD43FC31EDFC5A989 /* bird_chirp.wav */; };
 		643DA0464410998385AE5E60 /* PreCallFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25F544EB2BBE998E71984423 /* PreCallFormView.swift */; };
 		646D824B1FF7ECF4F27A8229 /* TranscriptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F96FF8CF114AAA6D7FDFBDF /* TranscriptStore.swift */; };
+		679C291223B5070BCE8A7209 /* TranscriptLanguageDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E34A6545FBE26BAB34F1435 /* TranscriptLanguageDetector.swift */; };
 		6A92709E9F9FEB3EEA99933F /* AIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 440E3EC8B273A32FED50F776 /* AIProvider.swift */; };
 		6C768BCDCE0CDE33A7F70567 /* Mclog.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5560738095EF73A5816E554 /* Mclog.swift */; };
 		6DDB4B7AD7A30F488D641CD9 /* GeneralSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35350EAFCF72EF5D24FA7AA1 /* GeneralSettingsView.swift */; };
@@ -84,6 +85,7 @@
 		ACF7E740CC593F7C1077E087 /* TalkStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = B97FD941E80BA5417049F9CE /* TalkStats.swift */; };
 		B1EEF82CF42D4472D319BA92 /* Trigger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 826E23E63EE91A96C88BA0F1 /* Trigger.swift */; };
 		B2AC75147E4394FD58C99445 /* LiveSessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67120DB8C352138595D0B749 /* LiveSessionViewModel.swift */; };
+		B2E8BAFBD6F47B1CF29337D8 /* MeetingLanguageMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38270E8C705E75FFC90D76B0 /* MeetingLanguageMenu.swift */; };
 		B61F4F0049C5BEBE7D264905 /* ProgressDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B4B0AF697805859194CB8FB /* ProgressDashboardView.swift */; };
 		BCC30F8C241C9E69FF414B44 /* SafeElementBinding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B24680F8123FEF4092933AF /* SafeElementBinding.swift */; };
 		C0B318FF6582287A051C4103 /* demo_meeting.txt in Resources */ = {isa = PBXBuildFile; fileRef = 1AD95CCA3F1885640ECB50DE /* demo_meeting.txt */; };
@@ -158,12 +160,14 @@
 		35350EAFCF72EF5D24FA7AA1 /* GeneralSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettingsView.swift; sourceTree = "<group>"; };
 		35964E2F9634996C0ACEB39C /* MeetingReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingReview.swift; sourceTree = "<group>"; };
 		35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackFormView.swift; sourceTree = "<group>"; };
+		38270E8C705E75FFC90D76B0 /* MeetingLanguageMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingLanguageMenu.swift; sourceTree = "<group>"; };
 		38AF9EC84551A2A07E86DADF /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
 		3F96FF8CF114AAA6D7FDFBDF /* TranscriptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptStore.swift; sourceTree = "<group>"; };
 		41E79DEE155A7764611418A7 /* MeetingLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingLanguage.swift; sourceTree = "<group>"; };
 		42EB3CC413C5B3BE91CB18AB /* ShareNotesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareNotesSheet.swift; sourceTree = "<group>"; };
 		440E3EC8B273A32FED50F776 /* AIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProvider.swift; sourceTree = "<group>"; };
 		48F9343259F30B3410C031F9 /* TranscriptSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptSearch.swift; sourceTree = "<group>"; };
+		4E34A6545FBE26BAB34F1435 /* TranscriptLanguageDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptLanguageDetector.swift; sourceTree = "<group>"; };
 		57C620F6E74ECD3050EDCC99 /* AIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIClient.swift; sourceTree = "<group>"; };
 		59A325315611300C1A9E2C53 /* demo_nudges.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = demo_nudges.json; sourceTree = "<group>"; };
 		5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingExample.swift; sourceTree = "<group>"; };
@@ -259,6 +263,7 @@
 				35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */,
 				35350EAFCF72EF5D24FA7AA1 /* GeneralSettingsView.swift */,
 				21E0D0FECB8A88B3565D1140 /* GiveMeetMouseView.swift */,
+				38270E8C705E75FFC90D76B0 /* MeetingLanguageMenu.swift */,
 				96F44479B82669A57E95C7E4 /* MeetingPromptPanel.swift */,
 				656450659BC1ACF5F68F709C /* MeetingReviewView.swift */,
 				2F19AFCB82618FCED078DF03 /* MeetingsHomeView.swift */,
@@ -373,6 +378,7 @@
 				9E3C38C1B54A15F61FEB493A /* RubricAdvisorApply.swift */,
 				C383A162604A3D3AE197F2A2 /* SessionTrends.swift */,
 				5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */,
+				4E34A6545FBE26BAB34F1435 /* TranscriptLanguageDetector.swift */,
 				48F9343259F30B3410C031F9 /* TranscriptSearch.swift */,
 				3F96FF8CF114AAA6D7FDFBDF /* TranscriptStore.swift */,
 				826E23E63EE91A96C88BA0F1 /* Trigger.swift */,
@@ -654,6 +660,7 @@
 				A36D1448B1484E7ACF6E53D5 /* MeetingDetectionService.swift in Sources */,
 				417ACEAF577CB9DB73C67193 /* MeetingDetector.swift in Sources */,
 				D7E82BEB63E8D0037A2EB59E /* MeetingLanguage.swift in Sources */,
+				B2E8BAFBD6F47B1CF29337D8 /* MeetingLanguageMenu.swift in Sources */,
 				125031287F601C3F45385D84 /* MeetingPromptPanel.swift in Sources */,
 				9CFEB7F1FAAB9B376743DE9E /* MeetingReview.swift in Sources */,
 				E7FFC6FB0B3CCA7EA40EEFD0 /* MeetingReviewView.swift in Sources */,
@@ -706,6 +713,7 @@
 				4C4CE6FBC1FF6641932BEC3B /* TrainingExample.swift in Sources */,
 				A1D971DC2241B73DC1713D26 /* TranscriptAnalysis.swift in Sources */,
 				D3610C9D3F85F755820E10C3 /* TranscriptCleanup.swift in Sources */,
+				679C291223B5070BCE8A7209 /* TranscriptLanguageDetector.swift in Sources */,
 				FBBB2B4DB3372B0DD8A7CEE8 /* TranscriptParser.swift in Sources */,
 				97BBFAF4DAC944901C41F097 /* TranscriptSearch.swift in Sources */,
 				646D824B1FF7ECF4F27A8229 /* TranscriptStore.swift in Sources */,

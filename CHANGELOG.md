@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Multi-language meetings: choose "Auto-detect" to transcribe any of the 25 supported languages, even several in one call. Change the language in one click under Start meeting, from the Meeting Detected pill, or mid-meeting from the meeting header; your recent languages stay at the top. AI notes can follow the meeting's language or always be written in English.
+
 ## 0.28.0 — 2026-10-01
 
 - The talk bubble now defaults to a slim, rounded vertical shape on the right edge of your screen. Choose Floating or Right edge and Horizontal or Vertical in General settings; your saved choices are preserved.

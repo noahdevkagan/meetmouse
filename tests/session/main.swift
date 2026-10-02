@@ -1125,6 +1125,59 @@ func runTests() async {
         vm.deleteSession()
     }
 
+    // Mid-call language switch (2026-10-01): an English call switched to
+    // Polish adopts Polish, remembers it for next time, drops English-only
+    // coaching, and saves as "auto" so notes regeneration re-detects.
+    do {
+        let settings = SettingsViewModel()
+        settings.meetingLanguage = .english
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext(), settings: settings)
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (language switch)"); return
+        }
+        capture.onUtterance?(Utterance(t: 1, speaker: "You",
+            text: "Let's quickly confirm the launch date for next week.", endT: 4))
+        capture.switchPhases = [.loading]
+        vm.switchLanguage(to: .polish, settings: settings)
+        check(vm.isSwitchingLanguage, "switch in progress is flagged")
+        vm.switchLanguage(to: .german, settings: settings)
+        try? await Task.sleep(for: .milliseconds(100))
+        check(capture.languageSwitches == ["pl"],
+              "a second switch during a swap is ignored", "got \(capture.languageSwitches)")
+        check(vm.sessionLanguage?.code == "pl" && !vm.isSwitchingLanguage && vm.languageSwitch == nil,
+              "switch adopts Polish and clears the banner")
+        check(settings.meetingLanguage == .german,
+              "the latest pick is remembered for the next meeting")
+        capture.onUtterance?(Utterance(t: 6, speaker: "Them",
+            text: "Dobra, to w takim razie przesuwamy launch na przyszły tydzień.", endT: 10))
+        capture.onUtterance?(Utterance(t: 11, speaker: "You",
+            text: "Tak, ale najpierw muszę to potwierdzić z zespołem w Berlinie.", endT: 15))
+        try? await Task.sleep(for: .milliseconds(50))
+        check(vm.languageTally.isMultilingual && vm.languageTally.dominant == .polish,
+              "tally hears Polish and English, Polish dominant",
+              "spoken \(vm.languageTally.spoken.map(\.rawValue))")
+        vm.switchLanguage(to: .polish, settings: settings)
+        try? await Task.sleep(for: .milliseconds(50))
+        check(capture.languageSwitches == ["pl"], "switching to the current language is a no-op")
+        capture.switchError = CocoaError(.featureUnsupported)
+        vm.switchLanguage(to: .french, settings: settings)
+        try? await Task.sleep(for: .milliseconds(50))
+        check(vm.sessionLanguage?.code == "pl" && vm.error != nil && !vm.isSwitchingLanguage,
+              "a failed switch keeps the current language and reports it")
+        vm.error = nil
+        vm.stopLive()
+        let saved = vm.savedPath.flatMap {
+            try? String(contentsOfFile: $0, encoding: .utf8)
+        } ?? ""
+        check(saved.contains("**Language:** auto"),
+              "a switched meeting saves as auto for re-detection")
+        vm.deleteSession()
+        UserDefaults.standard.removeObject(forKey: MeetingLanguageSelection.defaultsKey)
+        UserDefaults.standard.removeObject(forKey: MeetingLanguageSelection.recentDefaultsKey)
+    }
+
     // 9b. Granola-class review (2026-09-04): NOTES topic sections parse,
     //     round-trip through recapMarkdown, and pre-0.22 persisted
     //     reviews stay readable.
