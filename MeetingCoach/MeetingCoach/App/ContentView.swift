@@ -101,7 +101,8 @@ struct ContentView: View {
                     SessionDetailView(url: sessionURL, highlightQuery: activeSearch,
                                       settings: settings, ollamaManager: ollamaManager,
                                       reviewRevision: sessionURL.path == liveSession.savedPath ? liveSession.meetingReview : nil,
-                                      reviewInProgress: sessionURL.path == liveSession.savedPath && liveSession.isGeneratingSummary) {
+                                      reviewInProgress: sessionURL.path == liveSession.savedPath && liveSession.isGeneratingSummary,
+                                      automaticReviewError: sessionURL.path == liveSession.savedPath ? liveSession.reviewAIError : nil) {
                         selectedSessionURL = nil
                     }
                     .onReceive(NotificationCenter.default.publisher(for: TranscriptStore.didDeleteMeeting)) { notification in
@@ -192,6 +193,9 @@ struct ContentView: View {
                 overlayDismissed = false; showOverlay()
             } else { hideOverlay() }
         }
+        .onChange(of: settings.talkBubblePlacement) { _, placement in
+            overlayPanel?.setPlacement(placement)
+        }
         .onChange(of: settings.showCoachOverlay) { _, on in
             if !on { hideOverlay() } else if liveSession.isLive { showOverlay() }
         }
@@ -255,6 +259,7 @@ struct ContentView: View {
             overlayPanel = CoachingOverlayPanel()
         }
         guard let panel = overlayPanel else { return }
+        panel.setPlacement(settings.talkBubblePlacement)
         // Install content BEFORE ordering front (NSPanel ships a placeholder
         // contentView, so assign unconditionally). The view observes the
         // session (@Observable), so one hosting view tracks nudges and the
@@ -274,8 +279,8 @@ struct ContentView: View {
         // Follow the user's attention: position on the screen holding the
         // frontmost app's window (the call) — unless the user has dragged
         // the panel somewhere, which wins permanently.
-        panel.repositionToActiveScreen()
         panel.orderFront(nil)
+        panel.repositionToActiveScreen()
     }
 
     // The main window may have been closed during the call.
@@ -334,8 +339,31 @@ struct LiveTimelineView: View {
                     Text("·")
                     Text(liveSession.elapsedFormatted).monospacedDigit()
                     Text(liveSession.isDemo ? "· Sample transcript" : "· On this Mac")
+                    if liveSession.isLive, !liveSession.isDemo,
+                       PlatformSupport.neuralModelsSupported,
+                       let language = liveSession.sessionLanguage {
+                        Text("·")
+                        MeetingLanguageChip(title: liveLanguageTitle(language),
+                                            current: language.language,
+                                            highlighted: language.isAuto) {
+                            liveSession.switchLanguage(to: $0, settings: settings)
+                        }
+                        .disabled(liveSession.isSwitchingLanguage)
+                    }
                 }
                 .font(.caption).foregroundStyle(.secondary)
+                if let change = liveSession.languageSwitch {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text(languageSwitchMessage(change))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(Dorado.grey800)
+                    .padding(.horizontal, 10).padding(.vertical, 7)
+                    .background(Dorado.doradoTint, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .padding(.top, 6)
+                }
             }
             Spacer(minLength: 8)
             Toggle(isOn: $followLive) {
@@ -352,6 +380,22 @@ struct LiveTimelineView: View {
             .accessibilityLabel(showCoach ? "Hide coaching" : "Show coaching")
         }
         .padding(.horizontal, 28).padding(.top, 24).padding(.bottom, 16)
+    }
+
+    /// "English", or in Auto what's actually being heard.
+    private func liveLanguageTitle(_ language: ResolvedMeetingLanguage) -> String {
+        guard language.isAuto else { return language.englishName }
+        let heard = liveSession.languageTally.spoken.prefix(3).map(\.englishName)
+        return heard.isEmpty ? "Auto-detect" : "Auto · hearing \(heard.joined(separator: ", "))"
+    }
+
+    private func languageSwitchMessage(_ change: LiveSessionViewModel.LanguageSwitchState) -> String {
+        switch change {
+        case .downloading(let name):
+            "Downloading \(name) transcription (~600 MB, once). The transcript continues in the current language until it's ready."
+        case .loading(let name):
+            "Switching to \(name). The transcript picks up again in a few seconds; nothing said meanwhile is lost."
+        }
     }
 
     private var nudgesPanel: some View {
@@ -525,7 +569,7 @@ struct LiveTimelineView: View {
             // Fallback engine: fragmented transcripts are EXPECTED here —
             // without this banner users read them as broken settings. The
             // one-line status that said so vanishes under the first nudge.
-            if liveSession.isLive && liveSession.usedFallbackEngine {
+            if liveSession.isLive && liveSession.usedFallbackEngine && !liveSession.leftFallbackEngine {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: PlatformSupport.neuralModelsSupported
                           ? "arrow.down.circle" : "cpu")
@@ -605,7 +649,7 @@ struct LiveTimelineView: View {
                         // degradation a choice. Persisting the setting means
                         // future sessions are transcript-first and silent.
                         if notice.lowMemory {
-                            Text("Or turn off AI coaching — sessions start faster and use far less memory. You can still generate the AI review after any call.")
+                            Text("Or turn off AI coaching — sessions start faster and use far less memory. AI notes generate automatically after each call.")
                                 .font(.caption2).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                             Button("Turn off AI coaching") {
@@ -640,7 +684,7 @@ struct LiveTimelineView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Your Mac is under memory pressure")
                             .font(.caption.bold())
-                        Text("Turning off AI coaching frees several GB right now — the transcript and built-in nudges keep going, and you can get the AI review after the call.")
+                        Text("Turning off AI coaching frees several GB right now — the transcript and built-in nudges keep going, and AI notes generate automatically after the call.")
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -874,12 +918,16 @@ private struct TranscriptTurnRow: View, Equatable {
             && lhs.turn.text == rhs.turn.text
             && lhs.turn.speaker == rhs.turn.speaker
             && lhs.displayName == rhs.displayName
+            && lhs.languageTag == rhs.languageTag
     }
 
     let turn: Turn
     /// What the speaker gutter shows — the one-on-one alias resolves here
     /// while `turn.speaker` stays the raw label renames are keyed on.
     let displayName: String
+    /// Short language code ("PL") — only passed when the meeting is
+    /// genuinely multilingual, so single-language transcripts stay clean.
+    var languageTag: String?
     /// Present = this speaker can be given a real name (click the label).
     var onRename: ((String, String) -> Void)?
     /// Present = words are click-to-fix (wrote, shouldBe): clicking a
@@ -984,6 +1032,14 @@ private struct TranscriptTurnRow: View, Equatable {
             Text(turn.formattedTime)
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.tertiary)
+            if let languageTag {
+                Text(languageTag)
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(Dorado.grey500)
+                    .padding(.horizontal, 4)
+                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Dorado.divider))
+                    .help("Detected language")
+            }
             Spacer(minLength: 0)
             }
             // Long unattributed turns (mic-only mode) read as a wall —
@@ -1239,6 +1295,10 @@ private struct LiveTranscriptPane: View {
                             TranscriptTurnRow(
                                 turn: turn,
                                 displayName: liveSession.displaySpeaker(turn.speaker),
+                                languageTag: liveSession.languageTally.isMultilingual
+                                    ? TranscriptLanguageDetector.cachedLanguage(of: turn.text)?
+                                        .rawValue.uppercased()
+                                    : nil,
                                 onRename: { label, name in
                                     liveSession.renameSpeaker(label, to: name)
                                 },
@@ -1988,12 +2048,11 @@ struct ModelSection: View {
                 .font(.caption)
             // Transcript-first switch: off means no LLM during live sessions
             // (no preload, no engine launch) — transcript, speaker labels and
-            // built-in nudges keep working, and any saved session can still
-            // generate its AI review on demand.
+            // built-in nudges keep working, and AI notes generate after the call.
             HStack(spacing: 6) {
                 Label("AI coaching", systemImage: "sparkles")
                     .font(.subheadline.weight(.semibold))
-                HelpDot(text: "Turning this off makes your Mac faster during calls — the live transcript, speaker labels, and built-in nudges keep working. You can still get the AI review after any meeting, from its Summary tab.")
+                HelpDot(text: "Turning this off makes your Mac faster during calls — the live transcript, speaker labels, and built-in nudges keep working. AI notes generate automatically after each meeting in the Notes tab.")
                 Spacer(minLength: 0)
                 Toggle("", isOn: $settings.semanticCoachEnabled)
                     .labelsHidden()
@@ -2505,7 +2564,22 @@ struct LiveSection: View {
                 // No goal step, no AI-nudges toggle: the app decides. Goal
                 // setup lives under Advanced; the semantic coach runs
                 // automatically whenever a local model is installed.
-                if !liveSession.showPostSession {
+                // Language is set here, before the call, so a multilingual
+                // user never detours through Settings. Intel is English-only.
+                if PlatformSupport.neuralModelsSupported {
+                    HStack(spacing: 8) {
+                        MeetingLanguageChip(title: settings.meetingLanguage.quickName,
+                                            current: settings.meetingLanguage.resolved().language,
+                                            highlighted: settings.meetingLanguage == .auto) {
+                            settings.meetingLanguage = $0
+                        }
+                        Spacer(minLength: 4)
+                        if !liveSession.showPostSession {
+                            Text("Saves on this Mac")
+                                .font(.system(size: 11)).foregroundStyle(.secondary)
+                        }
+                    }
+                } else if !liveSession.showPostSession {
                     Text("Saves automatically on this Mac")
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)

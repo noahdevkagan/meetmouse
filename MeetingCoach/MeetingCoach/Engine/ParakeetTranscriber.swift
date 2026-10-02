@@ -14,6 +14,10 @@ actor ParakeetEngine {
 
     private var manager: AsrManager?
     private var loadedVersion: ModelKey?
+    /// The latest load. Loads run one after another so the last request
+    /// wins: a mid-call language switch still loading when its meeting ends
+    /// must not finish after (and evict) the next meeting's model.
+    private var loadChain: Task<Bool, Never>?
 
     private enum ModelKey: String, Sendable {
         case v2, v3
@@ -49,6 +53,16 @@ actor ParakeetEngine {
             mclog("[Parakeet] Unsupported model requested")
             return false
         }
+        let previous = loadChain
+        let load = Task {
+            _ = await previous?.value
+            return await self.load(requested, version: version)
+        }
+        loadChain = load
+        return await load.value
+    }
+
+    private func load(_ requested: ModelKey, version: AsrModelVersion) async -> Bool {
         if manager != nil, loadedVersion == requested { return true }
         // The old manager can't serve this session anyway (transcribe gates on
         // loadedVersion), so release it before loading the other version rather
@@ -120,8 +134,15 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
 
     private let voiceFloor: Float
     private let commitSilence: TimeInterval
-    private let modelVersion: AsrModelVersion
-    private let languageHint: Language?
+    // Lock-guarded: a mid-call language switch retargets a live pipeline.
+    private var modelVersion: AsrModelVersion
+    private var languageHint: Language?
+    /// While held (a model swap is loading), audio keeps accumulating but
+    /// nothing is transcribed or committed — the swap loses no speech.
+    private var held = false
+    /// Transcribe calls in flight; a hold waits for them to drain so no
+    /// window is sent to a model that is about to be unloaded.
+    private var inFlight = 0
     private let maxChunkSeconds = 30.0
     private let preRollSamples = 8_000         // 0.5s kept while waiting for voice
 
@@ -167,6 +188,11 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
         // right after stop() returns, and a weak self would let the pipeline
         // deallocate before this flush ever runs.
         Task { [self] in
+            // Mid-swap the model is unloaded; flush once the switch resumes
+            // (it always does), not into the gap where transcribe is nil.
+            while withLock({ held }) {
+                try? await Task.sleep(for: .milliseconds(50))
+            }
             await commit(force: true)
         }
     }
@@ -210,6 +236,36 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
         withLock { running }
     }
 
+    /// Stop transcribing and wait for in-flight passes to finish. Audio
+    /// keeps buffering until resume().
+    func hold() async {
+        withLock { held = true }
+        while withLock({ inFlight > 0 }) {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
+    /// Point the pipeline at another model or language. The pending window
+    /// is re-transcribed by the new target rather than reusing a partial
+    /// from the old one.
+    func retarget(version: AsrModelVersion, languageHint: Language?) {
+        withLock {
+            modelVersion = version
+            self.languageHint = languageHint
+            voicedSinceLastPartial = true
+            if chunkStartedAt != nil { newAudioSinceTick = true }
+        }
+    }
+
+    func resume() {
+        withLock { held = false }
+    }
+
+    private func transcribeCurrent(_ snapshot: [Float]) async -> String? {
+        let (version, hint) = withLock { (modelVersion, languageHint) }
+        return await ParakeetEngine.shared.transcribe(snapshot, version: version, language: hint)
+    }
+
     /// Synchronous scoped locking — safe to call from async contexts.
     private func withLock<T>(_ body: () -> T) -> T {
         lock.lock()
@@ -218,6 +274,15 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     }
 
     private func tick() async {
+        // The whole tick is one pass: the held check and the in-flight count
+        // are taken together, so after hold() drains, no window is cleared
+        // and then handed to a model that's being swapped out.
+        guard withLock({ () -> Bool in
+            guard !held else { return false }
+            inFlight += 1
+            return true
+        }) else { return }
+        defer { withLock { inFlight -= 1 } }
         tickCount += 1
         let (hasVoice, hasNew, lastVoice, duration) = withLock {
             (chunkStartedAt != nil, newAudioSinceTick, lastVoiceAt, Double(samples.count) / 16_000)
@@ -254,8 +319,7 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
                 voicedSinceLastPartial = false
                 return samples
             }
-            guard let text = await ParakeetEngine.shared.transcribe(
-                snapshot, version: modelVersion, language: languageHint) else { return }
+            guard let text = await transcribeCurrent(snapshot) else { return }
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             if isRunning, !trimmed.isEmpty, trimmed != lastPartial {
                 lastPartial = trimmed
@@ -307,8 +371,7 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
             // typical call this halves commit-path inference.
             text = priorPartial
         } else {
-            guard let fresh = await ParakeetEngine.shared.transcribe(
-                snapshot, version: modelVersion, language: languageHint) else { return }
+            guard let fresh = await transcribeCurrent(snapshot) else { return }
             text = fresh
         }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)

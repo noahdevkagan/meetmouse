@@ -134,11 +134,19 @@ struct SignalEngine {
         // Rubric-disabled signals never run (absent from the map = enabled).
         // Multilingual V1 admits only signals whose evidence is independent of
         // English punctuation, keywords, stop words, or backchannel lexicons.
-        let multilingualSafe: Set<NudgeType> = [.talkTime, .voiceShare, .overrun]
         monitors = all.filter {
-            (languageMode == .fullEnglish || multilingualSafe.contains($0.nudgeType))
+            (languageMode == .fullEnglish || Self.multilingualSafe.contains($0.nudgeType))
                 && (tuning[$0.nudgeType.rawValue]?.enabled ?? true)
         }
+    }
+
+    static let multilingualSafe: Set<NudgeType> = [.talkTime, .voiceShare, .overrun]
+
+    /// A mid-call switch away from English drops the English-tuned monitors
+    /// for the rest of the meeting. One-way on purpose: switching back can't
+    /// re-arm them, because their history now holds non-English turns.
+    mutating func restrictToMultilingualSafe() {
+        monitors.removeAll { !Self.multilingualSafe.contains($0.nudgeType) }
     }
 
     /// Force the next evaluate() to rebuild turns from scratch — used when

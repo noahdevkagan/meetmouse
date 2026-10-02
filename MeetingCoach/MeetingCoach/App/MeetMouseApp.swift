@@ -333,7 +333,8 @@ struct MenuBarLabel: View {
         // Rebuild content each detection — the source app can differ.
         let view = MeetingPromptView(detection: detection,
                                      source: detection.detectedSource,
-                                     icon: detection.detectedIcon) {
+                                     icon: detection.detectedIcon,
+                                     settings: PlatformSupport.neuralModelsSupported ? settings : nil) {
             startFromDetection()
         } onStartWithGoal: {
             detection.sessionStarted()
