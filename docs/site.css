@@ -158,6 +158,14 @@ button { font: inherit; }
 .hub-list span { color: var(--muted); font-size: 15px; line-height: 1.55; }
 .hub-group + .hub-group { margin-top: 40px; }
 
+/* Founder byline (blog posts) and product screenshot */
+.byline { display: flex; align-items: center; gap: 12px; margin: -4px 0 24px; font-size: 14px; color: var(--muted); }
+.byline img { width: 44px; height: 44px; border-radius: 50%; display: block; flex: none; }
+.byline strong { display: block; color: var(--ink); font-size: 15px; }
+.shot { margin: 18px 0 22px; }
+.shot img { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 14px; }
+.shot figcaption { margin-top: 8px; color: var(--muted); font-size: 13px; text-align: center; }
+
 /* Footer */
 footer {
   width: min(1180px, calc(100% - 40px)); min-height: 62px; margin: 0 auto;
