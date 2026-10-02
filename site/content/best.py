@@ -10,7 +10,7 @@ MM_WHERE = "On your Mac. Local AI by default; if you add your own Claude or Open
 MM_PRICE = "$20 once, 30-day money-back guarantee"
 REFUND = "Try it in real meetings for 30 days. If it doesn't change how they go, email me and I'll refund you."
 
-GRANOLA = dict(name="Granola", price="Free (25-note history cap); Business $14/user/mo",
+GRANOLA = dict(name="Granola", price="Free (30 days of history); Business $14/user/mo",
                where="Captured on your computer (no bot); notes made with cloud AI", local="No", url="https://www.granola.ai/")
 FATHOM = dict(name="Fathom", price="Free; Team from $19/user/mo",
               where="A bot records the call; stored in Fathom's cloud", local="No", url="https://fathom.video/")
@@ -18,7 +18,7 @@ OTTER = dict(name="Otter", price="Free 300 min/mo; Pro $16.99/mo",
              where="A bot records the call; stored in Otter's cloud", local="No", url="https://otter.ai/")
 FIREFLIES = dict(name="Fireflies", price="From $18/user/mo",
                  where="A bot records the call; stored in Fireflies' cloud", local="No", url="https://fireflies.ai/")
-TLDV = dict(name="tl;dv", price="Free (recordings deleted after 3 months); Pro $29/mo",
+TLDV = dict(name="tl;dv", price="Free (data kept up to 3 months); Pro $29/seat/mo",
             where="A bot records the call; stored in tl;dv's cloud", local="No", url="https://tldv.io/")
 MACWHISPER = dict(name="MacWhisper", price="Free tier; one-time Pro license",
                   where="On your Mac", local="Yes", url="https://goodsnooze.gumroad.com/l/macwhisper")
@@ -61,7 +61,7 @@ BEST = [
         picks=[
             pick(GRANOLA, "bot-free notes you share with a team", [
                 "Granola made \"no bot\" a category. You type rough notes, it fills them in after the call, and they're genuinely good. Shared folders make it work for teams, and it has Windows and iPhone apps.",
-                "The catch: notes are made with cloud AI, you need an account, and free history caps at 25 notes.",
+                "The catch: notes are made with cloud AI, you need an account, and the free plan keeps only 30 days of history.",
             ]),
             pick(FATHOM, "free, if you're fine with a bot", [
                 "Best free plan in the category, period. A bot named Fathom joins your call and everything lives on their servers. It works the same on a Mac as anywhere else, which also means it can't hear FaceTime.",
@@ -232,7 +232,7 @@ BEST = [
                 "No bot, so nothing named \"Notetaker\" joins in front of a VC. Your fundraising conversations stay on your Mac. Notes with next steps after.",
             ]),
             pick(GRANOLA, "a written record of every investor call", [
-                "Clean notes on every investor and customer call, no bot. Cloud notes; free history caps at 25.",
+                "Clean notes on every investor and customer call, no bot. Cloud notes; the free plan keeps 30 days of history.",
             ]),
             pick(FATHOM, "free notes once a few people take calls", [
                 "Hard to beat free. Some investors and enterprise buyers mind the bot. Most don't.",
@@ -354,7 +354,7 @@ BEST = [
             ("Can I use an AI notetaker in a client's Teams or Zoom meeting?", "Bot tools have to join the client's meeting and often get blocked. MeetMouse and Granola capture audio on your computer, so they work in any client-run meeting without joining."),
             ("Does a cloud notetaker break my NDA?", "It can, depending on what your NDA says about third parties. MeetMouse keeps transcription and AI on your Mac by default. Check your actual agreements."),
             ("Can I share meeting notes with a client?", "Yes. MeetMouse makes an encrypted, expiring link with only the curated notes — not the transcript or coaching — and you can revoke it anytime."),
-            ("How much do AI notetakers cost?", "Fathom is free, Granola is $14/user/month after 25 notes, Otter Pro is $16.99/month, and MeetMouse is $20 one time."),
+            ("How much do AI notetakers cost?", "Fathom is free, Granola is free for 30 days of history and $14/user/month after that, Otter Pro is $16.99/month, and MeetMouse is $20 one time."),
         ],
         cta_body="$20 once — less than one billable hour. Works in any client's meeting, and client information stays on your Mac. " + REFUND,
         checked="September 2026",

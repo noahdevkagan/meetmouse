@@ -1784,3 +1784,19 @@ changes:
   finished last, every transcribe in the new meeting returned nil. The switch
   also skips the load if the meeting stopped during the hold, and a pipeline's
   final flush waits for the hold to end so it isn't sent to an unloaded model.
+
+## 2026-10-02 — Ranked alternatives pages live in site/build.py
+
+- The ranked "<tool> alternatives" posts (PR #29) were a standalone generator
+  (scripts/build-alternatives.py) with their own chrome and CSS. Merging main's
+  one-template site, their data moved to `site/content/alternatives.py` and
+  `render_alternatives()` in `site/build.py` renders them with the shared
+  header/footer, breadcrumb, answer box, compare-table, pick cards and FAQ
+  blocks. The old freeform fragments and the standalone script are gone.
+- MeetMouse is marked with the playbook's "mine" badge instead of a
+  "Best overall" pill; its rank position already says where it lands.
+- Blog posts get a founder byline with photo (`.byline` in docs/site.css);
+  comparisons and guides keep the dek-only disclosure.
+- Facts: Granola free = 30 days of meeting history (not a 25-note cap);
+  tl;dv free keeps data up to 3 months, AI notes on 10 meetings, Pro
+  $29/seat/month. Applied in best.py, compare.py and every article.

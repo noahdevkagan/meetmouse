@@ -9,10 +9,10 @@ BLOG = [
     ("/blog/private-ai-meeting-notes", "Private AI meeting notes: the complete guide", "The three questions that matter — bot, cloud, access — and how every tool scores on them."),
     ("/blog/ai-notetaker-without-bot", "AI notetakers that don't join your call as a bot", "How bot-free capture works, who does it, and the honest trade-offs of each."),
     ("/blog/do-ai-notetakers-record-your-calls", "Do AI notetakers record your calls?", "The audit to forward to your security team: recordings, transcripts, retention, and who can see them."),
-    ("/blog/free-granola-alternatives", "Free Granola alternatives", "What's actually free, what's a trial in a trench coat, and the scrappy $0 option nobody writes about."),
-    ("/blog/fathom-alternatives", "Fathom alternatives", "Fathom is free and good — people leave over the bot, the cloud, or wanting more than notes."),
-    ("/blog/otter-alternatives", "Otter.ai alternatives", "Escaping the 300-minute wall, the announced bot, or the cloud — different problems, different answers."),
-    ("/blog/fireflies-alternatives", "Fireflies.ai alternatives", "For individuals drowning in per-seat pricing, and teams tired of every call feeding a dashboard."),
+    ("/blog/free-granola-alternatives", "Free Granola alternatives: the 5 best options in 2026", "The 5 best options once Granola's 30-day free history runs out, ranked, with prices."),
+    ("/blog/fathom-alternatives", "The 5 best Fathom alternatives in 2026", "Ranked, with prices, best-for lines and honest trade-offs, from a competitor."),
+    ("/blog/otter-alternatives", "The 5 best Otter.ai alternatives in 2026", "Ranked, with prices, best-for lines and honest trade-offs, from a competitor."),
+    ("/blog/fireflies-alternatives", "The 5 best Fireflies.ai alternatives in 2026", "Ranked, with prices, best-for lines and honest trade-offs, from a competitor."),
 ]
 
 # Freeform "MeetMouse vs X" pages (structured ones come from compare.py).

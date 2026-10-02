@@ -7,6 +7,7 @@
 Sources:
   site/content/best.py     /best/* guides (structured)
   site/content/compare.py  structured "MeetMouse vs X" pages
+  site/content/alternatives.py  ranked "<tool> alternatives" blog posts
   site/articles/*.html     freeform posts and older comparisons (front matter + body)
   site/content/links.py    the one list of pages; hubs, "more" blocks, llms.txt read it
 
@@ -27,6 +28,7 @@ DOCS = REPO / "docs"
 BASE = "https://meetmouse.com"
 sys.path.insert(0, str(ROOT / "content"))
 
+from alternatives import CHECKED as ALT_CHECKED, MODIFIED as ALT_MODIFIED, NOT_RANKED, PAGES as ALT_PAGES, TOOLS  # noqa: E402
 from best import BEST  # noqa: E402
 from compare import COMPARE  # noqa: E402
 from links import BLOG, MM_VS_ARTICLES, RHINO, RHINO_GUIDES, X_VS_Y  # noqa: E402
@@ -141,6 +143,18 @@ def article_ld(title, date):
     return {"@context": "https://schema.org", "@type": "Article", "headline": title,
             "author": {"@type": "Person", "name": "Noah Kagan", "url": f"{BASE}/"},
             "datePublished": date, "publisher": {"@type": "Organization", "name": "MeetMouse"}}
+
+
+def byline(when):
+    return ('    <div class="byline">\n      <img src="/img/noah.jpg" alt="Noah Kagan" width="44" height="44">\n'
+            f'      <div><strong>Noah Kagan</strong><span>Founder, MeetMouse · {when}</span></div>\n    </div>')
+
+
+def long_date(iso):
+    y, m, d = (int(x) for x in iso.split("-"))
+    months = ["January", "February", "March", "April", "May", "June", "July", "August",
+              "September", "October", "November", "December"]
+    return f"{months[m - 1]} {d}, {y}"
 
 
 def faq_block(faq):
@@ -274,8 +288,10 @@ def render_article(frag):
     parent = COMPARE_HUB if front["kind"] == "compare" else BLOG_HUB
     label = re.sub(r"<[^>]+>", "", front["h1"]).split(":")[0]
     intro = "\n".join(f"    <p>{p}</p>" for p in front["intro"])
-    out = [crumbs(parent, label), f"    <h1>{front['h1']}</h1>", f'    <p class="dek">{front["dek"]}</p>',
-           answer_box(front["answer_label"], front["answer"])]
+    out = [crumbs(parent, label), f"    <h1>{front['h1']}</h1>"]
+    if front["kind"] == "article":
+        out.append(byline("Last checked " + long_date(front["date"])))
+    out += [f'    <p class="dek">{front["dek"]}</p>', answer_box(front["answer_label"], front["answer"])]
     if intro:
         out.append(intro)
     out += [body.strip(), faq_block(front["faq"]),
@@ -283,6 +299,79 @@ def render_article(frag):
             checked_note(front["checked"]), more_links("/" + path)]
     ld = [article_ld(front["title"], front["date"]), crumb_ld(parent, label, path)] + ([faq_ld(front["faq"])] if front["faq"] else [])
     return path, page(front["title"], front["description"], path, "article", ld, "\n\n".join(out))
+
+
+def render_alternatives(p):
+    """A ranked "<tool> alternatives" post: quick answer, ranking, one card per tool, trust sections."""
+    path, order = "blog/" + p["slug"], p["order"]
+
+    def best_for(k):
+        b = p["us_best"] if k == "meetmouse" and p.get("us_best") else TOOLS[k]["best"]
+        return b[0].lower() + b[1:]
+
+    def name(k):
+        return esc(TOOLS[k]["name"]) + (" (mine)" if k == "meetmouse" else "")
+
+    out = [crumbs(BLOG_HUB, p["topic"]), f"    <h1>{esc(p['h1'])}</h1>", byline("Prices checked " + ALT_CHECKED),
+           f'    <p class="dek">{esc(p["intro"])}</p>',
+           answer_box("Quick answer", p["quick"]),
+           table(["Tool", "Best for", "Price for one person"],
+                 [[f'{i}. <a href="#{k}">{name(k)}</a>', esc(best_for(k)), esc(TOOLS[k]["cell"])] for i, k in enumerate(order, 1)],
+                 caption="The ranking at a glance", mine_row=lambda r: "(mine)" in r[0])]
+    for i, k in enumerate(order, 1):
+        t, us = TOOLS[k], k == "meetmouse"
+        badge = '<span class="mine-badge">mine</span>' if us else ""
+        meta = "".join(f"<div><dt>{a}</dt><dd>{esc(b)}</dd></div>" for a, b in
+                       (("Best for", best_for(k)), ("Price", t["price"]), ("Free plan", t["free"]),
+                        ("Bot joins the call", t["bot"]), ("Where your audio goes", t["audio"])))
+        shot = ""
+        if us:
+            shot = ('\n      <figure class="shot"><img src="/img/meetmouse-live-coaching.jpg" width="1200" height="522" loading="lazy" '
+                    'alt="MeetMouse during a call: live transcript, talk balance and coaching cues">'
+                    "<figcaption>MeetMouse during a call: live transcript, talk balance and coaching cues.</figcaption></figure>")
+            links = '<a class="inline-link" href="/">See what MeetMouse does</a>'
+        else:
+            links = f'<a class="inline-link" href="{t["site"]}" rel="noopener">Visit {esc(t["name"])}</a>'
+            if t.get("vs"):
+                links += f' · <a class="inline-link" href="{t["vs"]}">MeetMouse vs {esc(t["name"])}</a>'
+        good = "".join(f"<li>{esc(x)}</li>" for x in t["good"])
+        bad = "".join(f"<li>{esc(x)}</li>" for x in t["bad"])
+        out.append(f'    <section class="pick" id="{k}">\n      <h2>{i}. {esc(t["name"])}{badge}</h2>\n      <dl class="pick-meta">{meta}</dl>'
+                   + shot + f"\n      <p>{esc(t['review'])}</p>\n      <h3>Good</h3>\n      <ul>{good}</ul>\n"
+                   f"      <h3>Not so good</h3>\n      <ul>{bad}</ul>\n      <p>{links}</p>\n    </section>")
+    grid = order + ([] if p["incumbent"].lower() in order else [p["incumbent"].lower()])
+    out.append(section("What each costs", table(
+        ["Tool", "Free plan", "Paid", "Bot joins?", "Where audio goes"],
+        [[esc(TOOLS[k]["name"]), esc(TOOLS[k]["free"]), esc(TOOLS[k]["price"]), TOOLS[k]["bot"], esc(TOOLS[k]["audio"])] for k in grid],
+        mine_row=lambda r: r[0] == "MeetMouse")
+        + f"\n      <p>Prices for one person, monthly billing, read from each tool's pricing page on {ALT_CHECKED}. Check before you buy; these change.</p>"))
+    out.append(section(f"When {esc(p['incumbent'])} is enough", paras([esc(p["enough"])])))
+    nr = []
+    for k in p["not_ranked"]:
+        n, why, link = NOT_RANKED[k]
+        nr.append(f"<strong>{esc(n)}.</strong> {esc(why)}" + (f' <a href="{link}">MeetMouse vs {esc(n)}</a>' if link else ""))
+    out.append(section("Checked, but not ranked", paras(nr)))
+    out.append(section("How I checked", paras([
+        f"Every price and plan limit comes from the tool's own pricing page or help docs, read on {ALT_CHECKED}, for one person "
+        "paying monthly. The ranking is for one person on Zoom, Meet or Teams who cares where their meetings go and wants to get "
+        "better at them, not a sales team. Nobody paid to be on this list. I make MeetMouse, and its price is the one on this site."])))
+    out.append(section("How to switch", '      <ol class="today">' + "".join(f"<li>{s}</li>" for s in [
+        "Buy MeetMouse for $20 and open the DMG.",
+        "Allow the microphone and Screen Recording, so it hears both sides without a bot.",
+        "Start your next Zoom, Meet or Teams call. Want to try it first? The 15-second demo needs no permissions.",
+        f"Keep {esc(p['incumbent'])} running alongside if you still want its archive. They don't know about each other."]) + "</ol>"))
+    faq = [(esc(q), esc(a)) for q, a in p["faqs"]]
+    month = " ".join(ALT_CHECKED.replace(",", "").split()[::2])
+    out += [faq_block(faq),
+            cta("$20 once, no subscription and no account. If it doesn't earn its keep, email me inside 30 days and I'll refund you."),
+            checked_note(month), '    <p class="checked-note">All trademarks belong to their owners. Named for comparison only.</p>',
+            more_links("/" + path)]
+    art = {**article_ld(p["h1"], "2026-07-29"), "dateModified": ALT_MODIFIED, "image": f"{BASE}/img/meetmouse-live-coaching.jpg"}
+    ld = [art, crumb_ld(BLOG_HUB, p["topic"], path),
+          {"@context": "https://schema.org", "@type": "ItemList", "name": p["topic"],
+           "itemListElement": [{"@type": "ListItem", "position": i, "name": TOOLS[k]["name"]} for i, k in enumerate(order, 1)]},
+          faq_ld(faq)]
+    return path, page(p["title"], p["description"], path, "article", ld, "\n\n".join(out))
 
 
 def hub_list(links):
@@ -323,6 +412,7 @@ def llms_txt():
 def build():
     pages = dict(render_best(p) for p in BEST)
     pages.update(render_compare(p) for p in COMPARE)
+    pages.update(render_alternatives(p) for p in ALT_PAGES)
     for frag in sorted((ROOT / "articles").glob("*.html")):
         k, v = render_article(frag)
         pages[k] = v
