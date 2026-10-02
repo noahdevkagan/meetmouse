@@ -1651,3 +1651,152 @@ protected because their origin is ambiguous. No extra AI requests or provider ch
 Legacy topic order varied across launches because dictionary ties were unsorted.
 Migration compares the topic words independent of order while requiring the same
 participant prefix; otherwise real old keyword titles can be stranded.
+
+## 2026-09-29 — SEO landing pages: /best/ hub, no duplicate intents
+
+Use-case pages ("best X for Y") live in `docs/best/`. New head-to-heads are
+"MeetMouse vs X" first; third-party "X vs Y" pages (e.g. Granola vs Fireflies)
+are kept as traffic plays that pitch MeetMouse in "The part neither fixes".
+`docs/alternatives/` is only a hub indexing every comparison and Granola/Fathom page. Before adding a page, check its search intent against the
+existing blog posts — a first draft of "Fathom without a bot", "private Granola/
+Fathom alternative", "Granola without a subscription", "offline transcription for
+Mac", and two "for sales" alternative pages was cut because
+`blog/ai-notetaker-without-bot`, `blog/private-ai-meeting-notes`,
+`blog/free-granola-alternatives`, and `best/ai-meeting-assistant-for-sales-calls`
+already own those intents. Voice follows the live posts (first person, disclosure
+up front, competitors win where they win, refund line); MeetMouse claims stick to
+what the homepage states. No compliance claims (HIPAA, legal ethics) on vertical pages.
+
+## 2026-09-30 — Marketing pages are generated from one template, shared with Rhino Voice
+
+`/best`, `/compare`, `/blog` and the hubs were hand-written HTML with inline styles,
+so each page drifted and none matched the homepage. They are now built by
+`site/build.py` from data (`site/content/best.py`, `compare.py`, `links.py`) and
+freeform fragments (`site/articles/*.html`, extracted once from the old pages),
+styled by one `docs/site.css` ported from rhinovoice.app's doc pages (same tokens,
+green accent). This copies Rhino's 2026-09-17/09-29 decisions: page = content
+object, one component owns breadcrumb, answer box, table, JSON-LD, buy form,
+checked-on note and cross-links, and a single page list drives hubs, llms.txt and
+the check. `site/build.py --check` (run by deploy-site.yml before every deploy)
+fails on broken internal links, invalid JSON-LD, stale output, sitemap gaps, or a
+guide without a "mine" pick. Writing and cross-linking rules live in
+`SITE-PLAYBOOK.md`, kept identical in both repos. Invented anecdotes were removed
+from the guides per the playbook (Rhino's "no invented anecdotes" rule).
+
+
+## 2026-09-30 — AI notes run automatically without live coaching
+
+The user had to click Regenerate with AI after meetings to get useful notes.
+Automatic review required a model pinned during capture, so coaching-off and
+basic-mode meetings silently received deterministic notes. Post-call review now
+prepares AI independently using the saved-detail regeneration preparation path
+when nothing was pinned. This supersedes the older "no LLM unless I ask" meaning
+of coaching-off: the toggle controls live coaching, while notes run after capture
+stops. Existing pinned providers remain stable; AIClient still checks cloud consent.
+No automatic model downloads or new cloud enablement. Failure/empty output keeps a
+basic recap and a retry message. A generation identity prevents delayed completions
+from overwriting another meeting, and local notes models are unloaded on completion.
+
+
+## 2026-10-01 — Independent talk bubble placement and shape
+
+Keep Floating + Horizontal as defaults so existing bubble positioning survives.
+Right edge pins the panel to the vertical center of the display’s usable right
+edge and disables dragging; switching back restores the saved floating position.
+Docking, resizing, and display changes never overwrite that position. Placement
+and shape are independent and apply live. Vertical stacks the waveform and timer
+with the same You/Them share edges; actionable notices still use the readable
+expanded card instead of squeezing text into a narrow column.
+
+
+## 2026-10-01 — Slim vertical bubble and flush physical edge
+
+User found the 76-point vertical bubble bulky and docking insufficiently close.
+Reduce it to 44 × 96 with 4-point share edges and a smaller scalable timer.
+Docked placement now uses the physical screen’s right edge, not visibleFrame
+(which reserves room for a side Dock), removes the 6-point trailing inset,
+and squares the compact bubble’s trailing corners to look attached. Keep the
+usable vertical midpoint and preserve floating position memory.
+
+
+## 2026-10-01 — Re-anchor after native hosting resizes
+
+Live inspection found a 50-point panel at x=2084 on a 2240-point screen, a
+106-point gap equal to its initial 156-to-50 width change. NSHostingView can
+resize outside fitContent while keeping the left edge. Observe native didResize,
+re-anchor docked panels even when fitContent sees the same size, and position
+after ordering front. Native hosting and expanded/compact resize checks now
+verify zero edge gap. Reapplying Floating → Right edge corrected the currently
+running meeting without restarting it; permanent code takes effect on relaunch.
+
+
+## 2026-10-01 — Rounded docked bubble, shorter vertical shape
+
+User prefers a bubble silhouette over squared attachment corners. Restore all
+four 16-point corners even when docked, retain zero trailing inset and physical
+edge anchoring, and shorten vertical height from 96 to 84 points (width stays 44).
+
+
+## 2026-10-01 — Ship vertical/right-edge as the default
+
+After live review, the user approved the slim rounded bubble and asked to make
+it the default and ship. Missing/invalid placement and layout preferences now
+resolve to Right edge and Vertical. Existing explicit selections remain intact;
+no migration overwrites a user’s choice. Release 0.28.0 includes the automatic
+AI notes change already merged on main.
+
+## 2026-10-01 — Meeting language: opt-in Auto-detect + mid-call switch (amends 2026-08-12)
+User feedback (multilingual users changing Settings before every call; Granola
+offers multi-language mode plus an in-meeting switch). The 2026-08-12 policy
+stands for the default: Mac language → English stays the default, because v2
+English accuracy and full English coaching matter most to most users. What
+changes:
+
+- **Auto-detect is an explicit option**, not the default. It is Parakeet v3
+  with *no* script hint — v3 already identifies the language per window; the
+  hint was only a Latin/Cyrillic/Greek token filter. It runs as a non-English
+  session (multilingual-safe signals only). Intel resolves it to English.
+- **The session language may change mid-call, but only from the live header.**
+  Settings changes still never touch a running call. Same-model switches (any
+  v3 language ↔ Auto) only retarget the decoder hint. v2↔v3 holds both
+  Parakeet pipelines (audio keeps buffering; the whole tick is the in-flight
+  unit so no window is cleared then sent to a model being unloaded), swaps the
+  single loaded model, then transcribes the held audio with the new one. A
+  missing v3 downloads while the current engine keeps transcribing. English
+  with v2 not on disk stays on v3 (it hears English) rather than blocking on a
+  download. Failure reloads the old model and keeps the old language.
+- **Coaching downgrade is one-way within a call.** Switching to a non-English
+  language drops the English-tuned monitors; switching back does not re-arm
+  them, because their turn history now holds non-English text.
+- **Every language control remembers the pick** (like Granola) and feeds a
+  three-item recent list, so a trilingual user's languages are one click away.
+- **Detection is text-only, on-device NLLanguageRecognizer**, constrained to
+  the 25 languages with a 0.6 confidence floor. Tested on meeting lines: all
+  2+ word sentences correct except Slovenian→Croatian; one-word lines fall
+  below the floor. It names what Auto hears, tags lines only when ≥2 languages
+  each hold ≥15% of words, and picks the notes language for Auto/switched
+  meetings. Those save `**Language:** auto` and regeneration re-detects.
+- **Notes language** is a two-way setting (meeting's language / English):
+  cheap, and the one Granola option multilingual teams rely on.
+- **Parakeet model loads are serialized; the last request wins.** A mid-call
+  switch's load can outlive its meeting. Before this, a new meeting starting in
+  that window raced the stale load on the shared engine, and if the stale one
+  finished last, every transcribe in the new meeting returned nil. The switch
+  also skips the load if the meeting stopped during the hold, and a pipeline's
+  final flush waits for the hold to end so it isn't sent to an unloaded model.
+
+## 2026-10-02 — Ranked alternatives pages live in site/build.py
+
+- The ranked "<tool> alternatives" posts (PR #29) were a standalone generator
+  (scripts/build-alternatives.py) with their own chrome and CSS. Merging main's
+  one-template site, their data moved to `site/content/alternatives.py` and
+  `render_alternatives()` in `site/build.py` renders them with the shared
+  header/footer, breadcrumb, answer box, compare-table, pick cards and FAQ
+  blocks. The old freeform fragments and the standalone script are gone.
+- MeetMouse is marked with the playbook's "mine" badge instead of a
+  "Best overall" pill; its rank position already says where it lands.
+- Blog posts get a founder byline with photo (`.byline` in docs/site.css);
+  comparisons and guides keep the dek-only disclosure.
+- Facts: Granola free = 30 days of meeting history (not a 25-note cap);
+  tl;dv free keeps data up to 3 months, AI notes on 10 meetings, Pro
+  $29/seat/month. Applied in best.py, compare.py and every article.

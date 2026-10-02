@@ -2,6 +2,16 @@ import Foundation
 import SwiftUI
 import ServiceManagement
 
+enum TalkBubblePlacement: String, CaseIterable {
+    case floating, rightEdge
+    var title: String { self == .floating ? "Floating" : "Right edge" }
+}
+
+enum TalkBubbleLayout: String, CaseIterable {
+    case horizontal, vertical
+    var title: String { self == .horizontal ? "Horizontal" : "Vertical" }
+}
+
 @MainActor @Observable
 final class SettingsViewModel {
     private(set) var aiConfiguration = AIConfiguration.current
@@ -51,13 +61,21 @@ final class SettingsViewModel {
 
     /// Global selection, resolved and snapshotted by LiveSessionViewModel at
     /// meeting start. Changing it begins the needed download but never mutates
-    /// a session already in progress.
+    /// a session already in progress — only the live header's switch does.
     var meetingLanguage: MeetingLanguageSelection {
         didSet {
             UserDefaults.standard.set(meetingLanguage.rawValue,
                                       forKey: MeetingLanguageSelection.defaultsKey)
-            ParakeetDownloadState.shared.startIfNeeded(
-                for: meetingLanguage.resolved().preferredEngine)
+            let resolved = meetingLanguage.resolved()
+            MeetingLanguageSelection.noteUsed(resolved.language)
+            ParakeetDownloadState.shared.startIfNeeded(for: resolved.preferredEngine)
+        }
+    }
+
+    var notesLanguage: NotesLanguagePreference {
+        didSet {
+            UserDefaults.standard.set(notesLanguage.rawValue,
+                                      forKey: NotesLanguagePreference.defaultsKey)
         }
     }
 
@@ -69,8 +87,8 @@ final class SettingsViewModel {
 
     /// Tier-2 semantic coaching: local-LLM heartbeat during live sessions.
     /// Surfaced in Settings as "AI coaching". Off = transcript-first mode:
-    /// no model preload or engine launch at session start; on-demand AI
-    /// review of saved sessions still works.
+    /// no model preload or engine launch at session start; AI notes
+    /// still generate automatically after the call.
     var semanticCoachEnabled: Bool {
         didSet {
             UserDefaults.standard.set(semanticCoachEnabled, forKey: "semanticCoachEnabled")
@@ -93,6 +111,14 @@ final class SettingsViewModel {
     /// Session clock in the coaching overlay's ambient row. Default on.
     var showOverlayClock: Bool {
         didSet { UserDefaults.standard.set(showOverlayClock, forKey: "showOverlayClock") }
+    }
+
+    var talkBubblePlacement: TalkBubblePlacement {
+        didSet { UserDefaults.standard.set(talkBubblePlacement.rawValue, forKey: "talkBubblePlacement") }
+    }
+
+    var talkBubbleLayout: TalkBubbleLayout {
+        didSet { UserDefaults.standard.set(talkBubbleLayout.rawValue, forKey: "talkBubbleLayout") }
     }
 
     /// Default scheduled length for calls started without the goal form
@@ -120,9 +146,12 @@ final class SettingsViewModel {
 
     init() {
         self.meetingLanguage = MeetingLanguageSelection.current
+        self.notesLanguage = NotesLanguagePreference.current
         self.semanticCoachEnabled = UserDefaults.standard.object(forKey: "semanticCoachEnabled") as? Bool ?? true
         self.showCoachOverlay = UserDefaults.standard.object(forKey: "showCoachOverlay") as? Bool ?? true
         self.showOverlayClock = UserDefaults.standard.object(forKey: "showOverlayClock") as? Bool ?? true
+        self.talkBubblePlacement = TalkBubblePlacement(rawValue: UserDefaults.standard.string(forKey: "talkBubblePlacement") ?? "") ?? .rightEdge
+        self.talkBubbleLayout = TalkBubbleLayout(rawValue: UserDefaults.standard.string(forKey: "talkBubbleLayout") ?? "") ?? .vertical
         self.defaultMeetingMinutes = UserDefaults.standard.object(forKey: "defaultMeetingMinutes") as? Int ?? 0
         let storedLaunchAtLogin = UserDefaults.standard.object(forKey: "launchAtLogin") as? Bool
         self.launchAtLogin = storedLaunchAtLogin ?? true

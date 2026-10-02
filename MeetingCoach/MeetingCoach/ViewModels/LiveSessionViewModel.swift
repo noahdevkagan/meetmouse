@@ -33,10 +33,33 @@ final class LiveSessionViewModel {
     /// install). Fragmented "random words" transcripts are expected on
     /// this engine; the UI must say so or users blame settings.
     var usedFallbackEngine = false
+    /// A mid-call language switch moved this fallback session onto Parakeet:
+    /// the live "reduced accuracy" banner no longer applies. The post-session
+    /// note still does — part of the transcript came from the fallback.
+    private(set) var leftFallbackEngine = false
 
-    /// Language policy resolved once at start and retained through save/review.
-    /// It intentionally survives Settings changes made during the meeting.
+    /// Language policy resolved at start and retained through save/review.
+    /// It survives Settings changes made during the meeting; only an explicit
+    /// switch from the live header (switchLanguage) replaces it.
     private(set) var sessionLanguage: ResolvedMeetingLanguage?
+
+    /// Progress of a mid-call model swap, for the live header banner. Nil for
+    /// instant switches (same model, different language).
+    enum LanguageSwitchState: Equatable {
+        case downloading(String)
+        case loading(String)
+    }
+    private(set) var languageSwitch: LanguageSwitchState?
+    private(set) var isSwitchingLanguage = false
+
+    /// Words heard per language (on-device text detection over committed
+    /// lines) — names what Auto is hearing, decides whether to tag lines,
+    /// and picks the notes language for multi-language meetings.
+    private(set) var languageTally = TranscriptLanguageDetector.Tally()
+
+    /// The meeting changed language mid-call. Saved as "auto" so notes
+    /// regeneration re-detects instead of trusting the last selection.
+    private var sessionLanguageSwitched = false
 
     /// Wall-clock moment the session started — exports stamp utterances
     /// with real times of day, like other tools' transcripts.
@@ -289,7 +312,9 @@ final class LiveSessionViewModel {
     static var preloadModel: (String) async -> String? = livePreload
     /// Frees a model if it is resident.
     static var unloadModel: (String) async -> Void = liveUnload
-    /// Runs the post-call review prompt against the pinned model.
+    @ObservationIgnored private var reviewGenerationID = UUID()
+
+    /// Runs the post-call review prompt against the resolved model.
     static var completeReview: (String, String, String) async throws -> String = liveCompleteReview
 
     nonisolated static func liveAvailableMemoryGB() -> Double? { ModelMemory.availableGB }
@@ -905,6 +930,8 @@ final class LiveSessionViewModel {
     /// Clear all per-session UI state. Shared by live start, demo start,
     /// and delete — a new per-session field must reset here, in one place.
     private func resetSessionState() {
+        reviewGenerationID = UUID()
+        isGeneratingSummary = false
         utterances = []
         turns = []
         livePartials = [:]
@@ -922,7 +949,12 @@ final class LiveSessionViewModel {
         micOnly = false
         appleCallCapture = false
         usedFallbackEngine = false
+        leftFallbackEngine = false
         sessionLanguage = nil
+        languageSwitch = nil
+        isSwitchingLanguage = false
+        languageTally = TranscriptLanguageDetector.Tally()
+        sessionLanguageSwitched = false
         sessionStartDate = nil
         nudges = []
         activeNudge = nil
@@ -1390,6 +1422,71 @@ final class LiveSessionViewModel {
         return best.value >= needed ? best.key : nil
     }
 
+    // MARK: - Meeting language
+
+    /// Switch the running meeting's language (live header), and remember the
+    /// choice for the next meeting like every other language control.
+    /// Instant within one model; a model swap shows `languageSwitch` while
+    /// the pipelines hold their audio.
+    func switchLanguage(to selection: MeetingLanguageSelection, settings: SettingsViewModel?) {
+        if let settings {
+            settings.meetingLanguage = selection
+        } else {
+            UserDefaults.standard.set(selection.rawValue, forKey: MeetingLanguageSelection.defaultsKey)
+            MeetingLanguageSelection.noteUsed(selection.resolved().language)
+        }
+        let target = selection.resolved()
+        guard isLive, !isDemo, !isSwitchingLanguage, captureStartTask == nil,
+              let manager = captureManager,
+              target.language != sessionLanguage?.language else { return }
+        isSwitchingLanguage = true
+        let sessionID = currentSessionID
+        let name = target.isAuto ? "multi-language" : target.englishName
+        Task { [weak self] in
+            do {
+                try await manager.switchLanguage(to: target) { phase in
+                    guard let self, self.currentSessionID == sessionID else { return }
+                    switch phase {
+                    case .downloading: self.languageSwitch = .downloading(name)
+                    case .loading: self.languageSwitch = .loading(name)
+                    }
+                }
+                guard let self, self.currentSessionID == sessionID, self.isLive else { return }
+                self.adoptSessionLanguage(target)
+            } catch {
+                guard let self, self.currentSessionID == sessionID else { return }
+                self.error = error.localizedDescription
+                mclog("[VM] Language switch to \(target.code) failed: \(error.localizedDescription)")
+            }
+            guard let self, self.currentSessionID == sessionID else { return }
+            self.languageSwitch = nil
+            self.isSwitchingLanguage = false
+        }
+    }
+
+    private func adoptSessionLanguage(_ target: ResolvedMeetingLanguage) {
+        sessionLanguage = target
+        sessionLanguageSwitched = true
+        if usedFallbackEngine, captureManager?.transcriptionEngine.isParakeet == true {
+            leftFallbackEngine = true
+        }
+        if !target.isEnglish, var engine = signalEngine {
+            engine.restrictToMultilingualSafe()
+            signalEngine = engine
+        }
+        captureManager?.vocabulary = VocabularyNormalizer(
+            customText: UserDefaults.standard.string(forKey: "customVocabularyText") ?? "",
+            foldVietnameseArtifacts: target.shouldFoldVietnameseArtifacts)
+        mclog("[VM] Meeting language now \(target.code) (\(captureManager?.engineLabel ?? "?"))")
+    }
+
+    /// The single language this meeting was held in, when there was one.
+    /// Auto and switched meetings have none; their notes follow detection.
+    private var singleSessionLanguage: MeetingLanguageSelection? {
+        guard let sessionLanguage, !sessionLanguageSwitched, !sessionLanguage.isAuto else { return nil }
+        return sessionLanguage.language
+    }
+
     /// Insert keeping chronological order — the You and Them pipelines emit
     /// independently, so arrivals can be slightly out of order.
     private func insertUtterance(_ u: Utterance) {
@@ -1404,6 +1501,7 @@ final class LiveSessionViewModel {
         if u.speaker != "Them", let mapped = baseLabelRenames[u.speaker] {
             u.speaker = mapped
         }
+        languageTally.add(u.text)
         if let last = utterances.last, u.t < last.t {
             let idx = utterances.lastIndex(where: { $0.t <= u.t })
                 .map { utterances.index(after: $0) } ?? 0
@@ -1436,6 +1534,7 @@ final class LiveSessionViewModel {
     // MARK: - Post-call review
 
     func generateReview(ollamaManager: OllamaManager, settings: SettingsViewModel) {
+        guard !isGeneratingSummary else { return }
         guard !utterances.isEmpty else {
             // An empty session still holds whatever it pinned.
             let ended = sessionModelState
@@ -1451,10 +1550,8 @@ final class LiveSessionViewModel {
 
         // Demo sessions never reach the LLM: reviewing a scripted meeting as
         // if it were real would be the user's first review experience.
-        // Mock mode and known-empty model lists get the instant review too,
-        // instead of spinning up an engine that has nothing to run.
-        if isDemo || settings.useMock ||
-            (!settings.usesCloudAI && settings.hasCheckedModels && settings.ollamaReachable && settings.availableModels.isEmpty) {
+        // Mock mode also stays deterministic.
+        if isDemo || settings.useMock {
             let ended = sessionModelState
             sessionModelState = nil
             finishReview(instantReview(durationMinutes: durationMin))
@@ -1462,19 +1559,12 @@ final class LiveSessionViewModel {
             return
         }
 
-        // Only a model this session actually pinned may be used. A session
-        // still `preparing` never settled, and a `deterministic` one settled
-        // against loading anything — neither gets to fall back to the current
-        // preference here, where the heaviest call of the workflow would run
-        // at the tightest moment for memory.
-        guard case .pinned(_, let reviewModel) = sessionModelState else {
-            mclog("[Review] session never pinned a model — instant review only")
-            let ended = sessionModelState
-            sessionModelState = nil
-            finishReview(instantReview(durationMinutes: durationMin))
-            Task { [weak self] in await self?.releaseSessionModel(ended) }
-            return
-        }
+        // Post-call notes are independent of live coaching. Capture is stopped,
+        // so a coaching-off/basic-mode meeting can now prepare AI just like the
+        // saved meeting's Regenerate action. Keep an existing pinned provider.
+        let pinnedModel = sessionModelState?.pinnedModel
+        let generationID = UUID()
+        reviewGenerationID = generationID
 
         // Speaker-labeled TURNS, not raw utterances — the review has to
         // attribute commitments and positions, which needs who-said-what,
@@ -1491,42 +1581,56 @@ final class LiveSessionViewModel {
             transcript: labeledTranscript,
             context: sessionContext,
             durationMinutes: durationMin,
-            languageName: sessionLanguage?.englishName
+            languageName: (settings.notesLanguage).notesLanguageName(
+                meetingLanguage: singleSessionLanguage,
+                detected: languageTally.dominant)
         )
 
         Task {
             var summary: String?
-            let cloud = AIConfiguration.cloud(from: reviewModel) != nil
             let ready: Bool
-            if cloud {
-                ready = true
+            if let pinnedModel {
+                if AIConfiguration.cloud(from: pinnedModel) != nil {
+                    ready = true
+                } else {
+                    ready = await ollamaManager.ensureRunning()
+                }
             } else {
-                ready = await ollamaManager.ensureRunning()
+                ready = await settings.prepareAI(ollamaManager: ollamaManager)
             }
+            guard reviewGenerationID == generationID else { return }
+            let reviewModel = pinnedModel ?? settings.effectiveModel
             if ready {
+                // Give a notes-only model the same ownership as a live model,
+                // so a replacing meeting can release it through the lifecycle.
+                if pinnedModel == nil {
+                    sessionModelState = .pinned(sessionModelState?.sessionID ?? UUID(), reviewModel)
+                }
                 do {
                     summary = try await Self.completeReview(reviewModel, system, user)
                 } catch {
+                    guard reviewGenerationID == generationID else { return }
                     reviewAIError = "\(error.localizedDescription) A basic recap is shown; retry from the saved meeting."
                     mclog("[Review] AI unavailable; using instant review")
                 }
+            } else {
+                reviewAIError = "AI is unavailable. A basic recap is shown; check Settings → AI, then retry from the saved meeting."
             }
-            if let summary {
+            guard reviewGenerationID == generationID else { return }
+            if let summary, !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 finishReview(MeetingReview.parse(llmText: summary,
                                                  talkShare: talkStats.sessionShare))
             } else {
+                if reviewAIError == nil {
+                    reviewAIError = "AI returned no notes. A basic recap is shown; retry from the saved meeting."
+                }
                 finishReview(instantReview(durationMinutes: durationMin))
             }
-            // The recap was the model's last job — give the multi-GB of
-            // KV/compute memory back instead of letting keep_alive hold it.
-            // Skipped when another meeting already started: that session owns
-            // its own model now, and this one's was already released when it
-            // replaced this session.
-            if !isLive {
-                let ended = sessionModelState
-                sessionModelState = nil
-                await releaseSessionModel(ended)
-            }
+            // Release the post-call model, including one loaded only for notes.
+            // A new meeting invalidates this generation and owns its own model.
+            let ended = sessionModelState
+            sessionModelState = nil
+            await releaseSessionModel(ended)
         }
     }
 
@@ -1892,8 +1996,8 @@ final class LiveSessionViewModel {
         lines.append("**Utterances:** \(utterances.count)")
         lines.append("**Nudges:** \(nudges.count)")
         lines.append("**Engine:** \(sessionEngineLabel ?? "unknown")")
-        if let sessionLanguage {
-            lines.append("**Language:** \(sessionLanguage.code)")
+        if sessionLanguage != nil {
+            lines.append("**Language:** \(singleSessionLanguage?.rawValue ?? MeetingLanguageSelection.auto.rawValue)")
         }
         if let share = talkStats.sessionShare {
             lines.append("**Talk ratio:** \(Int(share * 100))% you")

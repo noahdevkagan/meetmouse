@@ -112,25 +112,46 @@ struct GeneralSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Coaching overlay") {
-                Toggle("Show floating overlay during meetings", isOn: $settings.showCoachOverlay)
-                Text("The small \u{201C}Listening\u{201D} pill that floats above your call. Turn it off and nudges appear only in the MeetMouse window. Wherever you drag it, it stays.")
+            Section("Talk bubble") {
+                Toggle("Show talk bubble during meetings", isOn: $settings.showCoachOverlay)
+                Text("See speaking activity, talk share, and coaching above your call. When hidden, nudges still appear in the MeetMouse window.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Picker("Placement", selection: $settings.talkBubblePlacement) {
+                    ForEach(TalkBubblePlacement.allCases, id: \.self) { placement in
+                        Text(placement.title).tag(placement)
+                    }
+                }
+                .disabled(!settings.showCoachOverlay)
+                Text(settings.talkBubblePlacement == .floating
+                     ? "Drag the bubble anywhere. It remembers your floating position."
+                     : "Attached to the middle of the screen’s right edge. Switch to Floating to move it freely.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Picker("Shape", selection: $settings.talkBubbleLayout) {
+                    ForEach(TalkBubbleLayout.allCases, id: \.self) { layout in
+                        Text(layout.title).tag(layout)
+                    }
+                }
+                .disabled(!settings.showCoachOverlay)
                 Toggle("Show session timer", isOn: $settings.showOverlayClock)
                     .disabled(!settings.showCoachOverlay)
-                Text("A small clock next to \u{201C}Listening\u{201D} in the floating overlay, so you always know how long the meeting has run.")
+                Text("Changes apply immediately. Coaching messages expand into a readable card in either shape.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Section("Meeting language") {
                 Picker("Transcribe meetings in", selection: $settings.meetingLanguage) {
-                    ForEach(MeetingLanguageSelection.allCases) { language in
-                        Text(language == .system
-                             ? "Mac language (\(MeetingLanguageSelection.system.resolved().englishName))"
-                             : language.pickerName)
-                            .tag(language)
+                    Text("Mac language (\(MeetingLanguageSelection.system.resolved().englishName))")
+                        .tag(MeetingLanguageSelection.system)
+                    if PlatformSupport.neuralModelsSupported {
+                        Text(MeetingLanguageSelection.auto.pickerName)
+                            .tag(MeetingLanguageSelection.auto)
+                    }
+                    Divider()
+                    ForEach(MeetingLanguageSelection.specificLanguages) { language in
+                        Text(language.pickerName).tag(language)
                     }
                 }
 
@@ -146,6 +167,10 @@ struct GeneralSettingsView: View {
                     Text("This Intel Mac transcribes English with Apple's built-in engine. The high-accuracy engine and speaker naming need Apple Silicon.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                } else if resolvedLanguage.isAuto {
+                    Text("Hears all 25 supported languages, including several in one meeting (Parakeet v3, downloads once, ~600 MB). Live coaching is limited to talk time, voice share, and overrun. For calls that are all English, choose English for the best accuracy and full coaching.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 } else {
                     Text(resolvedLanguage.isEnglish
                          ? "Required engine: Parakeet v2 for English. It downloads once (~600 MB)."
@@ -153,12 +178,25 @@ struct GeneralSettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Text("The selection is captured when a meeting starts. Changes take effect next meeting.")
+                Text(PlatformSupport.neuralModelsSupported
+                     ? "Applies to your next meeting. You can also change it under Start meeting, from the Meeting Detected pill, or mid-meeting in the meeting header — your last pick is kept."
+                     : "The selection is captured when a meeting starts. Changes take effect next meeting.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if PlatformSupport.neuralModelsSupported {
                     ParakeetProgressLine(engine: resolvedLanguage.preferredEngine)
                 }
+
+                Picker("Write AI notes in", selection: $settings.notesLanguage) {
+                    ForEach(NotesLanguagePreference.allCases) { preference in
+                        Text(preference.label).tag(preference)
+                    }
+                }
+                Text(settings.notesLanguage == .english
+                     ? "Notes are always written in English, whatever language the meeting was in."
+                     : "Notes are written in the language the meeting was held in. For multi-language meetings, that's the language spoken most.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Meeting length") {

@@ -47,6 +47,7 @@ Every `git push` runs `scripts/push-gate.sh` (~4 min; docs/markdown-only pushes 
 | `MeetingCoach/MeetingCoach/Views/` | Overlay panel, detection pill, dashboards, forms |
 | `MeetingCoach/MeetingCoach/Resources/` | Rubric default, demo script, sounds; `ollama/` runtime is **gitignored** (see Gotchas) |
 | `MeetingCoach/project.yml` | XcodeGen spec — edit this, not the .xcodeproj |
+| `site/`, `docs/site.css` | Marketing page generator: guides, comparisons, blog → `docs/**`. Rules in `SITE-PLAYBOOK.md` |
 | `tests/`, `bench/` | Push-gate suites and longitudinal benchmark |
 | `rubrics/`, `simulator/` | Rubric YAML examples, offline simulation harness |
 | `.github/workflows/release.yml` | Tag-triggered release: build, sign, notarize, DMG, appcast |
@@ -74,6 +75,7 @@ Push a `## X.Y.Z` section in CHANGELOG.md to `main` (commit "Changelog: X.Y.Z"):
 - Local-first is non-negotiable: no telemetry. Network access is limited to explicit model/update downloads and user-enabled Claude account/Claude/OpenAI BYOK text inference. Keep keys in device-only Keychain; never weaken Ollama’s loopback restriction.
 - Signals reason over coalesced speaker *turns*, not raw ASR fragments (`Engine/TranscriptAnalysis.swift`).
 - Rubrics are YAML (`Resources/default_rubric.yaml`, user copy under Application Support); round-tripping must never drop fields.
+- Marketing pages (`/best`, `/compare`, `/blog`, hubs) are generated: edit `site/`, run `python3 site/build.py`, never hand-edit their `docs/` HTML. Follow `SITE-PLAYBOOK.md` (shared with the Rhino Voice repo) for voice, facts and cross-linking.
 - UI style: shared card language via `.cardStyle()` in `ContentView.swift` — white surfaces, hairline borders, continuous corners; don't introduce new one-off card styles.
 
 ## MCP (optional, recommended)

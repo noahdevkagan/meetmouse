@@ -825,11 +825,15 @@ func runTests() async {
         vm.deleteSession()
     }
 
-    // No fitting model stays deterministic through the recap: the recap is
-    // the heaviest call and must not resurrect a model on its own.
+    // Live memory rejection does not prevent AI notes after capture stops.
     do {
         resetSeams()
         var preloaded: [String] = []
+        var reviewed: String?
+        LiveSessionViewModel.completeReview = { model, _, _ in
+            reviewed = model
+            return "SUMMARY:\nAutomatic AI notes after capture."
+        }
         LiveSessionViewModel.availableMemoryGB = { 2 }        // nothing fits
         LiveSessionViewModel.preloadModel = { preloaded.append($0); return nil }
         let vm = LiveSessionViewModel()
@@ -849,10 +853,83 @@ func runTests() async {
         vm.stopLive()
         try? await Task.sleep(for: .milliseconds(500))
         check(preloaded.isEmpty,
-              "no fitting model stays deterministic through recap — nothing loaded",
+              "post-call generation does not preload live coaching",
               "preloaded: \(preloaded)")
-        check(vm.meetingReview != nil, "a deterministic recap is still produced",
+        check(reviewed == settings.effectiveModel, "memory-rejected coaching still generates AI notes after stop")
+        check(vm.meetingReview != nil, "automatic AI recap is produced",
               "utterances: \(vm.utterances.count), state: \(String(describing: vm.sessionModelState)), generating: \(vm.isGeneratingSummary)")
+        vm.deleteSession()
+    }
+
+    // Coaching-off calls still prepare notes; failures retain the transcript
+    // and basic recap. No real AI or audio hardware is used in these checks.
+    for mode in ["local", "cloud", "unavailable", "failure", "empty"] {
+        resetSeams()
+        var reviewed: String?
+        var unloaded: [String] = []
+        LiveSessionViewModel.unloadModel = { unloaded.append($0) }
+        LiveSessionViewModel.completeReview = { model, _, _ in
+            reviewed = model
+            if mode == "failure" { throw NSError(domain: "test", code: 1) }
+            return mode == "empty" ? "" : "SUMMARY:\nAutomatic notes are ready."
+        }
+        let settings = liveSettings()
+        settings.semanticCoachEnabled = false
+        if mode == "cloud" {
+            settings.usesCloudAI = true
+            settings.selectedModel = AIConfiguration(provider: .openai, model: "gpt-4.1-mini").modelReference
+            settings.availableModels = []
+        }
+        let manager = OllamaManager()
+        manager.engineAvailable = mode != "unavailable" && mode != "cloud"
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(150))
+        check(vm.sessionModelState?.pinnedModel == nil, "coaching off never pins a model (\(mode))")
+        AudioCaptureManager.last?.onUtterance?(Utterance(t: 1, speaker: "You", text: "Send the proposal tomorrow.", endT: 3))
+        vm.stopLive()
+        try? await Task.sleep(for: .milliseconds(150))
+        check(!vm.isGeneratingSummary && vm.meetingReview != nil, "stop produces notes without a click (\(mode))")
+        check((reviewed != nil) == (mode != "unavailable"), "automatic AI attempts follow availability (\(mode))")
+        check((vm.reviewAIError != nil) == ["unavailable", "failure", "empty"].contains(mode), "fallback reports retryable error (\(mode))")
+        check(unloaded.isEmpty == ["cloud", "unavailable"].contains(mode), "post-call local model is released (\(mode))")
+        if let path = vm.savedPath, let saved = try? String(contentsOfFile: path, encoding: .utf8) {
+            check(saved.contains("## Review"), "automatic notes persist (\(mode))")
+        } else { check(false, "automatic notes have a saved file (\(mode))") }
+        vm.deleteSession()
+    }
+
+    // A delayed post-call result must never become the next meeting's notes.
+    do {
+        resetSeams()
+        let gate = AsyncStream<Void>.makeStream()
+        var calls = 0
+        LiveSessionViewModel.completeReview = { _, _, _ in
+            calls += 1
+            var iterator = gate.stream.makeAsyncIterator()
+            _ = await iterator.next()
+            return "SUMMARY:\nOld meeting result."
+        }
+        let settings = liveSettings()
+        settings.semanticCoachEnabled = false
+        let manager = OllamaManager()
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(150))
+        AudioCaptureManager.last?.onUtterance?(Utterance(t: 1, speaker: "You", text: "Old meeting transcript.", endT: 3))
+        vm.stopLive()
+        try? await Task.sleep(for: .milliseconds(100))
+        vm.generateReview(ollamaManager: manager, settings: settings)
+        check(calls == 1, "automatic notes reject duplicate generation while busy")
+        vm.deleteSession()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(100))
+        gate.continuation.yield(())
+        gate.continuation.finish()
+        try? await Task.sleep(for: .milliseconds(100))
+        check(vm.meetingReview == nil && !vm.isGeneratingSummary,
+              "late notes cannot overwrite a new meeting")
+        vm.stopLive()
         vm.deleteSession()
     }
 
@@ -1046,6 +1123,59 @@ func runTests() async {
         check(vm.sessionLanguage?.code == "es" && saved.contains("**Language:** es"),
               "explicit Spanish is snapshotted and persisted")
         vm.deleteSession()
+    }
+
+    // Mid-call language switch (2026-10-01): an English call switched to
+    // Polish adopts Polish, remembers it for next time, drops English-only
+    // coaching, and saves as "auto" so notes regeneration re-detects.
+    do {
+        let settings = SettingsViewModel()
+        settings.meetingLanguage = .english
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext(), settings: settings)
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (language switch)"); return
+        }
+        capture.onUtterance?(Utterance(t: 1, speaker: "You",
+            text: "Let's quickly confirm the launch date for next week.", endT: 4))
+        capture.switchPhases = [.loading]
+        vm.switchLanguage(to: .polish, settings: settings)
+        check(vm.isSwitchingLanguage, "switch in progress is flagged")
+        vm.switchLanguage(to: .german, settings: settings)
+        try? await Task.sleep(for: .milliseconds(100))
+        check(capture.languageSwitches == ["pl"],
+              "a second switch during a swap is ignored", "got \(capture.languageSwitches)")
+        check(vm.sessionLanguage?.code == "pl" && !vm.isSwitchingLanguage && vm.languageSwitch == nil,
+              "switch adopts Polish and clears the banner")
+        check(settings.meetingLanguage == .german,
+              "the latest pick is remembered for the next meeting")
+        capture.onUtterance?(Utterance(t: 6, speaker: "Them",
+            text: "Dobra, to w takim razie przesuwamy launch na przyszły tydzień.", endT: 10))
+        capture.onUtterance?(Utterance(t: 11, speaker: "You",
+            text: "Tak, ale najpierw muszę to potwierdzić z zespołem w Berlinie.", endT: 15))
+        try? await Task.sleep(for: .milliseconds(50))
+        check(vm.languageTally.isMultilingual && vm.languageTally.dominant == .polish,
+              "tally hears Polish and English, Polish dominant",
+              "spoken \(vm.languageTally.spoken.map(\.rawValue))")
+        vm.switchLanguage(to: .polish, settings: settings)
+        try? await Task.sleep(for: .milliseconds(50))
+        check(capture.languageSwitches == ["pl"], "switching to the current language is a no-op")
+        capture.switchError = CocoaError(.featureUnsupported)
+        vm.switchLanguage(to: .french, settings: settings)
+        try? await Task.sleep(for: .milliseconds(50))
+        check(vm.sessionLanguage?.code == "pl" && vm.error != nil && !vm.isSwitchingLanguage,
+              "a failed switch keeps the current language and reports it")
+        vm.error = nil
+        vm.stopLive()
+        let saved = vm.savedPath.flatMap {
+            try? String(contentsOfFile: $0, encoding: .utf8)
+        } ?? ""
+        check(saved.contains("**Language:** auto"),
+              "a switched meeting saves as auto for re-detection")
+        vm.deleteSession()
+        UserDefaults.standard.removeObject(forKey: MeetingLanguageSelection.defaultsKey)
+        UserDefaults.standard.removeObject(forKey: MeetingLanguageSelection.recentDefaultsKey)
     }
 
     // 9b. Granola-class review (2026-09-04): NOTES topic sections parse,

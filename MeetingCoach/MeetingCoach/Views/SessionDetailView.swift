@@ -17,6 +17,8 @@ struct SessionDetailView: View {
     var ollamaManager: OllamaManager?
     var reviewRevision: MeetingReview? = nil
     var reviewInProgress = false
+    var automaticReviewError: String? = nil
+    @State private var attemptedRegeneration = false
     let onClose: () -> Void
 
     enum Tab: String, CaseIterable {
@@ -453,6 +455,8 @@ struct SessionDetailView: View {
 
                 if let reviewError {
                     Text(reviewError).font(.caption).foregroundStyle(.red)
+                } else if !attemptedRegeneration, let automaticReviewError {
+                    Text(automaticReviewError).font(.caption).foregroundStyle(.orange)
                 }
                 if settings != nil, !lines.isEmpty {
                     HStack(spacing: 8) {
@@ -745,6 +749,7 @@ struct SessionDetailView: View {
     }
 
     private func regenerateReview() async {
+        attemptedRegeneration = true
         defer { regenerating = false }
         guard let settings, let ollamaManager, !lines.isEmpty else {
             reviewError = "AI is unavailable or this meeting has no transcript."
@@ -759,12 +764,18 @@ struct SessionDetailView: View {
         reviewError = nil
 
         let transcript = lines.map { "\($0.speaker): \($0.text)" }.joined(separator: "\n")
+        let savedLanguage = languageCode.flatMap {
+            MeetingLanguageSelection.resolvedPersistedCode($0)?.language
+        }
         let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
             nudges: [], transcript: transcript,
             context: PreCallContext(), durationMinutes: max(1, durationMinutes),
-            languageName: languageCode.flatMap {
-                MeetingLanguageSelection.resolvedPersistedCode($0)?.englishName
-            })
+            languageName: settings.notesLanguage.notesLanguageName(
+                meetingLanguage: savedLanguage,
+                // Multi-language, switched, legacy, and imported meetings
+                // name no single language: detect the main one on-device.
+                detected: savedLanguage == nil && settings.notesLanguage == .meeting
+                    ? TranscriptLanguageDetector.tally(lines.map(\.text)).dominant : nil))
         let text: String
         do {
             text = try await AIClient(model: settings.effectiveModel, numCtx: 12_288, numPredict: 1500)

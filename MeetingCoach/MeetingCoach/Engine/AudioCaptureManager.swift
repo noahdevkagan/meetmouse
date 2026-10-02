@@ -32,9 +32,14 @@ protocol TranscriptionPipeline: AnyObject {
 @available(macOS 14.2, *)
 final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
-    /// Immutable per-session language policy. Settings changes never alter a
-    /// running capture or its cleanup/decoder behavior.
-    let language: ResolvedMeetingLanguage
+    /// Per-session language policy. Settings changes never alter a running
+    /// capture; only switchLanguage(to:) does, from the live header.
+    /// Lock-guarded: pipelines read it from their own queues.
+    var language: ResolvedMeetingLanguage {
+        languageLock.lock(); defer { languageLock.unlock() }; return _language
+    }
+    private let languageLock = NSLock()
+    private var _language: ResolvedMeetingLanguage
 
     /// Called with a new utterance to append.
     var onUtterance: (@Sendable @MainActor (Utterance) -> Void)?
@@ -146,7 +151,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private let echoFilter = EchoFilter()
 
     init(language: ResolvedMeetingLanguage) {
-        self.language = language
+        self._language = language
         super.init()
     }
 
@@ -169,6 +174,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         // When the model isn't on disk yet, don't hold the session hostage
         // behind a ~600 MB download: start immediately on SFSpeech (if it can
         // run on-device) and fetch Parakeet in the background for next time.
+        let language = self.language
         let preferredEngine = language.preferredEngine
         if !PlatformSupport.neuralModelsSupported {
             // Intel: Parakeet would SIGFPE the process (see PlatformSupport).
@@ -191,7 +197,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                 transcriptionEngine = .sfSpeech
             } else {
                 isRunning = false
-                throw CaptureError.transcriptionEngineUnavailable(language.englishName)
+                throw CaptureError.transcriptionEngineUnavailable(language.transcriptionName)
             }
         } else if language.isEnglish
                     && Self.sfSpeechOnDeviceAvailable(for: language.sfSpeechLocaleIdentifier) {
@@ -204,7 +210,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         } else {
             // Non-English has no SFSpeech escape hatch: starting an English
             // recognizer would silently turn the whole meeting into garbage.
-            emitStatus("Downloading \(language.englishName) transcription…")
+            emitStatus("Downloading \(language.transcriptionName) transcription…")
             let ready = await ParakeetDownloadState.shared.prepare(for: preferredEngine)
             guard !Task.isCancelled else {
                 isRunning = false
@@ -213,7 +219,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             guard ready, let version = preferredEngine.parakeetVersion,
                   await ParakeetEngine.shared.ensureLoaded(version: version) else {
                 isRunning = false
-                throw CaptureError.transcriptionEngineUnavailable(language.englishName)
+                throw CaptureError.transcriptionEngineUnavailable(language.transcriptionName)
             }
             transcriptionEngine = preferredEngine
         }
@@ -354,15 +360,124 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         sysPipeline = nil
     }
 
+    // MARK: - Mid-call language switch
+
+    enum LanguageSwitchPhase: Sendable {
+        /// The target model isn't on disk; the current engine keeps
+        /// transcribing while it downloads.
+        case downloading
+        /// Swapping models. Pipelines hold their audio meanwhile.
+        case loading
+    }
+
+    /// Switch a running meeting to another language. Same model (between
+    /// v3 languages, or into/out of Auto) only changes the decoder's script
+    /// hint: instant. Changing models holds both pipelines — audio keeps
+    /// buffering — swaps the model, then transcribes the held audio with
+    /// the new one, so nothing said during the swap is lost.
+    ///
+    /// Returns the engine now in use. English with Parakeet v2 not yet on
+    /// disk stays on v3 (which hears English too) instead of blocking the
+    /// call on a download; v2 fetches in the background for next time.
+    @discardableResult
+    func switchLanguage(to target: ResolvedMeetingLanguage,
+                        onPhase: @escaping @Sendable @MainActor (LanguageSwitchPhase) -> Void)
+        async throws -> TranscriptionEngine {
+        guard isRunning, PlatformSupport.neuralModelsSupported else {
+            throw CaptureError.multilingualRequiresAppleSilicon(target.transcriptionName)
+        }
+        let current = transcriptionEngine
+        var engine = target.preferredEngine
+        if target.isEnglish, current == .sfSpeech {
+            // Already English on the fallback engine (v2 still downloading).
+            engine = .sfSpeech
+        } else if target.isEnglish, current == .parakeetV3, !ParakeetEngine.isCachedOnDisk(.v2) {
+            engine = .parakeetV3
+            await MainActor.run { ParakeetDownloadState.shared.startIfNeeded(for: .parakeetV2) }
+        }
+
+        if let version = engine.parakeetVersion, !ParakeetEngine.isCachedOnDisk(version) {
+            await onPhase(.downloading)
+            guard await ParakeetDownloadState.shared.prepare(for: engine), isRunning else {
+                throw CaptureError.transcriptionEngineUnavailable(target.transcriptionName)
+            }
+        }
+
+        let parakeetPipes = [micPipeline, sysPipeline].compactMap { $0 as? ParakeetPipeline }
+        if engine == current {
+            setLanguage(target)
+            if let version = engine.parakeetVersion {
+                parakeetPipes.forEach { $0.retarget(version: version, languageHint: target.parakeetLanguageHint) }
+            }
+            mclog("[Capture] Language switched to \(target.code) on \(engine.rawValue)")
+            return engine
+        }
+
+        guard let version = engine.parakeetVersion else {
+            // Parakeet → SFSpeech is never chosen above.
+            throw CaptureError.transcriptionEngineUnavailable(target.transcriptionName)
+        }
+        await onPhase(.loading)
+        if current.isParakeet, let oldVersion = current.parakeetVersion {
+            for pipe in parakeetPipes { await pipe.hold() }
+            guard isRunning else {
+                // Stopped meanwhile: don't load a model for a meeting that
+                // ended. Release the hold so the final flush runs.
+                parakeetPipes.forEach { $0.resume() }
+                throw CaptureError.transcriptionEngineUnavailable(target.transcriptionName)
+            }
+            guard await ParakeetEngine.shared.ensureLoaded(version: version) else {
+                // Put the old model back so the meeting keeps transcribing.
+                _ = await ParakeetEngine.shared.ensureLoaded(version: oldVersion)
+                parakeetPipes.forEach { $0.resume() }
+                throw CaptureError.transcriptionEngineUnavailable(target.transcriptionName)
+            }
+            setLanguage(target)
+            transcriptionEngine = engine
+            for pipe in parakeetPipes {
+                pipe.retarget(version: version, languageHint: target.parakeetLanguageHint)
+                pipe.resume()
+            }
+        } else {
+            // SFSpeech fallback → Parakeet: rebuild both pipelines. The old
+            // ones flush their pending tail through SFSpeech as they stop.
+            guard await ParakeetEngine.shared.ensureLoaded(version: version), isRunning else {
+                throw CaptureError.transcriptionEngineUnavailable(target.transcriptionName)
+            }
+            setLanguage(target)
+            transcriptionEngine = engine
+            if let old = micPipeline {
+                let fresh = try makePipeline(speaker: hasSystemAudio ? "You" : "Meeting",
+                                             voiceFloor: isAppleCall ? 0.0012 : 0.006)
+                fresh.start()
+                micPipeline = fresh
+                old.stop()
+            }
+            if let old = sysPipeline {
+                let fresh = try makePipeline(speaker: "Them", voiceFloor: 0.002, commitSilence: 2.0)
+                fresh.start()
+                sysPipeline = fresh
+                old.stop()
+            }
+        }
+        mclog("[Capture] Language switched to \(target.code): \(current.rawValue) → \(engine.rawValue)")
+        return engine
+    }
+
+    private func setLanguage(_ language: ResolvedMeetingLanguage) {
+        languageLock.lock(); _language = language; languageLock.unlock()
+    }
+
     // MARK: - Pipelines
 
     private func makePipeline(speaker: String,
                               voiceFloor: Float = 0.006,
                               commitSilence: TimeInterval = 0.9) throws -> any TranscriptionPipeline {
         let pipe: any TranscriptionPipeline
+        let language = self.language
         if usingParakeet {
             guard let version = transcriptionEngine.parakeetVersion else {
-                throw CaptureError.transcriptionEngineUnavailable(language.englishName)
+                throw CaptureError.transcriptionEngineUnavailable(language.transcriptionName)
             }
             pipe = ParakeetPipeline(speaker: speaker, sessionStart: startTime,
                                     voiceFloor: voiceFloor, commitSilence: commitSilence,

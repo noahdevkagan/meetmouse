@@ -94,6 +94,8 @@ struct AISettingsView: View {
             }
             Section("During meetings") {
                 Toggle("AI coaching", isOn: $settings.semanticCoachEnabled)
+                Text("AI meeting notes generate automatically after each call, even with live AI coaching turned off.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Text("Provider changes apply to the next meeting and the next on-demand AI request. Switching away from a cloud provider stops future requests to it, including in the current meeting. Requests already sent cannot be recalled. Transcription and built-in coaching continue if cloud AI is unavailable.")
                     .font(.caption).foregroundStyle(.secondary)
             }
