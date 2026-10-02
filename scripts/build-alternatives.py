@@ -166,7 +166,7 @@ TOOLS = {
             "Free plan records unlimited meetings",
         ],
         "bad": [
-            "Free recordings delete after 3 months",
+            "Free AI notes stop after 10 meetings; data kept up to 3 months",
             "A bot joins calls and recordings live in their cloud",
         ],
     },
