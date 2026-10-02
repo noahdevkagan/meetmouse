@@ -123,6 +123,7 @@ def render(releases) -> str:
   }}
   .release li::before {{ content: "·"; position: absolute; left: 2px; color: #bbb; }}
   .release code {{
+    overflow-wrap: anywhere;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 13px;
     background: #f6f7f9;
