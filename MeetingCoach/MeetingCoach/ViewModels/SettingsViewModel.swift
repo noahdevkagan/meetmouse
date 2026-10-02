@@ -61,13 +61,21 @@ final class SettingsViewModel {
 
     /// Global selection, resolved and snapshotted by LiveSessionViewModel at
     /// meeting start. Changing it begins the needed download but never mutates
-    /// a session already in progress.
+    /// a session already in progress — only the live header's switch does.
     var meetingLanguage: MeetingLanguageSelection {
         didSet {
             UserDefaults.standard.set(meetingLanguage.rawValue,
                                       forKey: MeetingLanguageSelection.defaultsKey)
-            ParakeetDownloadState.shared.startIfNeeded(
-                for: meetingLanguage.resolved().preferredEngine)
+            let resolved = meetingLanguage.resolved()
+            MeetingLanguageSelection.noteUsed(resolved.language)
+            ParakeetDownloadState.shared.startIfNeeded(for: resolved.preferredEngine)
+        }
+    }
+
+    var notesLanguage: NotesLanguagePreference {
+        didSet {
+            UserDefaults.standard.set(notesLanguage.rawValue,
+                                      forKey: NotesLanguagePreference.defaultsKey)
         }
     }
 
@@ -138,6 +146,7 @@ final class SettingsViewModel {
 
     init() {
         self.meetingLanguage = MeetingLanguageSelection.current
+        self.notesLanguage = NotesLanguagePreference.current
         self.semanticCoachEnabled = UserDefaults.standard.object(forKey: "semanticCoachEnabled") as? Bool ?? true
         self.showCoachOverlay = UserDefaults.standard.object(forKey: "showCoachOverlay") as? Bool ?? true
         self.showOverlayClock = UserDefaults.standard.object(forKey: "showOverlayClock") as? Bool ?? true

@@ -9,6 +9,7 @@ mkdir -p "$OUT"
 swiftc -O -o "$OUT/languagecheck" \
   tests/language/main.swift \
   MeetingCoach/MeetingCoach/Models/MeetingLanguage.swift \
+  MeetingCoach/MeetingCoach/Models/TranscriptLanguageDetector.swift \
   MeetingCoach/MeetingCoach/Engine/PlatformSupport.swift
 "$OUT/languagecheck"
 
