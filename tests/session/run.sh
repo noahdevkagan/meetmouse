@@ -40,6 +40,7 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Models/Nudge.swift" \
   "$SRC/Models/MeetingReview.swift" \
   "$SRC/Models/MeetingLanguage.swift" \
+  "$SRC/Models/TranscriptLanguageDetector.swift" \
   "$SRC/Engine/PlatformSupport.swift" \
   "$SRC/Models/PreCallContext.swift" \
   "$SRC/Models/TrainingExample.swift" \

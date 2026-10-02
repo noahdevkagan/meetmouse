@@ -143,11 +143,15 @@ struct GeneralSettingsView: View {
 
             Section("Meeting language") {
                 Picker("Transcribe meetings in", selection: $settings.meetingLanguage) {
-                    ForEach(MeetingLanguageSelection.allCases) { language in
-                        Text(language == .system
-                             ? "Mac language (\(MeetingLanguageSelection.system.resolved().englishName))"
-                             : language.pickerName)
-                            .tag(language)
+                    Text("Mac language (\(MeetingLanguageSelection.system.resolved().englishName))")
+                        .tag(MeetingLanguageSelection.system)
+                    if PlatformSupport.neuralModelsSupported {
+                        Text(MeetingLanguageSelection.auto.pickerName)
+                            .tag(MeetingLanguageSelection.auto)
+                    }
+                    Divider()
+                    ForEach(MeetingLanguageSelection.specificLanguages) { language in
+                        Text(language.pickerName).tag(language)
                     }
                 }
 
@@ -163,6 +167,10 @@ struct GeneralSettingsView: View {
                     Text("This Intel Mac transcribes English with Apple's built-in engine. The high-accuracy engine and speaker naming need Apple Silicon.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                } else if resolvedLanguage.isAuto {
+                    Text("Hears all 25 supported languages, including several in one meeting (Parakeet v3, downloads once, ~600 MB). Live coaching is limited to talk time, voice share, and overrun. For calls that are all English, choose English for the best accuracy and full coaching.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 } else {
                     Text(resolvedLanguage.isEnglish
                          ? "Required engine: Parakeet v2 for English. It downloads once (~600 MB)."
@@ -170,12 +178,25 @@ struct GeneralSettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Text("The selection is captured when a meeting starts. Changes take effect next meeting.")
+                Text(PlatformSupport.neuralModelsSupported
+                     ? "Applies to your next meeting. You can also change it under Start meeting, from the Meeting Detected pill, or mid-meeting in the meeting header — your last pick is kept."
+                     : "The selection is captured when a meeting starts. Changes take effect next meeting.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if PlatformSupport.neuralModelsSupported {
                     ParakeetProgressLine(engine: resolvedLanguage.preferredEngine)
                 }
+
+                Picker("Write AI notes in", selection: $settings.notesLanguage) {
+                    ForEach(NotesLanguagePreference.allCases) { preference in
+                        Text(preference.label).tag(preference)
+                    }
+                }
+                Text(settings.notesLanguage == .english
+                     ? "Notes are always written in English, whatever language the meeting was in."
+                     : "Notes are written in the language the meeting was held in. For multi-language meetings, that's the language spoken most.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Meeting length") {

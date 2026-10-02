@@ -5,6 +5,40 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-10-02): Auto-detect language + switch mid-call — merged
+
+Status: all 6 plan items implemented. Session suite 240/240, language suite
+34/34, full push gate PASSED (second run, 481s). First gate run failed only on
+ASR `conv` utterance count (3 vs ≥4, WER 0%) under load avg ~10; isolated
+reruns: branch 6/8, main 7/7, pipeline change is lock bookkeeping only —
+watch `conv` on the next gate runs. Review fixes (2026-10-02): Parakeet loads
+serialized (last request wins), switch skips the load if the meeting stopped,
+final flush waits out a hold, live fallback banner hides after a switch onto
+Parakeet. Maintainer checked the dev build by hand ("clean"). Before release:
+run the manual call matrix (`tests/calls-manual.md`) — capture changed.
+
+User feedback (Pat, v0.26.0): changing language in Settings every call is
+painful for trilingual users; Granola has multi-language mode + an in-meeting
+switch. Approved mockup: `.context/lang-mock/mock.png`. Maintainer answers:
+default stays Mac language/English; notes-language option if easy; use macOS
+NLLanguageRecognizer if quality is good (tested 25/28 on meeting lines; misses
+were 1-word lines below 0.3 confidence and sl→hr).
+
+Plan:
+1. `MeetingLanguageSelection.auto` → Parakeet v3, no script hint, multilingual-safe signals.
+2. Recent languages (last 3) in UserDefaults; one shared language menu
+   (Auto, recents, All languages) used by sidebar chip, detection pill ▾, live header.
+3. Mid-call switch: `AudioCaptureManager.switchLanguage` — same v3 = retarget hint
+   instantly; v2↔v3 = hold pipelines (audio keeps buffering), load model, retarget,
+   resume; missing v3 downloads while current engine keeps transcribing; English
+   with v2 not cached stays on v3 with en hint. SignalEngine mode + vocab fold follow.
+4. `TranscriptLanguageDetector` (NLLanguageRecognizer, constrained to 25, ≥0.6):
+   header "hearing Polish, English", per-turn tags only when >1 language heard,
+   dominant language for notes.
+5. Notes language setting: "Same as the meeting" / "English"; switched/auto
+   sessions persist `**Language:** auto` and regen re-detects.
+6. Tests in tests/language + session; decisions.md entry (reverses "can't change mid-call").
+
 ## Current state (2026-10-01): Ship talk bubble defaults — release pending
 
 User approved shipping 0.28.0. Unset placement/layout now defaults to Right edge /

@@ -41,7 +41,7 @@ final class AudioCaptureManager {
     /// sessions); tests can override to assert the header line.
     var engineLabel = "stub"
     var transcriptionEngine: TranscriptionEngine = .parakeetV2
-    let language: ResolvedMeetingLanguage
+    private(set) var language: ResolvedMeetingLanguage
     private(set) var startTime = Date()
 
     var onUtterance: ((Utterance) -> Void)?
@@ -59,6 +59,23 @@ final class AudioCaptureManager {
     }
     func start() async throws { startTime = Date() }
     func stop() { stopped = true }
+
+    enum LanguageSwitchPhase: Sendable { case downloading, loading }
+    /// Phases a switch reports before finishing, and an optional failure.
+    var switchPhases: [LanguageSwitchPhase] = []
+    var switchError: Error?
+    private(set) var languageSwitches: [String] = []
+    @discardableResult
+    func switchLanguage(to target: ResolvedMeetingLanguage,
+                        onPhase: @escaping @Sendable @MainActor (LanguageSwitchPhase) -> Void)
+        async throws -> TranscriptionEngine {
+        for phase in switchPhases { onPhase(phase) }
+        if let switchError { throw switchError }
+        language = target
+        transcriptionEngine = target.preferredEngine
+        languageSwitches.append(target.code)
+        return target.preferredEngine
+    }
     func renameSpeaker(_ label: String, to name: String) { renames.append((label, name)) }
 }
 
@@ -81,6 +98,7 @@ final class SettingsViewModel {
     var ollamaReachable = false
     var availableModels: [OllamaModel] = []
     var meetingLanguage: MeetingLanguageSelection = .english
+    var notesLanguage: NotesLanguagePreference = .meeting
     func loadRubricOrDefault() throws -> Rubric { Rubric() }
     func prepareAI(ollamaManager: OllamaManager) async -> Bool {
         if usesCloudAI { return true }

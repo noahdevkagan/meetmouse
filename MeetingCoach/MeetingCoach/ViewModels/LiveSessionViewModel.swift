@@ -33,10 +33,33 @@ final class LiveSessionViewModel {
     /// install). Fragmented "random words" transcripts are expected on
     /// this engine; the UI must say so or users blame settings.
     var usedFallbackEngine = false
+    /// A mid-call language switch moved this fallback session onto Parakeet:
+    /// the live "reduced accuracy" banner no longer applies. The post-session
+    /// note still does — part of the transcript came from the fallback.
+    private(set) var leftFallbackEngine = false
 
-    /// Language policy resolved once at start and retained through save/review.
-    /// It intentionally survives Settings changes made during the meeting.
+    /// Language policy resolved at start and retained through save/review.
+    /// It survives Settings changes made during the meeting; only an explicit
+    /// switch from the live header (switchLanguage) replaces it.
     private(set) var sessionLanguage: ResolvedMeetingLanguage?
+
+    /// Progress of a mid-call model swap, for the live header banner. Nil for
+    /// instant switches (same model, different language).
+    enum LanguageSwitchState: Equatable {
+        case downloading(String)
+        case loading(String)
+    }
+    private(set) var languageSwitch: LanguageSwitchState?
+    private(set) var isSwitchingLanguage = false
+
+    /// Words heard per language (on-device text detection over committed
+    /// lines) — names what Auto is hearing, decides whether to tag lines,
+    /// and picks the notes language for multi-language meetings.
+    private(set) var languageTally = TranscriptLanguageDetector.Tally()
+
+    /// The meeting changed language mid-call. Saved as "auto" so notes
+    /// regeneration re-detects instead of trusting the last selection.
+    private var sessionLanguageSwitched = false
 
     /// Wall-clock moment the session started — exports stamp utterances
     /// with real times of day, like other tools' transcripts.
@@ -926,7 +949,12 @@ final class LiveSessionViewModel {
         micOnly = false
         appleCallCapture = false
         usedFallbackEngine = false
+        leftFallbackEngine = false
         sessionLanguage = nil
+        languageSwitch = nil
+        isSwitchingLanguage = false
+        languageTally = TranscriptLanguageDetector.Tally()
+        sessionLanguageSwitched = false
         sessionStartDate = nil
         nudges = []
         activeNudge = nil
@@ -1394,6 +1422,71 @@ final class LiveSessionViewModel {
         return best.value >= needed ? best.key : nil
     }
 
+    // MARK: - Meeting language
+
+    /// Switch the running meeting's language (live header), and remember the
+    /// choice for the next meeting like every other language control.
+    /// Instant within one model; a model swap shows `languageSwitch` while
+    /// the pipelines hold their audio.
+    func switchLanguage(to selection: MeetingLanguageSelection, settings: SettingsViewModel?) {
+        if let settings {
+            settings.meetingLanguage = selection
+        } else {
+            UserDefaults.standard.set(selection.rawValue, forKey: MeetingLanguageSelection.defaultsKey)
+            MeetingLanguageSelection.noteUsed(selection.resolved().language)
+        }
+        let target = selection.resolved()
+        guard isLive, !isDemo, !isSwitchingLanguage, captureStartTask == nil,
+              let manager = captureManager,
+              target.language != sessionLanguage?.language else { return }
+        isSwitchingLanguage = true
+        let sessionID = currentSessionID
+        let name = target.isAuto ? "multi-language" : target.englishName
+        Task { [weak self] in
+            do {
+                try await manager.switchLanguage(to: target) { phase in
+                    guard let self, self.currentSessionID == sessionID else { return }
+                    switch phase {
+                    case .downloading: self.languageSwitch = .downloading(name)
+                    case .loading: self.languageSwitch = .loading(name)
+                    }
+                }
+                guard let self, self.currentSessionID == sessionID, self.isLive else { return }
+                self.adoptSessionLanguage(target)
+            } catch {
+                guard let self, self.currentSessionID == sessionID else { return }
+                self.error = error.localizedDescription
+                mclog("[VM] Language switch to \(target.code) failed: \(error.localizedDescription)")
+            }
+            guard let self, self.currentSessionID == sessionID else { return }
+            self.languageSwitch = nil
+            self.isSwitchingLanguage = false
+        }
+    }
+
+    private func adoptSessionLanguage(_ target: ResolvedMeetingLanguage) {
+        sessionLanguage = target
+        sessionLanguageSwitched = true
+        if usedFallbackEngine, captureManager?.transcriptionEngine.isParakeet == true {
+            leftFallbackEngine = true
+        }
+        if !target.isEnglish, var engine = signalEngine {
+            engine.restrictToMultilingualSafe()
+            signalEngine = engine
+        }
+        captureManager?.vocabulary = VocabularyNormalizer(
+            customText: UserDefaults.standard.string(forKey: "customVocabularyText") ?? "",
+            foldVietnameseArtifacts: target.shouldFoldVietnameseArtifacts)
+        mclog("[VM] Meeting language now \(target.code) (\(captureManager?.engineLabel ?? "?"))")
+    }
+
+    /// The single language this meeting was held in, when there was one.
+    /// Auto and switched meetings have none; their notes follow detection.
+    private var singleSessionLanguage: MeetingLanguageSelection? {
+        guard let sessionLanguage, !sessionLanguageSwitched, !sessionLanguage.isAuto else { return nil }
+        return sessionLanguage.language
+    }
+
     /// Insert keeping chronological order — the You and Them pipelines emit
     /// independently, so arrivals can be slightly out of order.
     private func insertUtterance(_ u: Utterance) {
@@ -1408,6 +1501,7 @@ final class LiveSessionViewModel {
         if u.speaker != "Them", let mapped = baseLabelRenames[u.speaker] {
             u.speaker = mapped
         }
+        languageTally.add(u.text)
         if let last = utterances.last, u.t < last.t {
             let idx = utterances.lastIndex(where: { $0.t <= u.t })
                 .map { utterances.index(after: $0) } ?? 0
@@ -1487,7 +1581,9 @@ final class LiveSessionViewModel {
             transcript: labeledTranscript,
             context: sessionContext,
             durationMinutes: durationMin,
-            languageName: sessionLanguage?.englishName
+            languageName: (settings.notesLanguage).notesLanguageName(
+                meetingLanguage: singleSessionLanguage,
+                detected: languageTally.dominant)
         )
 
         Task {
@@ -1900,8 +1996,8 @@ final class LiveSessionViewModel {
         lines.append("**Utterances:** \(utterances.count)")
         lines.append("**Nudges:** \(nudges.count)")
         lines.append("**Engine:** \(sessionEngineLabel ?? "unknown")")
-        if let sessionLanguage {
-            lines.append("**Language:** \(sessionLanguage.code)")
+        if sessionLanguage != nil {
+            lines.append("**Language:** \(singleSessionLanguage?.rawValue ?? MeetingLanguageSelection.auto.rawValue)")
         }
         if let share = talkStats.sessionShare {
             lines.append("**Talk ratio:** \(Int(share * 100))% you")
