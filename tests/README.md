@@ -68,7 +68,8 @@ audio) compiling the app's real `EchoFilter.swift` — the sentence-level
 suppression that keeps the far side's voice (speakers → mic bleed) out
 of the "You" channel. Covers: echoed sentence stripped from a mixed
 chunk, all-echo chunk dropped, genuine speech untouched, short
-backchannels always kept, the time window, and partial-delta pooling.
+backchannels always kept, the time window, ordered partial hypotheses, French
+coaching replies, unrelated/reordered words, ASR revisions, and evidence expiry.
 
 And `tests/hygiene/run.sh`: pure-logic checks compiling the app's real
 `TranscriptCleanup.swift` — the wake-word filter (stray "Siri"

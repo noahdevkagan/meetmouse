@@ -5,6 +5,36 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-10-05): Customer transcript checked — cause unconfirmed
+
+Supplied attachment has 131 entries through 101:00: 97 labeled Them 1, 34
+labeled Them, zero You. Both labels belong to system audio in the capture and
+speaker-assignment code; the brief Them entries are not surviving mic replies.
+No pre-filter mic text/audio or capture log is present, so replaying this saved
+transcript cannot validate the echo fix or recover missing speech. Mic capture,
+quiet/wrong device, recognition, and whole-channel suppression remain possible.
+Need customer's /tmp/mc_debug.log from an affected call plus macOS input device,
+Zoom input device, headset use, and MeetMouse version. The local fix has not been
+released; her reported public update does not test it. Do not claim resolution.
+
+## Current state (2026-10-05): Echo-filter reply loss — fixed and checked
+
+Replaced 60% pooled-word suppression with ordered phrase matching against each
+far-side utterance (≤25% token edits; exact for 3–4 words; 1–2 always retained).
+Complete partial hypotheses remain separate, with prefix timestamps preserved.
+The reproduced French reply "Non. Je veux rester dans cette équipe." now survives
+intact. Original echo fixtures still pass; stricter matching may admit degraded
+echo and identical genuine repetitions remain ambiguous. Rationale: decisions.md.
+
+Validation: all 22 echo checks (incl. echo spanning a far sentence boundary)
+and final Debug xcodebuild pass. Five new false-positive checks failed on the original filter before the fix. Evidence:
+`.context/mic-feedback-check/{echo-tests,build}.log`. Changelog generated (no
+released-page change); unrelated generated sitemap date churn discarded.
+No release, push, installed-app replacement, or real-call validation. Before
+shipping capture changes, run the manual call matrix. Customer's specific cause
+still needs her meeting transcript/link and capture log; screenshot alone cannot
+distinguish filtering from quiet/wrong microphone input.
+
 ## Current state (2026-10-02): Auto-detect language + switch mid-call — merged
 
 Status: all 6 plan items implemented. Session suite 240/240, language suite
