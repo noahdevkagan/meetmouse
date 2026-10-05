@@ -1800,3 +1800,27 @@ changes:
 - Facts: Granola free = 30 days of meeting history (not a 25-note cap);
   tl;dv free keeps data up to 3 months, AI notes on 10 meetings, Pro
   $29/seat/month. Applied in best.py, compare.py and every article.
+
+## 2026-10-05 — Echo removal requires ordered phrase evidence
+
+A synthetic French coaching exchange reproduced the reported pattern: after
+"Vous ne voulez pas rester dans cette équipe ?", the reply "Non. Je veux rester
+dans cette équipe." was saved as only "Non." The old 60% pooled-word rule ignored
+order, sentence boundaries, and repeated-word counts. Replace it with token edit
+distance against a contiguous span of one far-side utterance: at most 25% edits,
+exact matching for 3–4 tokens, and the existing exemption for 1–2 tokens. The
+budget retains existing contraction/number ASR divergence fixtures while saving
+the reproduced reply. This is a conservative text heuristic, not proof that two
+similar phrases are acoustic echo; genuine near-identical repetitions can still
+be ambiguous, and more degraded echo may survive. Real-call quality remains to
+be checked before release; the customer's actual cause is not yet established.
+
+Store each far utterance and each complete partial hypothesis as one ordered
+phrase, not split per sentence: ordered contiguous matching already blocks
+pooling, and degraded echo often loses the far side's punctuation, so a mic
+sentence can span two far sentences (per-sentence storage let that echo through
+as "You"). Keep partial hypotheses separate so revisions cannot form invented
+phrases. Preserve prefix token timestamps when partials grow, so old words don't
+become recent evidence again. Enforce retention at read time even after far-side
+speech stops. Added false-positive, echo, revision, and timing regressions; no
+microphone selection, audio thresholds, language policy, or networking changes.
