@@ -8,6 +8,8 @@ struct SpeakerNameSuggestion: Identifiable, Sendable {
     enum Kind: Sendable, Equatable {
         /// LLM-inferred from transcript evidence ("Them 1 sounds like Sarah").
         case inferredName
+        /// Repeated window-only OCR evidence aligned with remote audio.
+        case visualName
         /// Two labels that are probably one person — confirming merges the
         /// label into the name ("anna and Anna Notario sound like the same
         /// person").

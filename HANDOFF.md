@@ -5,6 +5,44 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-10-06): Auto-select speaker screenshot window — built
+
+Consent now automatically selects a single recognized visible call window using
+existing meeting-window heuristics (Zoom, Meet, Hangouts, Slack huddles, FaceTime).
+It shows the detected app/title; normal flow only needs Allow. Multiple/no matches
+use the picker; Choose another window remains available. Capture still pins the
+approved window/title/owner and never starts before per-meeting consent. OCR
+support remains green/yellow Zoom-style tile outlines; selection support does
+not imply new OCR adapters.
+
+Final Debug build and all 283 session checks pass, including six new selection
+checks for unrelated/idle windows, browser meetings, ambiguity and absence.
+Logs: `.context/auto-speaker-window-{build,tests}.log`. Consent contents rendered
+with sample window metadata and visually checked:
+`.context/auto-speaker-window-consent.png`. Changelog generation/diff check passed.
+No real meeting screenshots, installed-app replacement, push, or release.
+
+## Current state (2026-10-06): Opt-in visual speaker assistance — built
+
+Live transcript offers per-meeting consent + explicit window selection. At most
+six window-only snapshots, 15 seconds apart, no focus changes/sounds. Local Vision
+reads names under green/yellow Zoom-style active-speaker outlines; two independent
+samples must align with one finalized remote voice. Ambiguity/overlap is rejected;
+suggestions are recomputed as diarization or late mic text changes. Existing
+one-tap confirmation remains the only path to renaming/saving a voice profile.
+Images/raw OCR never reach disk, logs or AIClient. Window title/owner changes,
+Stop, new sessions and mic-only fallback cancel capture; late results are discarded.
+
+Validation: final Debug build + all 277 session checks pass (37 new checks,
+including real Vision on synthetic tiles, six-shot cap, cancellation, late results,
+and mic-only fallback). Consent contents rendered with a synthetic window and
+visually checked: `.context/visual-speaker-consent.png`. Logs:
+`.context/visual-speakers-{build,tests}-final.log`. Changelog generator and diff
+check passed; unrelated sitemap churn discarded. No installed-app replacement,
+real meeting screenshots, push, or release. First adapter only supports complete
+green/yellow tile borders with visible bottom names; real Zoom-call accuracy and
+the added tests/calls-manual.md matrix remain unvalidated. Decisions recorded.
+
 ## Current state (2026-10-05): Customer transcript checked — cause unconfirmed
 
 Supplied attachment has 131 entries through 101:00: 97 labeled Them 1, 34
