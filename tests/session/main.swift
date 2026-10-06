@@ -16,6 +16,7 @@ func check(_ ok: Bool, _ label: String, _ detail: String = "") {
 
 @MainActor
 func runTests() async {
+    await visualSpeakerChecks()
     // Session saves land in a scratch dir, never ~/Documents.
     let scratch = FileManager.default.temporaryDirectory
         .appendingPathComponent("mc-session-tests-\(ProcessInfo.processInfo.processIdentifier)")
@@ -23,6 +24,26 @@ func runTests() async {
     defer {
         try? FileManager.default.removeItem(at: scratch)
         UserDefaults.standard.removePersistentDomain(forName: ProcessInfo.processInfo.processName)
+    }
+
+    do {
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        for _ in 0..<100 where vm.sessionStartDate == nil { await Task.yield() }
+        check(!vm.visualSpeakerCapture.isRunning, "visual: meeting start never implies screenshot consent")
+        let window = SpeakerWindowChoice(id: 0, pid: 0, app: "Synthetic", title: "Synthetic")
+        vm.startVisualSpeakerAssistance(window: window)
+        check(vm.visualSpeakerCapture.isRunning, "visual: explicit consent enables assistance")
+        AudioCaptureManager.last?.onSystemAudioLost?()
+        check(vm.micOnly && !vm.visualSpeakerCapture.isRunning && vm.visualSpeakerCapture.count == 0,
+              "visual: system audio loss cancels screenshots before first capture")
+        vm.startVisualSpeakerAssistance(window: window)
+        check(!vm.visualSpeakerCapture.isRunning, "visual: mic-only cannot opt into mismatched visual evidence")
+        vm.stopLive()
+        vm.startLive(context: PreCallContext())
+        check(vm.visualSpeakerCapture.status.isEmpty && !vm.visualSpeakerCapture.isRunning,
+              "visual: subsequent meeting requires new consent")
+        vm.stopLive()
     }
 
     // Automatic titles may improve; explicit names (even legacy-looking ones)

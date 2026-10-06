@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Optional speaker snapshots: automatically detect your meeting window to help match visible speaker names to voices. Up to six snapshots are read on-device and discarded; suggested names need your confirmation.
+
 ## 0.29.0 — 2026-10-05
 
 - Fixed an echo-filter issue that could remove your replies when they reused words from the other speaker’s question, including French coaching conversations.

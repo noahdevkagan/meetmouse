@@ -83,6 +83,31 @@ notification — only the zero-audio watchdog catches it:
       saved voice clip contains solo speech (or no profile saves when less
       than three seconds of solo speech is available)
 
+### 7. Opt-in speaker snapshots (Zoom-style green/yellow outlines)
+- [ ] Start a real meeting: no screenshot assistance runs until explicitly
+      allowed. Open the consent sheet, cancel, and verify it remains off
+- [ ] With one recognized meeting window, consent automatically names the app
+      and window without requiring a picker. With two calls or no recognized
+      window, select manually; unrelated windows are never auto-selected
+- [ ] Allow the detected meeting window (or use Choose another window). Observe no focus changes, sounds,
+      or window movement; macOS capture indicators remain available
+- [ ] Two remote guests take sustained turns with visible name labels and
+      active-speaker outlines. Up to six snapshots produce tentative matches;
+      verify each proposed name against the actual speaker before confirming
+- [ ] Dismiss a match: it stays dismissed. Confirm a match: only that voice is
+      renamed, with the existing voice-profile behavior
+- [ ] Chat/sidebar names, multiple highlighted tiles, missing names, and
+      overlapping voices do not produce confident automatic renames
+- [ ] Minimize/close the selected window or switch a browser tab to a different
+      title: capture stops without switching to another window or the desktop
+- [ ] Stop assistance mid-run; stop the meeting; force mic-only fallback:
+      each cancels pending capture and removes unconfirmed visual matches
+- [ ] Starting a new meeting requires fresh consent. Restarting assistance in
+      the same meeting never exceeds six total capture requests
+- [ ] With cloud AI selected, verify no images or raw OCR enter provider
+      requests or saved files. Confirmed speaker names are ordinary transcript
+      text and follow the existing cloud-text consent
+
 ## Record of runs
 
 | Date | Build | Scenarios passed | Notes |
