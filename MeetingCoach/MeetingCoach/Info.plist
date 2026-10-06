@@ -21,7 +21,7 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>MeetMouse captures system audio to transcribe what other meeting participants say.</string>
+	<string>MeetMouse captures meeting audio. With your separate permission, it also reads a few meeting-window screenshots on-device to suggest speaker names.</string>
 	<key>SUAutomaticallyUpdate</key>
 	<true/>
 	<key>SUBundleName</key>
