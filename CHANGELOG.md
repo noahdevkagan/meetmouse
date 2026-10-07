@@ -7,7 +7,7 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
-## Unreleased
+## 0.30.0 — 2026-10-06
 
 - Optional speaker snapshots: automatically detect your meeting window to help match visible speaker names to voices. Up to six snapshots are read on-device and discarded; suggested names need your confirmation.
 
