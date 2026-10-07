@@ -9,6 +9,10 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Optional automatic speaker snapshots: enable once to detect your meeting window and suggest speaker names each meeting. Images stay on-device and are discarded; names still need confirmation.
+
+- Speaker snapshots now explain when no visible names were read and that suggestions require a reliable voice match, instead of implying that suggestions are ready.
+
 - MeetMouse now warns you when it can't hear your microphone — for example when microphone access is off or your Mac's selected mic is silent (a MacBook's built-in mic is off with the lid closed). Before, your side of the meeting could go missing from the transcript with no sign anything was wrong.
 
 ## 0.30.0 — 2026-10-06

@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// Consent is per meeting and per window; opening the sheet captures no images.
+/// Manual window consent can also authorize automatic snapshots in future meetings.
 struct VisualSpeakerAssistView: View {
     var liveSession: LiveSessionViewModel
     @State private var showConsent = false
+    @State private var rememberAutomatic = false
     @State private var windows: [SpeakerWindowChoice] = []
     @State private var selected: SpeakerWindowChoice?
     @State private var chooseManually = false
@@ -18,10 +19,12 @@ struct VisualSpeakerAssistView: View {
                 Button("Help name speakers with screenshots…") { showConsent = true }
                     .buttonStyle(.plain)
             } else {
-                Text(liveSession.visualSpeakerCapture.status)
+                Text(liveSession.speakerNameSuggestions.contains(where: { $0.kind == .visualName })
+                     ? "Speaker name matches ready. Confirm the suggestions below."
+                     : liveSession.visualSpeakerCapture.status)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 4)
-                if liveSession.visualSpeakerCapture.isRunning {
+                if liveSession.visualSpeakerCapture.isRunning || liveSession.visualSpeakerCapture.isDiscovering {
                     Button("Stop") { liveSession.stopVisualSpeakerAssistance() }
                 } else if liveSession.visualSpeakerCapture.count < VisualSpeakerCapture.limit {
                     Button("Help name speakers…") { showConsent = true }
@@ -64,13 +67,20 @@ struct VisualSpeakerAssistView: View {
                     if let loadError { Text(loadError).font(.caption).foregroundStyle(.secondary) }
                     Button("Refresh windows") { Task { await loadWindows() } }
                 }
+                Toggle("Start automatically in future meetings", isOn: $rememberAutomatic)
+                Text("When enabled, MeetMouse detects one meeting window and takes up to six snapshots each meeting. Change this in Settings → General → Speaker names.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Text("Nothing is captured until you click Allow. macOS may show its screen-capture indicator. You can stop at any time.")
                     .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Spacer()
                     Button("Cancel", role: .cancel) { showConsent = false }
-                    Button("Allow for this meeting") {
-                        if let selected { liveSession.startVisualSpeakerAssistance(window: selected) }
+                    Button(rememberAutomatic ? "Allow and remember" : "Allow for this meeting") {
+                        if let selected {
+                            UserDefaults.standard.set(rememberAutomatic,
+                                                      forKey: VisualSpeakerCapture.automaticDefaultsKey)
+                            liveSession.startVisualSpeakerAssistance(window: selected)
+                        }
                         showConsent = false
                     }
                     .disabled(loading || selected == nil || !liveSession.isLive || liveSession.micOnly)
@@ -78,7 +88,10 @@ struct VisualSpeakerAssistView: View {
                 }
             }
             .padding(24).frame(width: 510)
-            .task { await loadWindows() }
+            .task {
+                rememberAutomatic = UserDefaults.standard.bool(forKey: VisualSpeakerCapture.automaticDefaultsKey)
+                await loadWindows()
+            }
         }
         .onChange(of: liveSession.isLive) { _, live in
             if !live { showConsent = false }

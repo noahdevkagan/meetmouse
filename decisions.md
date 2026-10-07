@@ -1876,3 +1876,12 @@ current state on delivery instead of carrying a value — otherwise a stale
 system default input (the AUHAL reports a private "CADefaultDeviceAggregate"),
 and session start now logs mic permission + device so the next field log
 answers "which mic, allowed or not" directly. Rebuild cadence is unchanged.
+
+
+## 2026-10-07 — Remembered opt-in for automatic speaker snapshots
+User explicitly requested speaker-name snapshots automatically when meetings start.
+Amends per-meeting consent: a disclosed, default-off preference can authorize future
+meetings. Detect only a unique recognized window after system audio starts; ambiguity
+requires manual selection. Keep window pinning, six attempts per meeting, local-only
+OCR, no stored images, and confirmation before naming. Enable the preference for
+this user; do not restart their active meeting.

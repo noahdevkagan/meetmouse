@@ -30,7 +30,7 @@ func runTests() async {
         let vm = LiveSessionViewModel()
         vm.startLive(context: PreCallContext())
         for _ in 0..<100 where vm.sessionStartDate == nil { await Task.yield() }
-        check(!vm.visualSpeakerCapture.isRunning, "visual: meeting start never implies screenshot consent")
+        check(!vm.visualSpeakerCapture.isRunning, "visual: default-off meeting start takes no screenshots")
         let window = SpeakerWindowChoice(id: 0, pid: 0, app: "Synthetic", title: "Synthetic")
         vm.startVisualSpeakerAssistance(window: window)
         check(vm.visualSpeakerCapture.isRunning, "visual: explicit consent enables assistance")
@@ -42,7 +42,32 @@ func runTests() async {
         vm.stopLive()
         vm.startLive(context: PreCallContext())
         check(vm.visualSpeakerCapture.status.isEmpty && !vm.visualSpeakerCapture.isRunning,
-              "visual: subsequent meeting requires new consent")
+              "visual: without remembered consent subsequent meeting takes no screenshots")
+        vm.stopLive()
+    }
+
+    do {
+        UserDefaults.standard.set(true, forKey: VisualSpeakerCapture.automaticDefaultsKey)
+        defer { UserDefaults.standard.removeObject(forKey: VisualSpeakerCapture.automaticDefaultsKey) }
+        var discovered = 0
+        var shots = 0
+        let automatic = VisualSpeakerCapture(findWindows: {
+            discovered += 1
+            return [.init(id: 1, pid: 1, app: "zoom.us", title: "Zoom Meeting")]
+        }, snapshot: { _ in
+            shots += 1
+            return .init(name: nil, start: Date(), end: Date())
+        }, pause: { _ in })
+        let vm = LiveSessionViewModel(visualSpeakerCapture: automatic)
+        vm.startLive(context: PreCallContext())
+        for _ in 0..<200 where shots < 6 { await Task.yield() }
+        check(discovered == 1 && shots == 6,
+              "visual: remembered opt-in discovers window and captures after meeting starts")
+        vm.stopLive()
+        vm.startLive(context: PreCallContext())
+        for _ in 0..<200 where shots < 12 { await Task.yield() }
+        check(discovered == 2 && shots == 12,
+              "visual: next opted-in meeting starts a fresh bounded run")
         vm.stopLive()
     }
 
