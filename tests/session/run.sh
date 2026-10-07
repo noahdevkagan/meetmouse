@@ -31,6 +31,7 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/ClaudeAccount.swift" \
   "$SRC/Engine/TalkStats.swift" \
   "$SRC/Engine/Mclog.swift" \
+  "$SRC/Engine/MicSilenceMonitor.swift" \
   "$SRC/Engine/DemoScript.swift" \
   "$SRC/Engine/PromptBuilder.swift" \
   "$SRC/Engine/MeetingAsk.swift" \
