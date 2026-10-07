@@ -20,6 +20,10 @@ final class VisualSpeakerCapture {
     private var task: Task<Void, Never>?
     private var generation = UUID()
     static let limit = 6
+    /// Settings → General → Speaker names. On by default: it only offers
+    /// the per-meeting consent row; off hides it and halts any run.
+    static let enabledKey = "visualSpeakerAssistEnabled"
+    static var isEnabled: Bool { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true }
 
     struct Snapshot: Sendable {
         let name: String?
@@ -64,7 +68,7 @@ final class VisualSpeakerCapture {
 
     func start(window: SpeakerWindowChoice, sessionStart: Date,
                onObservation: @escaping @MainActor () -> Void) {
-        guard !isRunning, count < Self.limit else { return }
+        guard Self.isEnabled, !isRunning, count < Self.limit else { return }
         generation = UUID()
         let run = generation
         observations = []
@@ -74,6 +78,12 @@ final class VisualSpeakerCapture {
             // Let the consent sheet disappear; never activate or move the call.
             do { try await self?.pause(.seconds(3)) } catch { return }
             while !Task.isCancelled, let self, self.generation == run, self.count < Self.limit {
+                // Re-checked before every shot: turning it off in Settings
+                // must stop capture even if no live view is on screen.
+                guard Self.isEnabled else {
+                    self.stop()
+                    return
+                }
                 do {
                     // Count requests, including failures: the meeting cap is hard.
                     self.count += 1

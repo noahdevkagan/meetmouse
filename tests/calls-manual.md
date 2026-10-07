@@ -102,6 +102,8 @@ notification — only the zero-audio watchdog catches it:
       title: capture stops without switching to another window or the desktop
 - [ ] Stop assistance mid-run; stop the meeting; force mic-only fallback:
       each cancels pending capture and removes unconfirmed visual matches
+- [ ] Settings → General → Speaker names off: the row is hidden in the next
+      meeting; turning it off mid-run stops capture and clears visual matches
 - [ ] Starting a new meeting requires fresh consent. Restarting assistance in
       the same meeting never exceeds six total capture requests
 - [ ] With cloud AI selected, verify no images or raw OCR enter provider
