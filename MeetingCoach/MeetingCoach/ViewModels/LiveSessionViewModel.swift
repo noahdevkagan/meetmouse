@@ -140,7 +140,11 @@ final class LiveSessionViewModel {
     var speakerNameSuggestions: [SpeakerNameSuggestion] = []
     private var rejectedNameSuggestions: Set<String> = []
     private var nameInference: SpeakerNameInference?
-    let visualSpeakerCapture = VisualSpeakerCapture()
+    let visualSpeakerCapture: VisualSpeakerCapture
+
+    init(visualSpeakerCapture: VisualSpeakerCapture? = nil) {
+        self.visualSpeakerCapture = visualSpeakerCapture ?? VisualSpeakerCapture()
+    }
     /// Every label each diarization channel has published (plus renames) —
     /// relabeled utterances must stay eligible for refined segments.
     private var channelLabels: [DiarizationChannel: Set<String>] = [:]
@@ -607,6 +611,16 @@ final class LiveSessionViewModel {
             sessionStartDate = manager.startTime
             startTimer(from: manager.startTime)
             startSilenceCheck()
+            if UserDefaults.standard.bool(forKey: VisualSpeakerCapture.automaticDefaultsKey), !micOnly {
+                visualSpeakerCapture.startAutomatically(sessionStart: manager.startTime, canStart: { [weak self] in
+                    guard let self else { return false }
+                    return self.isLive && !self.isDemo && !self.micOnly
+                        && self.currentSessionID == sessionID
+                        && UserDefaults.standard.bool(forKey: VisualSpeakerCapture.automaticDefaultsKey)
+                }, onObservation: { [weak self] in
+                    self?.refreshVisualSpeakerSuggestions()
+                })
+            }
             // Capture (and with it Parakeet + the diarizer) is resident now,
             // so free memory finally reflects this meeting's real baseline.
             activationTask = Task { [weak self] in
