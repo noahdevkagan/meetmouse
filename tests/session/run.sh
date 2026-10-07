@@ -11,6 +11,7 @@ OUT=tests/session/.build
 mkdir -p "$OUT"
 swiftc -O -o "$OUT/sessioncheck" \
   tests/session/main.swift \
+  tests/session/visual-speakers.swift \
   tests/session/stubs.swift \
   "$SRC/ViewModels/LiveSessionViewModel.swift" \
   "$SRC/Engine/SignalEngine.swift" \
@@ -21,6 +22,9 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/NudgeBackoff.swift" \
   "$SRC/Engine/SemanticCoach.swift" \
   "$SRC/Engine/SpeakerNameInference.swift" \
+  "$SRC/Engine/VisualSpeakerCapture.swift" \
+  "$SRC/Engine/MeetingWindowHeuristics.swift" \
+  "$SRC/Engine/VisualSpeakerEvidence.swift" \
   "$SRC/Engine/OllamaClient.swift" \
   "$SRC/Engine/AIProvider.swift" \
   "$SRC/Engine/AIClient.swift" \

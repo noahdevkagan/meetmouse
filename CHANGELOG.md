@@ -11,6 +11,10 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 - MeetMouse now warns you when it can't hear your microphone — for example when microphone access is off or your Mac's selected mic is silent (a MacBook's built-in mic is off with the lid closed). Before, your side of the meeting could go missing from the transcript with no sign anything was wrong.
 
+## 0.30.0 — 2026-10-06
+
+- Optional speaker snapshots: automatically detect your meeting window to help match visible speaker names to voices. Up to six snapshots are read on-device and discarded; suggested names need your confirmation.
+
 ## 0.29.0 — 2026-10-05
 
 - Fixed an echo-filter issue that could remove your replies when they reused words from the other speaker’s question, including French coaching conversations.

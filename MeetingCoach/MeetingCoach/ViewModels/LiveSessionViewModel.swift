@@ -140,6 +140,7 @@ final class LiveSessionViewModel {
     var speakerNameSuggestions: [SpeakerNameSuggestion] = []
     private var rejectedNameSuggestions: Set<String> = []
     private var nameInference: SpeakerNameInference?
+    let visualSpeakerCapture = VisualSpeakerCapture()
     /// Every label each diarization channel has published (plus renames) —
     /// relabeled utterances must stay eligible for refined segments.
     private var channelLabels: [DiarizationChannel: Set<String>] = [:]
@@ -574,6 +575,7 @@ final class LiveSessionViewModel {
             // Flip live state too (isMicOnly was sampled once at start) so
             // the arbiter regains mic-only's unlimited end veto.
             self?.micOnly = true
+            self?.stopVisualSpeakerAssistance()
         }
 
         captureStartTask = Task { [weak self] in
@@ -761,6 +763,7 @@ final class LiveSessionViewModel {
     }
 
     func stopLive() {
+        stopVisualSpeakerAssistance()
         isLive = false
         // Invalidate the session before anything else: an activation still
         // mid-refresh or mid-preload checks this on its next continuation and
@@ -947,6 +950,7 @@ final class LiveSessionViewModel {
     /// Clear all per-session UI state. Shared by live start, demo start,
     /// and delete — a new per-session field must reset here, in one place.
     private func resetSessionState() {
+        visualSpeakerCapture.stop(reset: true)
         reviewGenerationID = UUID()
         isGeneratingSummary = false
         utterances = []
@@ -1026,6 +1030,7 @@ final class LiveSessionViewModel {
         if channel == .system {
             latestRemoteLabels = Set(segments.map(\.speaker))
             latestSystemSegments = segments
+            refreshVisualSpeakerSuggestions()
         }
 
         // Each utterance only needs the segments that can overlap it. Both
@@ -1151,6 +1156,38 @@ final class LiveSessionViewModel {
 
         speakerNameSuggestions.removeAll { $0.label == label }
         mclog("[VM] Renamed speaker \(label) → \(name)")
+    }
+
+    func startVisualSpeakerAssistance(window: SpeakerWindowChoice) {
+        guard isLive, !isDemo, !micOnly, let sessionStartDate else { return }
+        speakerNameSuggestions.removeAll { $0.kind == .visualName }
+        visualSpeakerCapture.start(window: window, sessionStart: sessionStartDate) { [weak self] in
+            self?.refreshVisualSpeakerSuggestions()
+        }
+    }
+
+    func stopVisualSpeakerAssistance() {
+        visualSpeakerCapture.stop()
+        speakerNameSuggestions.removeAll { $0.kind == .visualName }
+    }
+
+    private func refreshVisualSpeakerSuggestions() {
+        guard isLive, !isDemo, !micOnly else { return }
+        // Rebuild rather than keeping a stale match after diarization refines.
+        speakerNameSuggestions.removeAll { $0.kind == .visualName }
+        let matches = VisualSpeakerEvidence.matches(visualSpeakerCapture.observations,
+                                                    segments: latestSystemSegments,
+                                                    localSpeech: utterances)
+        let taken = Array(Set(utterances.map(\.speaker))) + [remoteAlias].compactMap { $0 }
+        for match in matches {
+            guard !taken.contains(where: { VoiceProfileStore.samePerson($0, match.name) }),
+                  !speakerNameSuggestions.contains(where: { $0.label == match.label }),
+                  segmentRenames[match.label] == nil else { continue }
+            let suggestion = SpeakerNameSuggestion(label: match.label, name: match.name,
+                                                   confidence: 0.8, kind: .visualName)
+            guard !rejectedNameSuggestions.contains(suggestion.key) else { continue }
+            speakerNameSuggestions.append(suggestion)
+        }
     }
 
     // MARK: - One-on-one remote alias (display layer)
@@ -1533,6 +1570,7 @@ final class LiveSessionViewModel {
         } else {
             utterances.append(u)
         }
+        if !visualSpeakerCapture.observations.isEmpty { refreshVisualSpeakerSuggestions() }
     }
 
     // MARK: - Feedback
