@@ -1825,6 +1825,34 @@ become recent evidence again. Enforce retention at read time even after far-side
 speech stops. Added false-positive, echo, revision, and timing regressions; no
 microphone selection, audio thresholds, language policy, or networking changes.
 
+## 2026-10-06 — Window-scoped, per-meeting speaker snapshots
+The user requested a few discreet, opt-in screenshots to improve speaker naming.
+Consent is per meeting and pins an explicitly selected window/title/owner, rather
+than a persistent permission to scan the desktop. Six snapshots maximum, 15 seconds
+apart, no focus changes or sound; macOS capture indicators remain visible. Images
+and raw OCR never touch disk, logs, the pasteboard, or AIClient, including when
+cloud AI is enabled. Only candidate names/timestamps live in session memory.
+
+The first adapter recognizes complete green/yellow Zoom-style tile outlines and
+reads a single name along the tile's bottom edge using local Vision OCR. Side
+borders are measured at mid-height and corner arcs skipped, because Zoom's tiles
+have rounded corners (a square-only check never fired at radius ≥ 8px). Unsupported
+layouts simply produce no match. Two samples must agree with one finalized remote
+voice away from transitions; overlaps and conflicting names veto suggestions.
+Recompute against revised diarization and late mic text. Keep the existing one-tap
+confirmation before transcript renaming or voice-profile enrollment: screenshots
+provide evidence, not proof of identity. This does not repair diarization itself.
+Real-call layout/accuracy validation remains necessary before release.
+
+## 2026-10-06 — Automatically select a unique meeting window
+User requested removing manual window selection. Reuse meeting-window heuristics
+for Zoom, Meet, Hangouts, Slack huddles and FaceTime; when exactly one visible
+candidate exists, show its app/title in consent and preselect it. No screenshot
+is taken before Allow. Multiple candidates or unrecognized windows retain manual
+selection, rather than guessing from window order/frontmost app. The selected
+window remains pinned for the run; detection does not silently switch targets.
+This improves selection only; screenshot OCR still supports Zoom-style outlines.
+
 ## 2026-10-07 — A silent mic is surfaced, not just rebuilt
 
 A customer's log (v0.24.0–v0.29.0) showed mic RMS exactly 0.0000 in every

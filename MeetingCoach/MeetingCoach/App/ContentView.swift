@@ -745,6 +745,10 @@ struct LiveTimelineView: View {
                 PlannedQuestionsCard(liveSession: liveSession)
             }
 
+            if liveSession.isLive && !liveSession.isDemo && !liveSession.micOnly {
+                VisualSpeakerAssistView(liveSession: liveSession)
+            }
+
             LiveTranscriptPane(liveSession: liveSession, followLive: $followLive)
         }
         .background(Dorado.surface)
@@ -1221,7 +1225,9 @@ private struct NameSuggestionBar: View {
                 (s.kind == .samePerson
                  ? Text(s.label).bold() + Text(" and ") + Text(s.name).bold()
                     + Text(" sound like the same person")
-                 : Text(s.label).bold() + Text(" sounds like ") + Text(s.name).bold())
+                 : Text(s.label).bold() + Text(s.kind == .visualName ? " may be " : " sounds like ")
+                    + Text(s.name).bold()
+                    + Text(s.kind == .visualName ? " · from speaker snapshots" : ""))
                     .font(.caption)
                 Spacer(minLength: 4)
                 Button {
