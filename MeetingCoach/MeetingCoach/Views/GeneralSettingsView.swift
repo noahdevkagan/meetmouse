@@ -29,6 +29,7 @@ struct GeneralSettingsView: View {
     /// property SwiftUI can't observe directly). Synced on appear, written
     /// through on toggle; Sparkle persists it to UserDefaults itself.
     @State private var autoInstallUpdates = true
+    @AppStorage(VisualSpeakerCapture.automaticDefaultsKey) private var automaticSpeakerSnapshots = false
 
     /// Custom transcription vocabulary — same store the live pipeline and
     /// the transcript's "Fix a misheard term" flow write to.
@@ -253,6 +254,14 @@ struct GeneralSettingsView: View {
                 Text("Terms the transcriber keeps mishearing: what it wrote (comma-separate variants, e.g. utc, u g c) and what it should be. Leave \u{201C}it wrote\u{201D} empty to just teach a spelling. Clicking a misheard word in any transcript adds a row here automatically. Built in already: \(VocabularyNormalizer.defaultTerms.map(\.canonical).joined(separator: ", ")).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section("Speaker names") {
+                Toggle("Automatically take speaker-name screenshots", isOn: $automaticSpeakerSnapshots)
+                Text("For future meetings, detect the meeting window and take up to six silent snapshots. Names are read on this Mac; images are discarded, never saved or sent to AI. Suggested names still need your confirmation. You can stop snapshots in the live transcript.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("Requires visible participant names and Zoom’s active-speaker outline. If several meeting windows are open, choose one in the live transcript.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Meeting detection") {

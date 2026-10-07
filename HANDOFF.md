@@ -5,6 +5,33 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-10-07): Automatic speaker snapshots — built and enabled
+
+User clarified automatic speaker-name screenshots at meeting start. Added default-off
+remembered opt-in in General → Speaker names and manual consent sheet. Set this
+user's com.coach.MeetingCoach automaticSpeakerSnapshots=true (verified). Updated
+build detects a unique call window after audio starts; ambiguity offers manual
+selection. Six attempts/meeting, window pinning, local OCR, and name confirmation
+remain. Discovery cancels on Stop/new meeting/mic-only and rechecks eligibility
+on completion. No change to OCR layout support: visible names + Zoom-style outline
+still required. Completion feedback no longer implies nonexistent matches.
+
+293 session checks and final Debug build passed. Logs:
+`.context/automatic-speakers-{tests,build-final}.log`. Changelog generated and diff
+check passed. Manual-call matrix updated but real-call validation remains. Running
+meeting untouched: no app launch/replacement, push, or release. After the call,
+launch MeetingCoach/build/Build/Products/Debug/MeetMouse.app to use this change.
+
+## Current state (2026-10-07): Live speaker-snapshot feedback — built
+
+Supplied screenshot shows an active meeting and completed speaker snapshots, but
+no visible Zoom tile names or active-speaker outline. Completion previously implied
+matches existed unconditionally. It now distinguishes no readable names from read
+names, and the view announces confirmation only when visual suggestions exist.
+287 session checks and Debug build passed; logs `.context/speaker-feedback-*.log`.
+Clarification resolved above: automatic speaker snapshots. Active meeting was
+not interrupted; no app launch/replacement, push, or release.
+
 ## Current state (2026-10-07): Silent-mic warning — built, reviewed, PR open
 
 Customer's mc_debug.log (v0.24.0 → v0.29.0, every session): mic RMS exactly
