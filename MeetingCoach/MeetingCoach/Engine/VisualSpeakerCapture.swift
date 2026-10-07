@@ -36,7 +36,7 @@ final class VisualSpeakerCapture {
         self.pause = pause
     }
 
-    static func windows() async throws -> [SpeakerWindowChoice] {
+    nonisolated static func windows() async throws -> [SpeakerWindowChoice] {
         let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
         return content.windows.compactMap { window in
             guard window.windowLayer == 0, window.frame.width >= 240, window.frame.height >= 160,
@@ -115,7 +115,7 @@ final class VisualSpeakerCapture {
         if reset { count = 0 }
     }
 
-    private static func captureSnapshot(window: SpeakerWindowChoice) async throws -> Snapshot {
+    nonisolated private static func captureSnapshot(window: SpeakerWindowChoice) async throws -> Snapshot {
         let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
         try Task.checkCancellation()
         // Pin BOTH the window and its original title/owner. Browser tab
