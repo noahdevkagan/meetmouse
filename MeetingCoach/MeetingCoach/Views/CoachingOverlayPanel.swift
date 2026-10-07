@@ -228,7 +228,8 @@ struct CoachingOverlayView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var expanded: Bool {
-        activeNudge != nil || liveSession.memoryPressureTipVisible || liveSession.basicModeNotice != nil
+        activeNudge != nil || liveSession.micWarning != nil
+            || liveSession.memoryPressureTipVisible || liveSession.basicModeNotice != nil
     }
 
     private var sessionShare: Double? {
@@ -398,6 +399,26 @@ struct CoachingOverlayView: View {
                     .controlSize(.small)
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
+                } else if liveSession.micWarning != nil {
+                    // The bubble is what the user watches during a call; a
+                    // dead mic must show here, not only in the main window
+                    // (which carries the full explanation and fixes). After
+                    // the memory tip: that one is short-lived and urgent.
+                    Image(systemName: "mic.slash.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                    Text("Can't hear your mic")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                    Spacer()
+                    Button("Fix") { onOpenApp() }
+                        .font(.caption2)
+                        .controlSize(.small)
+                    Button("Hide") { liveSession.dismissMicWarning() }
+                        .font(.caption2)
+                        .controlSize(.small)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
                 } else if let notice = liveSession.basicModeNotice {
                     // Degraded coaching would otherwise look identical to a
                     // meeting with nothing to say — name it where the user is

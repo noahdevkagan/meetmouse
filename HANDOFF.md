@@ -5,6 +5,38 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-10-07): Silent-mic warning — built, reviewed, PR open
+
+Customer's mc_debug.log (v0.24.0 → v0.29.0, every session): mic RMS exactly
+0.0000 throughout; "zero-audio zombie" rebuild 1,831 times, never surfaced.
+She fixed her Mac's mic setup and confirmed "You" lines now appear (2026-10-07).
+Customer transcript/log/screenshot deleted per her request.
+
+Built: `Engine/MicSilenceMonitor.swift` (warn after 30 s of no non-zero mic
+sample since start; immediate if mic access denied; clears on real audio;
+suppressed in Apple calls) → `AudioCaptureManager.onMicWarning` → VM
+`micWarning` → red main-window banner (Sound Settings / Mic Access buttons) and
+overlay row "Can't hear your mic" (Fix opens the app). Session start logs
+`[Mic] Permission: …` and `Engine started · device: <default input name>`.
+tests/micsilence (12 checks) added to push gate + CI; changelog Unreleased.
+
+Verified: Debug build; live session with a working mic logged "Permission:
+granted · device: iMac Microphone" with no warning; a temporary forced-zero
+build showed the banner at 30 s (screenshot), overlay expanded (overlay window
+can't be screen-captured); Sound Settings URL opens the Sound pane. Temp patch
+removed; micsilence/session/echo/language/hygiene suites pass.
+
+Code review (10 findings) fixed: publish path re-reads state on the main actor
+(no stale warning after a clear); suppression follows whether an Apple call
+holds the mic now; no-buffer death counts as silence; device-name changes
+re-publish; permission re-read each tick; dismissible (hardware mute reads 0);
+mic-only copy; overlay row after the memory tip; shared CaptureWarningBanner.
+Still open (pre-existing): a call adopted mid-session sets no call banner.
+
+Follow-up seen in her test: YouTube audio from speakers landed inside a "You"
+line and again as "Them" — echo that commits on the mic before the far-side
+text exists isn't stripped. Not addressed.
+
 ## Current state (2026-10-06): Auto-select speaker screenshot window — built
 
 Consent now automatically selects a single recognized visible call window using
