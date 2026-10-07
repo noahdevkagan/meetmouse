@@ -28,6 +28,15 @@ final class LiveSessionViewModel {
     /// call-audio limitation instead of sending users to Screen Recording.
     var appleCallCapture = false
 
+    /// MeetMouse can't hear the user's microphone (access off, or the input
+    /// device delivers only silence) — the user's side isn't transcribed.
+    /// nil while dismissed (see dismissMicWarning).
+    private(set) var micWarning: MicWarning?
+    /// A hardware-muted mic reads as silent too, so the user may dismiss the
+    /// warning; it stays hidden until the mic is heard again or the cause
+    /// changes (e.g. access is then denied).
+    private var dismissedMicWarningCause: MicWarning.Cause?
+
     /// This session transcribed on the SFSpeech fallback (high-accuracy
     /// Parakeet model not ready — usually still downloading on a fresh
     /// install). Fragmented "random words" transcripts are expected on
@@ -553,6 +562,14 @@ final class LiveSessionViewModel {
             self.status = msg
         }
 
+        manager.onMicWarning = { [weak self] warning in
+            guard let self, self.currentSessionID == sessionID else { return }
+            if warning?.cause != self.dismissedMicWarningCause {
+                self.dismissedMicWarningCause = nil
+            }
+            self.micWarning = self.dismissedMicWarningCause == nil ? warning : nil
+        }
+
         manager.onSystemAudioLost = { [weak self] in
             // Flip live state too (isMicOnly was sampled once at start) so
             // the arbiter regains mic-only's unlimited end veto.
@@ -948,6 +965,8 @@ final class LiveSessionViewModel {
         endedCaptureManager = nil
         micOnly = false
         appleCallCapture = false
+        micWarning = nil
+        dismissedMicWarningCause = nil
         usedFallbackEngine = false
         leftFallbackEngine = false
         sessionLanguage = nil
@@ -968,6 +987,11 @@ final class LiveSessionViewModel {
         manuallyUncheckedQuestions = []
         elapsedTime = 0
         backoff = NudgeBackoff()
+    }
+
+    func dismissMicWarning() {
+        dismissedMicWarningCause = micWarning?.cause
+        micWarning = nil
     }
 
     func dismissPostSession() {
