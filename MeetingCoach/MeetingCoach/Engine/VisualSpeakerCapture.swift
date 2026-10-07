@@ -14,12 +14,14 @@ struct SpeakerWindowChoice: Identifiable, Sendable, Hashable {
 @Observable @MainActor
 final class VisualSpeakerCapture {
     private(set) var isRunning = false
+    private(set) var isDiscovering = false
     private(set) var count = 0
     private(set) var status = ""
     private(set) var observations: [VisualSpeakerObservation] = []
     private var task: Task<Void, Never>?
     private var generation = UUID()
     static let limit = 6
+    static let automaticDefaultsKey = "automaticSpeakerSnapshots"
 
     struct Snapshot: Sendable {
         let name: String?
@@ -27,11 +29,14 @@ final class VisualSpeakerCapture {
         let end: Date
     }
     private enum CaptureError: Error { case windowUnavailable }
+    private let findWindows: @MainActor () async throws -> [SpeakerWindowChoice]
     private let snapshot: @MainActor (SpeakerWindowChoice) async throws -> Snapshot
     private let pause: @MainActor (Duration) async throws -> Void
 
-    init(snapshot: @escaping @MainActor (SpeakerWindowChoice) async throws -> Snapshot = VisualSpeakerCapture.captureSnapshot,
+    init(findWindows: @escaping @MainActor () async throws -> [SpeakerWindowChoice] = VisualSpeakerCapture.windows,
+         snapshot: @escaping @MainActor (SpeakerWindowChoice) async throws -> Snapshot = VisualSpeakerCapture.captureSnapshot,
          pause: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
+        self.findWindows = findWindows
         self.snapshot = snapshot
         self.pause = pause
     }
@@ -62,9 +67,44 @@ final class VisualSpeakerCapture {
         return candidates.count == 1 ? candidates.first : nil
     }
 
+    /// Remembered opt-in authorizes discovery; ambiguity never starts capture.
+    func startAutomatically(sessionStart: Date,
+                            canStart: @escaping @MainActor () -> Bool,
+                            onObservation: @escaping @MainActor () -> Void) {
+        guard !isRunning, !isDiscovering, count < Self.limit, canStart() else { return }
+        generation = UUID()
+        let run = generation
+        isDiscovering = true
+        status = "Finding your meeting window…"
+        task = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let windows = try await self.findWindows()
+                guard !Task.isCancelled, self.generation == run else { return }
+                self.isDiscovering = false
+                self.task = nil
+                guard canStart() else {
+                    self.status = "Automatic speaker snapshots skipped."
+                    return
+                }
+                guard let window = Self.suggestedWindow(in: windows) else {
+                    self.status = "No unique meeting window found. Choose a window to name speakers."
+                    return
+                }
+                self.start(window: window, sessionStart: sessionStart, onObservation: onObservation)
+            } catch {
+                guard !Task.isCancelled, self.generation == run else { return }
+                self.isDiscovering = false
+                self.finish("Couldn’t find the meeting window. Check Screen Recording permission.")
+            }
+        }
+    }
+
     func start(window: SpeakerWindowChoice, sessionStart: Date,
                onObservation: @escaping @MainActor () -> Void) {
         guard !isRunning, count < Self.limit else { return }
+        task?.cancel()
+        isDiscovering = false
         generation = UUID()
         let run = generation
         observations = []
@@ -95,7 +135,9 @@ final class VisualSpeakerCapture {
                 }
             }
             guard let self, self.generation == run, !Task.isCancelled else { return }
-            self.finish("Snapshots finished. Clear matches need your confirmation.")
+            self.finish(self.observations.isEmpty
+                ? "No speaker names read. Show participant names and Zoom’s active-speaker outline."
+                : "Snapshots finished. Names were read; only reliable voice matches become suggestions.")
         }
     }
 
@@ -110,6 +152,7 @@ final class VisualSpeakerCapture {
         task?.cancel()
         task = nil
         isRunning = false
+        isDiscovering = false
         observations = []
         status = reset ? "" : "Screenshot assistance stopped"
         if reset { count = 0 }

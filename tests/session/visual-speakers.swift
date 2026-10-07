@@ -138,6 +138,53 @@ func visualSpeakerChecks() async {
     await Task.yield()
     check(requests == 6 && !bounded.isRunning, "visual: restart cannot exceed meeting cap")
 
+    var automaticShots = 0
+    let automatic = VisualSpeakerCapture(findWindows: { [zoom] }, snapshot: { _ in
+        automaticShots += 1
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in })
+    automatic.startAutomatically(sessionStart: Date(), canStart: { true }) {}
+    for _ in 0..<100 where automatic.isDiscovering || automatic.isRunning { await Task.yield() }
+    check(automaticShots == 6 && automatic.status.contains("No speaker names read"),
+          "visual: automatic unique window starts bounded capture and explains no names")
+
+    let ambiguous = VisualSpeakerCapture(findWindows: { [zoom, meet] }, snapshot: { _ in
+        check(false, "visual: ambiguous discovery must never capture")
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in })
+    ambiguous.startAutomatically(sessionStart: Date(), canStart: { true }) {}
+    for _ in 0..<100 where ambiguous.isDiscovering { await Task.yield() }
+    check(ambiguous.count == 0 && ambiguous.status.contains("Choose a window"),
+          "visual: ambiguous automatic discovery asks for manual selection")
+
+    var foundWindows: CheckedContinuation<[SpeakerWindowChoice], Never>?
+    let discovery = VisualSpeakerCapture(findWindows: {
+        await withCheckedContinuation { foundWindows = $0 }
+    }, snapshot: { _ in
+        check(false, "visual: stale discovery must never capture")
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in })
+    discovery.startAutomatically(sessionStart: Date(), canStart: { true }) {}
+    for _ in 0..<100 where foundWindows == nil { await Task.yield() }
+    discovery.stop(reset: true)
+    foundWindows?.resume(returning: [zoom])
+    for _ in 0..<10 { await Task.yield() }
+    check(discovery.count == 0 && discovery.status.isEmpty && !discovery.isDiscovering,
+          "visual: Stop or new meeting invalidates delayed window discovery")
+
+    var stillAllowed = true
+    let revoked = VisualSpeakerCapture(findWindows: {
+        stillAllowed = false
+        return [zoom]
+    }, snapshot: { _ in
+        check(false, "visual: revoked discovery must never capture")
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in })
+    revoked.startAutomatically(sessionStart: Date(), canStart: { stillAllowed }) {}
+    for _ in 0..<100 where revoked.isDiscovering { await Task.yield() }
+    check(revoked.count == 0 && !revoked.isRunning,
+          "visual: eligibility rechecked after asynchronous discovery")
+
     var pending: CheckedContinuation<VisualSpeakerCapture.Snapshot, Never>?
     let delayed = VisualSpeakerCapture(snapshot: { _ in
         await withCheckedContinuation { pending = $0 }

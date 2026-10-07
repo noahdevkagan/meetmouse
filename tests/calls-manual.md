@@ -84,7 +84,8 @@ notification — only the zero-audio watchdog catches it:
       than three seconds of solo speech is available)
 
 ### 7. Opt-in speaker snapshots (Zoom-style green/yellow outlines)
-- [ ] Start a real meeting: no screenshot assistance runs until explicitly
+- [ ] With automatic speaker snapshots off (default), start a real meeting:
+      no screenshot assistance runs until explicitly
       allowed. Open the consent sheet, cancel, and verify it remains off
 - [ ] With one recognized meeting window, consent automatically names the app
       and window without requiring a picker. With two calls or no recognized
@@ -102,8 +103,13 @@ notification — only the zero-audio watchdog catches it:
       title: capture stops without switching to another window or the desktop
 - [ ] Stop assistance mid-run; stop the meeting; force mic-only fallback:
       each cancels pending capture and removes unconfirmed visual matches
-- [ ] Starting a new meeting requires fresh consent. Restarting assistance in
-      the same meeting never exceeds six total capture requests
+- [ ] Enable automatic speaker snapshots in General settings or the consent sheet.
+      Next meeting starts snapshots of one recognized window without a new prompt;
+      two/no recognized windows require manual selection. Disable the setting and
+      verify the next meeting takes no snapshots until explicitly allowed
+- [ ] Stop while “Finding your meeting window” is visible: delayed discovery must
+      not start capture. New meetings and mic-only fallback also cancel discovery
+- [ ] Restarting assistance in the same meeting never exceeds six total requests
 - [ ] With cloud AI selected, verify no images or raw OCR enter provider
       requests or saved files. Confirmed speaker names are ordinary transcript
       text and follow the existing cloud-text consent
