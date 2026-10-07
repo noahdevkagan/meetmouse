@@ -303,6 +303,7 @@ struct LiveTimelineView: View {
 
     @State private var showCoach = true
     @State private var followLive = true
+    @AppStorage(VisualSpeakerCapture.enabledKey) private var visualSpeakerAssistEnabled = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -719,13 +720,16 @@ struct LiveTimelineView: View {
                 PlannedQuestionsCard(liveSession: liveSession)
             }
 
-            if liveSession.isLive && !liveSession.isDemo && !liveSession.micOnly {
+            if visualSpeakerAssistEnabled && liveSession.isLive && !liveSession.isDemo && !liveSession.micOnly {
                 VisualSpeakerAssistView(liveSession: liveSession)
             }
 
             LiveTranscriptPane(liveSession: liveSession, followLive: $followLive)
         }
         .background(Dorado.surface)
+        .onChange(of: visualSpeakerAssistEnabled) { _, on in
+            if !on { liveSession.stopVisualSpeakerAssistance() }
+        }
     }
 
     private func recapText(_ review: MeetingReview) -> String {

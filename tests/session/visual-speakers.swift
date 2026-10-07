@@ -138,6 +138,29 @@ func visualSpeakerChecks() async {
     await Task.yield()
     check(requests == 6 && !bounded.isRunning, "visual: restart cannot exceed meeting cap")
 
+    // Settings toggle: off blocks new runs and halts one mid-flight.
+    let key = VisualSpeakerCapture.enabledKey
+    UserDefaults.standard.set(false, forKey: key)
+    let disabled = VisualSpeakerCapture(snapshot: { _ in
+        check(false, "visual: disabled setting captured")
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in })
+    disabled.start(window: window, sessionStart: Date()) {}
+    check(!disabled.isRunning && disabled.count == 0, "visual: Settings off prevents assistance")
+    UserDefaults.standard.set(true, forKey: key)
+    var togglesTaken = 0
+    let toggled = VisualSpeakerCapture(snapshot: { _ in
+        togglesTaken += 1
+        if togglesTaken == 2 { UserDefaults.standard.set(false, forKey: key) }
+        return .init(name: "Sarah", start: Date(), end: Date())
+    }, pause: { _ in })
+    toggled.start(window: window, sessionStart: Date()) {}
+    for _ in 0..<100 where toggled.isRunning { await Task.yield() }
+    check(togglesTaken == 2 && !toggled.isRunning && toggled.observations.isEmpty,
+          "visual: turning Settings off mid-run takes no further snapshots", "\(togglesTaken)")
+    UserDefaults.standard.removeObject(forKey: key)
+    check(VisualSpeakerCapture.isEnabled, "visual: assistance offered by default")
+
     var pending: CheckedContinuation<VisualSpeakerCapture.Snapshot, Never>?
     let delayed = VisualSpeakerCapture(snapshot: { _ in
         await withCheckedContinuation { pending = $0 }

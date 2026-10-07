@@ -1852,3 +1852,10 @@ is taken before Allow. Multiple candidates or unrecognized windows retain manual
 selection, rather than guessing from window order/frontmost app. The selected
 window remains pinned for the run; detection does not silently switch targets.
 This improves selection only; screenshot OCR still supports Zoom-style outlines.
+
+## 2026-10-06 — Settings switch for speaker snapshots
+User asked for an off switch. Settings → General → Speaker names toggles whether
+the per-meeting consent row appears (default on: the row itself captures
+nothing). Off hides the row and halts a run in progress: the capture loop
+re-reads the setting before every shot, so it stops even if no live view is
+on screen. Per-meeting consent is still required when on.

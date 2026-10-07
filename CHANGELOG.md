@@ -9,7 +9,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
-- Optional speaker snapshots: automatically detect your meeting window to help match visible speaker names to voices. Up to six snapshots are read on-device and discarded; suggested names need your confirmation.
+- Optional speaker snapshots: automatically detect your meeting window to help match visible speaker names to voices. Up to six snapshots are read on-device and discarded; suggested names need your confirmation. Turn the option off entirely in Settings → General → Speaker names.
 
 ## 0.29.0 — 2026-10-05
 

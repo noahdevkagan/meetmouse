@@ -34,6 +34,9 @@ struct GeneralSettingsView: View {
     /// the transcript's "Fix a misheard term" flow write to.
     @AppStorage("customVocabularyText") private var vocabularyText = ""
 
+    /// Offers the per-meeting screenshot consent row in the live transcript.
+    @AppStorage(VisualSpeakerCapture.enabledKey) private var visualSpeakerAssistEnabled = true
+
     /// Editable row mirror of `vocabularyText` (see parseVocab/serializeVocab).
     @State private var vocabEntries: [VocabEntry] = []
 
@@ -251,6 +254,15 @@ struct GeneralSettingsView: View {
                     }
                 }
                 Text("Terms the transcriber keeps mishearing: what it wrote (comma-separate variants, e.g. utc, u g c) and what it should be. Leave \u{201C}it wrote\u{201D} empty to just teach a spelling. Clicking a misheard word in any transcript adds a row here automatically. Built in already: \(VocabularyNormalizer.defaultTerms.map(\.canonical).joined(separator: ", ")).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Speaker names") {
+                Toggle("Offer screenshot help to name speakers", isOn: $visualSpeakerAssistEnabled)
+                Text(visualSpeakerAssistEnabled
+                     ? "During a meeting, the transcript shows \u{201C}Help name speakers with screenshots\u{2026}\u{201D}. Nothing is captured until you allow it for that meeting; names are read on this Mac and need your confirmation."
+                     : "The screenshot option is hidden in meetings, and any run in progress stops. Speakers can still be named by hand or from transcript suggestions.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
