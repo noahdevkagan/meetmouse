@@ -71,7 +71,7 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Deterministic suites (nudges, rubric, detector, session, demo, hygiene)
+      - name: Deterministic suites (nudges, rubric, detector, session, demo, hygiene, mic silence)
         run: |
           bash tests/nudges/run.sh
           bash tests/rubric/run.sh
@@ -82,6 +82,7 @@ jobs:
           bash tests/granola/run.sh
           bash tests/sharing/run.sh
           bash tests/hygiene/run.sh
+          bash tests/micsilence/run.sh
 
       # The compare-before-you-ship report: transcription accuracy + Them
       # turn shape per committed corpus and nudge quality, each against the

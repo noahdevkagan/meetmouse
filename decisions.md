@@ -1824,3 +1824,27 @@ phrases. Preserve prefix token timestamps when partials grow, so old words don't
 become recent evidence again. Enforce retention at read time even after far-side
 speech stops. Added false-positive, echo, revision, and timing regressions; no
 microphone selection, audio thresholds, language policy, or networking changes.
+
+## 2026-10-07 — A silent mic is surfaced, not just rebuilt
+
+A customer's log (v0.24.0–v0.29.0) showed mic RMS exactly 0.0000 in every
+session and 1,831 silent "zero-audio zombie" rebuilds; the transcript had no
+"You" lines and nothing told her. The fix was on her Mac (mic input/permission),
+not in the echo filter. `MicSilenceMonitor` now warns after 30 s without one
+non-zero mic sample since session start — rebuilds don't restart that clock,
+because the question is how long we've gone without hearing the user, not how
+long one capture lived. Exact zero is the signal (a live room never reads 0),
+so a quiet mic does not trigger it — but a hardware-muted mic (mute button,
+input volume 0) also reads exactly 0, so the warning is dismissible until the
+mic is heard again or its cause changes. A dead device that stops delivering
+buffers counts as silence from its last buffer. Denied access (re-read every
+watchdog tick, since the prompt can be answered mid-call) warns immediately
+with its own copy. Suppression follows whether an Apple call holds the mic
+*now* (re-checked each zero-audio rebuild), not `isAppleCall`, which dual
+sessions never set and which never clears. Real audio clears the warning. The
+tap (clear) and watchdog (show) both publish, so the main actor re-reads the
+current state on delivery instead of carrying a value — otherwise a stale
+"can't hear" could land after the clear and stick. The warning names the
+system default input (the AUHAL reports a private "CADefaultDeviceAggregate"),
+and session start now logs mic permission + device so the next field log
+answers "which mic, allowed or not" directly. Rebuild cadence is unchanged.

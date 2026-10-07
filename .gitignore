@@ -48,6 +48,7 @@ tests/demo/.build/
 tests/asr/.out/
 tests/nudges/.build/
 tests/echo/.build/
+tests/micsilence/.build/
 tests/hygiene/.build/
 tests/language/.build/
 .wrangler/

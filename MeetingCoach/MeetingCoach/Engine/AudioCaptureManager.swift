@@ -58,6 +58,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// is mic-only from that point (the arbiter's mic-only protections
     /// must kick in, and echo suppression stands down).
     var onSystemAudioLost: (@Sendable @MainActor () -> Void)?
+    /// Fired when MeetMouse can't hear the user's mic (or hears it again —
+    /// nil). See MicSilenceMonitor.
+    var onMicWarning: (@Sendable @MainActor (MicWarning?) -> Void)?
 
     /// Vocabulary to bias recognition toward (participant names, deal terms).
     var contextualHints: [String] = []
@@ -116,6 +119,13 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private var micPeakRMS: Float = 0          // micStateLock-guarded
     private var lastRMSLogAt = Date()          // micStateLock-guarded
     private var lastNonzeroAudioAt = Date()    // micStateLock-guarded
+    private var micSilence = MicSilenceMonitor(start: Date()) // micStateLock-guarded
+    private var micDeviceName: String?         // micStateLock-guarded
+    private var reportedMicWarning: MicWarning? // micStateLock-guarded
+    /// An Apple call holds the mic right now (re-checked on every zero-audio
+    /// rebuild, so it clears when the call ends — unlike isAppleCall, which
+    /// a dual session never sets). micRestartQueue-confined.
+    private var appleCallHoldsMic = false
 
     /// True after start() when system audio couldn't be captured (Screen
     /// Recording declined/unavailable) — no structural You/Them separation.
@@ -579,6 +589,15 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     // MARK: - Microphone
 
     private func startMicrophone() async throws {
+        // macOS doesn't fail capture when mic access is off — the engine
+        // runs and delivers silence. Log the permission so a field log
+        // answers "allowed or not" instead of leaving it to guesswork.
+        mclog("[Mic] Permission: \(PermissionStatus.microphone)")
+        micStateLock.withLock {
+            micSilence = MicSilenceMonitor(start: Date())
+            reportedMicWarning = nil
+        }
+        micRestartQueue.sync { appleCallHoldsMic = isAppleCall }
         // Core Audio can briefly expose 0 channels while an input device is
         // connecting or changing profiles. Installing a tap in that state
         // raises an Objective-C exception, which Swift cannot catch. Retry
@@ -711,6 +730,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             // rms ≈ 0.006+.)
             self.micStateLock.lock()
             if rms > 0 { self.lastNonzeroAudioAt = Date() }
+            let micHeardAgain = self.micSilence.observe(nonzero: rms > 0, at: Date())
             self.micPeakRMS = max(self.micPeakRMS, rms)
             if Date().timeIntervalSince(self.lastRMSLogAt) > 5 {
                 mclog(String(format: "[Mic] Peak RMS last 5s: %.4f%@",
@@ -720,13 +740,18 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                 self.lastRMSLogAt = Date()
             }
             self.micStateLock.unlock()
+            if micHeardAgain { self.publishMicWarning() }
 
             self.micPipeline?.append(speechBuffer)
         }
 
         try audioEngine.start()
         engine = audioEngine
-        mclog("[Mic] Engine started")
+        // The unit itself reports a private "CADefaultDeviceAggregate" when
+        // following the default — name the real device the user picked.
+        let deviceName = (pinnedInput ?? Self.defaultInputDeviceID()).flatMap(Self.deviceName)
+        micStateLock.withLock { micDeviceName = deviceName }
+        mclog("[Mic] Engine started · device: \(deviceName ?? "unknown")")
 
         // start() re-resolves the AUHAL's device and can silently undo a
         // pre-start pin (observed 2026-08-05: pin returned noErr, engine
@@ -792,6 +817,19 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         let err = AudioObjectGetPropertyData(
             AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device)
         return err == noErr && device != 0 ? device : nil
+    }
+
+    /// The device's user-visible name ("MacBook Pro Microphone").
+    private static func deviceName(_ device: AudioDeviceID) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioObjectPropertyName,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var name: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &name) == noErr,
+              let name else { return nil }
+        return name.takeRetainedValue() as String
     }
 
     private static func transportType(_ device: AudioDeviceID) -> UInt32 {
@@ -882,7 +920,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         let timer = DispatchSource.makeTimerSource(queue: micRestartQueue)
         timer.schedule(deadline: .now() + 5, repeating: 3)
         timer.setEventHandler { [weak self] in
-            guard let self, self.isRunning, !self.micRecovering else { return }
+            guard let self, self.isRunning else { return }
+            self.evaluateMicSilence()
+            guard !self.micRecovering else { return }
             self.micStateLock.lock()
             let quiet = Date().timeIntervalSince(self.lastMicBufferAt)
             let zeroFor = Date().timeIntervalSince(self.lastNonzeroAudioAt)
@@ -907,6 +947,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                     let holders = (MeetingDetectionService.micUsingBundleIDs() ?? [])
                         .intersection(MeetingDetectionService.appleCallBundleIDs)
                     self.micRestartQueue.async {
+                        self.appleCallHoldsMic = !holders.isEmpty
                         guard self.isRunning else { self.micRecovering = false; return }
                         if !holders.isEmpty { self.adoptAppleCallMode(holders: holders) }
                         self.attemptMicRestart(reason: "zero-audio zombie", attempt: 0)
@@ -916,6 +957,53 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         }
         timer.resume()
         micWatchdog = timer
+    }
+
+    /// micRestartQueue only (watchdog tick). Surfaces a mic that has given
+    /// us nothing but silence — the rebuilds above can't fix a muted or
+    /// disallowed mic, and without this the user sees "Listening" all call.
+    private func evaluateMicSilence() {
+        let denied = PermissionStatus.microphone == .denied
+        micStateLock.withLock {
+            // A dead device delivers no buffers at all, not zeros — count
+            // that as silence from the last buffer, or a mic that worked
+            // earlier in the call could die without a warning.
+            if Date().timeIntervalSince(lastMicBufferAt) > 5 {
+                _ = micSilence.observe(nonzero: false, at: lastMicBufferAt)
+            }
+            _ = micSilence.evaluate(now: Date(), suppressed: appleCallHoldsMic,
+                                    permissionDenied: denied)
+        }
+        publishMicWarning()
+    }
+
+    private func currentMicWarning() -> MicWarning? {
+        micStateLock.withLock {
+            micSilence.warning.map { MicWarning(cause: $0, deviceName: micDeviceName) }
+        }
+    }
+
+    /// Any thread. Publishes when the warning — cause or device name — differs
+    /// from what was last reported. The tap thread (clear) and the watchdog
+    /// (show) both publish, so the main actor reads the CURRENT state rather
+    /// than carrying a value: whichever delivery runs last shows the truth,
+    /// and a stale "can't hear" can't land after the clear.
+    private func publishMicWarning() {
+        micStateLock.lock()
+        let current = micSilence.warning.map { MicWarning(cause: $0, deviceName: micDeviceName) }
+        let changed = current != reportedMicWarning
+        reportedMicWarning = current
+        micStateLock.unlock()
+        guard changed else { return }
+        if let current {
+            mclog("[Mic] Warning shown: \(current.cause == .permissionDenied ? "microphone access denied" : "no signal for \(Int(MicSilenceMonitor.warnAfter))s") · device: \(current.deviceName ?? "unknown")")
+        } else {
+            mclog("[Mic] Warning cleared — hearing the microphone")
+        }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.onMicWarning?(self.currentMicWarning())
+        }
     }
 
     /// micRestartQueue only. A call was answered mid-session: the mic just

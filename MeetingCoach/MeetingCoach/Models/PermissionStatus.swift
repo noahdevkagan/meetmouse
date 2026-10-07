@@ -46,6 +46,15 @@ enum PermissionStatus {
         }
     }
 
+    static func openMicrophoneSettings() { openPane("Privacy_Microphone") }
+
+    /// Sound → Input, where the Mac's default microphone is chosen.
+    static func openSoundSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.Sound-Settings.extension")
+        else { return }
+        NSWorkspace.shared.open(url)
+    }
+
     private static func openPane(_ anchor: String) {
         guard let url = URL(string:
             "x-apple.systempreferences:com.apple.preference.security?\(anchor)") else { return }

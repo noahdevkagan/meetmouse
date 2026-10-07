@@ -536,23 +536,16 @@ struct LiveTimelineView: View {
                 // Red for the call card: coaching is NOT happening and no
                 // action inside the app can fix it. Orange stays for the
                 // degraded-but-working permission case.
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: liveSession.appleCallCapture
-                          ? "phone.circle.fill" : "exclamationmark.triangle.fill")
-                        .foregroundStyle(liveSession.appleCallCapture ? .red : .orange)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(liveSession.appleCallCapture
-                             ? "macOS blocks apps from hearing this call"
-                             : "Only hearing your mic — not the meeting")
-                            .font(.caption.bold())
-                        Text(liveSession.appleCallCapture
-                             ? "FaceTime and phone calls taken on a Mac are off-limits to every app — even the microphone goes silent for them. To get coached: answer on your iPhone on speakerphone near the Mac, or use Zoom, Meet, or another meeting app."
-                             : "MeetMouse can't hear the other participants, so it can't tell who's speaking. Grant Screen Recording, then restart the session.")
-                            .font(.caption2).foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer()
-                    if !liveSession.appleCallCapture {
+                let call = liveSession.appleCallCapture
+                CaptureWarningBanner(
+                    icon: call ? "phone.circle.fill" : "exclamationmark.triangle.fill",
+                    tint: call ? .red : .orange,
+                    title: call ? "macOS blocks apps from hearing this call"
+                                : "Only hearing your mic — not the meeting",
+                    detail: call
+                        ? "FaceTime and phone calls taken on a Mac are off-limits to every app — even the microphone goes silent for them. To get coached: answer on your iPhone on speakerphone near the Mac, or use Zoom, Meet, or another meeting app."
+                        : "MeetMouse can't hear the other participants, so it can't tell who's speaking. Grant Screen Recording, then restart the session.") {
+                    if !call {
                         Button("Open Settings") {
                             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
                                 NSWorkspace.shared.open(url)
@@ -561,9 +554,42 @@ struct LiveTimelineView: View {
                         .font(.caption)
                     }
                 }
-                .padding(8)
-                .background((liveSession.appleCallCapture ? Color.red : Color.orange).opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
+            // We can't hear the user's mic. Without this a disallowed or
+            // lid-closed mic looked like a working session — "Listening",
+            // the other side transcribing — for whole meetings.
+            if liveSession.isLive, let warning = liveSession.micWarning {
+                let denied = warning.cause == .permissionDenied
+                // Mic-only sessions have no other channel: nothing at all is
+                // being transcribed, not just the user's side.
+                let lost = liveSession.micOnly ? "so nothing in this meeting is being transcribed"
+                                               : "so your side of the conversation isn't transcribed"
+                CaptureWarningBanner(
+                    icon: "mic.slash.fill",
+                    tint: .red,
+                    title: denied ? "MeetMouse can't use your microphone"
+                                  : "No sound from your microphone",
+                    detail: denied
+                        ? "Microphone access is off for MeetMouse, \(lost). Turn it on under Privacy & Security → Microphone, then restart MeetMouse."
+                        : "MeetMouse hasn't heard anything from \(warning.deviceName ?? "your microphone") for \(Int(MicSilenceMonitor.warnAfter)) seconds, \(lost). Your meeting app may use a different mic: pick a working one under Sound → Input (a MacBook's built-in mic is off while its lid is closed), and check MeetMouse is allowed under Privacy & Security → Microphone. Muted on purpose? Dismiss this.") {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        if !denied {
+                            Button("Sound Settings") { PermissionStatus.openSoundSettings() }
+                                .font(.caption)
+                        }
+                        Button(denied ? "Open Settings" : "Mic Access") {
+                            PermissionStatus.openMicrophoneSettings()
+                        }
+                        .font(.caption)
+                        if !denied {
+                            Button("Dismiss") { liveSession.dismissMicWarning() }
+                                .font(.caption)
+                                .buttonStyle(.plain)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
 
             // Fallback engine: fragmented transcripts are EXPECTED here —
@@ -3066,4 +3092,33 @@ private func paragraphs(_ text: String, maxWords: Int = 70) -> [String] {
     }
     if !chunk.isEmpty { paras.append(chunk.joined(separator: " ")) }
     return paras.isEmpty ? [text] : paras
+}
+
+/// A loud live-session notice for degraded capture (no meeting audio, no
+/// mic): icon, bold title, explanation, and the actions that fix it.
+private struct CaptureWarningBanner<Actions: View>: View {
+    let icon: String
+    let tint: Color
+    let title: String
+    let detail: String
+    @ViewBuilder let actions: Actions
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: icon)
+                .foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption.bold())
+                Text(detail)
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            actions
+        }
+        .padding(8)
+        .background(tint.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
 }
