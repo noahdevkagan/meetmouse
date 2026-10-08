@@ -39,6 +39,8 @@ func runTests() async {
               "visual: system audio loss cancels screenshots before first capture")
         vm.startVisualSpeakerAssistance(window: window)
         check(!vm.visualSpeakerCapture.isRunning, "visual: mic-only cannot opt into mismatched visual evidence")
+        AudioCaptureManager.last?.onSystemAudioRestored?()
+        check(!vm.micOnly, "capture: a recovered system-audio stream flips the session back to dual-channel")
         vm.stopLive()
         vm.startLive(context: PreCallContext())
         check(vm.visualSpeakerCapture.status.isEmpty && !vm.visualSpeakerCapture.isRunning,
