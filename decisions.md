@@ -1885,3 +1885,30 @@ meetings. Detect only a unique recognized window after system audio starts; ambi
 requires manual selection. Keep window pinning, six attempts per meeting, local-only
 OCR, no stored images, and confirmation before naming. Enable the preference for
 this user; do not restart their active meeting.
+
+
+## 2026-10-08 — Share links mint on meetmouse.com; rhinovoice.app stays as a legacy route
+A recipient (James Dellar) read a rhinovoice.app share link as a different product
+and asked whether he should buy Rhino Voice. The app now defaults both the viewer
+and API base to meetmouse.com; the same Worker and D1 database serve both hosts,
+with the rhinovoice.app routes kept so pre-change links and their revocation
+tokens keep working. No new service or database. Both zones are in the same
+Cloudflare account (verified via the API); the release token must carry Workers
+Routes on the meetmouse.com zone or the Worker deploy step fails loudly.
+
+## 2026-10-08 — System audio rebuilds itself instead of going mic-only
+Field report: a Teams call on a headset lost the other person for 30 minutes
+while the UI kept saying "Listening (you + them)". Before, a stopped SCK stream
+flipped the session to mic-only permanently, and a stream that stalled without
+erroring was never noticed. Measured 2026-10-08: SCK delivers ~53 audio buffers/s
+during total silence, so "no buffers for 5s" is a reliable dead-stream signal —
+the same backstop the mic path uses. Now: a 3s watchdog rebuilds a quiet stream;
+didStopWithError rebuilds instead of giving up. A default-output-device change
+is only logged: measured the same day, SCK kept delivering real audio across a
+speakers ↔ virtual-device switch, so a proactive rebuild would only add a gap
+(it was built, then removed on that evidence). Three failed
+or silent rebuilds degrade the session to mic-only (arbiter veto, echo filter
+stand-down, visual assistance off) while retries continue with capped backoff;
+success flips it back. The far-side diarizer gets the dead stretch backfilled
+with silence so segment times stay aligned. Not reproduced on real hardware yet —
+scenario 5b in tests/calls-manual.md covers it.

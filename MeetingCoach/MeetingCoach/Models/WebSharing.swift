@@ -158,8 +158,12 @@ struct WebShareConfiguration: Sendable {
     static var current: WebShareConfiguration {
         // Use the established HTTPS service in both dev and release. Publishing
         // still happens only when the user explicitly chooses Share notes.
-        let apiFallback = "https://rhinovoice.app/api/shared-notes"
-        let viewerFallback = "https://rhinovoice.app/p"
+        // Links are minted on meetmouse.com (field report 2026-10-08: a
+        // recipient read the old rhinovoice.app host as a different product).
+        // The same Worker also keeps serving rhinovoice.app so links created
+        // before this change, and their revocation tokens, keep working.
+        let apiFallback = "https://meetmouse.com/api/shared-notes"
+        let viewerFallback = "https://meetmouse.com/p"
         let environment = ProcessInfo.processInfo.environment
         let api = environment["MC_SHARE_API_BASE_URL"] ?? apiFallback
         let viewer = environment["MC_SHARE_VIEWER_BASE_URL"] ?? viewerFallback

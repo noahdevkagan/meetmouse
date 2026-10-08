@@ -1,7 +1,7 @@
 name = "meetingcoach-shares"
 main = "src/index.js"
 compatibility_date = "2026-09-15"
-# Production is reachable only through the narrow rhinovoice.app routes below.
+# Production is reachable only through the narrow routes below.
 workers_dev = false
 
 [triggers]
@@ -32,7 +32,19 @@ type = "Text"
 globs = ["**/*.html", "**/*.css", "**/*.js.txt"]
 fallthrough = true
 
-# Keep these path-specific so the existing rhinovoice.app Worker continues to
+# meetmouse.com is the host the app mints links on. The zone's other paths
+# are the Cloudflare Pages site (docs/); Worker routes take precedence over
+# Pages on the same zone, so only these two prefixes reach the Worker.
+[[routes]]
+pattern = "meetmouse.com/p/*"
+zone_name = "meetmouse.com"
+
+[[routes]]
+pattern = "meetmouse.com/api/shared-notes/*"
+zone_name = "meetmouse.com"
+
+# Legacy host: links created before 0.32 (and their revocation tokens) live
+# here. Keep path-specific so the existing rhinovoice.app Worker continues to
 # own every other page.
 [[routes]]
 pattern = "rhinovoice.app/p/*"

@@ -114,7 +114,7 @@ struct SharingTests {
             let record = SharedLinkRecord(
                 shareID: id,
                 sessionPath: sessionURL.standardizedFileURL.path,
-                privateURL: "https://rhinovoice.app/p/\(id)#\(encrypted.key)",
+                privateURL: "https://meetmouse.com/p/\(id)#\(encrypted.key)",
                 revokeToken: token,
                 createdAt: Date(timeIntervalSince1970: 100),
                 expiresAt: Date(timeIntervalSince1970: 1_000)

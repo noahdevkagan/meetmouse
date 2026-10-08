@@ -69,7 +69,7 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       # The note-sharing backend (web-share/: Cloudflare Worker + D1 behind the
-      # rhinovoice.app routes) ships with every release, BEFORE the app is
+      # meetmouse.com + legacy rhinovoice.app routes) ships with every release, BEFORE the app is
       # built, so no published DMG can run ahead of its backend. The deploy is
       # idempotent — an unchanged Worker just re-publishes the same code.
       # Uses the same CLOUDFLARE_API_TOKEN as the site step. That token carries
