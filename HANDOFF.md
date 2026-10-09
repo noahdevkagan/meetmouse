@@ -5,6 +5,18 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-10-09): Speaker names in Zoom screen-share layout — built, NOT pushed
+
+PR #38 branch. Roster evidence for 1:1 calls without an active-speaker outline
+(see decisions.md 2026-10-09). New "Your name on calls" setting (key
+speakerSelfName); set to "Noah Kagan" for this user because NSFullUserName is
+"Casa Rundell". Verified: 316 session checks, Debug build, and the engine run
+locally on the user's real screenshot reads ["Matt Bean"] at the app's 1600 px
+capture size (nil with a wrong self name; nil on the MeetMouse window). Screenshot
+is not committed (faces + work doc). Settings field not visually confirmed (AX
+lost the dev window). Outstanding: user review, then push; real-call check via
+tests/calls-manual.md scenario 7 (new 1:1 screen-share item).
+
 ## Current state (2026-10-08): meetmouse.com share links + system-audio recovery
 
 From James Dellar's 2026-10-08 email: (1) share links minted on rhinovoice.app —

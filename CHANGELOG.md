@@ -12,6 +12,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 - Shared meeting notes now live at meetmouse.com links. Links created earlier on rhinovoice.app keep working.
 - If the other side of a call goes silent because macOS stopped delivering system audio — a headset connecting mid-call, a display sleeping, or a locked screen — MeetMouse now rebuilds the capture automatically and keeps trying until it returns. Before, the rest of the call could be missing the other person with "Listening (you + them)" still showing.
 - Speaker snapshots now find your Zoom meeting window on their own. Before, Zoom calls always asked you to pick the window, and automatic snapshots never started.
+- Speaker snapshots can now name the other person on one-on-one Zoom calls with no speaker highlight, such as while they share their screen. Add your name under Settings → General → Speaker names so MeetMouse can tell your tile from theirs. The name still needs your confirmation.
 
 ## 0.31.0 — 2026-10-08
 

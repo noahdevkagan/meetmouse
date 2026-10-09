@@ -116,6 +116,103 @@ func visualSpeakerChecks() async {
               "visual: screen-sharing perimeter rejected")
     } catch { check(false, "visual: OCR fixture", String(describing: error)) }
 
+    // One-on-one roster: Zoom's screen-share filmstrip has no active-speaker
+    // outline. Names come from tiles aligned with the user's own label.
+    func label(_ text: String, _ x: Double, _ y: Double, _ h: Double = 0.013,
+               _ confidence: Float = 1) -> VisualSpeakerOCR.Line {
+        .init(text: text, confidence: confidence, rect: CGRect(x: x, y: y, width: 0.05, height: h))
+    }
+    let filmstrip = [label("noah kagan", 0.831, 0.669), label("Matt Bean", 0.833, 0.525),
+                     label("Jenkins", 0.40, 0.227), label("Garrett", 0.45, 0.669, 0.02),
+                     label("Matt Bean", 0.017, 0.92, 0.013, 0.3), label("Audio", 0.0, 0.982, 0.0103)]
+    check(VisualSpeakerOCR.roster(lines: filmstrip, selfName: "Noah Kagan", aspect: 16 / 9) == ["Matt Bean"],
+          "visual: filmstrip roster keeps only tiles aligned with the user's label")
+    check(VisualSpeakerOCR.roster(lines: [label("Noah Kagan", 0.55, 0.9), label("Priya Shah", 0.05, 0.902)],
+                                  selfName: "Noah Kagan", aspect: 16 / 9) == ["Priya Shah"],
+          "visual: two-tile gallery row roster")
+    check(VisualSpeakerOCR.roster(lines: filmstrip + [label("the reason", 0.5, 0.666)],
+                                  selfName: "Noah Kagan", aspect: 16 / 9) == ["Matt Bean"],
+          "visual: text level with the user's filmstrip tile ignored")
+    check(VisualSpeakerOCR.roster(lines: filmstrip, selfName: "Casa Rundell", aspect: 16 / 9) == nil,
+          "visual: no roster without the user's own label")
+    check(VisualSpeakerOCR.roster(lines: filmstrip + [label("Noah Kagan", 0.2, 0.3)],
+                                  selfName: "Noah Kagan", aspect: 16 / 9) == nil,
+          "visual: ambiguous self label gives no roster")
+    check(VisualSpeakerOCR.roster(lines: [label("noah kagan", 0.831, 0.669)],
+                                  selfName: "Noah Kagan", aspect: 16 / 9) == [],
+          "visual: alone on screen is an empty roster")
+    check(VisualSpeakerOCR.roster(lines: [label("noah kagan", 0.831, 0.669), label("% Matt Bean", 0.833, 0.525)],
+                                  selfName: "Noah Kagan", aspect: 16 / 9) == ["Matt Bean"],
+          "visual: muted-mic icon prefix stripped")
+    check(VisualSpeakerOCR.isSelf("noah kagan", "Noah Kagan") && VisualSpeakerOCR.isSelf("Noah", "Noah Kagan")
+          && VisualSpeakerOCR.isSelf("Noah K", "Noah Kagan") && VisualSpeakerOCR.isSelf("Noah Kagan", "noah") && VisualSpeakerOCR.isSelf("noah kagan", "Noah K")
+          && !VisualSpeakerOCR.isSelf("Noah Smith", "Noah Kagan") && !VisualSpeakerOCR.isSelf("Noam", "Noah Kagan"),
+          "visual: self-name matching tolerates case and short forms")
+
+    let one: Set<String> = ["Them 1"]
+    let seen = [VisualRosterObservation(names: ["Matt Bean"], time: 5),
+                VisualRosterObservation(names: ["matt bean"], time: 20)]
+    check(VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: one).map { "\($0.label)=\($0.name)" } == "Them 1=Matt Bean",
+          "visual: repeated one-on-one roster names the only remote voice")
+    check(VisualSpeakerEvidence.rosterMatch([seen[0]], remoteLabels: one) == nil,
+          "visual: one roster snapshot is not enough")
+    check(VisualSpeakerEvidence.rosterMatch([seen[0], .init(names: ["Matt Bean"], time: 9)], remoteLabels: one) == nil,
+          "visual: roster snapshots must be spread out")
+    check(VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: ["Them 1", "Them 2"]) == nil,
+          "visual: second remote voice vetoes roster")
+    check(VisualSpeakerEvidence.rosterMatch(seen + [.init(names: ["Matt Bean", "Priya"], time: 35)], remoteLabels: one) == nil,
+          "visual: second visible guest vetoes roster")
+    check(VisualSpeakerEvidence.rosterMatch(seen + [.init(names: ["Priya"], time: 35)], remoteLabels: one) == nil,
+          "visual: conflicting roster names veto")
+    check(VisualSpeakerEvidence.rosterMatch(seen + [.init(names: [], time: 35)], remoteLabels: one)?.name == "Matt Bean",
+          "visual: unreadable snapshots do not veto")
+    check(VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: ["Them"]) == nil
+          && VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: ["Matt Bean"]) == nil,
+          "visual: roster only names an unnamed diarized remote voice")
+
+    // Real Vision OCR over a synthetic Zoom screen-share window: a shared
+    // page with a dark bookmarks bar (same text size) must not count.
+    func shareFixture() -> CGImage {
+        let w = 1600, h = 900
+        let context = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                space: CGColorSpaceCreateDeviceRGB(),
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.translateBy(x: 0, y: CGFloat(h))
+        context.scaleBy(x: 1, y: -1)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: true)
+        func fill(_ r: CGRect, _ c: NSColor) { c.setFill(); NSBezierPath(rect: r).fill() }
+        func text(_ s: String, _ p: CGPoint, _ c: NSColor) {
+            (s as NSString).draw(at: p, withAttributes: [.font: NSFont.systemFont(ofSize: 13), .foregroundColor: c])
+        }
+        fill(CGRect(x: 0, y: 0, width: w, height: h), NSColor(white: 0.1, alpha: 1))
+        fill(CGRect(x: 20, y: 80, width: 1280, height: 760), .white)
+        fill(CGRect(x: 20, y: 80, width: 1280, height: 40), NSColor(white: 0.15, alpha: 1))
+        text("Jenkins", CGPoint(x: 60, y: 92), .white)
+        text("Garrett Moss", CGPoint(x: 200, y: 92), .white)
+        text("Sarah Lee", CGPoint(x: 60, y: 300), .black)
+        text("Garrett Moss", CGPoint(x: 600, y: 467), .black) // level with the user's label
+        for (i, name) in ["Matt Bean", "noah kagan"].enumerated() {
+            let tile = CGRect(x: 1330, y: 330 + i * 160, width: 250, height: 158)
+            NSColor(calibratedRed: 0.55, green: 0.5, blue: 0.45, alpha: 1).setFill()
+            NSBezierPath(roundedRect: tile, xRadius: 8, yRadius: 8).fill()
+            NSColor(white: 0.12, alpha: 0.85).setFill()
+            NSBezierPath(roundedRect: CGRect(x: tile.minX + 4, y: tile.maxY - 26, width: 90, height: 22),
+                         xRadius: 6, yRadius: 6).fill()
+            text(name, CGPoint(x: tile.minX + 10, y: tile.maxY - 23), .white)
+        }
+        NSGraphicsContext.restoreGraphicsState()
+        return context.makeImage()!
+    }
+    do {
+        let image = shareFixture()
+        let roster = try VisualSpeakerOCR.remoteRoster(in: image, selfName: "Noah Kagan")
+        check(roster == ["Matt Bean"], "visual: real Vision OCR reads screen-share filmstrip roster", "\(roster ?? [])")
+        check(try VisualSpeakerOCR.activeName(in: image) == nil, "visual: filmstrip without outline names no speaker")
+        check(try VisualSpeakerOCR.remoteRoster(in: image, selfName: "Casa Rundell") == nil,
+              "visual: filmstrip roster needs the user's name")
+    } catch { check(false, "visual: roster OCR fixture", String(describing: error)) }
+
     let capture = VisualSpeakerCapture()
     let window = SpeakerWindowChoice(id: 0, pid: 0, app: "Synthetic", title: "Synthetic")
     capture.start(window: window, sessionStart: Date()) { check(false, "visual: cancelled callback") }

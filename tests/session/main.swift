@@ -73,6 +73,39 @@ func runTests() async {
         vm.stopLive()
     }
 
+    // One-on-one roster evidence reaches the live suggestion card, and a
+    // second remote voice withdraws it.
+    do {
+        var shot = 0
+        let rosterCapture = VisualSpeakerCapture(snapshot: { _ in
+            shot += 1
+            let at = Date().addingTimeInterval(Double(shot) * 15)
+            return .init(name: nil, start: at, end: at, roster: ["Matt Bean"])
+        }, pause: { _ in })
+        let vm = LiveSessionViewModel(visualSpeakerCapture: rosterCapture)
+        vm.startLive(context: PreCallContext())
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (roster)"); return
+        }
+        capture.onUtterance?(Utterance(t: 6, speaker: "Them",
+            text: "Here is the ideal flow for self submissions.", endT: 9))
+        try? await Task.sleep(for: .milliseconds(50))
+        capture.onSpeakerSegments?(.system, [SpeakerSegment(speaker: "Them 1", start: 5.8, end: 9.2)])
+        vm.startVisualSpeakerAssistance(window: .init(id: 0, pid: 0, app: "Zoom", title: "Zoom Meeting"))
+        for _ in 0..<200 where rosterCapture.isRunning { await Task.yield() }
+        let suggestion = vm.speakerNameSuggestions.first { $0.kind == .visualName }
+        check(suggestion?.label == "Them 1" && suggestion?.name == "Matt Bean",
+              "visual: one-on-one roster suggests the remote voice's name",
+              "\(vm.speakerNameSuggestions.map(\.key))")
+        check(vm.utterances.map(\.speaker).contains("Them 1"), "visual: roster suggestion never renames on its own")
+        capture.onSpeakerSegments?(.system, [SpeakerSegment(speaker: "Them 1", start: 5.8, end: 9.2),
+                                             SpeakerSegment(speaker: "Them 2", start: 12, end: 14)])
+        check(!vm.speakerNameSuggestions.contains { $0.kind == .visualName },
+              "visual: second remote voice withdraws roster suggestion")
+        vm.stopLive()
+    }
+
     // Automatic titles may improve; explicit names (even legacy-looking ones)
     // and clears must survive later AI completions.
     do {

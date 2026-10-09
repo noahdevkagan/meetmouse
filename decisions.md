@@ -1912,3 +1912,19 @@ stand-down, visual assistance off) while retries continue with capped backoff;
 success flips it back. The far-side diarizer gets the dead stretch backfilled
 with silence so segment times stay aligned. Not reproduced on real hardware yet —
 scenario 5b in tests/calls-manual.md covers it.
+
+## 2026-10-09 — One-on-one roster evidence for speaker snapshots
+A real 1:1 Zoom call in screen-share layout showed two filmstrip tiles with name
+labels but no active-speaker outline, so the outline adapter read nothing. Add a
+second, weaker evidence type: who is present, not who is talking. Anchor on the
+user's own tile label (new "Your name on calls" setting; NSFullUserName is only a
+fallback — on the maintainer's Mac it is "Casa Rundell"). Keep only white-on-dark
+labels in the anchor's column (filmstrip) or, when the column is empty, its row
+(two-tile gallery), at a similar text size. The column preference and the colour
+test exist because the real screenshot's shared doc had a dark-mode bookmarks bar
+at label size and a doc row level with the user's tile. Suggest only when ≥2
+snapshots ≥10 s apart all show the same single other name AND diarization has
+exactly one remote voice (Them N); any second visible name or voice vetoes, and
+outline evidence outranks roster evidence. Still a one-tap suggestion, never an
+automatic rename. Speaker view (big remote tile + floating self) does not align
+and stays unsupported.
