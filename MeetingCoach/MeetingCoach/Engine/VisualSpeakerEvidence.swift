@@ -7,6 +7,12 @@ struct VisualSpeakerObservation: Sendable {
     let end: TimeInterval
 }
 
+/// Names on tiles aligned with the user's own: who is present, not who is talking.
+struct VisualRosterObservation: Sendable {
+    let names: [String]
+    let time: TimeInterval
+}
+
 /// Recompute against the latest diarization: finalized segments can be revised.
 /// Two independent snapshots must agree; any competing mapping vetoes the pair.
 enum VisualSpeakerEvidence {
@@ -35,5 +41,21 @@ enum VisualSpeakerEvidence {
                   let name = names[key] else { return nil }
             return (label, name)
         }
+    }
+
+    /// One-on-one fallback when no tile is highlighted: every readable roster
+    /// shows the same single other person, and diarization heard exactly one
+    /// remote voice. A second visible name or a second voice vetoes.
+    static func rosterMatch(_ rosters: [VisualRosterObservation],
+                            remoteLabels: Set<String>) -> (label: String, name: String)? {
+        guard remoteLabels.count == 1, let label = remoteLabels.first,
+              label.wholeMatch(of: #/^Them \d+$/#) != nil else { return nil }
+        let seen = rosters.filter { !$0.names.isEmpty }
+        guard seen.allSatisfy({ $0.names.count == 1 }),
+              let name = seen.first?.names.first,
+              Set(seen.map { VisualSpeakerOCR.fold($0.names[0]) }).count == 1,
+              let first = seen.map(\.time).min(), let last = seen.map(\.time).max(),
+              last - first >= 10 else { return nil }
+        return (label, name)
     }
 }

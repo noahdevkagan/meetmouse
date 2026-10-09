@@ -19,6 +19,7 @@ final class VisualSpeakerCapture {
     private(set) var count = 0
     private(set) var status = ""
     private(set) var observations: [VisualSpeakerObservation] = []
+    private(set) var rosters: [VisualRosterObservation] = []
     private var task: Task<Void, Never>?
     private var generation = UUID()
     static let limit = 6
@@ -28,6 +29,8 @@ final class VisualSpeakerCapture {
         let name: String?
         let start: Date
         let end: Date
+        /// Other tiles aligned with the user's own; nil when theirs wasn't found.
+        var roster: [String]? = nil
     }
     private enum CaptureError: Error { case windowUnavailable }
     private let findWindows: @MainActor () async throws -> [SpeakerWindowChoice]
@@ -116,6 +119,7 @@ final class VisualSpeakerCapture {
         generation = UUID()
         let run = generation
         observations = []
+        rosters = []
         isRunning = true
         status = "Speaker snapshots 0/\(Self.limit) · on-device"
         task = Task { [weak self] in
@@ -132,6 +136,10 @@ final class VisualSpeakerCapture {
                                                        end: snapshot.end.timeIntervalSince(sessionStart)))
                         onObservation()
                     }
+                    if let roster = snapshot.roster {
+                        self.rosters.append(.init(names: roster, time: snapshot.start.timeIntervalSince(sessionStart)))
+                        if !roster.isEmpty { onObservation() }
+                    }
                     self.status = "Speaker snapshots \(self.count)/\(Self.limit) · on-device"
                     if self.count < Self.limit { try await self.pause(.seconds(15)) }
                 } catch {
@@ -143,8 +151,8 @@ final class VisualSpeakerCapture {
                 }
             }
             guard let self, self.generation == run, !Task.isCancelled else { return }
-            self.finish(self.observations.isEmpty
-                ? "No speaker names read. Show participant names and Zoom’s active-speaker outline."
+            self.finish(self.observations.isEmpty && !self.rosters.contains(where: { !$0.names.isEmpty })
+                ? "No speaker names read. Show participant names, and Zoom’s active-speaker outline or your name in Settings."
                 : "Snapshots finished. Names were read; only reliable voice matches become suggestions.")
         }
     }
@@ -162,6 +170,7 @@ final class VisualSpeakerCapture {
         isRunning = false
         isDiscovering = false
         observations = []
+        rosters = []
         status = reset ? "" : "Screenshot assistance stopped"
         if reset { count = 0 }
     }
@@ -189,10 +198,12 @@ final class VisualSpeakerCapture {
         try Task.checkCancellation()
         // The image stays only in this scope + the local OCR task. No file,
         // pasteboard, telemetry, logs, or AI provider gets a copy.
-        let name = try await Task.detached(priority: .utility) {
-            try VisualSpeakerOCR.activeName(in: image)
+        let selfName = VisualSpeakerOCR.selfName()
+        let (name, roster) = try await Task.detached(priority: .utility) {
+            (try VisualSpeakerOCR.activeName(in: image),
+             try VisualSpeakerOCR.remoteRoster(in: image, selfName: selfName))
         }.value
-        return Snapshot(name: name, start: start, end: end)
+        return Snapshot(name: name, start: start, end: end, roster: roster)
     }
 }
 
@@ -238,6 +249,102 @@ enum VisualSpeakerOCR {
                 && $0.rect.height < tile.height * 0.15
         }.compactMap { cleanName($0.text) }
         return candidates.count == 1 ? candidates[0] : nil
+    }
+
+    static let selfNameDefaultsKey = "speakerSelfName"
+
+    /// The user's own tile label anchors roster reading. The macOS account
+    /// name is only a fallback: it is often a household or device name.
+    static func selfName() -> String {
+        let saved = UserDefaults.standard.string(forKey: selfNameDefaultsKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return saved.isEmpty ? NSFullUserName() : saved
+    }
+
+    /// One-on-one fallback for layouts without an active-speaker outline
+    /// (Zoom's screen-share filmstrip, a two-tile gallery). Says who is
+    /// present, not who is talking. nil when the user's own label is absent.
+    static func remoteRoster(in image: CGImage, selfName: String) throws -> [String]? {
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = false
+        request.automaticallyDetectsLanguage = true
+        try VNImageRequestHandler(cgImage: image).perform([request])
+        guard let luma = lumaPixels(image) else { return nil }
+        let w = image.width, h = image.height
+        let lines = (request.results ?? []).compactMap { observation -> Line? in
+            guard let candidate = observation.topCandidates(1).first else { return nil }
+            let box = observation.boundingBox
+            let line = Line(text: candidate.string, confidence: candidate.confidence,
+                            rect: CGRect(x: box.minX, y: 1 - box.maxY, width: box.width, height: box.height))
+            // Zoom labels are white text on a dark pill; shared documents are
+            // mostly dark-on-light. Measured on a real call: labels ~65% dark
+            // / ~17% bright inside the text box, doc text ~10% / ~76%.
+            let x0 = max(0, Int(line.rect.minX * Double(w))), x1 = min(w, Int(line.rect.maxX * Double(w)))
+            let y0 = max(0, Int(line.rect.minY * Double(h))), y1 = min(h, Int(line.rect.maxY * Double(h)))
+            guard x1 > x0, y1 > y0 else { return nil }
+            var dark = 0, bright = 0
+            for y in y0..<y1 { for x in x0..<x1 {
+                let l = luma[y * w + x]
+                if l < 110 { dark += 1 } else if l > 170 { bright += 1 }
+            } }
+            let area = Double((x1 - x0) * (y1 - y0))
+            return Double(dark) / area >= 0.45 && Double(bright) / area >= 0.1 ? line : nil
+        }
+        return roster(lines: lines, selfName: selfName, aspect: Double(w) / Double(h))
+    }
+
+    private static func lumaPixels(_ image: CGImage) -> [UInt8]? {
+        let w = image.width, h = image.height
+        var pixels = [UInt8](repeating: 0, count: w * h)
+        let drawn = pixels.withUnsafeMutableBytes { bytes -> Bool in
+            guard let context = CGContext(data: bytes.baseAddress, width: w, height: h,
+                                          bitsPerComponent: 8, bytesPerRow: w,
+                                          space: CGColorSpaceCreateDeviceGray(),
+                                          bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        return drawn ? pixels : nil
+    }
+
+    /// Anchor on the user's own label; keep only labels in its column
+    /// (filmstrip) or row (gallery) at a similar text size. Shared screens
+    /// and toolbars carry plenty of name-like text that never lines up.
+    static func roster(lines: [Line], selfName: String, aspect: Double) -> [String]? {
+        let labels = lines.filter { $0.confidence >= 0.8 }.compactMap { line in
+            labelName(line.text).map { (name: $0, rect: line.rect) }
+        }
+        let mine = labels.filter { isSelf($0.name, selfName) }
+        guard mine.count == 1, let anchor = mine.first?.rect else { return nil }
+        // Half a text height in each axis (rects are normalized per axis).
+        let dy = anchor.height * 0.5, dx = dy / aspect
+        let others = labels.filter {
+            !isSelf($0.name, selfName) && abs($0.rect.height - anchor.height) <= anchor.height * 0.3
+        }
+        // A filmstrip column wins; only without one can a gallery row count,
+        // so shared text level with the user's tile never joins a filmstrip.
+        let column = others.filter { abs($0.rect.minX - anchor.minX) <= dx }
+        let aligned = column.isEmpty ? others.filter { abs($0.rect.midY - anchor.midY) <= dy } : column
+        var seen = Set<String>()
+        return aligned.map(\.name).filter { seen.insert(fold($0)).inserted }
+    }
+
+    /// Zoom prefixes muted tiles with a mic icon that OCR reads as a symbol.
+    static func labelName(_ raw: String) -> String? {
+        let words = raw.split(separator: " ")
+        return cleanName(words.drop { !$0.contains(where: \.isLetter) }.joined(separator: " "))
+    }
+
+    /// "noah kagan", "Noah" and "Noah K" are all the user "Noah Kagan".
+    static func isSelf(_ label: String, _ selfName: String) -> Bool {
+        let a = fold(label).split(separator: " "), b = fold(selfName).split(separator: " ")
+        guard let first = a.first, first == b.first else { return false }
+        return zip(a, b).allSatisfy { $0.hasPrefix($1) || $1.hasPrefix($0) }
+    }
+
+    static func fold(_ name: String) -> String {
+        name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
     }
 
     static func cleanName(_ raw: String) -> String? {
