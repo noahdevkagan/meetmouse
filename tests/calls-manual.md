@@ -65,6 +65,23 @@ notification — only the zero-audio watchdog catches it:
       `Apple call grabbed the mic mid-session ... adopting call mode`
 - [ ] Hang up: capture recovers, transcription resumes
 
+### 5b. Far side lost mid-call: headset / output device change (2026-10-08 field report)
+A Teams call on a headset lost the other person for 30 minutes with the
+status still reading "Listening (you + them)". SCK delivers buffers
+continuously while alive, so the new watchdog treats a quiet stream as dead.
+- [ ] On a Zoom/Meet/Teams call with the other side talking, connect a
+      Bluetooth headset (or switch output in Sound settings) mid-session
+- [ ] Log: `Default output device changed → <name>`; "Them" text keeps
+      arriving after the switch with NO restart line (SCK survives the
+      switch). If a `no buffers for … rebuilding stream` line follows the
+      switch instead, the watchdog has caught a real stall — note the
+      headset model
+- [ ] Lock the screen for 15s, unlock: log shows `System audio stream
+      stopped` → `System audio restarted (stream stopped…)`; "Them" resumes
+- [ ] Revoke Screen Recording mid-call: within ~20s the status reads
+      "Can't hear the other side — reconnecting…"; re-grant and the log
+      shows `System audio back — dual pipelines active again`
+
 ### 6. Speaker names on a three-person Meet call (2026-09-17 regression)
 - [ ] Leave Anna in the last-used setup, then start via Go Live without
       submitting setup. On a call with two different remote guests, neither
