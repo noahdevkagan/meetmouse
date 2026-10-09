@@ -124,9 +124,12 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private var sysRecovering = false           // sysRestartQueue-confined
     /// True once recovery has told the session it is mic-only for now.
     private var sysDegraded = false             // sysRestartQueue-confined
-    private var lastSystemRestartAt = Date.distantPast // sysRestartQueue-confined
     private var silentSystemRestarts = 0        // sysRestartQueue-confined
     private var lastSystemBufferAt = Date()     // micStateLock-guarded
+    /// False from a rebuild until the new stream delivers a real buffer.
+    /// Only didOutputSampleBuffer sets it — the rebuild's own reset of
+    /// lastSystemBufferAt must not count as the stream coming back.
+    private var sysDeliveredSinceRestart = true // micStateLock-guarded
     private var outputDeviceListener: AudioObjectPropertyListenerBlock?
 
     // Mic device-change recovery. When the default input device changes
@@ -1174,17 +1177,18 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             guard let self, self.isRunning, !self.sysRecovering else { return }
             self.micStateLock.lock()
             let lastBuffer = self.lastSystemBufferAt
+            let delivered = self.sysDeliveredSinceRestart
             self.micStateLock.unlock()
             let quiet = Date().timeIntervalSince(lastBuffer)
             guard quiet > 5 else {
-                self.silentSystemRestarts = 0
+                if delivered { self.silentSystemRestarts = 0 }
                 return
             }
             // A rebuild that "succeeded" but never delivered counts as a
             // failure: without this a stream that starts dead (Screen
             // Recording revoked mid-call) would be rebuilt forever while
             // the session kept trusting the channel.
-            if lastBuffer < self.lastSystemRestartAt {
+            if !delivered {
                 self.silentSystemRestarts += 1
                 if self.silentSystemRestarts >= 3 { self.degradeSystemAudio() }
             }
@@ -1244,7 +1248,6 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             old.stopCapture { _ in }
             scStream = nil
         }
-        lastSystemRestartAt = Date()
         Task { [weak self] in
             guard let self else { return }
             let result: Result<SCStream, Error>
@@ -1269,6 +1272,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             micStateLock.lock()
             let gap = Date().timeIntervalSince(lastSystemBufferAt)
             lastSystemBufferAt = Date()
+            sysDeliveredSinceRestart = false
             micStateLock.unlock()
             scStream = stream
             // The far-side diarizer's clock is fed-audio-relative — backfill
@@ -1631,6 +1635,7 @@ extension AudioCaptureManager: SCStreamOutput {
         let loud = Self.rmsEnergy(pcmBuffer) > sysLoudFloor
         micStateLock.lock()
         lastSystemBufferAt = Date()
+        sysDeliveredSinceRestart = true
         if loud { lastLoudSystemAt = Date() }
         micStateLock.unlock()
         // Mirror the mono stream into the far-side diarizer (config pins
