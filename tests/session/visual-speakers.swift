@@ -2,8 +2,9 @@ import AppKit
 
 @MainActor
 func visualSpeakerChecks() async {
-    let zoom = SpeakerWindowChoice(id: 1, pid: 1, app: "zoom.us", title: "Zoom Meeting")
-    let idle = SpeakerWindowChoice(id: 2, pid: 1, app: "zoom.us", title: "Zoom Workplace")
+    // ScreenCaptureKit names Zoom "Zoom", not its process name "zoom.us".
+    let zoom = SpeakerWindowChoice(id: 1, pid: 1, app: "Zoom", title: "Zoom Meeting", bundleID: "us.zoom.xos")
+    let idle = SpeakerWindowChoice(id: 2, pid: 1, app: "Zoom", title: "Zoom Workplace", bundleID: "us.zoom.xos")
     let browser = SpeakerWindowChoice(id: 3, pid: 2, app: "Google Chrome", title: "Inbox — Gmail")
     let meet = SpeakerWindowChoice(id: 4, pid: 2, app: "Google Chrome", title: "Meet – Team sync")
     let fake = SpeakerWindowChoice(id: 5, pid: 3, app: "Notes", title: "Zoom Meeting")
@@ -17,7 +18,7 @@ func visualSpeakerChecks() async {
           "visual: unrelated window never selected as fallback")
     check(VisualSpeakerCapture.suggestedWindow(in: []) == nil,
           "visual: no visible windows means no automatic capture target")
-    check(VisualSpeakerCapture.suggestedWindow(in: [zoom, .init(id: 6, pid: 1, app: "zoom.us", title: "Zoom Meeting")]) == nil,
+    check(VisualSpeakerCapture.suggestedWindow(in: [zoom, .init(id: 6, pid: 1, app: "Zoom", title: "Zoom Meeting", bundleID: "us.zoom.xos")]) == nil,
           "visual: identical titles do not disambiguate separate windows")
 
     let observations = [VisualSpeakerObservation(name: "Sarah", start: 10, end: 10.1),
