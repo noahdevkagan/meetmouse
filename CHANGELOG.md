@@ -7,6 +7,11 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Shared meeting notes now live at meetmouse.com links. Links created earlier on rhinovoice.app keep working.
+- If the other side of a call goes silent because macOS stopped delivering system audio — a headset connecting mid-call, a display sleeping, or a locked screen — MeetMouse now rebuilds the capture automatically and keeps trying until it returns. Before, the rest of the call could be missing the other person with "Listening (you + them)" still showing.
+
 ## 0.31.0 — 2026-10-08
 
 - Optional automatic speaker snapshots: enable once to detect your meeting window and suggest speaker names each meeting. Images stay on-device and are discarded; names still need confirmation.

@@ -582,6 +582,11 @@ final class LiveSessionViewModel {
             self?.stopVisualSpeakerAssistance()
         }
 
+        manager.onSystemAudioRestored = { [weak self] in
+            guard let self, self.currentSessionID == sessionID else { return }
+            self.micOnly = false
+        }
+
         captureStartTask = Task { [weak self] in
             guard let self else { return }
             do {

@@ -51,7 +51,7 @@ test("recipient forwarding preserves the complete fragment-bearing link", () => 
 function viewerContext(navigator = {}) {
   const context = vm.createContext({
     navigator,
-    location: { href: "https://rhinovoice.app/p/abcdefghijklmnopqrstuv#secret-key" },
+    location: { href: "https://meetmouse.com/p/abcdefghijklmnopqrstuv#secret-key" },
     document: { querySelector: () => ({ addEventListener() {}, textContent: "Planning" }) },
   });
   vm.runInContext(viewerJS.replace("\nopenNote();", "\n"), context);

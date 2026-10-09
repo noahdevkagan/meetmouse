@@ -14,8 +14,11 @@ npm run db:local
 npm run dev
 ```
 
-Both Debug and Release use the existing HTTPS service at `rhinovoice.app`.
-The backend was deployed in the milan workspace; do not create another database.
+Both Debug and Release mint links on `https://meetmouse.com/p/<id>#<key>` and
+call the API at `https://meetmouse.com/api/shared-notes`. The same Worker also
+answers on `rhinovoice.app` (the original host) so links created before the
+host change, and their revocation tokens, keep working. The backend was
+deployed in the milan workspace; do not create another database.
 Local testing can explicitly select `http://127.0.0.1:8787`.
 Override either address for a process with `MC_SHARE_API_BASE_URL` and
 `MC_SHARE_VIEWER_BASE_URL`.
@@ -23,8 +26,10 @@ Override either address for a process with `MC_SHARE_API_BASE_URL` and
 ## Production
 
 The existing `meetingcoach-shares` Worker and D1 database are already configured
-in `wrangler.toml`. Preserve them and the existing rhinovoice.app routes so old
+in `wrangler.toml`. Preserve them and the legacy rhinovoice.app routes so old
 links and revocation capabilities continue to work. Do not provision replacements.
+The meetmouse.com routes require the `meetmouse.com` zone to be in the same
+Cloudflare account and the deploy token to carry Workers Routes on that zone.
 
 To publish the MeetMouse recipient branding/CTA using your Cloudflare login:
 
