@@ -30,6 +30,17 @@ stopped by hand ~30 s before the next Zoom join — inside the 60 s debounce,
 which is likely what the user saw as "not working". Back-to-back joins faster
 than 15 s still cannot auto-stop by design. Not yet: push gate, commit/PR,
 installed-app replacement.
+## Current state (2026-10-08): meetmouse.com share links + system-audio recovery
+
+From James Dellar's 2026-10-08 email: (1) share links minted on rhinovoice.app —
+now default to meetmouse.com (app, Worker routes, tests, README); legacy routes
+kept. Needs the release's Worker deploy to go live; CI token must have Workers
+Routes on the meetmouse.com zone (both zones are in the same account — verified).
+(2) Teams+headset call lost the other side for 30 min — root cause is the SCK
+stream dying/stalling with no recovery. Added watchdog + rebuild-on-stop in
+AudioCaptureManager, plus an output-device-change log line (see decisions.md).
+Build passed, Worker + sharing suites passed. NOT yet verified on a real call:
+run tests/calls-manual.md scenario 5b before releasing. Reply to James pending.
 
 ## Current state (2026-10-07): Automatic speaker snapshots — built and enabled
 
