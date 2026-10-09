@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Speaker snapshots now find your Zoom meeting window on their own. Before, Zoom calls always asked you to pick the window, and automatic snapshots never started.
+
 ## 0.31.0 — 2026-10-08
 
 - Optional automatic speaker snapshots: enable once to detect your meeting window and suggest speaker names each meeting. Images stay on-device and are discarded; names still need confirmation.

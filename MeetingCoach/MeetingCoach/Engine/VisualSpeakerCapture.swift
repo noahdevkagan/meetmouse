@@ -8,6 +8,7 @@ struct SpeakerWindowChoice: Identifiable, Sendable, Hashable {
     let pid: pid_t
     let app: String
     let title: String
+    var bundleID = ""
 }
 
 /// Deliberately separate from AIClient: screenshots and OCR never enter prompts.
@@ -49,7 +50,8 @@ final class VisualSpeakerCapture {
                   app.processID != ProcessInfo.processInfo.processIdentifier,
                   let title = window.title, !title.isEmpty else { return nil }
             return SpeakerWindowChoice(id: window.windowID, pid: app.processID,
-                                       app: app.applicationName, title: title)
+                                       app: app.applicationName, title: title,
+                                       bundleID: app.bundleIdentifier)
         }.sorted { ($0.app, $0.title) < ($1.app, $1.title) }
     }
 
@@ -57,7 +59,7 @@ final class VisualSpeakerCapture {
     /// enumeration order or the frontmost browser is not evidence of a call.
     static func suggestedWindow(in windows: [SpeakerWindowChoice]) -> SpeakerWindowChoice? {
         let candidates = windows.filter { window in
-            let info = WindowInfo(ownerName: window.app, title: window.title)
+            let info = WindowInfo(ownerName: heuristicOwnerName(window), title: window.title)
             return MeetingWindowHeuristics.isZoomMeetingWindow(info)
                 || MeetingWindowHeuristics.isSlackHuddleWindow(info)
                 || MeetingWindowHeuristics.isMeetTabWindow(info)
@@ -65,6 +67,12 @@ final class VisualSpeakerCapture {
                 || MeetingWindowHeuristics.isFaceTimeCallWindow(info)
         }
         return candidates.count == 1 ? candidates.first : nil
+    }
+
+    /// ScreenCaptureKit reports Zoom's display name ("Zoom"), but the
+    /// heuristics match CGWindowList owner names ("zoom.us").
+    private static func heuristicOwnerName(_ window: SpeakerWindowChoice) -> String {
+        window.bundleID == "us.zoom.xos" ? "zoom.us" : window.app
     }
 
     /// Remembered opt-in authorizes discovery; ambiguity never starts capture.
