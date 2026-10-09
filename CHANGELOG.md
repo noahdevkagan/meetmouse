@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Fixed meetings not stopping automatically after a Zoom call. Zoom 7 (Zoom Workplace) renamed its windows' owner, so MeetMouse never saw the meeting window and could not tell the call had ended; the meeting window is now recognized by the app's identity instead of its display name. Automatic speaker snapshots find the Zoom 7 window again for the same reason.
+
 ## 0.31.0 — 2026-10-08
 
 - Optional automatic speaker snapshots: enable once to detect your meeting window and suggest speaker names each meeting. Images stay on-device and are discarded; names still need confirmation.

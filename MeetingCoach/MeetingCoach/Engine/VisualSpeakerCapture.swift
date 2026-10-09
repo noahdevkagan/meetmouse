@@ -8,6 +8,9 @@ struct SpeakerWindowChoice: Identifiable, Sendable, Hashable {
     let pid: pid_t
     let app: String
     let title: String
+    /// Owning app's bundle id (nil when unknown) — the window heuristics
+    /// match on it ahead of the drifting display name.
+    var bundleID: String? = nil
 }
 
 /// Deliberately separate from AIClient: screenshots and OCR never enter prompts.
@@ -49,7 +52,8 @@ final class VisualSpeakerCapture {
                   app.processID != ProcessInfo.processInfo.processIdentifier,
                   let title = window.title, !title.isEmpty else { return nil }
             return SpeakerWindowChoice(id: window.windowID, pid: app.processID,
-                                       app: app.applicationName, title: title)
+                                       app: app.applicationName, title: title,
+                                       bundleID: app.bundleIdentifier)
         }.sorted { ($0.app, $0.title) < ($1.app, $1.title) }
     }
 
@@ -57,7 +61,8 @@ final class VisualSpeakerCapture {
     /// enumeration order or the frontmost browser is not evidence of a call.
     static func suggestedWindow(in windows: [SpeakerWindowChoice]) -> SpeakerWindowChoice? {
         let candidates = windows.filter { window in
-            let info = WindowInfo(ownerName: window.app, title: window.title)
+            let info = WindowInfo(ownerName: window.app, title: window.title,
+                                  ownerBundleID: window.bundleID)
             return MeetingWindowHeuristics.isZoomMeetingWindow(info)
                 || MeetingWindowHeuristics.isSlackHuddleWindow(info)
                 || MeetingWindowHeuristics.isMeetTabWindow(info)

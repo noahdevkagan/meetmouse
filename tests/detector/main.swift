@@ -237,6 +237,31 @@ let docWin = WindowInfo(ownerName: "Google Chrome", title: "Q3 plan - Google Doc
 check(MeetingWindowHeuristics.evaluate(windows: [docWin, zoomWin], zoomRunning: true,
                                        slackRunning: false, micHolderIsBrowser: false) == true,
       "zoom meeting window matches")
+
+// Zoom Workplace 7.x reports its window owner as "Zoom" (was "zoom.us");
+// the bundle id is the stable key. Seen live 2026-10-09: every Zoom call
+// logged end-watch windowSeen=false, so the post-call end never fired.
+let zoom7Win = WindowInfo(ownerName: "Zoom", title: "Zoom Meeting", ownerBundleID: "us.zoom.xos")
+let zoom7NamedOnly = WindowInfo(ownerName: "Zoom", title: "Zoom Meeting")
+let zoomHome7 = WindowInfo(ownerName: "Zoom", title: "Zoom Workplace", ownerBundleID: "us.zoom.xos")
+let impostor = WindowInfo(ownerName: "Zoom", title: "Zoom Meeting", ownerBundleID: "com.apple.Notes")
+check(MeetingWindowHeuristics.evaluate(windows: [zoom7Win], zoomRunning: true,
+                                       slackRunning: false, micHolderIsBrowser: false) == true,
+      "zoom 7 meeting window matches by bundle id")
+check(MeetingWindowHeuristics.evaluate(windows: [zoom7NamedOnly], zoomRunning: true,
+                                       slackRunning: false, micHolderIsBrowser: false) == true,
+      "zoom 7 owner name matches when no bundle id is known")
+check(MeetingWindowHeuristics.evaluate(windows: [zoomHome7, docWin], zoomRunning: true,
+                                       slackRunning: false, micHolderIsBrowser: false) == false,
+      "zoom 7 home window after the call is decisive absence")
+check(MeetingWindowHeuristics.evaluate(windows: [impostor], zoomRunning: true,
+                                       slackRunning: false, micHolderIsBrowser: false) == false,
+      "a non-Zoom bundle id never matches on name alone")
+check(MeetingWindowHeuristics.isSlackHuddleWindow(WindowInfo(ownerName: "Slack Beta", title: "Huddle: design",
+                                                             ownerBundleID: "com.tinyspeck.slackmacgap"))
+      && MeetingWindowHeuristics.isFaceTimeCallWindow(WindowInfo(ownerName: "FaceTime", title: "Lee",
+                                                                 ownerBundleID: "com.apple.FaceTime")),
+      "slack and facetime also match by bundle id")
 check(MeetingWindowHeuristics.evaluate(windows: [docWin], zoomRunning: true,
                                        slackRunning: false, micHolderIsBrowser: false) == false,
       "zoom running without meeting window is decisive absence")

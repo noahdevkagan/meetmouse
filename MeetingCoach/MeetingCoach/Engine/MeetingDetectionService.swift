@@ -443,11 +443,23 @@ final class MeetingDetectionService {
         guard let list = CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements],
                                                     kCGNullWindowID) as? [[String: Any]]
         else { return [] }
+        // Owner PID → bundle id, resolved once per PID per snapshot. Names
+        // drift (Zoom 7 reports "Zoom", not "zoom.us"); bundle ids don't.
+        var bundleByPID: [pid_t: String?] = [:]
         return list.compactMap { info in
             guard let owner = info[kCGWindowOwnerName as String] as? String,
                   let title = info[kCGWindowName as String] as? String, !title.isEmpty
             else { return nil }
-            return WindowInfo(ownerName: owner, title: title)
+            var bundleID: String?
+            if let pid = info[kCGWindowOwnerPID as String] as? pid_t {
+                if let cached = bundleByPID[pid] {
+                    bundleID = cached
+                } else {
+                    bundleID = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier
+                    bundleByPID[pid] = bundleID
+                }
+            }
+            return WindowInfo(ownerName: owner, title: title, ownerBundleID: bundleID)
         }
     }
 
