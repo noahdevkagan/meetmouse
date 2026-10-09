@@ -58,6 +58,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// is mic-only from that point (the arbiter's mic-only protections
     /// must kick in, and echo suppression stands down).
     var onSystemAudioLost: (@Sendable @MainActor () -> Void)?
+    /// Fired when a lost system-audio stream comes back (see the recovery
+    /// notes by `sysRestartQueue`) — the session is dual-channel again.
+    var onSystemAudioRestored: (@Sendable @MainActor () -> Void)?
     /// Fired when MeetMouse can't hear the user's mic (or hears it again —
     /// nil). See MicSilenceMonitor.
     var onMicWarning: (@Sendable @MainActor (MicWarning?) -> Void)?
@@ -104,6 +107,30 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     private var scStream: SCStream?
     private let sysAudioQueue = DispatchQueue(label: "com.coach.systemAudio")
     private var hasSystemAudio = false
+
+    // System-audio recovery. ScreenCaptureKit delivers ~50 audio buffers a
+    // second for as long as it runs, silence included (measured 2026-10-08:
+    // 53/s with nothing playing), so a quiet output means the stream is dead
+    // — not that the far side went quiet. The stream can stop outright
+    // (didStopWithError: display sleep/lock, display config change) or
+    // stall without erroring. Field report 2026-10-08: a Teams call on a
+    // headset lost the far side for 30 minutes — the session kept saying
+    // "Listening (you + them)" with no recovery and no warning. Mirrors the
+    // mic path: a buffer watchdog plus a rebuild on stop. (An output-device
+    // switch alone does NOT stall SCK — measured 2026-10-08, audio kept
+    // flowing across speakers ↔ virtual device — so it is only logged.)
+    private let sysRestartQueue = DispatchQueue(label: "com.coach.sysRestart")
+    private var sysWatchdog: DispatchSourceTimer?
+    private var sysRecovering = false           // sysRestartQueue-confined
+    /// True once recovery has told the session it is mic-only for now.
+    private var sysDegraded = false             // sysRestartQueue-confined
+    private var silentSystemRestarts = 0        // sysRestartQueue-confined
+    private var lastSystemBufferAt = Date()     // micStateLock-guarded
+    /// False from a rebuild until the new stream delivers a real buffer.
+    /// Only didOutputSampleBuffer sets it — the rebuild's own reset of
+    /// lastSystemBufferAt must not count as the stream coming back.
+    private var sysDeliveredSinceRestart = true // micStateLock-guarded
+    private var outputDeviceListener: AudioObjectPropertyListenerBlock?
 
     // Mic device-change recovery. When the default input device changes
     // mid-session — a Continuity phone call handed to this Mac, AirPods
@@ -357,10 +384,17 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         diarizer?.stop()
         sysDiarizer?.stop()
 
-        // Stop system audio
-        if let stream = scStream {
-            stream.stopCapture { _ in }
-            scStream = nil
+        // Stop system audio — on its restart queue, so an in-flight rebuild
+        // can't bring a stream back after teardown.
+        sysWatchdog?.cancel()
+        sysWatchdog = nil
+        stopObservingOutputDeviceChanges()
+        sysRestartQueue.sync {
+            sysRecovering = false
+            if let stream = scStream {
+                stream.stopCapture { _ in }
+                scStream = nil
+            }
         }
 
         // Stop recognition (flushes any pending tail first)
@@ -1078,6 +1112,28 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     // MARK: - System audio (ScreenCaptureKit)
 
     private func startSystemAudio() async throws {
+        // System audio is digitally silent between phrases (Zoom/Meet noise-
+        // gate the remote stream) and remote voices trail off well below the
+        // mic's room-noise floor. With mic-tuned thresholds this channel
+        // fragmented into 2-3 word chunks (median 3 words over a real 82-min
+        // call) that transcribe with no context and clip boundary words —
+        // hence the lower floor and the longer silence gap here.
+        let pipe = try makePipeline(speaker: "Them", voiceFloor: 0.002, commitSilence: 2.0)
+        let stream = try await makeSystemStream()
+
+        sysPipeline = pipe
+        pipe.start()
+        scStream = stream
+        micStateLock.withLock { lastSystemBufferAt = Date() }
+        startSystemAudioWatchdog()
+        observeOutputDeviceChanges()
+        mclog("[Capture] System audio started via ScreenCaptureKit (output: \(Self.defaultOutputDeviceName() ?? "unknown"))")
+    }
+
+    /// Builds and starts a fresh ScreenCaptureKit audio stream. Shared by the
+    /// initial start and every recovery rebuild; the pipeline and diarizer
+    /// stay put across rebuilds so no transcript state is lost.
+    private func makeSystemStream() async throws -> SCStream {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
 
         guard let display = content.displays.first else {
@@ -1104,22 +1160,162 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         config.height = 2
         config.minimumFrameInterval = CMTime(value: 1, timescale: 1)
 
-        // System audio is digitally silent between phrases (Zoom/Meet noise-
-        // gate the remote stream) and remote voices trail off well below the
-        // mic's room-noise floor. With mic-tuned thresholds this channel
-        // fragmented into 2-3 word chunks (median 3 words over a real 82-min
-        // call) that transcribe with no context and clip boundary words —
-        // hence the lower floor and the longer silence gap here.
-        let pipe = try makePipeline(speaker: "Them", voiceFloor: 0.002, commitSilence: 2.0)
-
         let stream = SCStream(filter: filter, configuration: config, delegate: self)
         try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: sysAudioQueue)
         try await stream.startCapture()
+        return stream
+    }
 
-        sysPipeline = pipe
-        pipe.start()
-        scStream = stream
-        mclog("[Capture] System audio started via ScreenCaptureKit")
+    // MARK: - System audio recovery
+
+    /// Backstop for a stream that neither errors nor delivers: a running
+    /// SCK stream emits buffers continuously, so a quiet output is dead.
+    private func startSystemAudioWatchdog() {
+        let timer = DispatchSource.makeTimerSource(queue: sysRestartQueue)
+        timer.schedule(deadline: .now() + 5, repeating: 3)
+        timer.setEventHandler { [weak self] in
+            guard let self, self.isRunning, !self.sysRecovering else { return }
+            self.micStateLock.lock()
+            let lastBuffer = self.lastSystemBufferAt
+            let delivered = self.sysDeliveredSinceRestart
+            self.micStateLock.unlock()
+            let quiet = Date().timeIntervalSince(lastBuffer)
+            guard quiet > 5 else {
+                if delivered { self.silentSystemRestarts = 0 }
+                return
+            }
+            // A rebuild that "succeeded" but never delivered counts as a
+            // failure: without this a stream that starts dead (Screen
+            // Recording revoked mid-call) would be rebuilt forever while
+            // the session kept trusting the channel.
+            if !delivered {
+                self.silentSystemRestarts += 1
+                if self.silentSystemRestarts >= 3 { self.degradeSystemAudio() }
+            }
+            mclog("[Capture] System audio: no buffers for \(String(format: "%.1f", quiet))s — rebuilding stream")
+            self.sysRecovering = true
+            self.attemptSystemAudioRestart(reason: "stream went silent", attempt: 0)
+        }
+        timer.resume()
+        sysWatchdog = timer
+    }
+
+    /// Diagnostic only: a headset connecting or flipping profiles changes
+    /// the default output device. Logging it next to the watchdog lines
+    /// answers "did the far side die when the headset came on?" from a
+    /// field log. SCK itself keeps capturing across the switch (measured),
+    /// so no rebuild is triggered here.
+    private func observeOutputDeviceChanges() {
+        var address = Self.defaultOutputAddress
+        let block: AudioObjectPropertyListenerBlock = { _, _ in
+            mclog("[Capture] Default output device changed → \(Self.defaultOutputDeviceName() ?? "unknown")")
+        }
+        AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject), &address, sysRestartQueue, block)
+        outputDeviceListener = block
+    }
+
+    private func stopObservingOutputDeviceChanges() {
+        guard let block = outputDeviceListener else { return }
+        var address = Self.defaultOutputAddress
+        AudioObjectRemovePropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject), &address, sysRestartQueue, block)
+        outputDeviceListener = nil
+    }
+
+    private static var defaultOutputAddress: AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+    }
+
+    private static func defaultOutputDeviceName() -> String? {
+        var address = defaultOutputAddress
+        var device = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let err = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device)
+        guard err == noErr, device != 0 else { return nil }
+        return deviceName(device)
+    }
+
+    /// sysRestartQueue only. Tears down the dead stream and brings a fresh
+    /// one up. The "Them" pipeline and diarizer are untouched.
+    private func attemptSystemAudioRestart(reason: String, attempt: Int) {
+        guard isRunning else { sysRecovering = false; return }
+        if let old = scStream {
+            old.stopCapture { _ in }
+            scStream = nil
+        }
+        Task { [weak self] in
+            guard let self else { return }
+            let result: Result<SCStream, Error>
+            do { result = .success(try await self.makeSystemStream()) }
+            catch { result = .failure(error) }
+            self.sysRestartQueue.async {
+                self.finishSystemAudioRestart(result, reason: reason, attempt: attempt)
+            }
+        }
+    }
+
+    /// sysRestartQueue only.
+    private func finishSystemAudioRestart(_ result: Result<SCStream, Error>,
+                                          reason: String, attempt: Int) {
+        guard isRunning else {
+            if case .success(let stream) = result { stream.stopCapture { _ in } }
+            sysRecovering = false
+            return
+        }
+        switch result {
+        case .success(let stream):
+            micStateLock.lock()
+            let gap = Date().timeIntervalSince(lastSystemBufferAt)
+            lastSystemBufferAt = Date()
+            sysDeliveredSinceRestart = false
+            micStateLock.unlock()
+            scStream = stream
+            // The far-side diarizer's clock is fed-audio-relative — backfill
+            // the dead stretch with silence so later segments stay aligned.
+            if let dia = sysDiarizer, gap > 0.5 {
+                dia.enqueue([Float](repeating: 0, count: Int(gap * 16_000)), sampleRate: 16_000)
+            }
+            sysRecovering = false
+            mclog("[Capture] System audio restarted (\(reason)) after \(attempt + 1) attempt(s), \(String(format: "%.1f", gap))s gap")
+            if sysDegraded {
+                sysDegraded = false
+                hasSystemAudio = true
+                mclog("[Capture] System audio back — dual pipelines active again")
+                Task { @MainActor [onSystemAudioRestored] in
+                    onSystemAudioRestored?()
+                }
+            }
+            emitStatus(listeningStatus)
+        case .failure(let error):
+            mclog("[Capture] System audio restart attempt \(attempt + 1) failed (\(reason)): \(error.localizedDescription)")
+            if attempt == 2 { degradeSystemAudio() }
+            // Keep trying with capped backoff: a stream that died with the
+            // display or the output device comes back when they do.
+            let delay = min(5.0, Double(attempt) + 1)
+            sysRestartQueue.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.attemptSystemAudioRestart(reason: reason, attempt: attempt + 1)
+            }
+        }
+    }
+
+    /// sysRestartQueue only. Recovery hasn't produced audio for a while:
+    /// tell the session it is mic-only for now so the arbiter regains its
+    /// mic-only end veto and the echo filter stops judging mic speech
+    /// against a dead channel. Rebuilds continue in the background.
+    private func degradeSystemAudio() {
+        guard !sysDegraded else { return }
+        sysDegraded = true
+        hasSystemAudio = false
+        mclog("[Capture] System audio not recovering — treating the session as mic-only until it returns")
+        emitStatus("Can't hear the other side — reconnecting…")
+        Task { @MainActor [onSystemAudioLost] in
+            onSystemAudioLost?()
+        }
     }
 
     // MARK: - Helpers
@@ -1436,11 +1632,12 @@ extension AudioCaptureManager: SCStreamOutput {
         )
 
         guard status == noErr else { return }
-        if Self.rmsEnergy(pcmBuffer) > sysLoudFloor {
-            micStateLock.lock()
-            lastLoudSystemAt = Date()
-            micStateLock.unlock()
-        }
+        let loud = Self.rmsEnergy(pcmBuffer) > sysLoudFloor
+        micStateLock.lock()
+        lastSystemBufferAt = Date()
+        sysDeliveredSinceRestart = true
+        if loud { lastLoudSystemAt = Date() }
+        micStateLock.unlock()
         // Mirror the mono stream into the far-side diarizer (config pins
         // this stream to 1 channel). Fed unconditionally: its timestamps
         // are relative to fed audio, so gaps would skew every segment.
@@ -1456,14 +1653,15 @@ extension AudioCaptureManager: SCStreamOutput {
 extension AudioCaptureManager: SCStreamDelegate {
     func stream(_ stream: SCStream, didStopWithError error: any Error) {
         mclog("[Capture] System audio stream stopped: \(error.localizedDescription)")
-        // The session is genuinely mic-only from here: without this,
-        // isMicOnly stayed false, so the arbiter kept the dual-mode 45s
-        // end cap (losing mic-only's unlimited veto) and the echo filter
-        // kept second-guessing mic utterances against a dead channel.
-        hasSystemAudio = false
-        emitStatus("System audio lost — mic only")
-        Task { @MainActor [onSystemAudioLost] in
-            onSystemAudioLost?()
+        // Rebuild rather than give up: display sleep, a lock screen, or a
+        // display config change stops the stream, and the call is usually
+        // still going. If rebuilding keeps failing, degradeSystemAudio()
+        // flips the session to mic-only (the arbiter regains its unlimited
+        // end veto, the echo filter stands down) while retries continue.
+        sysRestartQueue.async { [self] in
+            guard isRunning, stream === scStream, !sysRecovering else { return }
+            sysRecovering = true
+            attemptSystemAudioRestart(reason: "stream stopped: \(error.localizedDescription)", attempt: 0)
         }
     }
 }
