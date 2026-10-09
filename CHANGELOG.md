@@ -9,6 +9,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Fixed meetings not stopping automatically after a Zoom call. Zoom 7 (Zoom Workplace) renamed its windows' owner, so MeetMouse never saw the meeting window and could not tell the call had ended; the meeting window is now recognized by the app's identity instead of its display name. Automatic speaker snapshots find the Zoom 7 window again for the same reason.
 - Shared meeting notes now live at meetmouse.com links. Links created earlier on rhinovoice.app keep working.
 - If the other side of a call goes silent because macOS stopped delivering system audio — a headset connecting mid-call, a display sleeping, or a locked screen — MeetMouse now rebuilds the capture automatically and keeps trying until it returns. Before, the rest of the call could be missing the other person with "Listening (you + them)" still showing.
 

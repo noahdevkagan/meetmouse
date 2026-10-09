@@ -5,6 +5,31 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-10-09): Zoom auto-stop fix — built, tests pass, awaiting live confirmation
+
+User report: meetings no longer stop automatically. Every Zoom session in
+/tmp/mc_debug.log since 2026-10-07 shows `end-watch … windowSeen=false`;
+a live CGWindowList dump during the user's 11:01 CT Zoom call showed the
+meeting window as owner "Zoom" (Zoom Workplace 7.1.9), while
+`MeetingWindowHeuristics.isZoomMeetingWindow` matched only "zoom.us". With no
+seen window the detector can end only on a mic release. Fix: `WindowInfo`
+gains `ownerBundleID` (CGWindowList owner PID → NSRunningApplication; SCK
+owning app for speaker snapshots); Zoom/Slack/FaceTime match by bundle id
+first, name second. Also `Mclog` now opens with O_APPEND — concurrent
+writers (installed app + tests) had clobbered the log and left 5 MB of NUL.
+
+Detector suite 45/45, session suite 294/294, Debug build OK. Logs in
+`.context/autostop-*.log`. Live watcher `.context/autostop-watch.log` (mic
+holders / Zoom windows every 20 s) confirmed at the end of the user's 11:01 CT
+call: Zoom 7 released the mic and the "Zoom Meeting" window vanished together
+(16:30:33Z); the installed 0.31.0 then auto-stopped at 16:31:32Z via the 60 s
+mic-only path. So the mechanism works when Zoom releases the mic; the fix
+turns the blind 60 s path into the 15 s both-signals path and also covers a
+Zoom that keeps the mic warm. The earlier call that morning (15:33–16:00Z) was
+stopped by hand ~30 s before the next Zoom join — inside the 60 s debounce,
+which is likely what the user saw as "not working". Back-to-back joins faster
+than 15 s still cannot auto-stop by design. Not yet: push gate, commit/PR,
+installed-app replacement.
 ## Current state (2026-10-08): meetmouse.com share links + system-audio recovery
 
 From James Dellar's 2026-10-08 email: (1) share links minted on rhinovoice.app —
