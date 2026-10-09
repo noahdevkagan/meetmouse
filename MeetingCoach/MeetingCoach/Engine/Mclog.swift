@@ -25,13 +25,17 @@ func mclog(_ msg: String) {
         // long-running app writing to the unlinked inode forever — a whole
         // afternoon of a live-session bug report logged into the void
         // (2026-08-05).
+        //
+        // O_APPEND, not seek-to-end-once: several processes share this file
+        // (the installed app, a dev build, every tests/* binary). A plain
+        // write handle keeps its own offset, so concurrent writers overwrote
+        // each other's lines and a truncation left the app writing megabytes
+        // past the new end (5 MB of NUL padding, 2026-10-09). With O_APPEND
+        // the kernel places every write at the current end atomically.
         if mclogHandle == nil || !FileManager.default.fileExists(atPath: mclogPath) {
             mclogHandle?.closeFile()
-            if !FileManager.default.fileExists(atPath: mclogPath) {
-                FileManager.default.createFile(atPath: mclogPath, contents: nil)
-            }
-            mclogHandle = FileHandle(forWritingAtPath: mclogPath)
-            mclogHandle?.seekToEndOfFile()
+            let fd = open(mclogPath, O_WRONLY | O_APPEND | O_CREAT, 0o644)
+            mclogHandle = fd >= 0 ? FileHandle(fileDescriptor: fd, closeOnDealloc: true) : nil
         }
         let line = "[\(mclogFormatter.string(from: now))] \(msg)\n"
         if let data = line.data(using: .utf8) {

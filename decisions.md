@@ -1912,3 +1912,26 @@ stand-down, visual assistance off) while retries continue with capped backoff;
 success flips it back. The far-side diarizer gets the dead stretch backfilled
 with silence so segment times stay aligned. Not reproduced on real hardware yet —
 scenario 5b in tests/calls-manual.md covers it.
+## 2026-10-09 — Meeting windows match by bundle id, owner name is a fallback
+Auto-stop had silently stopped working for Zoom: every Zoom session since at
+least 2026-10-07 logged `end-watch … windowSeen=false`, because Zoom
+Workplace 7.x reports its CGWindowList owner as "Zoom" while the heuristic
+matched the literal "zoom.us". Without a seen window the detector can only
+end on a mic release, and a Zoom that keeps the input warm after the call
+never releases it. `WindowInfo` now carries the owner's bundle id (resolved
+from the window's owner PID; SCK's owning app for speaker snapshots), and
+Zoom/Slack/FaceTime match on `us.zoom.xos` / `com.tinyspeck.slackmacgap` /
+`com.apple.FaceTime` first, name second — a resolved id for another app never
+falls through to the name check, so a Notes window titled "Zoom Meeting"
+stays non-meeting. Browser windows keep name matching (Chrome's owner name
+has been stable; the title is what identifies a Meet tab).
+
+## 2026-10-09 — /tmp/mc_debug.log opens with O_APPEND
+The log was opened as a plain write handle and seeked to the end once, so
+each process kept a private offset: the installed app, a dev build and every
+tests/* binary overwrote each other's lines, and a truncation left the app
+writing 5 MB past the new end (NUL padding). The log that should have shown
+the auto-stop failure was mostly test output. O_APPEND makes every write land
+at the current end atomically across processes; the reopen-when-deleted
+behavior is unchanged.
+

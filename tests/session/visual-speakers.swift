@@ -19,6 +19,11 @@ func visualSpeakerChecks() async {
           "visual: no visible windows means no automatic capture target")
     check(VisualSpeakerCapture.suggestedWindow(in: [zoom, .init(id: 6, pid: 1, app: "zoom.us", title: "Zoom Meeting")]) == nil,
           "visual: identical titles do not disambiguate separate windows")
+    // Zoom Workplace 7.x: SCK names the app "Zoom"; the bundle id still says Zoom.
+    let zoom7 = SpeakerWindowChoice(id: 7, pid: 4, app: "Zoom", title: "Zoom Meeting", bundleID: "us.zoom.xos")
+    let zoom7Home = SpeakerWindowChoice(id: 8, pid: 4, app: "Zoom", title: "Zoom Workplace", bundleID: "us.zoom.xos")
+    check(VisualSpeakerCapture.suggestedWindow(in: [zoom7Home, browser, zoom7]) == zoom7,
+          "visual: auto-select Zoom 7 meeting window by bundle id")
 
     let observations = [VisualSpeakerObservation(name: "Sarah", start: 10, end: 10.1),
                         VisualSpeakerObservation(name: "Sarah", start: 25, end: 25.1)]
