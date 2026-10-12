@@ -6,6 +6,13 @@ import Foundation
 struct WindowInfo: Sendable {
     var ownerName: String
     var title: String
+    /// Bundle id of the owning process when the sampler could resolve it
+    /// (CGWindowList owner PID → NSRunningApplication; SCK owning app).
+    /// Owner NAMES drift across app versions — Zoom 7 renamed its process
+    /// from "zoom.us" to "Zoom", which silently blinded the end-watch for
+    /// every Zoom call (2026-10-09) — so matching prefers the bundle id
+    /// and keeps the name as a fallback for samplers that lack it.
+    var ownerBundleID: String? = nil
 }
 
 /// Pure title/owner matching that turns a window-list snapshot into the
@@ -49,20 +56,46 @@ enum MeetingWindowHeuristics {
         return nil
     }
 
+    /// Owner names Zoom has shipped under: "zoom.us" (≤ 6.x) and "Zoom"
+    /// (Zoom Workplace 7.x). Bundle id "us.zoom.xos" has stayed constant.
+    static let zoomOwnerNames: Set<String> = ["zoom.us", "Zoom", "Zoom Workplace"]
+
+    static func isZoomOwned(_ w: WindowInfo) -> Bool {
+        owned(w, bundlePrefix: "us.zoom.xos", names: zoomOwnerNames)
+    }
+
+    static func isSlackOwned(_ w: WindowInfo) -> Bool {
+        owned(w, bundlePrefix: "com.tinyspeck.slackmacgap", names: ["Slack"])
+    }
+
+    static func isFaceTimeOwned(_ w: WindowInfo) -> Bool {
+        owned(w, bundlePrefix: "com.apple.FaceTime", names: ["FaceTime"])
+    }
+
+    /// Bundle id decides when known; otherwise the owner name. A resolved
+    /// bundle id that belongs to another app must NOT fall through to the
+    /// name check ("Notes" titled "Zoom Meeting" stays non-meeting).
+    private static func owned(_ w: WindowInfo, bundlePrefix: String, names: Set<String>) -> Bool {
+        if let id = w.ownerBundleID, !id.isEmpty {
+            return id == bundlePrefix || id.hasPrefix(bundlePrefix + ".")
+        }
+        return names.contains(w.ownerName)
+    }
+
     static func isZoomMeetingWindow(_ w: WindowInfo) -> Bool {
-        w.ownerName == "zoom.us"
+        isZoomOwned(w)
             && (w.title.hasPrefix("Zoom Meeting") || w.title.hasPrefix("Zoom Webinar"))
     }
 
     static func isSlackHuddleWindow(_ w: WindowInfo) -> Bool {
-        w.ownerName == "Slack" && w.title.localizedCaseInsensitiveContains("huddle")
+        isSlackOwned(w) && w.title.localizedCaseInsensitiveContains("huddle")
     }
 
     /// FaceTime's idle window is titled "FaceTime"; during a call (FaceTime
     /// or an iPhone-relayed cellular call) the window title is the caller's
     /// name — which is also the best session title we'll ever get.
     static func isFaceTimeCallWindow(_ w: WindowInfo) -> Bool {
-        w.ownerName == "FaceTime" && !w.title.isEmpty && w.title != "FaceTime"
+        isFaceTimeOwned(w) && !w.title.isEmpty && w.title != "FaceTime"
     }
 
     static func isMeetTabWindow(_ w: WindowInfo) -> Bool {
