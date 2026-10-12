@@ -8,7 +8,9 @@ struct SpeakerWindowChoice: Identifiable, Sendable, Hashable {
     let pid: pid_t
     let app: String
     let title: String
-    var bundleID = ""
+    /// Owning app's bundle id (nil when unknown) — the window heuristics
+    /// match on it ahead of the drifting display name.
+    var bundleID: String? = nil
 }
 
 /// Deliberately separate from AIClient: screenshots and OCR never enter prompts.
@@ -62,7 +64,8 @@ final class VisualSpeakerCapture {
     /// enumeration order or the frontmost browser is not evidence of a call.
     static func suggestedWindow(in windows: [SpeakerWindowChoice]) -> SpeakerWindowChoice? {
         let candidates = windows.filter { window in
-            let info = WindowInfo(ownerName: heuristicOwnerName(window), title: window.title)
+            let info = WindowInfo(ownerName: window.app, title: window.title,
+                                  ownerBundleID: window.bundleID)
             return MeetingWindowHeuristics.isZoomMeetingWindow(info)
                 || MeetingWindowHeuristics.isSlackHuddleWindow(info)
                 || MeetingWindowHeuristics.isMeetTabWindow(info)
@@ -70,12 +73,6 @@ final class VisualSpeakerCapture {
                 || MeetingWindowHeuristics.isFaceTimeCallWindow(info)
         }
         return candidates.count == 1 ? candidates.first : nil
-    }
-
-    /// ScreenCaptureKit reports Zoom's display name ("Zoom"), but the
-    /// heuristics match CGWindowList owner names ("zoom.us").
-    private static func heuristicOwnerName(_ window: SpeakerWindowChoice) -> String {
-        window.bundleID == "us.zoom.xos" ? "zoom.us" : window.app
     }
 
     /// Remembered opt-in authorizes discovery; ambiguity never starts capture.
