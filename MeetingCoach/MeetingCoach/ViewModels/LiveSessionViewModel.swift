@@ -1194,9 +1194,18 @@ final class LiveSessionViewModel {
         guard isLive, !isDemo, !micOnly else { return }
         // Rebuild rather than keeping a stale match after diarization refines.
         speakerNameSuggestions.removeAll { $0.kind == .visualName }
-        let matches = VisualSpeakerEvidence.matches(visualSpeakerCapture.observations,
+        var matches = VisualSpeakerEvidence.matches(visualSpeakerCapture.observations,
                                                     segments: latestSystemSegments,
                                                     localSpeech: utterances)
+        // Timing-aligned highlight evidence outranks the one-on-one roster.
+        let owned = channelLabels[.system] ?? []
+        let remote = latestRemoteLabels.union(utterances.lazy.map(\.speaker).filter {
+            $0.hasPrefix("Them ") || owned.contains($0) || self.baseLabelRenames["Them"] == $0
+        }).subtracting(["Them"])
+        if let roster = VisualSpeakerEvidence.rosterMatch(visualSpeakerCapture.rosters, remoteLabels: remote),
+           !matches.contains(where: { $0.label == roster.label }) {
+            matches.append(roster)
+        }
         let taken = Array(Set(utterances.map(\.speaker))) + [remoteAlias].compactMap { $0 }
         for match in matches {
             guard !taken.contains(where: { VoiceProfileStore.samePerson($0, match.name) }),
@@ -1589,7 +1598,9 @@ final class LiveSessionViewModel {
         } else {
             utterances.append(u)
         }
-        if !visualSpeakerCapture.observations.isEmpty { refreshVisualSpeakerSuggestions() }
+        if !visualSpeakerCapture.observations.isEmpty || !visualSpeakerCapture.rosters.isEmpty {
+            refreshVisualSpeakerSuggestions()
+        }
     }
 
     // MARK: - Feedback

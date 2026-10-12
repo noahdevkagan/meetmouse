@@ -1935,3 +1935,19 @@ the auto-stop failure was mostly test output. O_APPEND makes every write land
 at the current end atomically across processes; the reopen-when-deleted
 behavior is unchanged.
 
+
+## 2026-10-09 — One-on-one roster evidence for speaker snapshots
+A real 1:1 Zoom call in screen-share layout showed two filmstrip tiles with name
+labels but no active-speaker outline, so the outline adapter read nothing. Add a
+second, weaker evidence type: who is present, not who is talking. Anchor on the
+user's own tile label (new "Your name on calls" setting; NSFullUserName is only a
+fallback — on the maintainer's Mac it is "Casa Rundell"). Keep only white-on-dark
+labels in the anchor's column (filmstrip) or, when the column is empty, its row
+(two-tile gallery), at a similar text size. The column preference and the colour
+test exist because the real screenshot's shared doc had a dark-mode bookmarks bar
+at label size and a doc row level with the user's tile. Suggest only when ≥2
+snapshots ≥10 s apart all show the same single other name AND diarization has
+exactly one remote voice (Them N); any second visible name or voice vetoes, and
+outline evidence outranks roster evidence. Still a one-tap suggestion, never an
+automatic rename. Speaker view (big remote tile + floating self) does not align
+and stays unsupported.

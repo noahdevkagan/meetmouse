@@ -30,6 +30,7 @@ struct GeneralSettingsView: View {
     /// through on toggle; Sparkle persists it to UserDefaults itself.
     @State private var autoInstallUpdates = true
     @AppStorage(VisualSpeakerCapture.automaticDefaultsKey) private var automaticSpeakerSnapshots = false
+    @AppStorage(VisualSpeakerOCR.selfNameDefaultsKey) private var speakerSelfName = ""
 
     /// Custom transcription vocabulary — same store the live pipeline and
     /// the transcript's "Fix a misheard term" flow write to.
@@ -260,7 +261,8 @@ struct GeneralSettingsView: View {
                 Toggle("Automatically take speaker-name screenshots", isOn: $automaticSpeakerSnapshots)
                 Text("For future meetings, detect the meeting window and take up to six silent snapshots. Names are read on this Mac; images are discarded, never saved or sent to AI. Suggested names still need your confirmation. You can stop snapshots in the live transcript.")
                     .font(.caption).foregroundStyle(.secondary)
-                Text("Requires visible participant names and Zoom’s active-speaker outline. If several meeting windows are open, choose one in the live transcript.")
+                TextField("Your name on calls", text: $speakerSelfName, prompt: Text(NSFullUserName()))
+                Text("Requires visible participant names. In Zoom’s gallery, the active-speaker outline names whoever is talking. In one-on-one calls without an outline, such as screen sharing, MeetMouse finds your tile by this name and suggests the other one. If several meeting windows are open, choose one in the live transcript.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 

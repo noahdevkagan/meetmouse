@@ -5,6 +5,19 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-10-09): Speaker names in Zoom screen-share layout — built, pushed (PR #38)
+
+PR #38 branch. Roster evidence for 1:1 calls without an active-speaker outline
+(see decisions.md 2026-10-09). New "Your name on calls" setting (key
+speakerSelfName); set to "Noah Kagan" for this user because NSFullUserName is
+"Casa Rundell". Merged main (#39 bundle-id matching superseded this branch's Zoom-only
+name swap). Verified: 317 session checks, Debug build, and the engine run
+locally on the user's real screenshot reads ["Matt Bean"] at the app's 1600 px
+capture size (nil with a wrong self name; nil on the MeetMouse window). Screenshot
+is not committed (faces + work doc). Settings field not visually confirmed (AX
+lost the dev window). Outstanding: real-call check via
+tests/calls-manual.md scenario 7 (new 1:1 screen-share item).
+
 ## Current state (2026-10-09): Zoom auto-stop fix — built, tests pass, awaiting live confirmation
 
 User report: meetings no longer stop automatically. Every Zoom session in
@@ -30,6 +43,7 @@ stopped by hand ~30 s before the next Zoom join — inside the 60 s debounce,
 which is likely what the user saw as "not working". Back-to-back joins faster
 than 15 s still cannot auto-stop by design. Not yet: push gate, commit/PR,
 installed-app replacement.
+
 ## Current state (2026-10-08): meetmouse.com share links + system-audio recovery
 
 From James Dellar's 2026-10-08 email: (1) share links minted on rhinovoice.app —
