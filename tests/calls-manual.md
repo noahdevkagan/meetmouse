@@ -127,6 +127,12 @@ continuously while alive, so the new watchdog treats a quiet stream as dead.
 - [ ] Stop while “Finding your meeting window” is visible: delayed discovery must
       not start capture. New meetings and mic-only fallback also cancel discovery
 - [ ] Restarting assistance in the same meeting never exceeds six total requests
+- [ ] One-on-one Zoom call, remote guest shares their screen (filmstrip, no
+      outline). With "Your name on calls" set in General settings, the live
+      transcript offers "Them 1 may be <guest>" after two snapshots; with the
+      name empty (or not matching your Zoom label) it offers nothing. A shared
+      page showing other names never becomes the suggestion. A third guest
+      joining (visible tile or second voice) withdraws it
 - [ ] With cloud AI selected, verify no images or raw OCR enter provider
       requests or saved files. Confirmed speaker names are ordinary transcript
       text and follow the existing cloud-text consent
