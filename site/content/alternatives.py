@@ -14,9 +14,9 @@ TOOLS = {
     "meetmouse": {
         "name": "MeetMouse",
         "best": "Private live coaching on a Mac",
-        "price": "$20 once. No subscription, no account. 30-day refund.",
-        "cell": "$20 once",
-        "free": "No free plan",
+        "price": "Free for 3 meetings a week. $20 once for unlimited. No subscription, no account.",
+        "cell": "Free; $20 once for unlimited",
+        "free": "Unlimited first week, then 3 meetings a week; notes never locked",
         "bot": "No",
         "audio": "Stays on your Mac",
         "review": (
@@ -29,7 +29,7 @@ TOOLS = {
         "good": [
             "No bot, no account, works with WiFi off",
             "Coaching cues during the call, hidden from screen shares",
-            "$20 once, cheaper than two months of most paid plans",
+            "Free to start; unlimited is $20 once, cheaper than two months of most paid plans",
         ],
         "bad": [
             "Mac only (macOS 14.2 or later)",
@@ -191,8 +191,8 @@ PAGES = [
         "order": ["meetmouse", "granola", "otter", "tldv", "fireflies"],
         "quick": (
             "<strong>MeetMouse</strong> is the best Fathom alternative if you want no bot and "
-            "nothing in anyone's cloud: $20 once, on your Mac. Fathom is free, so nobody leaves "
-            "it over price. Pick <strong>Granola</strong> if the bot is your only problem, "
+            "nothing in anyone's cloud, free for 3 meetings a week, on your Mac. Fathom is free, so "
+            "nobody leaves it over price. Pick <strong>Granola</strong> if the bot is your only problem, "
             "<strong>Otter</strong> if you want deeper archive search, and <strong>Fireflies</strong> "
             "if you're really a sales team."
         ),
@@ -230,7 +230,7 @@ PAGES = [
         "order": ["meetmouse", "fathom", "granola", "fireflies", "tldv"],
         "quick": (
             "<strong>MeetMouse</strong> is the best Otter alternative if you want no bot and no "
-            "cloud: $20 once, against Otter Pro at $16.99 a month. If the 300-minute free plan is "
+            "cloud: free for 3 meetings a week, or $20 once for unlimited, against Otter Pro at $16.99 a month. If the 300-minute free plan is "
             "your only problem, pick <strong>Fathom</strong>: free with no minute cap. Pick "
             "<strong>Granola</strong> if the bot is the problem and <strong>Fireflies</strong> if "
             "you run a sales team."
@@ -255,7 +255,7 @@ PAGES = [
             ("Is there an Otter alternative that works offline?",
              "MeetMouse works with WiFi off because transcription and coaching run on your Mac. Every other option on this list, including Otter, processes audio in the cloud."),
             ("Does any Otter alternative avoid a subscription?",
-             "MeetMouse is $20 one time, with no subscription and no account. Everything else on this list is a free tier plus a monthly plan."),
+             "MeetMouse: free for 3 meetings a week, and $20 once for unlimited, with no subscription and no account. Everything else on this list is a free tier plus a monthly plan."),
         ],
     },
     {
@@ -268,7 +268,7 @@ PAGES = [
         "order": ["meetmouse", "fathom", "otter", "granola", "tldv"],
         "quick": (
             "<strong>MeetMouse</strong> is the best Fireflies alternative for one person who "
-            "wants a private coach instead of a recorded dashboard: $20 once, against Fireflies "
+            "wants a private coach instead of a recorded dashboard: free to start, $20 once for unlimited, against Fireflies "
             "Pro from $18 per user per month. Pick <strong>Fathom</strong> if you need the "
             "individual basics free, <strong>Granola</strong> for notes with no bot, and "
             "<strong>Otter</strong> if transcript search is what you'd miss."
@@ -302,22 +302,23 @@ PAGES = [
         "incumbent": "Granola",
         "topic": "Free Granola alternatives",
         "title": "Free Granola Alternatives: The 5 Best Options in 2026 (Ranked)",
-        "description": "The best free Granola alternatives once the 30-day history limit hits, ranked: Fathom, tl;dv, Otter, Fireflies, plus MeetMouse as a $20 one-time paid upgrade.",
+        "description": "The best free Granola alternatives once the 30-day history limit hits, ranked: Fathom, tl;dv, Otter, Fireflies, plus MeetMouse, free for 3 meetings a week with no bot.",
         "h1": "Free Granola alternatives: the 5 best options in 2026",
         "order": ["fathom", "meetmouse", "tldv", "otter", "fireflies"],
-        "badge": "Best paid upgrade",
-        "us_best": "A paid upgrade: $20 once, no subscription",
+        "badge": "Best free option without a bot",
+        "us_best": "No bot, free for 3 meetings a week; $20 once for unlimited",
         "quick": (
             "If it has to be free, use <strong>Fathom</strong>: unlimited recordings and summaries "
-            "with no monthly cap, but a bot joins your calls. If you'll pay once instead of every "
-            "month, <strong>MeetMouse</strong> is $20 once, against Granola Business at $14 per user "
-            "per month, and it coaches you live without a bot. Only need the last 30 days? "
+            "with no monthly cap, but a bot joins your calls. Want no bot? <strong>MeetMouse</strong> "
+            "is free for 3 meetings a week and never locks your notes, and unlimited is $20 once, "
+            "against Granola Business at $14 per user per month. It also coaches you live. Only need the last 30 days? "
             "Granola's own free plan is enough."
         ),
         "intro": (
             "Granola is genuinely good, and its free plan is genuinely free, but it only keeps 30 "
             "days of meeting history. Keeping more costs $14 per user per month. I make MeetMouse, "
-            "so it's on this list even though it isn't free: it's $20 once. Each tool below says "
+            "so judge it with that in mind: it's free for 3 meetings a week, $20 once for unlimited. "
+            "Each tool below says "
             "what it does better than us."
         ),
         "enough": (
@@ -330,9 +331,9 @@ PAGES = [
             ("What is the best free alternative to Granola?",
              "Fathom. Its free plan has unlimited recordings and summaries with no monthly cap. The catch is that a bot joins your calls and meetings are stored in Fathom's cloud."),
             ("Is there a free Granola alternative without a bot?",
-             "Granola's own free plan is the bot-free free option, with 30 days of meeting history. Recording with Voice Memos and pasting into an AI chat is also bot-free and costs nothing."),
+             "MeetMouse is free for 3 meetings a week with no bot, and its notes never expire (I make it). Granola's own free plan is bot-free too, with 30 days of meeting history. Recording with Voice Memos and pasting into an AI chat is also bot-free and costs nothing."),
             ("Is there a Granola alternative without a subscription?",
-             "MeetMouse is $20 one time, with no subscription and no account. It coaches you live instead of writing notes afterward."),
+             "MeetMouse: free for 3 meetings a week, or $20 once for unlimited, with no subscription and no account. It coaches you live instead of writing notes afterward."),
             ("What are the limits of Granola's free plan?",
              "Granola's free Basic plan keeps 30 days of meeting history. Unlimited history needs Business at $14 per user per month."),
         ],

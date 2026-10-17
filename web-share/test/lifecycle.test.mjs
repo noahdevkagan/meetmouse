@@ -8,12 +8,13 @@ for (const [name, path] of [['viewerHTML','viewer.html'],['viewerCSS','viewer.cs
   source = source.replace(`import ${name} from "./${path}";`, `const ${name} = ${JSON.stringify(readFileSync(new URL('../src/'+path, import.meta.url),'utf8'))};`);
 }
 source = source.replaceAll('"./core.js"', JSON.stringify(new URL('../src/core.js', import.meta.url).href));
+source = source.replaceAll('"./referrals.js"', JSON.stringify(new URL('../src/referrals.js', import.meta.url).href));
 const { default: worker } = await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const id = 'abcdefghijklmnopqrstuv', token = 'owner-token-with-at-least-20-characters';
 const body = {schemaVersion:1,id,nonce:'AAAAAAAAAAAAAAAA',ciphertext:'AAAAAAAAAAAAAAAAAAAAAAAA',revokeHash:await sha256Base64URL(token)};
 function fixture(t) {
   const db = new DatabaseSync(':memory:');
-  db.exec(readFileSync(new URL('../migrations/0001_shared_notes.sql', import.meta.url),'utf8'));
+  for (const m of ['0001_shared_notes.sql','0002_referral_clicks.sql']) db.exec(readFileSync(new URL('../migrations/'+m, import.meta.url),'utf8'));
   t.after(()=>db.close());
   const env = { CREATE_RATE_LIMITER: {limit:async()=>({success:true})}, DB: {prepare(sql) {
     return {bind(...args) {const statement=db.prepare(sql); return {run:async()=>statement.run(...args),first:async()=>statement.get(...args)};}};
@@ -82,4 +83,20 @@ test('tombstone allocation uses the same client IP key as creation', async t => 
   assert.equal((await f.req('/api/shared-notes/' + id, { method: 'DELETE', headers })).status, 204);
   assert.equal((await f.req('/api/shared-notes/create', { method: 'POST', headers, body: JSON.stringify(body) })).status, 429);
   assert.deepEqual(keys, ['192.0.2.1', '192.0.2.1']);
+});
+
+test('referral: two distinct friends unlock, repeat clicks count once', async t => {
+  const f = fixture(t);
+  const code = 'abcd2345';
+  const click = (ip, to = 'appsumo') => f.req(`/r/${code}/go?to=${to}`, { headers: { 'cf-connecting-ip': ip, 'user-agent': 'ua' } });
+  assert.match(await (await f.req(`/r/${code}`)).text(), /A friend gave you MeetMouse/);
+  const first = await click('1.1.1.1');
+  assert.equal(first.status, 302);
+  assert.equal(first.headers.get('location'), 'https://appsumo.com/products/meeting-coach/');
+  await click('1.1.1.1');
+  assert.match(await (await f.req(`/r/${code}/status`)).text(), /1 of 2 friends/);
+  await click('2.2.2.2', 'appsumo');
+  const done = await (await f.req(`/r/${code}/status`)).text();
+  assert.match(done, /meetmouse:\/\/unlock\?code=MOUSE-/);
+  assert.equal((await f.req('/r/NOTACODE')).status, 404);
 });

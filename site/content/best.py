@@ -7,8 +7,8 @@ site (otherwise described without a number), and a `checked` month.
 """
 
 MM_WHERE = "On your Mac. Local AI by default; if you add your own Claude or OpenAI key, meeting text goes to that provider."
-MM_PRICE = "$20 once, 30-day money-back guarantee"
-REFUND = "Try it in real meetings for 30 days. If it doesn't change how they go, email me and I'll refund you."
+MM_PRICE = "Free for 3 meetings a week; $20 once for unlimited"
+REFUND = "Unlimited your first week, then 3 meetings a week. Invite 2 friends or pay $20 once for unlimited."
 
 GRANOLA = dict(name="Granola", price="Free (30 days of history); Business $14/user/mo",
                where="Captured on your computer (no bot); notes made with cloud AI", local="No", url="https://www.granola.ai/")
@@ -52,7 +52,7 @@ BEST = [
             ("Best bot-free notes for a team", "Granola"),
             ("Best free", "Fathom"),
             ("Best for recordings, offline", "MacWhisper"),
-            ("Nothing leaves your Mac, plus live coaching", "MeetMouse, $20 once (mine)"),
+            ("Nothing leaves your Mac, plus live coaching", "MeetMouse, free to start (mine)"),
         ],
         intro=[("Two kinds of Mac notetaker", [
             "Native apps listen to your Mac's audio directly. No bot joins, and they hear anything: Zoom, Meet, Teams, FaceTime, a Slack huddle, a browser tab. They need the Screen Recording permission, because that's how macOS gates system audio. It doesn't mean they're recording your screen.",
@@ -86,15 +86,15 @@ BEST = [
             "Decide your one dealbreaker: the bot, the cloud, or the monthly bill. That alone picks your shortlist.",
             "If free matters most, install Fathom and use it on three meetings this week.",
             "If privacy matters most, try the Wi-Fi test: start a meeting in any tool, turn Wi-Fi off, and see if it keeps working.",
-            "If you want to get better in meetings, try MeetMouse on your next five calls. If it doesn't help, email me for a refund.",
+            "If you want to get better in meetings, try MeetMouse on your next five calls. It's free for 3 meetings a week, so finding out costs nothing.",
         ],
         faq=[
-            ("What's the best AI notetaker for Mac?", "Granola for bot-free team notes. Fathom if you want free and don't mind a bot. MeetMouse if you want everything to stay on your Mac plus live coaching during the call, for $20 once."),
+            ("What's the best AI notetaker for Mac?", "Granola for bot-free team notes. Fathom if you want free and don't mind a bot. MeetMouse if you want everything to stay on your Mac plus live coaching during the call, free for 3 meetings a week ($20 once for unlimited)."),
             ("Which Mac notetakers work offline?", "MeetMouse (transcription and AI run on your Mac, so it works with Wi-Fi off) and MacWhisper (for recordings). Granola, Fathom and Otter need the internet."),
             ("Why do Mac notetakers ask for Screen Recording permission?", "That's how macOS gates system audio — the other side of the call. Bot-free apps like Granola and MeetMouse need it to hear the meeting. It doesn't mean they record your screen."),
             ("Does MeetMouse work on Intel Macs?", "Yes, on macOS 14.2 or later, but Apple Silicon is recommended. On Intel, the high-accuracy transcription and speaker identification aren't available, so it uses Apple's built-in transcription."),
         ],
-        cta_body="$20 once. No subscription, no account, no bot in your call, and your meetings stay on your Mac. " + REFUND,
+        cta_body="Free to start. No subscription, no account, no bot in your call, and your meetings stay on your Mac. " + REFUND,
         checked="September 2026",
     ),
     # ─────────────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ BEST = [
             ("Best for a sales org with RevOps", "Gong"),
             ("Best CRM notes on a small budget", "Fireflies or Fathom"),
             ("Best when buyers hate the bot", "Granola"),
-            ("Best live coaching for the rep", "MeetMouse, $20 once (mine)"),
+            ("Best live coaching for the rep", "MeetMouse, free to start (mine)"),
         ],
         intro=[("After the call vs during it", [
             "A recap tells you that you talked 70% of the call and never asked for next steps. By then the buyer has hung up. Live cues are the only format that changes this deal. The setup that works for a lot of teams: the org keeps its recorder for the CRM, and reps run a private live coach next to it.",
@@ -142,15 +142,15 @@ BEST = [
             "Pull your last three lost deals and find the moment each one turned. Was it a skipped objection, no next step, or you talking too long?",
             "If it was any of those, that's a live problem. A recap tool won't fix it.",
             "Keep your team's recorder for the CRM. Nothing here requires ripping anything out.",
-            "Try MeetMouse on your next ten calls. If it doesn't help you close, email me for a refund.",
+            "Try MeetMouse on your next ten calls. It's free for 3 meetings a week, so finding out costs nothing.",
         ],
         faq=[
-            ("What's the best AI tool for sales calls?", "For sales orgs, Gong (enterprise) or Fireflies (smaller budgets). For free notes, Fathom. For live coaching during the call — catching buried objections and missed asks — MeetMouse, $20 once."),
+            ("What's the best AI tool for sales calls?", "For sales orgs, Gong (enterprise) or Fireflies (smaller budgets). For free notes, Fathom. For live coaching during the call — catching buried objections and missed asks — MeetMouse, free to start."),
             ("Is there real-time AI coaching for sales calls?", "Yes. MeetMouse shows short cues during the call in an overlay only you see. Gong, Fireflies and Fathom mostly help after the call from a recording."),
             ("Will the buyer know I'm using AI?", "With Gong, Fireflies and Fathom, a recorder joins the call. MeetMouse and Granola capture audio on your computer, so nothing joins. Recording-consent laws still apply either way."),
             ("Does MeetMouse sync to Salesforce or HubSpot?", "No. It keeps meetings on your Mac. Plenty of reps run it next to the team's recorder: the recorder feeds the CRM, MeetMouse coaches them live."),
         ],
-        cta_body="$20 once — less than a lunch with a prospect. No bot on the buyer's screen, nothing uploaded. " + REFUND,
+        cta_body="Free to start. No bot on the buyer's screen, nothing uploaded. " + REFUND,
         checked="September 2026",
     ),
     # ─────────────────────────────────────────────────────────────
@@ -164,7 +164,7 @@ BEST = [
         dek="Full disclosure: I make MeetMouse, and I'm not a lawyer. This isn't legal or ethics advice; your bar and your firm get the final say. What I can tell you is how these tools actually move data, because that's the part the marketing pages get fuzzy about.",
         short_answer="For lawyers, the deciding question isn't which summary is prettiest. It's who else hears the conversation. A cloud notetaker sends it to the vendor, and usually to an AI company behind them. A bot notetaker also shows up in the meeting and may email a recap to everyone on the invite. A tool that runs on your own computer skips the vendor question entirely.",
         short_picks=[
-            ("Best for privileged calls", "MeetMouse, on your Mac, $20 once (mine)"),
+            ("Best for privileged calls", "MeetMouse, on your Mac, free to start (mine)"),
             ("Best for recorded interviews", "MacWhisper"),
             ("Best if your firm has vetted a cloud vendor", "Granola or Otter on a business plan"),
         ],
@@ -206,7 +206,7 @@ BEST = [
             ("Do I still need consent?", "Yes. Recording and transcription consent rules vary by jurisdiction. On-device processing changes who receives the data, not your consent obligations."),
             ("Can I use MeetMouse for depositions?", "Use a court reporter for the official record. MeetMouse is for your own live calls and notes."),
         ],
-        cta_body="$20 once. No account, no vendor holding your client calls, and it works with Wi-Fi off. " + REFUND,
+        cta_body="Free to start. No account, no vendor holding your client calls, and it works with Wi-Fi off. " + REFUND,
         checked="September 2026",
     ),
     # ─────────────────────────────────────────────────────────────
@@ -220,7 +220,7 @@ BEST = [
         dek="Full disclosure: I make MeetMouse. I've also started a few companies (AppSumo, SumoMe, now MeetMouse), so I know the calls founders care about come down to a couple of sentences, not the summary.",
         short_answer="Founder calls are high stakes, few people, sensitive (your runway, their pain), and decided by a handful of moments. Use a notetaker for memory and a coach for performance. The pitch you replay in your head for a week is the one where you needed a nudge at minute four, not a summary at minute forty-five.",
         short_picks=[
-            ("Best for pitches and discovery", "MeetMouse, $20 once (mine)"),
+            ("Best for pitches and discovery", "MeetMouse, free to start (mine)"),
             ("Best record of investor calls, no bot", "Granola"),
             ("Best free notes for the early team", "Fathom"),
             ("Best for sharing customer clips", "tl;dv"),
@@ -248,15 +248,15 @@ BEST = [
             "Before your next discovery call, write the three questions you must ask. Then shut up and let them talk.",
             "After your next pitch, write down the one question you fumbled. That's your prep for the next one.",
             "Turn on Fathom's free plan if you have nothing recording customer calls yet.",
-            "Try MeetMouse on your next pitch or discovery call. If it doesn't help, email me for a refund.",
+            "Try MeetMouse on your next pitch or discovery call. It's free for 3 meetings a week, so finding out costs nothing.",
         ],
         faq=[
-            ("What's the best AI meeting tool for founders?", "MeetMouse for live coaching on pitches and discovery calls ($20 once, on your Mac). Granola for bot-free notes, Fathom for free team notes."),
+            ("What's the best AI meeting tool for founders?", "MeetMouse for live coaching on pitches and discovery calls (free to start, on your Mac). Granola for bot-free notes, Fathom for free team notes."),
             ("Should I use an AI notetaker on investor calls?", "Lots of founders do, but a visible bot can change the room. Bot-free tools like MeetMouse and Granola capture audio on your computer, so nothing joins. Mention it if you're recording."),
             ("Can AI help with customer discovery?", "The biggest discovery mistake is talking too much. MeetMouse tracks talk balance live and nudges you when you're pitching instead of listening."),
             ("Does MeetMouse keep fundraising conversations private?", "By default, yes. Transcription and AI run on your Mac and nothing is uploaded."),
         ],
-        cta_body="$20 once — a pre-seed-friendly price. No bot in front of investors, nothing uploaded. " + REFUND,
+        cta_body="Free to start. No bot in front of investors, nothing uploaded. " + REFUND,
         checked="September 2026",
     ),
     # ─────────────────────────────────────────────────────────────
@@ -272,7 +272,7 @@ BEST = [
         short_picks=[
             ("Best for high-volume recruiting teams", "Fireflies or Fathom"),
             ("Best bot-free notes", "Granola"),
-            ("Best for running better interviews", "MeetMouse, $20 once (mine)"),
+            ("Best for running better interviews", "MeetMouse, free to start (mine)"),
         ],
         intro=[("A note on candidate data", [
             "Interview notes are personal data about people who never agreed to your vendor's terms. Fewer copies in fewer clouds is the safe default. And tell candidates you take AI notes.",
@@ -299,7 +299,7 @@ BEST = [
             "Pick one role and write the three things every interviewer must learn. Share it before the next loop.",
             "Add a line to your interview invite saying you take AI notes.",
             "For your next interview, aim to talk less than a third of the time.",
-            "Try MeetMouse for a week of interviews. If it doesn't help, email me for a refund.",
+            "Try MeetMouse for a week of interviews. It's free for 3 meetings a week, so finding out costs nothing.",
         ],
         faq=[
             ("What's the best AI notetaker for interviews?", "Fireflies or Fathom for recruiting teams that need integrations. Granola for bot-free notes. MeetMouse for hiring managers who want live coaching during the interview."),
@@ -307,7 +307,7 @@ BEST = [
             ("Can I customize the coaching for interviews?", "Yes. MeetMouse's coaching rubric is editable, so you can add the interviewing habits you want to be nudged on."),
             ("Is candidate data stored in the cloud?", "With cloud notetakers, yes. MeetMouse keeps transcripts and notes on your Mac by default, with no account."),
         ],
-        cta_body="$20 once. No bot for candidates to see, and interview notes stay on your Mac. " + REFUND,
+        cta_body="Free to start. No bot for candidates to see, and interview notes stay on your Mac. " + REFUND,
         checked="September 2026",
     ),
     # ─────────────────────────────────────────────────────────────
@@ -321,7 +321,7 @@ BEST = [
         dek="Full disclosure: I make MeetMouse. Consultants have two constraints most notetaker reviews ignore, and they narrow the list fast.",
         short_answer="It's often the client's meeting, on their Teams, and their IT removes or blocks notetaker bots. And your NDA may say their information doesn't go to third parties, which makes a notetaker's cloud an awkward question. A tool that hears the call on your own computer and keeps notes there avoids both.",
         short_picks=[
-            ("Best for client meetings under NDA", "MeetMouse, $20 once (mine)"),
+            ("Best for client meetings under NDA", "MeetMouse, free to start (mine)"),
             ("Best bot-free cloud notes", "Granola"),
             ("Best for your own internal calls", "Fathom"),
         ],
@@ -348,15 +348,15 @@ BEST = [
         today=[
             "Re-read the confidentiality clause in your biggest client contract. Look for \"third parties\".",
             "Ask your next client whether their IT allows notetaker bots. Now you know.",
-            "Try MeetMouse on your next client call. If it doesn't earn its keep, email me for a refund.",
+            "Try MeetMouse on your next client call. It's free for 3 meetings a week, so finding out costs nothing.",
         ],
         faq=[
             ("Can I use an AI notetaker in a client's Teams or Zoom meeting?", "Bot tools have to join the client's meeting and often get blocked. MeetMouse and Granola capture audio on your computer, so they work in any client-run meeting without joining."),
             ("Does a cloud notetaker break my NDA?", "It can, depending on what your NDA says about third parties. MeetMouse keeps transcription and AI on your Mac by default. Check your actual agreements."),
             ("Can I share meeting notes with a client?", "Yes. MeetMouse makes an encrypted, expiring link with only the curated notes — not the transcript or coaching — and you can revoke it anytime."),
-            ("How much do AI notetakers cost?", "Fathom is free, Granola is free for 30 days of history and $14/user/month after that, Otter Pro is $16.99/month, and MeetMouse is $20 one time."),
+            ("How much do AI notetakers cost?", "Fathom is free, Granola is free for 30 days of history and $14/user/month after that, Otter Pro is $16.99/month, and MeetMouse is free for 3 meetings a week, or $20 once for unlimited."),
         ],
-        cta_body="$20 once — less than one billable hour. Works in any client's meeting, and client information stays on your Mac. " + REFUND,
+        cta_body="Free to start. Works in any client's meeting, and client information stays on your Mac. " + REFUND,
         checked="September 2026",
     ),
     # ─────────────────────────────────────────────────────────────
@@ -370,7 +370,7 @@ BEST = [
         dek="Full disclosure: I make MeetMouse. Coaching sessions are the worst place for a bot and the cloud, and most notetakers don't tell you anything about your own coaching.",
         short_answer="Clients tell coaches real things: career fears, money, family. A visible bot changes what they say, and a cloud archive of every session is a lot of trust to extend. The best setup keeps sessions off anyone's servers and, ideally, tells you when you're talking more than your client.",
         short_picks=[
-            ("Best private session notes plus feedback on your coaching", "MeetMouse, $20 once (mine)"),
+            ("Best private session notes plus feedback on your coaching", "MeetMouse, free to start (mine)"),
             ("Best notes if the cloud is fine", "Granola"),
             ("Best for delivery (ums, pace)", "Poised"),
         ],
@@ -394,7 +394,7 @@ BEST = [
         today=[
             "Add one line to your client agreement about how you take notes.",
             "In your next session, count how many times you gave advice before asking a second question.",
-            "Try MeetMouse for two weeks of sessions. If it doesn't help, email me for a refund.",
+            "Try MeetMouse for two weeks of sessions. It's free for 3 meetings a week, so finding out costs nothing.",
         ],
         faq=[
             ("What's the best AI notetaker for coaching sessions?", "MeetMouse if you want sessions to stay on your Mac and live feedback on your own talk time. Granola for bot-free cloud notes. Fathom if you need free."),
@@ -402,7 +402,7 @@ BEST = [
             ("Can AI help me become a better coach?", "That's the point of MeetMouse's live cues: talk balance, things your client raised that you skipped, and vague commitments, while the session is still happening."),
             ("Is MeetMouse for therapy or clinical notes?", "No. It isn't built as a clinical tool. Licensed clinicians should use something designed for their regulatory requirements."),
         ],
-        cta_body="$20 once. No bot in your client's session, and nothing uploaded. " + REFUND,
+        cta_body="Free to start. No bot in your client's session, and nothing uploaded. " + REFUND,
         checked="September 2026",
     ),
     # ─────────────────────────────────────────────────────────────
@@ -416,7 +416,7 @@ BEST = [
         dek="Full disclosure: I make MeetMouse, which is one of only two tools here that coach you during the meeting. The other one is good too, at a different thing.",
         short_answer="A 1:1 is supposed to be your report's meeting, and it's easy for it to become yours. It's also the worst place for a visible bot: someone about to say \"I'm thinking about leaving\" doesn't say it in front of a participant named Notetaker. Notetakers remember 1:1s; they don't change them.",
         short_picks=[
-            ("Best for better 1:1s and team meetings", "MeetMouse, $20 once (mine)"),
+            ("Best for better 1:1s and team meetings", "MeetMouse, free to start (mine)"),
             ("Best for presentation delivery", "Poised"),
             ("Best for just remembering follow-ups", "Granola or Fathom"),
         ],
@@ -441,15 +441,15 @@ BEST = [
             "Before your next 1:1, ask your report to own the agenda.",
             "During it, aim to talk less than a third of the time.",
             "End every 1:1 by saying each commitment out loud with a date.",
-            "Try MeetMouse for a week of 1:1s. If it doesn't help, email me for a refund.",
+            "Try MeetMouse for a week of 1:1s. It's free for 3 meetings a week, so finding out costs nothing.",
         ],
         faq=[
             ("Is there an AI coach for 1:1 meetings?", "Yes. MeetMouse coaches you live during 1:1s — talk balance, concerns you skipped, vague commitments — in an overlay only you see, processed on your Mac."),
             ("Should managers record 1:1s with a bot?", "A visible bot usually makes people less candid. Bot-free tools capture audio on your computer instead. Either way, tell your team how you take notes."),
-            ("What's the difference between MeetMouse and Poised?", "Both coach live. Poised focuses on delivery — filler words, pace, energy — on a cloud subscription. MeetMouse focuses on the conversation itself, runs on your Mac, and costs $20 once."),
+            ("What's the difference between MeetMouse and Poised?", "Both coach live. Poised focuses on delivery — filler words, pace, energy — on a cloud subscription. MeetMouse focuses on the conversation itself, runs on your Mac, and is free to start ($20 once for unlimited)."),
             ("Can I customize what the coach looks for?", "Yes. MeetMouse's coaching rubric is editable."),
         ],
-        cta_body="$20 once. Your team's 1:1s stay on your Mac. " + REFUND,
+        cta_body="Free to start. Your team's 1:1s stay on your Mac. " + REFUND,
         checked="September 2026",
     ),
     # ─────────────────────────────────────────────────────────────
@@ -466,7 +466,7 @@ BEST = [
             ("Best if you host on paid Zoom", "Zoom AI Companion"),
             ("Best free in any meeting", "Fathom (bot joins)"),
             ("Best no-bot, cloud notes", "Granola"),
-            ("Best no-bot, nothing uploaded, live coaching", "MeetMouse, $20 once (mine)"),
+            ("Best no-bot, nothing uploaded, live coaching", "MeetMouse, free to start (mine)"),
         ],
         intro=[],
         picks=[
@@ -485,15 +485,15 @@ BEST = [
         today=[
             "If you host on paid Zoom, turn on AI Companion today. You're already paying for it.",
             "Check whether your company blocks third-party bots in Zoom. Many do.",
-            "Try MeetMouse in your next Zoom you don't host. If it doesn't help, email me for a refund.",
+            "Try MeetMouse in your next Zoom you don't host. It's free for 3 meetings a week, so finding out costs nothing.",
         ],
         faq=[
-            ("What's the best AI notetaker for Zoom?", "If you host on a paid plan, Zoom AI Companion is included. For any meeting: Fathom is free (bot joins), Granola is bot-free with cloud notes, and MeetMouse is bot-free, on-device and coaches you live for $20 once."),
+            ("What's the best AI notetaker for Zoom?", "If you host on a paid plan, Zoom AI Companion is included. For any meeting: Fathom is free (bot joins), Granola is bot-free with cloud notes, and MeetMouse is bot-free, on-device and coaches you live, free for 3 meetings a week."),
             ("Can I use an AI notetaker in a Zoom I don't host?", "Bot tools need the host to let them in. Bot-free apps like MeetMouse and Granola capture audio on your computer, so they work in any meeting you can hear."),
             ("Is there a Zoom notetaker without a bot?", "Yes: Zoom AI Companion (host-controlled), Granola and MeetMouse. MeetMouse is the only one that keeps everything on your device."),
             ("Does the MeetMouse overlay show up when I share my screen?", "No. It's excluded from screen shares and recordings."),
         ],
-        cta_body="$20 once. Works in any Zoom, no bot, nothing uploaded. " + REFUND,
+        cta_body="Free to start. Works in any Zoom, no bot, nothing uploaded. " + REFUND,
         checked="September 2026",
     ),
     # ─────────────────────────────────────────────────────────────
@@ -508,7 +508,7 @@ BEST = [
         short_answer="Advisor meetings are full of the most sensitive things people say out loud: balances, inheritances, divorces, diagnoses. There are two sane approaches: tools built for advisors that handle the CRM and records side, or keeping the conversation on your own computer.",
         short_picks=[
             ("Best for firms that need CRM sync and records", "Advisor-built tools like Jump or Zocks"),
-            ("Best for keeping client finances off anyone's cloud", "MeetMouse, $20 once (mine)"),
+            ("Best for keeping client finances off anyone's cloud", "MeetMouse, free to start (mine)"),
         ],
         intro=[],
         picks=[
@@ -534,7 +534,7 @@ BEST = [
             ("Does MeetMouse sync to Redtail, Wealthbox or Salesforce?", "No. Notes stay on your Mac. You can copy them or share via an encrypted, expiring link."),
             ("Does a bot join client meetings?", "Not with MeetMouse — it captures audio on your Mac. Bot tools add a visible participant."),
         ],
-        cta_body="$20 once. Client finances stay on your Mac. " + REFUND,
+        cta_body="Free to start. Client finances stay on your Mac. " + REFUND,
         checked="September 2026",
     ),
 ]

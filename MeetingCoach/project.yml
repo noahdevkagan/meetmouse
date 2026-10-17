@@ -33,6 +33,10 @@ targets:
         # Sparkle auto-updates: feed lives in the PUBLIC releases repo
         # (noahdevkagan/meeting-coach-releases) so the app code + personal
         # rubrics/transcripts in this repo stay private.
+        # meetmouse://unlock?code=… — the website's unlock buttons (free tier).
+        CFBundleURLTypes:
+          - CFBundleURLName: "com.coach.MeetingCoach.unlock"
+            CFBundleURLSchemes: ["meetmouse"]
         SUFeedURL: "https://raw.githubusercontent.com/noahdevkagan/meeting-coach-releases/main/appcast.xml"
         # The update archive contains MeetMouse.app even when the installed
         # bundle still has the legacy MeetingCoach.app filename.
@@ -58,6 +62,10 @@ targets:
       # Folder reference so the TTFs land in Contents/Resources/Fonts/ —
       # the ATSApplicationFontsPath above points there; flat resource files
       # would silently never register.
+      # AppSumo code hashes: one list shared with the website's redeem form,
+      # bundled so the free-tier unlock can check codes offline.
+      - path: ../docs/appsumo-hashes.json
+        buildPhase: resources
       - path: MeetingCoach/Resources/Fonts
         type: folder
         buildPhase: resources

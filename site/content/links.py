@@ -37,5 +37,5 @@ X_VS_Y = [
 ]
 
 # Sister site. Link to it where the reader's job is dictation, not meetings.
-RHINO = ("https://rhinovoice.app/", "Rhino Voice", "Private Mac dictation by the same maker: hold a key, talk, clean text at your cursor. $20 once, on-device.")
+RHINO = ("https://rhinovoice.app/", "Rhino Voice", "Private Mac dictation by the same maker: hold a key, talk, clean text at your cursor. Free, on-device.")
 RHINO_GUIDES = ("https://rhinovoice.app/best", "Dictation app guides on rhinovoice.app")
