@@ -34,7 +34,7 @@ from compare import COMPARE  # noqa: E402
 from links import BLOG, MM_VS_ARTICLES, RHINO, RHINO_GUIDES, X_VS_Y  # noqa: E402
 
 esc = html.escape
-OG_ALT = "MeetMouse: coached live, nothing leaves your Mac. $20 once, macOS, on-device."
+OG_ALT = "MeetMouse: coached live, nothing leaves your Mac. Free for macOS, on-device."
 
 BEST_LINKS = [("/" + p["slug"], p["label"], p["blurb"]) for p in BEST]
 MM_VS = MM_VS_ARTICLES + [("/" + p["slug"], "MeetMouse vs " + p["competitor"], p["blurb"]) for p in COMPARE]
@@ -42,6 +42,17 @@ COMPARISONS = MM_VS + X_VS_Y
 
 
 # ── chrome ───────────────────────────────────────────────────────────────────
+
+FREE_CTA = ("Free to start: unlimited your first week, then 3 meetings a week, and your notes are never locked. "
+            "Invite 2 friends or pay $20 once for unlimited. No subscription, no account.")
+
+
+def download_button(compact=False):
+    # /get counts the download (web-share Worker), then redirects to the newest DMG.
+    if compact:
+        return '<a class="button button-compact" href="/get">Download free</a>'
+    return '<a class="button" href="/get">Download MeetMouse free</a>'
+
 
 def buy_form(compact=False):
     cls, btn, label = (("buy-form buy-form-compact", "button button-compact", "Buy — $20") if compact
@@ -69,7 +80,7 @@ HEADER = f"""  <a class="skip-link" href="#main">Skip to content</a>
       <a href="/best/">Guides</a>
       <a href="/alternatives/">Comparisons</a>
       <a href="/blog/">Blog</a>
-      {buy_form(compact=True)}
+      {download_button(compact=True)}
     </nav>
   </header>"""
 
@@ -165,7 +176,7 @@ def faq_block(faq):
 
 
 def cta(body, heading="Try MeetMouse"):
-    return f'    <section class="doc-cta">\n      <h2>{heading}</h2>\n      <p>{body}</p>\n      {buy_form()}\n    </section>'
+    return f'    <section class="doc-cta">\n      <h2>{heading}</h2>\n      <p>{body}</p>\n      {download_button()}\n    </section>'
 
 
 def checked_note(month, legal=False):
@@ -262,7 +273,7 @@ def render_compare(p):
     for h, ps in p["sections"]:
         out.append(section(h, paras(ps)))
     out += [faq_block(p["faq"]),
-            cta("$20 once, no subscription and no account. If it doesn't earn its keep, email me inside 30 days and I'll refund you."),
+            cta(FREE_CTA),
             checked_note(p["checked"]), more_links("/" + path)]
     ld = [crumb_ld(COMPARE_HUB, label, path), faq_ld(p["faq"])]
     return path, page(p["title"], p["description"], path, "article", ld, "\n\n".join(out))
@@ -295,7 +306,7 @@ def render_article(frag):
     if intro:
         out.append(intro)
     out += [body.strip(), faq_block(front["faq"]),
-            cta("$20 once, no subscription and no account. If it doesn't earn its keep, email me inside 30 days and I'll refund you."),
+            cta(FREE_CTA),
             checked_note(front["checked"]), more_links("/" + path)]
     ld = [article_ld(front["title"], front["date"]), crumb_ld(parent, label, path)] + ([faq_ld(front["faq"])] if front["faq"] else [])
     return path, page(front["title"], front["description"], path, "article", ld, "\n\n".join(out))
@@ -363,7 +374,7 @@ def render_alternatives(p):
     faq = [(esc(q), esc(a)) for q, a in p["faqs"]]
     month = " ".join(ALT_CHECKED.replace(",", "").split()[::2])
     out += [faq_block(faq),
-            cta("$20 once, no subscription and no account. If it doesn't earn its keep, email me inside 30 days and I'll refund you."),
+            cta(FREE_CTA),
             checked_note(month), '    <p class="checked-note">All trademarks belong to their owners. Named for comparison only.</p>',
             more_links("/" + path)]
     art = {**article_ld(p["h1"], "2026-07-29"), "dateModified": ALT_MODIFIED, "image": f"{BASE}/img/meetmouse-live-coaching.jpg"}
@@ -389,7 +400,7 @@ def render_hub(path, title, desc, label, h1, dek, groups):
               {"@type": "ListItem", "position": i + 1, "name": t, "url": h if h.startswith("http") else BASE + h}
               for i, (h, t, _) in enumerate(items)]}]
     main = "\n\n".join([crumbs(None, label), f"    <h1>{h1}</h1>", f'    <p class="dek">{dek}</p>'] + blocks + [
-        cta("$20 once. No subscription, no account, and your meetings stay on your Mac. Try it for 30 days; if it's not worth it, email me and I'll refund you.")])
+        cta(FREE_CTA)])
     return path.rstrip("/") + "/index", page(title, desc, path, "website", ld, main)
 
 
@@ -438,12 +449,17 @@ def build():
     return files
 
 
+# Served by the web-share Worker (web-share/wrangler.toml routes), not docs/.
+WORKER_ROUTES = {"/get"}
+
+
 def check_links(files):
     bad = []
     known = {"/"} | {"/" + str(p.relative_to(DOCS).with_suffix("")).replace("\\", "/") for p in DOCS.rglob("*.html")}
     known |= {"/" + str(p.relative_to(DOCS)) for p in DOCS.rglob("*") if p.is_file()}
     known |= {"/" + str(p.parent.relative_to(DOCS)) + "/" for p in DOCS.rglob("index.html")}
     known |= {"/" + str(f.relative_to(DOCS).with_suffix("")) for f in files} | {"/" + str(f.parent.relative_to(DOCS)) + "/" for f in files}
+    known |= WORKER_ROUTES
     for f, text in files.items():
         for h in re.findall(r'href="(/[^"#?]*)"', text):
             if h not in known and h.rstrip("/") not in known:

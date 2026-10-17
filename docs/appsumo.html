@@ -99,7 +99,9 @@
     <h1>You're in 🎉</h1>
     <p>Your download is ready. Open the DMG and drag MeetMouse to Applications.</p>
     <a class="dl-btn" id="dl" href="https://github.com/noahdevkagan/meeting-coach-releases/releases/latest">Download MeetMouse for Mac</a>
-    <p class="steps">On first launch, click <strong>Download Model</strong> once (needs WiFi that one time) — everything after runs fully offline.<br><br>Need help? Email <a href="mailto:support@meetmouse.com">support@meetmouse.com</a></p>
+    <p>Then unlock unlimited meetings:</p>
+    <a class="dl-btn" id="unlock" href="meetmouse://unlock">Unlock MeetMouse Unlimited</a>
+    <p class="steps">Click once MeetMouse is installed. Or paste your code in MeetMouse → Get MeetMouse Unlimited.<br><br>On first launch, click <strong>Download Model</strong> once (needs WiFi that one time) — everything after runs fully offline.<br><br>Need help? Email <a href="mailto:support@meetmouse.com">support@meetmouse.com</a></p>
   </div>
 </main>
 <script>
@@ -128,6 +130,7 @@ document.getElementById("form").addEventListener("submit", async (e) => {
   if (!code || !hashes) return;
   const hex = await sha256(code);
   if (hashes.includes(hex)) {
+    document.getElementById("unlock").href = "meetmouse://unlock?code=" + encodeURIComponent(code);
     document.getElementById("redeem").style.display = "none";
     document.getElementById("success").style.display = "block";
   } else {
