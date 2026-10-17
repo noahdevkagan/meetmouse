@@ -31,8 +31,10 @@ Noah's voice, first person. The live posts are the reference.
   founded AppSumo and SumoMe, builds with AI coding agents. No made-up "I lost a deal at
   minute nine" stories. If a story would help, leave a `TODO(noah): real story` and ask.
 - Every page ends in something to *do*: "My pick" plus "What I'd do today" (mostly free steps).
-- Refund line, same words everywhere: "$20 once … If it doesn't …, email me within 30 days
-  and I'll refund you."
+- Price line (MeetMouse free tier since Oct 2026), same facts everywhere: free for 3 meetings
+  a week after an unlimited first week, notes never locked; unlimited = invite 2 friends or
+  $20 once. CTAs point to /get ("Download free"), not the PayPal form. No refund pitch:
+  the free tier is the try-before-you-buy.
 
 ## 3. Facts and claims
 
