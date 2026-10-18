@@ -1951,3 +1951,19 @@ exactly one remote voice (Them N); any second visible name or voice vetoes, and
 outline evidence outranks roster evidence. Still a one-tap suggestion, never an
 automatic rename. Speaker view (big remote tile + floating self) does not align
 and stays unsupported.
+
+## 2026-10-17 — MeetMouse goes free (Rhino's model)
+
+Noah: "make meetmouse the same as rhinovoice… free usage but you can refer or some limit." Decided:
+unlimited first 7 days, then 3 meetings/week (Monday reset), counted at Stop when the session has
+words. Only *starting* a meeting is refused; notes/transcripts/search/chat are never locked (a
+deliberate contrast with Granola's 30-day history cap). Unlock = invite 2 friends (per-install code,
+meetmouse.com/r/<code>, counted in the web-share Worker's D1 `referral_clicks`), $20 PayPal (code
+MOUSE-5KC5-7EDA on /thanks, SHA-256 in UsageGate.swift), or an AppSumo code (bundled
+docs/appsumo-hashes.json). Honor-based and local-only like Rhino: no network calls from the app.
+Grandfathering: any install with `hasSeenDemo` or saved sessions at first launch of this build is
+unlocked (the app was paid-only, and paid vs. pirated can't be told apart). The old shared-coupon
+"give 3 copies" invite and its after-2nd-meeting popup are removed (no popup, per Noah's Rhino call).
+Site CTAs go to /get (Worker: counts, then 302s to the newest DMG); this overrides the 2026-10-02
+"keep 'Buy — $20'" note because Noah asked for free. 30-day refund pitch dropped from copy: the free
+tier is the try-first.

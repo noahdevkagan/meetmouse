@@ -20,6 +20,8 @@ struct MeetMouseApp: App {
     // Menu-bar red dot while an update is pending. The badge model is the
     // updater's delegate, so it must exist before the controller does.
     @StateObject private var updateBadge: UpdateBadgeModel
+    // Only job: meetmouse://unlock?code=… links from the website.
+    @NSApplicationDelegateAdaptor(UnlockURLDelegate.self) private var unlockDelegate
 
     init() {
         // First line of every run: which binary produced this log. Field
@@ -38,6 +40,10 @@ struct MeetMouseApp: App {
         if migrated > 0 {
             mclog("[App] Copied \(migrated) transcript(s) into \(AppSupport.sessionsDir.path)")
         }
+
+        // Free tier: stamp the install date once; installs already in use
+        // before the free tier (paid-only era) are unlocked for good.
+        FreeTier.shared.bootstrap()
 
         let badge = UpdateBadgeModel()
         _updateBadge = StateObject(wrappedValue: badge)
@@ -155,9 +161,10 @@ struct MeetMouseApp: App {
         }
         .windowResizability(.contentSize)
 
-        // Give-to-a-friend invite, opened from the menu bar dropdown (the
-        // same view runs as a one-time sheet after the first session).
-        Window("Give MeetMouse", id: "give") {
+        // Free tier: invite 2 friends / buy / enter a code (unlocked users
+        // only see the share link). Opened from the menu bar and the sidebar
+        // card; the same view runs as a sheet when the weekly limit is hit.
+        Window("MeetMouse Unlimited", id: "give") {
             GiveMeetMouseView()
         }
         .windowResizability(.contentSize)
@@ -275,6 +282,7 @@ struct MenuBarLabel: View {
     }
 
     private func startFromDetection() {
+        guard !refusedByFreeTier() else { return }
         detection.sessionStarted()
         openWindow(id: "main")
         NSApp.activate(ignoringOtherApps: true)
@@ -337,6 +345,7 @@ struct MenuBarLabel: View {
                                      settings: PlatformSupport.neuralModelsSupported ? settings : nil) {
             startFromDetection()
         } onStartWithGoal: {
+            guard !refusedByFreeTier() else { return }
             detection.sessionStarted()
             liveSession.showPreCallForm = true
             openWindow(id: "main")
@@ -346,6 +355,17 @@ struct MenuBarLabel: View {
         }
         panel.contentView = NSHostingView(rootView: view)
         panel.orderFront(nil)
+    }
+
+    /// Weekly free meetings used up: show the unlock sheet once and quiet
+    /// the detector for its cooldown. Without the dismiss, detection sees a
+    /// live meeting with no session, re-arms, and auto-start would pop the
+    /// window over the call every few seconds.
+    private func refusedByFreeTier() -> Bool {
+        guard !FreeTier.shared.allowMeetingStart() else { return false }
+        detection.dismissPrompt()
+        openWindow(id: "main")
+        return true
     }
 
     private func hidePrompt() {
@@ -413,9 +433,9 @@ struct MenuBarView: View {
             NSApp.activate(ignoringOtherApps: true)
         }
         Divider()
-        Button(ReferralInvites.invitesLeft > 0
-               ? "Give MeetMouse to a Friend… (\(ReferralInvites.invitesLeft) left)"
-               : "Give MeetMouse to a Friend…") {
+        Button(FreeTier.shared.isUnlocked
+               ? "Share MeetMouse with Friends…"
+               : "Get MeetMouse Unlimited for Free…") {
             openWindow(id: "give")
             NSApp.activate(ignoringOtherApps: true)
         }
@@ -437,6 +457,12 @@ struct MenuBarView: View {
     /// ContentView owns the floating overlay, so a session started with no
     /// window would otherwise coach invisibly.
     private func startCoaching() {
+        // Manual start: show the unlock sheet and quiet any pending prompt.
+        guard FreeTier.shared.allowMeetingStart() else {
+            detection.dismissPrompt()
+            openWindow(id: "main")
+            return
+        }
         detection.sessionStarted()
         openWindow(id: "main")
         liveSession.startLive(context: liveSession.preCallContext,
@@ -543,5 +569,26 @@ struct CheckForUpdatesView: View {
     var body: some View {
         Button("Check for Updates…", action: updater.checkForUpdates)
             .disabled(!viewModel.canCheckForUpdates)
+    }
+}
+
+// MARK: - Unlock links
+
+/// Receives meetmouse://unlock?code=… from meetmouse.com (/thanks, /appsumo,
+/// and the referral status page) and unlocks the free tier.
+final class UnlockURLDelegate: NSObject, NSApplicationDelegate {
+    func application(_ application: NSApplication, open urls: [URL]) {
+        MainActor.assumeIsolated {
+            for url in urls where url.scheme == "meetmouse" {
+                let ok = FreeTier.shared.handle(url: url)
+                NSApp.activate(ignoringOtherApps: true)
+                let alert = NSAlert()
+                alert.messageText = ok ? "MeetMouse Unlimited is unlocked" : "That unlock link didn't work"
+                alert.informativeText = ok
+                    ? "Record as many meetings as you like. Thanks for supporting MeetMouse."
+                    : "Open MeetMouse Unlimited from the menu bar and paste your code instead."
+                alert.runModal()
+            }
+        }
     }
 }
