@@ -63,6 +63,8 @@ struct UsageGate {
     }
 
     func recordMeeting() {
+        // Trial meetings are free and don't eat into the week the trial ends in.
+        guard !isInTrial else { return }
         // Read before stamping the week: stamping first would make last
         // week's count look like this week's.
         let total = meetingsThisWeek + 1
