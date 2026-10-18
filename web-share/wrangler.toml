@@ -43,6 +43,16 @@ zone_name = "meetmouse.com"
 pattern = "meetmouse.com/api/shared-notes/*"
 zone_name = "meetmouse.com"
 
+# Free tier: referral pages (/r/<code>, /go, /status) and the counted
+# "Download free" redirect.
+[[routes]]
+pattern = "meetmouse.com/r/*"
+zone_name = "meetmouse.com"
+
+[[routes]]
+pattern = "meetmouse.com/get"
+zone_name = "meetmouse.com"
+
 # Legacy host: links created before 0.32 (and their revocation tokens) live
 # here. Keep path-specific so the existing rhinovoice.app Worker continues to
 # own every other page.

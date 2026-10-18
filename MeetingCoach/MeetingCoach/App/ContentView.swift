@@ -14,7 +14,7 @@ struct ContentView: View {
     @AppStorage("hasSeenMeetMouseRebrand") private var hasSeenMeetMouseRebrand = false
     @State private var showWelcome = false
     @State private var showRebrandAnnouncement = false
-    @State private var showGiveSheet = false
+    @Bindable private var freeTier = FreeTier.shared
     @State private var searchQuery = ""
     /// Session open in the main pane; nil = whatever else is active.
     @State private var selectedSessionURL: URL?
@@ -199,13 +199,7 @@ struct ContentView: View {
         .onChange(of: settings.showCoachOverlay) { _, on in
             if !on { hideOverlay() } else if liveSession.isLive { showOverlay() }
         }
-        // The viral-loop trigger moment: the user's SECOND real coached
-        // meeting just ended — they've seen the value twice, and the ask
-        // no longer lands mid-first-impression. Once ever; demo replays
-        // never set showPostSession so they can't trigger it. (The flag
-        // key still says "first session" — it also grandfathers everyone
-        // who already saw the prompt under the old first-meeting rule.)
-        // Also route an already-ended meeting when its window first opens.
+        // Route an already-ended meeting when its window first opens.
         // Start clears the flag so every Stop is a false→true change; the
         // live guard still covers a window opened mid-call.
         .onChange(of: liveSession.showPostSession, initial: true) { _, shown in
@@ -213,14 +207,10 @@ struct ContentView: View {
             if shown, let path = liveSession.savedPath {
                 selectedSessionURL = URL(fileURLWithPath: path)
             }
-            guard shown,
-                  !ReferralInvites.firstSessionPromptShown,
-                  ReferralInvites.completedMeetingCount >= 2 else { return }
-            ReferralInvites.firstSessionPromptShown = true
-            showGiveSheet = true
         }
-        .sheet(isPresented: $showGiveSheet) {
-            GiveMeetMouseView(asSheet: true)
+        // A start was refused by the free tier's weekly limit.
+        .sheet(isPresented: $freeTier.showLimitReached) {
+            GiveMeetMouseView(limitReached: true)
         }
         // Typing a new search closes an open session so results show.
         .onChange(of: liveSession.savedPath) { old, new in
@@ -1678,6 +1668,7 @@ struct SidebarView: View {
     var onProgress: () -> Void
     // Configuration stays secondary; the user's disclosure preference persists.
     @AppStorage("sidebarAdvancedExpanded") private var showAdvanced = false
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1703,6 +1694,9 @@ struct SidebarView: View {
                                 settings: settings,
                                 onToggleOverlay: onToggleOverlay,
                                 ollamaManager: ollamaManager)
+                        .padding(.horizontal, 8)
+
+                    FreeTierCard { openWindow(id: "give") }
                         .padding(.horizontal, 8)
 
                     SessionsSection(searchQuery: $searchQuery,

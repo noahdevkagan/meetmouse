@@ -408,6 +408,12 @@ final class LiveSessionViewModel {
                    ollamaManager: OllamaManager? = nil,
                    participantsConfirmed: Bool = false) {
         guard !isLive else { return }
+        // Free tier: the 4th meeting of a week (after the first week) is
+        // refused before any capture starts; FreeTier raises the unlock sheet.
+        guard FreeTier.shared.allowMeetingStart() else {
+            status = "Free meetings used this week"
+            return
+        }
 
         isDemo = false
         let resolvedLanguage = (settings?.meetingLanguage ?? MeetingLanguageSelection.current).resolved()
@@ -850,11 +856,11 @@ final class LiveSessionViewModel {
 
         saveSession()
 
-        // Counts toward the give-to-a-friend prompt (fires after the 2nd
-        // real meeting). Same emptiness guard as the transcript itself —
-        // a mis-click session with no words isn't a meeting.
+        // Counts toward the free tier's weekly allowance. Same emptiness
+        // guard as the transcript itself: a mis-click session with no words
+        // isn't a meeting.
         if !utterances.isEmpty {
-            ReferralInvites.completedMeetingCount += 1
+            FreeTier.shared.recordMeeting()
         }
 
         // Questions are per-meeting: coverage was just written into the

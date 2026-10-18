@@ -2,6 +2,9 @@ import viewerHTML from "./viewer.html";
 import viewerCSS from "./viewer.css";
 import viewerJS from "./viewer.js.txt";
 import { shareIDFromPath, sha256Base64URL, validateCreateBody } from "./core.js";
+import {
+  appSumoUrl, landingHTML, latestDMG, recordReferralClick, referralCount, referralRoute, statusHTML,
+} from "./referrals.js";
 
 export { shareIDFromPath, sha256Base64URL, validateCreateBody } from "./core.js";
 
@@ -155,6 +158,41 @@ async function revokeShare(request, id, env) {
   return response(null, 204, { "Cache-Control": "no-store" });
 }
 
+// Referral pages are static HTML with one inline <style> and no script.
+const referralPolicy = [
+  "default-src 'none'",
+  "img-src 'self'",
+  "style-src 'unsafe-inline'",
+  "base-uri 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'none'",
+].join("; ");
+
+function html(body) {
+  return response(body, 200, {
+    "Cache-Control": "no-store",
+    "Content-Security-Policy": referralPolicy,
+    "Content-Type": "text/html; charset=utf-8",
+  });
+}
+
+function redirect(location) {
+  return new Response(null, { status: 302, headers: { Location: location, "Cache-Control": "no-store" } });
+}
+
+async function handleReferral(route, request, env, url) {
+  if (route.action === "landing") return html(landingHTML(route.code));
+  if (route.action === "status") return html(statusHTML(route.code, await referralCount(env.DB, route.code)));
+  // go: count the friend (once), then send them on.
+  const to = url.searchParams.get("to") === "appsumo" ? "appsumo" : "download";
+  try {
+    await recordReferralClick(env.DB, route.code, request, to);
+  } catch {
+    // Never let a counting failure cost the friend their download.
+  }
+  return redirect(to === "appsumo" ? appSumoUrl : await latestDMG());
+}
+
 function serveViewerAsset(pathname) {
   if (pathname === "/p/assets/viewer-v4.css") {
     return response(viewerCSS, 200, {
@@ -185,6 +223,11 @@ export default {
           "Content-Type": "text/html; charset=utf-8",
         });
       }
+      // "Download free" buttons go through /get so new installs are
+      // countable in Cloudflare analytics (Sparkle updates never hit it).
+      if (request.method === "GET" && url.pathname === "/get") return redirect(await latestDMG());
+      const referral = referralRoute(url.pathname);
+      if (referral && request.method === "GET") return await handleReferral(referral, request, env, url);
       if (request.method === "POST" && url.pathname === "/api/shared-notes/create") {
         return await createShare(request, env);
       }

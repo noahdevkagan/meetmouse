@@ -3,22 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MeetMouse for Mac — a real-time meeting coach that never phones home</title>
-<meta name="description" content="MeetMouse listens to your live meeting and surfaces short coaching cues in a discreet overlay. Transcription stays on your Mac. AI is local by default, with optional Claude or OpenAI. $20, one-time.">
+<title>MeetMouse — free, private meeting notes for Mac</title>
+<meta name="description" content="MeetMouse transcribes your meetings and writes the summary, takeaways and next steps on your Mac. No notetaker joins your call as a guest, and your audio stays on your Mac. Live coaching while you talk. Free; invite 2 friends or pay $20 once for unlimited.">
 <link rel="canonical" href="https://meetmouse.com/">
 <link rel="icon" type="image/png" href="/icon.png">
 <link rel="apple-touch-icon" href="/icon.png">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://meetmouse.com/">
-<meta property="og:title" content="MeetMouse for Mac — a real-time meeting coach that never phones home">
-<meta property="og:description" content="Live coaching cues in a discreet, screen-share-safe overlay. Transcription stays on your Mac. AI is local by default, with optional Claude or OpenAI. $20, one-time.">
+<meta property="og:title" content="MeetMouse — free, private meeting notes for Mac">
+<meta property="og:description" content="Free AI meeting notes that never leave your Mac. No notetaker joins your call as a guest. Summary, takeaways, next steps, and live coaching while you talk.">
 <meta property="og:image" content="https://meetmouse.com/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="MeetMouse: coached live, nothing leaves your Mac. $20 once, macOS, on-device.">
+<meta property="og:image:alt" content="MeetMouse: coached live, nothing leaves your Mac. Free for macOS, on-device.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="MeetMouse for Mac — a real-time meeting coach that never phones home">
-<meta name="twitter:description" content="Live coaching cues in a discreet, screen-share-safe overlay. Transcription stays on your Mac. AI is local by default, with optional Claude or OpenAI. $20, one-time.">
+<meta name="twitter:title" content="MeetMouse — free, private meeting notes for Mac">
+<meta name="twitter:description" content="Free AI meeting notes that never leave your Mac. No notetaker joins your call as a guest. Summary, takeaways, next steps, and live coaching while you talk.">
 <meta name="twitter:image" content="https://meetmouse.com/og.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -247,7 +247,10 @@
   .faq dd { margin: 0; color: var(--muted); line-height: 1.65; }
 
   .closing-cta { text-align: center; }
-  .closing-cta .buy-form { justify-content: center; display: flex; margin-top: 26px; }
+  .closing-cta .button { margin-top: 26px; }
+  .closing-cta .buy-form { justify-content: center; display: flex; margin-top: 14px; }
+  a.button { text-decoration: none; }
+  .link-button { background: none; border: 0; padding: 0; font: inherit; font-size: 14px; color: inherit; text-decoration: underline; cursor: pointer; }
   .closing-cta .purchase-note { margin-top: 16px; }
 
   footer {
@@ -308,10 +311,10 @@
   "name": "MeetMouse",
   "operatingSystem": "macOS 14.2 or later",
   "applicationCategory": "BusinessApplication",
-  "description": "MeetMouse is a $20 one-time macOS app that transcribes your meetings and coaches you live, locally by default — no bot joins your call and no audio ever leaves your Mac.",
+  "description": "MeetMouse is a free macOS app (with a $20 one-time unlimited upgrade) that transcribes your meetings and coaches you live, locally by default — no bot joins your call and no audio ever leaves your Mac.",
   "url": "https://meetmouse.com/",
   "author": { "@type": "Person", "name": "Noah Kagan" },
-  "offers": { "@type": "Offer", "price": "20.00", "priceCurrency": "USD", "availability": "https://schema.org/InStock" }
+  "offers": [{ "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "availability": "https://schema.org/InStock" }, { "@type": "Offer", "name": "Unlimited", "price": "20.00", "priceCurrency": "USD", "availability": "https://schema.org/InStock" }]
 },
 {
   "@context": "https://schema.org",
@@ -321,7 +324,7 @@
     { "@type": "Question", "name": "Does a bot join my call?", "acceptedAnswer": { "@type": "Answer", "text": "No. MeetMouse listens to your Mac's audio, so there is no extra participant, no recording notice, and nothing for the other side to see." } },
     { "@type": "Question", "name": "What do I need to run it?", "acceptedAnswer": { "@type": "Answer", "text": "A Mac on macOS 14.2 or later — Apple Silicon (M1 or newer) recommended. On Intel Macs the high-accuracy transcription engine and speaker identification aren't available, so sessions run on Apple's built-in transcription with reduced accuracy. The AI runtime is bundled — nothing else to install." } },
     { "@type": "Question", "name": "Which meeting apps does it work with?", "acceptedAnswer": { "@type": "Answer", "text": "Anything that plays through your Mac — Zoom, Google Meet, Teams, FaceTime, Slack huddles, a browser tab. MeetMouse needs Microphone and Screen Recording (for system audio) permissions." } },
-    { "@type": "Question", "name": "Is there a free trial?", "acceptedAnswer": { "@type": "Answer", "text": "There is a 30-day money-back guarantee instead. Buy it, use it in real meetings, and if it hasn't earned its keep, email me and I'll refund you." } }
+    { "@type": "Question", "name": "Is MeetMouse free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Your first week is unlimited, then you get 3 meetings a week, and your notes and transcripts are never locked. For unlimited meetings, invite 2 friends or pay $20 once. No subscription." } }
   ]
 }]
 </script>
@@ -338,37 +341,17 @@
     <nav aria-label="Main navigation">
       <a href="/blog/">Blog</a>
       <a href="/changelog">Changelog</a>
-      <form class="buy-form buy-form-compact" action="https://www.paypal.com/cgi-bin/webscr" method="post">
-        <input type="hidden" name="cmd" value="_xclick">
-        <input type="hidden" name="business" value="paypal@okdork.com">
-        <input type="hidden" name="item_name" value="MeetMouse for Mac">
-        <input type="hidden" name="amount" value="20.00">
-        <input type="hidden" name="currency_code" value="USD">
-        <input type="hidden" name="no_shipping" value="1">
-        <input type="hidden" name="return" value="https://meetmouse.com/thanks.html">
-        <input type="hidden" name="cancel_return" value="https://meetmouse.com/">
-        <button class="button button-compact" type="submit">Buy — $20</button>
-      </form>
+      <a class="button button-compact" href="/get">Download free</a>
     </nav>
   </header>
 
   <main class="hero" id="main">
     <div class="hero-copy">
       <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span>For macOS 14.2+ · Signed &amp; notarized</p>
-      <h1>Coached live.<span>Nothing leaves your Mac.</span></h1>
-      <p class="hero-description">MeetMouse listens to your meeting and surfaces short coaching cues in a discreet overlay — talk less, ask better questions, land your point. No bot joins the call. Transcription stays on your Mac, and AI is local by default, with optional Claude or OpenAI.</p>
-      <form class="buy-form" action="https://www.paypal.com/cgi-bin/webscr" method="post">
-        <input type="hidden" name="cmd" value="_xclick">
-        <input type="hidden" name="business" value="paypal@okdork.com">
-        <input type="hidden" name="item_name" value="MeetMouse for Mac">
-        <input type="hidden" name="amount" value="20.00">
-        <input type="hidden" name="currency_code" value="USD">
-        <input type="hidden" name="no_shipping" value="1">
-        <input type="hidden" name="return" value="https://meetmouse.com/thanks.html">
-        <input type="hidden" name="cancel_return" value="https://meetmouse.com/">
-        <button class="button" type="submit">Buy MeetMouse — $20</button>
-      </form>
-      <p class="purchase-note">One-time purchase via PayPal. No subscription, no account.<br>30-day money-back guarantee.</p>
+      <h1>Free meeting notes.<span>Nothing leaves your Mac.</span></h1>
+      <p class="hero-description">MeetMouse transcribes your calls and writes the summary, key takeaways and next steps, right on your Mac. No notetaker shows up as an extra guest on your call, and your audio never leaves your Mac. Plus live coaching while you talk: talk less, ask better questions, land your point.</p>
+      <a class="button" href="/get">Download MeetMouse free</a>
+      <p class="purchase-note">Free: unlimited your first week, then 3 meetings a week. Your notes are never locked.<br>Unlimited: invite 2 friends, or <a href="#buy">pay $20 once</a>. No subscription, no account.</p>
     </div>
 
     <div class="hero-visual" aria-label="MeetMouse coaching during a live call">
@@ -397,8 +380,8 @@
       <h2>Up and running before your next call</h2>
       <ol class="steps">
         <li>
-          <h3>Buy and drag to Applications</h3>
-          <p>Pay $20 with PayPal and grab the DMG. On first launch, click Download Model once — everything after that runs offline.</p>
+          <h3>Download and drag to Applications</h3>
+          <p>Grab the free DMG. On first launch, click Download Model once — everything after that runs offline.</p>
         </li>
         <li>
           <h3>Join any meeting</h3>
@@ -412,7 +395,7 @@
     </section>
 
     <section class="band">
-      <h2>What you get for $20</h2>
+      <h2>What you get</h2>
       <div class="feature-grid">
         <div>
           <h3>Coaching during, not after</h3>
@@ -455,7 +438,7 @@
             <tr><th scope="row">A bot joins your meeting</th><td>No</td><td>Yes</td><td>No</td></tr>
             <tr><th scope="row">Where the meeting is processed</th><td>On your Mac by default</td><td>Their servers</td><td>Their servers</td></tr>
             <tr><th scope="row">Works with Wi-Fi off</th><td>Yes</td><td>No</td><td>No</td></tr>
-            <tr><th scope="row">Cost</th><td>$20 once</td><td>Monthly subscription</td><td>Monthly subscription</td></tr>
+            <tr><th scope="row">Cost</th><td>Free for 3 meetings a week, or $20 once for unlimited</td><td>Monthly subscription</td><td>Monthly subscription</td></tr>
             <tr><th scope="row">Account required</th><td>No</td><td>Yes</td><td>Yes</td></tr>
           </tbody>
         </table>
@@ -494,27 +477,28 @@
           <dd>Anything that plays through your Mac — Zoom, Google Meet, Teams, FaceTime, Slack huddles, a browser tab. MeetMouse needs Microphone and Screen Recording (for system audio) permissions.</dd>
         </div>
         <div>
-          <dt>Is there a free trial?</dt>
-          <dd>There is a 30-day money-back guarantee instead. Buy it, use it in real meetings, and if it hasn't earned its keep, email me and I'll refund you.</dd>
+          <dt>Is MeetMouse free?</dt>
+          <dd>Yes. Your first week is unlimited, then you get 3 meetings a week, and your notes and transcripts are never locked. For unlimited meetings, invite 2 friends or pay $20 once. No subscription.</dd>
         </div>
       </dl>
     </section>
 
-    <section class="band closing-cta">
+    <section class="band closing-cta" id="buy">
       <h2>Fix the meeting while you're still in it.</h2>
-      <p>$20 once. No subscription, no account, no bot in your call.</p>
-      <form class="buy-form" action="https://www.paypal.com/cgi-bin/webscr" method="post">
+      <p>Free to start. No subscription, no account, no bot in your call.</p>
+      <a class="button" href="/get">Download MeetMouse free</a>
+      <form class="buy-form buy-form-inline" action="https://www.paypal.com/cgi-bin/webscr" method="post">
         <input type="hidden" name="cmd" value="_xclick">
         <input type="hidden" name="business" value="paypal@okdork.com">
-        <input type="hidden" name="item_name" value="MeetMouse for Mac">
+        <input type="hidden" name="item_name" value="MeetMouse Unlimited for Mac">
         <input type="hidden" name="amount" value="20.00">
         <input type="hidden" name="currency_code" value="USD">
         <input type="hidden" name="no_shipping" value="1">
         <input type="hidden" name="return" value="https://meetmouse.com/thanks.html">
         <input type="hidden" name="cancel_return" value="https://meetmouse.com/">
-        <button class="button" type="submit">Buy MeetMouse — $20</button>
+        <button class="link-button" type="submit">Or buy MeetMouse Unlimited — $20 once</button>
       </form>
-      <p class="purchase-note">30-day money-back guarantee.</p>
+      <p class="purchase-note">$20 unlocks unlimited meetings for good. Already have an AppSumo code? <a href="/appsumo">Redeem it here</a>.</p>
     </section>
   </div>
 
