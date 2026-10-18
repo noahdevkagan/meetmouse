@@ -7,7 +7,7 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
-## Unreleased
+## 0.32.0 — 2026-10-18
 
 - MeetMouse is now free. New installs get unlimited meetings for the first week, then 3 meetings a week (resets Monday). Your notes, transcripts and search are never locked. For unlimited meetings, invite 2 friends with your link (Get MeetMouse Unlimited, in the menu bar or sidebar), pay $20 once, or enter an AppSumo code. Everyone who installed MeetMouse before this version keeps unlimited automatically.
 - Fixed meetings not stopping automatically after a Zoom call. Zoom 7 (Zoom Workplace) renamed its windows' owner, so MeetMouse never saw the meeting window and could not tell the call had ended; the meeting window is now recognized by the app's identity instead of its display name. Automatic speaker snapshots find the Zoom 7 window again for the same reason.
