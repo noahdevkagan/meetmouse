@@ -282,6 +282,7 @@ struct MenuBarLabel: View {
     }
 
     private func startFromDetection() {
+        guard !refusedByFreeTier() else { return }
         detection.sessionStarted()
         openWindow(id: "main")
         NSApp.activate(ignoringOtherApps: true)
@@ -344,6 +345,7 @@ struct MenuBarLabel: View {
                                      settings: PlatformSupport.neuralModelsSupported ? settings : nil) {
             startFromDetection()
         } onStartWithGoal: {
+            guard !refusedByFreeTier() else { return }
             detection.sessionStarted()
             liveSession.showPreCallForm = true
             openWindow(id: "main")
@@ -353,6 +355,17 @@ struct MenuBarLabel: View {
         }
         panel.contentView = NSHostingView(rootView: view)
         panel.orderFront(nil)
+    }
+
+    /// Weekly free meetings used up: show the unlock sheet once and quiet
+    /// the detector for its cooldown. Without the dismiss, detection sees a
+    /// live meeting with no session, re-arms, and auto-start would pop the
+    /// window over the call every few seconds.
+    private func refusedByFreeTier() -> Bool {
+        guard !FreeTier.shared.allowMeetingStart() else { return false }
+        detection.dismissPrompt()
+        openWindow(id: "main")
+        return true
     }
 
     private func hidePrompt() {
@@ -444,6 +457,12 @@ struct MenuBarView: View {
     /// ContentView owns the floating overlay, so a session started with no
     /// window would otherwise coach invisibly.
     private func startCoaching() {
+        // Manual start: show the unlock sheet and quiet any pending prompt.
+        guard FreeTier.shared.allowMeetingStart() else {
+            detection.dismissPrompt()
+            openWindow(id: "main")
+            return
+        }
         detection.sessionStarted()
         openWindow(id: "main")
         liveSession.startLive(context: liveSession.preCallContext,

@@ -6,3 +6,7 @@
 /compare/meetingcoach-vs-granola    /compare/meetmouse-vs-granola    301
 /compare/meetingcoach-vs-otter      /compare/meetmouse-vs-otter      301
 /compare/meetingcoach-vs-poised     /compare/meetmouse-vs-poised     301
+
+# Download free. The web-share Worker owns /get once deployed (Worker routes
+# win over Pages); until then this sends the button straight to the DMG.
+/get  https://github.com/noahdevkagan/meeting-coach-releases/releases/latest  302
