@@ -17,7 +17,7 @@ BLOG = [
 
 # Freeform "MeetMouse vs X" pages (structured ones come from compare.py).
 MM_VS_ARTICLES = [
-    ("/compare/meetmouse-vs-granola", "MeetMouse vs Granola", "Notes after the meeting vs coaching during it. Different jobs — many people should run both."),
+    ("/compare/meetmouse-vs-granola", "MeetMouse vs Granola", "Cloud notes vs on-device notes plus live coaching. Honest about where Granola wins."),
     ("/compare/meetmouse-vs-fathom", "MeetMouse vs Fathom", "Fathom is the best free notetaker, full stop. Here's what it can't do."),
     ("/compare/meetmouse-vs-otter", "MeetMouse vs Otter.ai", "A searchable archive of every meeting vs actually fixing the meeting you're in."),
     ("/compare/meetmouse-vs-fireflies", "MeetMouse vs Fireflies.ai", "A CRM-connected machine for sales teams vs a private coach for one person: you."),

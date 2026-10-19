@@ -62,7 +62,7 @@ COMPARE = [
             ("Who it's for", "The individual on the call", "Sales leaders, RevOps, the whole org"),
             ("When it helps", "During the call; notes after", "Mostly after: reviews, analytics, forecasting"),
             ("Price", "Free (3 meetings/week); $20 once for unlimited", "Custom (enterprise)"),
-            ("Records calls", "No recording archive", "Yes"),
+            ("Records calls", "Transcript and notes on your Mac, no cloud archive", "Yes"),
             ("CRM integration", "None", "Deep"),
             ("Where your calls go", "Stays on your Mac by default", "Gong's cloud"),
         ],

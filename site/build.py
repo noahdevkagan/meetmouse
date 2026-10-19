@@ -34,7 +34,7 @@ from compare import COMPARE  # noqa: E402
 from links import BLOG, MM_VS_ARTICLES, RHINO, RHINO_GUIDES, X_VS_Y  # noqa: E402
 
 esc = html.escape
-OG_ALT = "MeetMouse: coached live, nothing leaves your Mac. Free for macOS, on-device."
+OG_ALT = "MeetMouse: free meeting notes, nothing leaves your Mac. Live coaching too."
 
 BEST_LINKS = [("/" + p["slug"], p["label"], p["blurb"]) for p in BEST]
 MM_VS = MM_VS_ARTICLES + [("/" + p["slug"], "MeetMouse vs " + p["competitor"], p["blurb"]) for p in COMPARE]
@@ -367,7 +367,7 @@ def render_alternatives(p):
         "paying monthly. The ranking is for one person on Zoom, Meet or Teams who cares where their meetings go and wants to get "
         "better at them, not a sales team. Nobody paid to be on this list. I make MeetMouse, and its price is the one on this site."])))
     out.append(section("How to switch", '      <ol class="today">' + "".join(f"<li>{s}</li>" for s in [
-        "Buy MeetMouse for $20 and open the DMG.",
+        "Download MeetMouse free and open the DMG.",
         "Allow the microphone and Screen Recording, so it hears both sides without a bot.",
         "Start your next Zoom, Meet or Teams call. Want to try it first? The 15-second demo needs no permissions.",
         f"Keep {esc(p['incumbent'])} running alongside if you still want its archive. They don't know about each other."]) + "</ol>"))
@@ -410,7 +410,7 @@ def llms_txt():
         return f"## {title}\n\n" + "\n".join(f"- [{t}]({h if h.startswith('http') else BASE + h}): {b}" for h, t, b in links)
     return "\n\n".join([
         head_txt,
-        "## Product\n\n- [MeetMouse for Mac](https://meetmouse.com/): What it does, how the live coaching overlay works, pricing, and download.\n- [Changelog](https://meetmouse.com/changelog): Every release in plain language.",
+        "## Product\n\n- [MeetMouse for Mac](https://meetmouse.com/): Free on-device meeting notes (transcript, summary, key takeaways, next steps), live coaching, pricing, and download.\n- [Changelog](https://meetmouse.com/changelog): Every release in plain language.",
         sec("Guides: best meeting tool by use case", [("/best/", "All guides", "Hub of honest picks per job.")] + BEST_LINKS),
         sec("Comparisons", [("/alternatives/", "All comparisons", "Every MeetMouse-vs and head-to-head page.")] + MM_VS + X_VS_Y),
         sec("Blog", BLOG),

@@ -3,12 +3,15 @@ import AppKit
 
 /// "Get MeetMouse Unlimited": invite 2 friends, buy once for $20, or enter
 /// a code. Free users reach it from the sidebar card, the menu bar, and the
-/// limit sheet when a 4th meeting in a week is refused (`limitReached`).
+/// limit sheet when a 4th meeting in a week is refused (`limitReached`),
+/// and once as a heads-up when the free week ends (`trialEnded`).
 /// Unlocked users only see the share half ("Share MeetMouse with friends").
 /// Opening links hands them to the browser; the app never calls the site.
 struct GiveMeetMouseView: View {
     /// Sheet mode: the weekly limit was just hit, so lead with that.
     var limitReached = false
+    /// Sheet mode: shown once, the first time the app opens after the free week.
+    var trialEnded = false
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -17,8 +20,9 @@ struct GiveMeetMouseView: View {
     @State private var code = ""
     @State private var codeRejected = false
 
-    init(limitReached: Bool = false) {
+    init(limitReached: Bool = false, trialEnded: Bool = false) {
         self.limitReached = limitReached
+        self.trialEnded = trialEnded
     }
 
     var body: some View {
@@ -40,7 +44,7 @@ struct GiveMeetMouseView: View {
 
             HStack {
                 Spacer()
-                Button(limitReached ? "Not now" : "Done") { dismiss() }
+                Button(limitReached || trialEnded ? "Not now" : "Done") { dismiss() }
                     .buttonStyle(.bordered)
             }
         }
@@ -52,12 +56,15 @@ struct GiveMeetMouseView: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(tier.isUnlocked ? "Share MeetMouse with friends"
                  : limitReached ? "You've used your 3 free meetings this week"
+                 : trialEnded ? "Your free week of unlimited meetings is over"
                  : "Get MeetMouse Unlimited")
                 .font(.title3.bold())
             Text(tier.isUnlocked
                  ? "Send your link to anyone who lives in meetings. MeetMouse is free for them."
                  : limitReached
                  ? "Your notes and transcripts stay open. To record more meetings this week, unlock MeetMouse for good:"
+                 : trialEnded
+                 ? "MeetMouse stays free for \(UsageGate.weeklyFreeMeetings) meetings a week, resetting every Monday. Your notes are never locked. To keep it unlimited:"
                  : statusLine)
                 .font(.callout).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

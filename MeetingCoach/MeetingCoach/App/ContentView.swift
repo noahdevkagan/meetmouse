@@ -212,6 +212,12 @@ struct ContentView: View {
         .sheet(isPresented: $freeTier.showLimitReached) {
             GiveMeetMouseView(limitReached: true)
         }
+        .sheet(isPresented: $freeTier.showTrialEnded) {
+            GiveMeetMouseView(trialEnded: true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            freeTier.checkTrialEnded(isLive: liveSession.isLive)
+        }
         // Typing a new search closes an open session so results show.
         .onChange(of: liveSession.savedPath) { old, new in
             if new == nil, let old, selectedSessionURL?.path == old { selectedSessionURL = nil }
@@ -230,6 +236,7 @@ struct ContentView: View {
             // The window can open into an already-live session (started from
             // the menu bar with no window) — onChange never fires for that.
             if liveSession.isLive { showOverlay() }
+            freeTier.checkTrialEnded(isLive: liveSession.isLive)
         }
     }
 

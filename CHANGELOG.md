@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- When your free week of unlimited meetings ends, MeetMouse tells you once (3 free meetings a week from here, notes never locked) instead of waiting until a meeting won't start.
+
 ## 0.32.0 — 2026-10-18
 
 - MeetMouse is now free. New installs get unlimited meetings for the first week, then 3 meetings a week (resets Monday). Your notes, transcripts and search are never locked. For unlimited meetings, invite 2 friends with your link (Get MeetMouse Unlimited, in the menu bar or sidebar), pay $20 once, or enter an AppSumo code. Everyone who installed MeetMouse before this version keeps unlimited automatically.

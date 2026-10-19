@@ -24,9 +24,13 @@ struct FreeTierCheck {
         check(!gate.isUnlocked && gate.isInTrial, "new install starts in trial, locked")
         for _ in 0..<10 { gate.recordMeeting() }
         check(!gate.isBlocked, "trial week is unlimited")
+        check(!gate.shouldShowTrialEndedNotice, "no trial-ended notice during the trial")
 
         clock = install.addingTimeInterval(8 * 86_400) // next Tuesday, trial over
         check(!gate.isInTrial && gate.meetingsThisWeek == 0, "new week resets the count")
+        check(gate.shouldShowTrialEndedNotice, "trial-ended notice is due once the week is over")
+        gate.markTrialEndedNoticeShown()
+        check(!gate.shouldShowTrialEndedNotice, "trial-ended notice shows only once")
         for _ in 0..<2 { gate.recordMeeting() }
         check(!gate.isBlocked && gate.meetingsLeftThisWeek == 1, "2 of 3 used: still allowed")
         gate.recordMeeting()
@@ -50,6 +54,7 @@ struct FreeTierCheck {
         check(grand.isUnlocked, "pre-free-tier install is grandfathered")
         grand.bootstrap(isExistingInstall: false)
         check(grand.isUnlocked, "bootstrap runs once")
+        check(!grand.shouldShowTrialEndedNotice, "grandfathered installs never see the trial notice")
 
         let suite3 = suite + "-buy"
         let buy = UserDefaults(suiteName: suite3)!
