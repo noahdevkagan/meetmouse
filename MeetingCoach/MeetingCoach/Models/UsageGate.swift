@@ -25,6 +25,7 @@ struct UsageGate {
         static let unlocked = "usage.unlocked"
         static let weekStart = "usage.weekStart"
         static let weekMeetings = "usage.weekMeetings"
+        static let trialEndNoticeShown = "usage.trialEndNoticeShown"
     }
 
     /// Runs once per install, at launch. An install that already has saved
@@ -55,6 +56,16 @@ struct UsageGate {
     }
 
     var meetingsLeftThisWeek: Int { max(0, Self.weeklyFreeMeetings - meetingsThisWeek) }
+
+    /// One-time heads-up that the free week is over, so the first refused
+    /// meeting isn't the first time someone hears about the weekly limit.
+    var shouldShowTrialEndedNotice: Bool {
+        trialEndsAt != nil && !isUnlocked && !isInTrial && !defaults.bool(forKey: Key.trialEndNoticeShown)
+    }
+
+    func markTrialEndedNoticeShown() {
+        defaults.set(true, forKey: Key.trialEndNoticeShown)
+    }
 
     /// True when a new meeting should be refused. A meeting already in
     /// progress always finishes; only the next one is blocked.
@@ -121,6 +132,8 @@ final class FreeTier {
     private(set) var revision = 0
     /// Set when a start was refused; ContentView shows the unlock sheet.
     var showLimitReached = false
+    /// Set once, the first time the app is opened after the free week ends.
+    var showTrialEnded = false
 
     var isUnlocked: Bool { _ = revision; return gate.isUnlocked }
     var isInTrial: Bool { _ = revision; return gate.isInTrial }
@@ -147,8 +160,20 @@ final class FreeTier {
     func allowMeetingStart() -> Bool {
         revision += 1
         guard gate.isBlocked else { return true }
+        // The limit sheet says it all; don't follow it with the trial notice.
+        gate.markTrialEndedNoticeShown()
         showLimitReached = true
         return false
+    }
+
+    /// Raises the one-time "free week is over" sheet when it's due. Called
+    /// when the main window appears and whenever the app comes to the front,
+    /// never during a meeting.
+    func checkTrialEnded(isLive: Bool) {
+        revision += 1
+        guard !isLive, !showLimitReached, gate.shouldShowTrialEndedNotice else { return }
+        gate.markTrialEndedNoticeShown()
+        showTrialEnded = true
     }
 
     func recordMeeting() {
@@ -161,6 +186,7 @@ final class FreeTier {
         let ok = gate.unlock(code: code, appSumoHashes: UsageGate.loadAppSumoHashes())
         if ok {
             showLimitReached = false
+            showTrialEnded = false
             revision += 1
         }
         return ok

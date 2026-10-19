@@ -217,7 +217,7 @@ PAGES = [
             ("Is there a Fathom alternative that doesn't store meetings in the cloud?",
              "MeetMouse. Transcription and AI run on your Mac by default and it works with WiFi off. Every notetaker on this list, including bot-free Granola, uses cloud AI."),
             ("Can a meeting tool make you better at meetings instead of just taking notes?",
-             "That's MeetMouse's whole premise: live cues during the call, like talk balance, buried asks and vague commitments, instead of a summary after it."),
+             "That's MeetMouse's premise: live cues during the call, like talk balance, buried asks and vague commitments, on top of the summary and next steps after it."),
         ],
     },
     {
@@ -333,7 +333,7 @@ PAGES = [
             ("Is there a free Granola alternative without a bot?",
              "MeetMouse is free for 3 meetings a week with no bot, and its notes never expire (I make it). Granola's own free plan is bot-free too, with 30 days of meeting history. Recording with Voice Memos and pasting into an AI chat is also bot-free and costs nothing."),
             ("Is there a Granola alternative without a subscription?",
-             "MeetMouse: free for 3 meetings a week, or $20 once for unlimited, with no subscription and no account. It coaches you live instead of writing notes afterward."),
+             "MeetMouse: free for 3 meetings a week, or $20 once for unlimited, with no subscription and no account. It writes your notes on your Mac and coaches you live during the call."),
             ("What are the limits of Granola's free plan?",
              "Granola's free Basic plan keeps 30 days of meeting history. Unlimited history needs Business at $14 per user per month."),
         ],
