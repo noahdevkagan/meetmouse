@@ -7,7 +7,7 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
-## Unreleased
+## 0.32.1 — 2026-10-19
 
 - When your free week of unlimited meetings ends, MeetMouse tells you once (3 free meetings a week from here, notes never locked) instead of waiting until a meeting won't start.
 
