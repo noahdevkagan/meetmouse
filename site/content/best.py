@@ -233,7 +233,7 @@ BEST = [
         intro=[],
         picks=[
             mm("pitches, discovery calls and negotiations", [
-                "Mine. Discovery call: it notices you've talked for three straight minutes or answered your own question. Investor pitch: when they ask about churn twice, you get a cue to deal with it before the meeting ends. Hiring: it nudges you when the candidate got cut off. All in an overlay only you see, hidden from screen shares, so you can present your deck with it running.",
+                "Mine. Discovery call: it notices you've talked for three straight minutes or stacked three questions at once. Investor pitch: if the meeting is wrapping up with no next steps, you get a cue before it ends. Hiring: \"we'll get back to you soon\" gets flagged as a promise with no date. More cues, like when someone got cut off, can be switched on in Coaching Style. All in an overlay only you see, hidden from screen shares, so you can present your deck with it running.",
                 "No bot, so nothing named \"Notetaker\" joins in front of a VC. Your fundraising conversations stay on your Mac. Notes with next steps after.",
             ]),
             pick(GRANOLA, "a written record of every investor call", [
@@ -293,7 +293,7 @@ BEST = [
                 "Polished notes, nothing joins the call. Cloud AI.",
             ]),
             mm("hiring managers who want to interview better", [
-                "Mine. It watches the live conversation and nudges you when you've been talking too long, when the candidate got cut off, or when a concern came up that you didn't dig into. No bot, so candidates see nothing. The coaching rubric is editable, so you can add the interview habits you care about.",
+                "Mine. It watches the live conversation and nudges you when you've been talking too long, stacked several questions at once, or are wrapping up without next steps. Cues for interruptions and concerns you didn't dig into are off by default and one switch away. No bot, so candidates see nothing. The coaching rubric is editable, so you can add the interview habits you care about.",
                 "After: notes with topics and next steps, and you can ask what the candidate said about a topic and jump to the timestamp. No ATS integration; it's for the interviewer, not the pipeline.",
             ]),
         ],
@@ -499,7 +499,7 @@ BEST = [
         intro=[],
         picks=[
             mm("the conversation itself: talk balance, skipped concerns, commitments", [
-                "Mine. In a 1:1 you get quiet cues only you can see: you've talked most of the last five minutes; they mentioned workload twice and you moved on; \"I'll try\" isn't a commitment — ask what by when. In team meetings it catches when someone got cut off. The rubric is editable.",
+                "Mine. In a 1:1 you get quiet cues only you can see: you've talked most of the last five minutes; \"I'll try\" isn't a commitment, so ask what by when; the meeting is ending with no next steps. Cues for someone getting cut off or a worry you moved past are off by default; turn them on in Coaching Style. The rubric is editable.",
                 "Your reports' 1:1s stay on your Mac, not in a cloud archive. You get notes with owners after, which makes next week's prep quick.",
             ]),
             pick(POISED, "how you sound: filler words, pace", [
