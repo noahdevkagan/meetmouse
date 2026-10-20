@@ -97,7 +97,7 @@ TOOLS = {
         "price": "Free for 300 minutes a month. Pro $16.99/month.",
         "cell": "Free 300 min, then $16.99/mo",
         "free": "300 minutes a month, 30 minutes per conversation, your 25 most recent",
-        "bot": "Yes",
+        "bot": "Yes by default (desktop app can skip it)",
         "audio": "Their cloud",
         "review": (
             "Otter has been transcribing meetings the longest, and search across months of "
@@ -110,7 +110,7 @@ TOOLS = {
         ],
         "bad": [
             "Free plan stops at 300 minutes a month and 30 minutes per conversation",
-            "Announces itself with a bot in every call",
+            "A bot joins calls by default (its desktop app can record without one)",
             "Audio is processed in their cloud",
         ],
     },
@@ -146,15 +146,15 @@ TOOLS = {
         "site": "https://tldv.io",
         "vs": "/compare/meetmouse-vs-tldv",
         "best": "Sharing clips with your team",
-        "price": "Free with unlimited recordings and AI notes on 10 meetings. Paid plans priced per seat.",
-        "cell": "Free; paid per seat",
+        "price": "Free with unlimited recordings and AI notes on 10 meetings. Pro $29/seat/month ($18 billed annually).",
+        "cell": "Free; Pro $29/seat/mo",
         "free": "Unlimited recordings, AI notes on 10 meetings",
         "bot": "Yes",
         "audio": "Their cloud",
         "review": (
             "If what you share with your team is \"watch these 40 seconds,\" tl;dv's clipping "
             "beats everyone's. The free plan records without limits, but AI notes stop after "
-            "10 meetings. Paid plans are priced per seat; check tl;dv's pricing page for the current number."
+            "10 meetings. Pro is $29 a seat a month, or $18 billed annually."
         ),
         "good": [
             "Best clip-sharing on the list",
@@ -186,6 +186,7 @@ NOT_RANKED = {
 PAGES = [
     {
         "slug": "fathom-alternatives",
+        "alternates": [("es", "/es/alternativas-a-fathom")],
         "incumbent": "Fathom",
         "topic": "Fathom alternatives",
         "title": "The 5 Best Fathom Alternatives in 2026 (Ranked, With Prices)",

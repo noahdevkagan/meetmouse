@@ -15,7 +15,7 @@ GRANOLA = dict(name="Granola", price="Free (30 days of history); Business $14/us
 FATHOM = dict(name="Fathom", price="Free; Premium $20/mo; Team $19/user/mo (2-seat min)",
               where="A bot records the call by default (bot-free capture in beta); stored in Fathom's cloud", local="No", url="https://www.fathom.ai/")
 OTTER = dict(name="Otter", price="Free 300 min/mo; Pro $16.99/mo",
-             where="A bot records the call; stored in Otter's cloud", local="No", url="https://otter.ai/")
+             where="A bot records the call by default (its desktop app can record without one); stored in Otter's cloud", local="No", url="https://otter.ai/")
 FIREFLIES = dict(name="Fireflies", price="From $18/user/mo",
                  where="A bot records the call; stored in Fireflies' cloud", local="No", url="https://fireflies.ai/")
 TLDV = dict(name="tl;dv", price="Free (data kept up to 3 months); Pro $29/seat/mo ($18 annual)",
@@ -24,8 +24,10 @@ MACWHISPER = dict(name="MacWhisper", price="Free tier; one-time Pro license",
                   where="On your Mac", local="Yes", url="https://goodsnooze.gumroad.com/l/macwhisper")
 GONG = dict(name="Gong", price="Custom enterprise pricing",
             where="Calls recorded and stored in Gong's cloud", local="No", url="https://www.gong.io/")
-POISED = dict(name="Poised", price="Free tier; paid subscription",
+POISED = dict(name="Poised", price="Pro $19/mo ($13/mo billed annually); free trial",
               where="Captured on your computer; processed in Poised's cloud", local="No", url="https://www.poised.com/")
+YOODLI = dict(name="Yoodli", price="Free (5 roleplays total); Pro $8/mo, Advanced $20/mo, billed annually",
+              where="Practice roleplays and uploaded recordings, on Yoodli's servers", local="No", url="https://yoodli.ai/")
 
 
 def mm(best_for, body):
@@ -207,7 +209,7 @@ BEST = [
             ("Can I use MeetMouse for depositions?", "Use a court reporter for the official record. MeetMouse is for your own live calls and notes."),
             ("What's the best AI notetaker for a law firm handling privileged client conversations?", "Start with where the conversation goes, not the summary quality. For privileged calls, pick a tool that keeps audio and transcript on your own computer: MeetMouse does that on a Mac, with no bot and no vendor account. If your firm wants a central archive across matters, that's a cloud tool on a business plan your firm has reviewed, and the review comes before the first client call."),
             ("What's the best AI notetaker for a practice that bills by the hour?", "One that saves you the write-up after every call, because that's the time you can't bill cleanly. MeetMouse gives you a summary, decisions and next steps the moment the call ends, and you can ask a saved meeting what was said about a term. It doesn't track time or push entries into billing software, so you still log the hours yourself."),
-            ("Does a bot join my client calls?", "With Otter, Fireflies and Fathom's default setup, yes: a visible participant joins and recaps can be emailed to attendees. Granola and MeetMouse capture audio on your computer, so nothing joins the call."),
+            ("Does a bot join my client calls?", "With Fireflies, and Otter's and Fathom's default setup, yes: a visible participant joins and recaps can be emailed to attendees. Granola and MeetMouse capture audio on your computer, so nothing joins the call."),
         ],
         cta_body="Free to start. No account, no vendor holding your client calls, and it works with Wi-Fi off. " + REFUND,
         checked="October 2026",
@@ -306,7 +308,7 @@ BEST = [
         ],
         faq=[
             ("What's the best AI notetaker for interviews?", "Fireflies or Fathom for recruiting teams that need integrations. Granola for bot-free notes. MeetMouse for hiring managers who want live coaching during the interview."),
-            ("Do candidates see the AI notetaker?", "Bot tools (Fireflies, Otter, and Fathom by default) join as a visible participant. MeetMouse and Granola capture audio on your computer, so nothing joins. Tell candidates either way."),
+            ("Do candidates see the AI notetaker?", "Bot tools (Fireflies, and Otter and Fathom by default) join as a visible participant. MeetMouse and Granola capture audio on your computer, so nothing joins. Tell candidates either way."),
             ("Can I customize the coaching for interviews?", "Yes. MeetMouse's coaching rubric is editable, so you can add the interviewing habits you want to be nudged on."),
             ("Is candidate data stored in the cloud?", "With cloud notetakers, yes. MeetMouse keeps transcripts and notes on your Mac by default, with no account."),
         ],
@@ -525,6 +527,72 @@ BEST = [
         ],
         cta_body="Free to start. Your team's 1:1s stay on your Mac. " + REFUND,
         checked="September 2026",
+    ),
+    # ─────────────────────────────────────────────────────────────
+    dict(
+        slug="best/ai-meeting-coach",
+        label="Best AI meeting coach",
+        blurb="Live feedback while you talk vs a report card after. Which kind you actually need.",
+        title="AI Meeting Coach for Mac (2026): Live Feedback During Calls, No Bot",
+        description="What an AI meeting coach actually does, and the best ones in 2026: MeetMouse (formerly MeetingCoach), Poised, Otter, Gong and Yoodli. Live cues vs post-call reports, prices and privacy.",
+        headline="The best AI meeting coach (2026): live feedback during the call",
+        dek="Full disclosure: I make MeetMouse, which used to be called MeetingCoach. If you searched for that name, you're in the right place. This page also covers the coaches I didn't build, and when they're the better pick.",
+        short_answer="\"Meeting coach\" means three different things. A live coach nudges you during the call, while you can still fix it. A post-call coach scores the recording afterwards, usually for a sales manager. A practice coach lets you rehearse with an AI before the real thing. Pick by when you want the feedback.",
+        short_picks=[
+            ("Best live coach for the conversation itself", "MeetMouse, free to start (mine)"),
+            ("Best live coach for delivery (filler words, pace)", "Poised"),
+            ("Best post-call coaching for a sales team", "Gong"),
+            ("Best for rehearsing before a big meeting", "Yoodli"),
+        ],
+        intro=[
+            ("What an AI meeting coach actually does", [
+                "Most meeting tools are notetakers. They tell you what happened after it's over. A coach tries to change what happens, and the timing matters a lot. A cue that says \"you've been talking for four minutes\" is useful at minute four. In a recap the next day it's trivia.",
+                "So the first question isn't which app. It's whether you want feedback during the call, after it, or before it.",
+            ]),
+            ("What MeetMouse coaches out of the box", [
+                "Out of the box MeetMouse watches for five things, on purpose. More cues sounds better until you're getting pinged every ninety seconds. The defaults:",
+                "<strong>Long stretches.</strong> You've been talking a long time in one go. <strong>Stacked questions.</strong> You asked three things at once, so they'll answer the easiest. <strong>No next steps.</strong> The meeting is nearly over and nobody has said what happens next. <strong>Soft commitments.</strong> Someone said \"I'll try to get to it\" and no date got pinned. And one green: when you lock an owner and a date out loud, it tells you that landed.",
+                "About twenty more cues are off by default and one switch away in Coaching Style: interruptions, unanswered questions, the other person going quiet, a worry that got passed over, time checks. Cues show in a small overlay that's hidden from screen shares and recordings, so the other people on the call never see it.",
+                "If you only run 1:1s, the <a href=\"/best/meeting-coach-for-managers\">meeting coach for managers</a> guide goes deeper on that.",
+            ]),
+        ],
+        picks=[
+            mm("live coaching on the conversation, private by default", [
+                "Mine. It listens on your Mac (no bot joins), shows a live transcript and talk balance, and gives you the cues above during Zoom, Meet or Teams calls. Transcription and AI run on your Mac by default, so a coaching session about a hard conversation doesn't end up on anyone's server.",
+                "It doesn't do delivery coaching like filler-word counts, and there's no team dashboard. Mac only.",
+            ]),
+            pick(POISED, "live delivery coaching: filler words, pace, confidence", [
+                "The closest thing to MeetMouse, and better at a different job. Poised coaches how you sound, live, and it's good at it. Processing happens in Poised's cloud and it's a subscription. If the feedback you keep getting is \"too many ums,\" start here. <a href=\"/compare/meetmouse-vs-poised\">MeetMouse vs Poised</a> goes through the trade-offs.",
+            ]),
+            pick(OTTER, "notes first, with sales coaching tips", [
+                "Otter is a notetaker at heart, and a very good one for searching old meetings. Its sales pages now advertise live coaching tips during calls. If your company already pays for Otter, try those before buying anything else. A bot joins by default, and everything is stored in Otter's cloud.",
+            ]),
+            pick(GONG, "post-call coaching for sales managers", [
+                "Gong is what people at bigger sales orgs mean by \"call coaching\": every call recorded, scored and reviewed by a manager afterwards. Powerful for a team, but it's a company purchase, not something you install for yourself.",
+            ]),
+            pick(YOODLI, "rehearsing a pitch or interview beforehand", [
+                "Yoodli is practice, not the real meeting. You roleplay with an AI or upload a recording and get feedback on it. Good before a big presentation or job interview. It won't help in the moment of an actual call.",
+            ]),
+        ],
+        verdict=[
+            "If you want to get better at meetings while they're happening and keep them private: MeetMouse. If it's your delivery: Poised. If you manage a sales team: Gong. If you want reps before the real thing: Yoodli.",
+        ],
+        today=[
+            "Pick one habit to fix this week. Talking too long is the most common one.",
+            "Turn on only the cue for that habit. One useful nudge beats ten ignored ones.",
+            "After three meetings, check the recap. Did the cue fire less?",
+            "Try MeetMouse for your next week of calls. The first week is unlimited, then it's free for 3 meetings a week.",
+        ],
+        faq=[
+            ("What is an AI meeting coach?", "Software that gives you feedback on how you run meetings. Live coaches nudge you during the call; post-call coaches score the recording afterwards; practice coaches let you rehearse with an AI first."),
+            ("Is MeetMouse the same as MeetingCoach?", "Yes. MeetingCoach was renamed MeetMouse in September 2026. Same app, same team, and existing installs updated automatically."),
+            ("Is there a free AI meeting coach?", "MeetMouse is free: unlimited your first week, then 3 meetings a week, with notes never locked. Unlimited is $20 once. Yoodli has a free plan for practice roleplays."),
+            ("Can other people on the call see the coaching?", "Not with MeetMouse. Cues show in an overlay that's excluded from screen shares and recordings, and no bot joins the call."),
+            ("Does an AI meeting coach record my calls?", "Depends on the tool. Bot-based tools record to their cloud. MeetMouse transcribes on your Mac and keeps the meeting there by default; if you add your own Claude or OpenAI key, meeting text goes to that provider."),
+            ("Which meetings does MeetMouse work with?", "Zoom, Google Meet, Microsoft Teams and other calls on your Mac, because it listens to your Mac's audio instead of joining the call."),
+        ],
+        cta_body="Free to start, and the coaching stays on your Mac. " + REFUND,
+        checked="October 2026",
     ),
     # ─────────────────────────────────────────────────────────────
     dict(
