@@ -12,8 +12,8 @@ REFUND = "Unlimited your first week, then 3 meetings a week. Invite 2 friends or
 
 GRANOLA = dict(name="Granola", price="Free (30 days of history); Business $14/user/mo",
                where="Captured on your computer (no bot); notes made with cloud AI", local="No", url="https://www.granola.ai/")
-FATHOM = dict(name="Fathom", price="Free; Team from $19/user/mo",
-              where="A bot records the call; stored in Fathom's cloud", local="No", url="https://fathom.video/")
+FATHOM = dict(name="Fathom", price="Free; Premium $20/mo; Team $19/user/mo (2-seat min)",
+              where="A bot records the call by default (bot-free capture in beta); stored in Fathom's cloud", local="No", url="https://www.fathom.ai/")
 OTTER = dict(name="Otter", price="Free 300 min/mo; Pro $16.99/mo",
              where="A bot records the call; stored in Otter's cloud", local="No", url="https://otter.ai/")
 FIREFLIES = dict(name="Fireflies", price="From $18/user/mo",
@@ -205,9 +205,12 @@ BEST = [
             ("Which AI notetaker doesn't send client calls to the cloud?", "MeetMouse runs transcription and its default AI on your Mac and works with Wi-Fi off. MacWhisper transcribes recordings locally. Granola, Otter, Fathom and Fireflies process in their cloud."),
             ("Do I still need consent?", "Yes. Recording and transcription consent rules vary by jurisdiction. On-device processing changes who receives the data, not your consent obligations."),
             ("Can I use MeetMouse for depositions?", "Use a court reporter for the official record. MeetMouse is for your own live calls and notes."),
+            ("What's the best AI notetaker for a law firm handling privileged client conversations?", "Start with where the conversation goes, not the summary quality. For privileged calls, pick a tool that keeps audio and transcript on your own computer: MeetMouse does that on a Mac, with no bot and no vendor account. If your firm wants a central archive across matters, that's a cloud tool on a business plan your firm has reviewed, and the review comes before the first client call."),
+            ("What's the best AI notetaker for a practice that bills by the hour?", "One that saves you the write-up after every call, because that's the time you can't bill cleanly. MeetMouse gives you a summary, decisions and next steps the moment the call ends, and you can ask a saved meeting what was said about a term. It doesn't track time or push entries into billing software, so you still log the hours yourself."),
+            ("Does a bot join my client calls?", "With Otter, Fireflies and Fathom's default setup, yes: a visible participant joins and recaps can be emailed to attendees. Granola and MeetMouse capture audio on your computer, so nothing joins the call."),
         ],
         cta_body="Free to start. No account, no vendor holding your client calls, and it works with Wi-Fi off. " + REFUND,
-        checked="September 2026",
+        checked="October 2026",
     ),
     # ─────────────────────────────────────────────────────────────
     dict(
@@ -309,6 +312,77 @@ BEST = [
         ],
         cta_body="Free to start. No bot for candidates to see, and interview notes stay on your Mac. " + REFUND,
         checked="September 2026",
+    ),
+    # ─────────────────────────────────────────────────────────────
+    dict(
+        slug="best/ai-note-taker-for-interviews",
+        label="Best AI note taker for interviews",
+        blurb="Hiring interviews and research calls: get the notes without a bot making people stiffen up.",
+        title="Best AI Note Taker for Interviews (2026): Hiring + Research",
+        description="The best AI note taker for job interviews and user research calls. Bot vs no bot, free plan limits, where the recording goes, and which tool fits which interviewer.",
+        headline="The best AI note taker for interviews (2026)",
+        dek="Full disclosure: I make MeetMouse. Interviews are where I think a notetaker matters most, because the person across from you is already nervous, and that's exactly when a bot named \"Notetaker\" joining the call does damage.",
+        short_answer="The best AI note taker for interviews is the one the other person never notices. For hiring interviews and user research calls, pick a tool that captures audio on your own computer instead of sending a bot: MeetMouse (on your Mac, free for 3 meetings a week, and it coaches you to talk less while it happens) or Granola (cloud notes, no bot). If you're a recruiting team that needs notes in your systems at volume, Fireflies or Fathom. If you already record research sessions with consent, MacWhisper turns the files into text on your Mac.",
+        short_picks=[
+            ("Best for interviewers who want to interview better", "MeetMouse, free to start (mine)"),
+            ("Best bot-free cloud notes", "Granola"),
+            ("Best for high-volume recruiting teams", "Fireflies or Fathom"),
+            ("Best for recorded research sessions", "MacWhisper"),
+        ],
+        intro=[
+            ("Why interviews are different from every other meeting", [
+                "In a team meeting, a bot is a small annoyance. In an interview, it changes the answers. Candidates get more careful. Research participants start giving you the polite version instead of the real one. The whole point of the call is to hear what people actually think, so the less your tooling announces itself, the better your notes get.",
+                "The second difference is that you're not supposed to be the one talking. A good interview is maybe 70% them. Almost every interviewer talks more than they think, and no recap the next morning fixes that.",
+            ]),
+            ("Hiring interviews vs research interviews", [
+                "Hiring interviews need fair, comparable notes across candidates, and they involve personal data about people who never agreed to your vendor's terms. Research interviews need quotes you can trust and a way to find the moment someone said the thing, weeks later, when you're writing up findings.",
+                "Both need consent. Tell people you take AI notes, whatever you use. On-device tools change who receives the conversation, not whether you should ask.",
+            ]),
+            ("Watch the free plan limits", [
+                "Free plans and interviews don't always mix. Otter's free plan stops each conversation at 30 minutes and keeps your 25 most recent, so a 45-minute interview gets cut off. Fathom's free plan records unlimited calls with instant summaries; its more advanced summaries and action items are on Premium. Granola's free plan shows 30 days of meeting history, which runs out in the middle of a hiring loop. MeetMouse is unlimited your first week, then 3 meetings a week, with notes never locked.",
+            ]),
+        ],
+        picks=[
+            mm("interviewers who want better interviews, not just notes", [
+                "Mine. It hears the call through your Mac, so nothing joins and the candidate or participant sees nothing. While you talk it shows your talk balance and nudges you when you've been going too long, when you cut someone off, or when they raised something you didn't dig into. Those nudges sit in an overlay that stays out of your screen share.",
+                "After the call: topic-by-topic notes and next steps, and you can open any saved interview and ask what someone said about pricing or their last manager, with the answer pointing to the timestamp. Transcription and the default AI run on your Mac. What it doesn't do: push notes into an ATS or a research repository. It's for the interviewer, not the pipeline.",
+            ]),
+            pick(GRANOLA, "bot-free notes when cloud AI is fine", [
+                "Captures audio on your computer, so no bot joins, and the notes are excellent. Notes are written with cloud AI, and the free plan's 30 days of history is short for a hiring loop. Business is $14 per user per month.",
+            ]),
+            pick(FIREFLIES, "recruiting teams that need notes in their tools", [
+                "Built for teams: transcribe every screen and push the notes into the systems your team already uses. A bot joins each call and the data lives in their cloud, so make sure your candidate privacy notice covers it.",
+            ]),
+            pick(FATHOM, "free interview summaries", [
+                "The most generous free plan here: unlimited recordings and instant summaries. A bot joins by default, which can make early-stage candidates stiffen up; Fathom has a bot-free option in beta.",
+            ]),
+            pick(MACWHISPER, "turning recorded research sessions into text", [
+                "If you already record sessions with consent and just need transcripts for synthesis, MacWhisper transcribes the files on your Mac. Nothing uploaded, no live notes or coaching.",
+            ]),
+            pick(OTTER, "a searchable archive of many interviews", [
+                "Search across months of transcripts is Otter's strength, which helps when you're digging through 30 research calls. The free plan's 30-minute cap per conversation is the catch for interviews; Pro raises it to 90 minutes. A bot joins the call.",
+            ]),
+        ],
+        verdict=[
+            "If you run the interviews yourself and want to get better at them, use MeetMouse. The bot never shows up, and the nudge to stop talking is worth more than any summary.",
+            "If you're a recruiting team processing volume, use Fireflies or Fathom and accept the bot. Plenty of teams run both: the team tool for the record, MeetMouse for the interviewer.",
+            "For deeper reading on the hiring side, see my <a href=\"/best/ai-notetaker-for-recruiters\">best AI notetaker for recruiters</a> guide.",
+        ],
+        today=[
+            "Add one line to your interview invite: \"I take AI notes so I can listen instead of type.\" Nobody minds that.",
+            "Write down the three questions you want answered by the end of the call. Check them off before you hang up.",
+            "Aim for them talking 70% of the time on your next interview. Then check how you actually did.",
+            "Try MeetMouse on your next three interviews. It's free for 3 meetings a week, so finding out costs nothing.",
+        ],
+        faq=[
+            ("What is the best AI note taker for interviews?", "For interviewers who want no bot and better interviews, MeetMouse, which runs on your Mac and coaches you live. For bot-free cloud notes, Granola. For recruiting teams that need integrations, Fireflies or Fathom. For recorded research sessions, MacWhisper."),
+            ("Is there an AI interview note taker that doesn't join the meeting?", "Yes. MeetMouse and Granola capture audio on your computer, so no bot joins. Fathom has bot-free capture in beta. Otter and Fireflies join as a visible participant."),
+            ("Is it legal to use an AI note taker in a job interview?", "Recording and transcription consent rules vary by place, and this isn't legal advice. The common practice is to tell the candidate up front. On-device tools change who receives the conversation, not your consent obligations."),
+            ("Can AI help with user research interviews?", "Yes: live notes during the call, and afterwards a way to find exact quotes. MeetMouse lets you ask a saved interview what someone said and jumps to the timestamp. MacWhisper is good for transcribing recorded sessions on your Mac."),
+            ("Which free AI note taker works for long interviews?", "Fathom records unlimited calls free. MeetMouse is unlimited your first week, then 3 meetings a week. Otter's free plan stops each conversation at 30 minutes."),
+        ],
+        cta_body="Free to start. No bot for the person across from you to notice, and interview notes stay on your Mac. " + REFUND,
+        checked="October 2026",
     ),
     # ─────────────────────────────────────────────────────────────
     dict(
@@ -501,40 +575,62 @@ BEST = [
         slug="best/ai-notetaker-for-financial-advisors",
         label="Best AI notetaker for financial advisors",
         blurb="Your clients tell you their balances, inheritances and divorces. Here's where each tool sends that.",
-        title="Best AI Notetaker for Financial Advisors (2026): Privacy Compared",
-        description="AI notetakers for financial advisors compared — advisor-built cloud tools vs on-device options — on client privacy, CRM sync and price. Talk to compliance first.",
+        title="Best AI Notetaker for Financial Advisors (2026): Privacy First",
+        description="The best AI notetaker for financial advisors: advisor-built CRM tools vs on-device notes, compared on client privacy, records, bots and price.",
         headline="The best AI notetaker for financial advisors (2026)",
-        dek="Full disclosure: I make MeetMouse, and I'm not a compliance officer. Your firm's recordkeeping rules come first; check them before you use any of this.",
-        short_answer="Advisor meetings are full of the most sensitive things people say out loud: balances, inheritances, divorces, diagnoses. There are two sane approaches: tools built for advisors that handle the CRM and records side, or keeping the conversation on your own computer.",
+        dek="Full disclosure: I make MeetMouse, and I'm not a compliance officer. Your firm's recordkeeping rules come first, so read this, then go ask them.",
+        short_answer="The best AI notetaker for a financial advisor depends on one question: does your firm need the notes in a central system? If yes, use an advisor-built tool like Jump or Zocks that writes into your wealth CRM, and let compliance approve it. If you're independent and mostly want your client's balances, health news and family drama kept off other people's servers, use a notetaker that runs on your own computer. MeetMouse does that on a Mac, free for 3 meetings a week.",
         short_picks=[
-            ("Best for firms that need CRM sync and records", "Advisor-built tools like Jump or Zocks"),
+            ("Best for firms that need CRM sync and central records", "Advisor-built tools like Jump or Zocks"),
             ("Best for keeping client finances off anyone's cloud", "MeetMouse, free to start (mine)"),
+            ("Best general notetaker your firm may already approve", "Fathom or Granola on a business plan"),
         ],
-        intro=[],
+        intro=[
+            ("What makes advisor meetings different", [
+                "A sales call is about a deal. A review meeting is about someone's whole life: the account balances, the inheritance from a parent who just died, the divorce, the diagnosis that changes the retirement plan. People say these things out loud to you because they trust you. Every notetaker sends that conversation somewhere, and the honest way to pick one is to ask where.",
+                "There are only three places it can go: a vendor built for advisors, a general notetaker's cloud, or nowhere at all because it stays on your laptop. All three can be the right answer.",
+            ]),
+            ("Four questions to ask before a client meeting", [
+                "Does the audio or transcript leave my computer, and which companies see it? Does a bot show up on my client's screen? Do the notes need to land in my CRM or my firm's archive to count as a record? Can I delete a meeting for real if a client asks?",
+                "If your firm treats meeting notes as records you must keep, that answer alone points you to an advisor-built tool or to whatever compliance already approved. Don't guess on this one.",
+            ]),
+        ],
         picks=[
             dict(name="Advisor-built tools (Jump, Zocks)", best_for="firms that need wealth-CRM sync and central records",
-                 price="Subscription", where="Vendor cloud", local="No",
-                 body=["Designed around how advisors work: prep, notes into wealth CRMs, records. If your firm needs a central archive, start here and loop in compliance."]),
+                 price="Subscription; see each vendor's pricing", where="Vendor cloud", local="No",
+                 body=["Built around how advisors actually work: prep before the meeting, notes into wealth CRMs after it, and a record your firm can find later. If your firm needs a central archive, start here, and bring compliance into the trial.",
+                       "The trade is the one every cloud tool makes: your client's words live on the vendor's servers. For most firms that's fine once it's been reviewed. Just don't sign up on a personal card and start recording client reviews."]),
             mm("independent advisors who want notes without uploading client data", [
-                "Mine. It listens through your Mac, so no bot shows up on your client's screen. Transcription and AI run on your laptop; nothing is uploaded. You get notes with action items after, and you can ask a saved meeting what a client said about a topic and jump to the moment.",
-                "The live coaching flags a worry your client raised that you didn't answer. What it doesn't do: CRM sync or firm-level archiving.",
+                "Mine. It listens through your Mac, so no bot shows up on your client's screen and nobody sees a recording notice. Transcription and the default AI run on your laptop, and it keeps working with Wi-Fi off. When the meeting ends you get notes with action items, and you can ask a saved meeting what a client said about, say, the Roth conversion and jump to that moment.",
+                "During the meeting, it can flag a worry your client raised that you didn't come back to. That's the moment a client remembers. What it doesn't do: CRM sync or firm-level archiving. If you need either, it's a personal tool next to your system of record, not a replacement for it.",
             ]),
-            pick(FATHOM, "general notes, if your firm has approved it", ["Good product, not built for advisor compliance. Use a business plan your firm has reviewed."]),
-            pick(GRANOLA, "bot-free notes, if your firm has approved it", ["Same rule: firm-approved plan only."]),
+            pick(FATHOM, "general notes, if your firm has approved it", [
+                "A good, generous product, not built for advisor recordkeeping. A bot joins by default; Fathom has bot-free capture in beta. Use a plan your firm has reviewed, not a personal free account.",
+            ]),
+            pick(GRANOLA, "bot-free notes, if your firm has approved it", [
+                "No bot on the call and very good notes. The notes are written with cloud AI, so the same rule applies: firm-approved plan only.",
+            ]),
         ],
-        verdict=["If your firm needs CRM sync and central records, use an advisor-built tool. If you're independent and don't want client finances in anyone's cloud, MeetMouse."],
+        verdict=[
+            "If your firm needs CRM sync and central records, use an advisor-built tool and let compliance pick between them.",
+            "If you're independent and you don't want a client's finances in anyone's cloud, use MeetMouse. You'll still copy the action items into your CRM yourself, which takes a minute and is the price of nothing being uploaded.",
+            "If you dictate client letters and follow-up emails too, my other app <a href=\"https://rhinovoice.app/\">Rhino Voice</a> does that on-device as well.",
+        ],
         today=[
-            "Ask compliance which note-taking tools are approved and what records you must keep.",
-            "List where client meeting notes live today. Every place is a place they can leak from.",
-            "If you're independent, try MeetMouse on internal calls first, then client meetings.",
+            "Ask compliance two questions: which note-taking tools are approved, and do AI meeting notes count as records you must keep?",
+            "List every place client meeting notes live today: email, CRM, legal pads, a notetaker's cloud. Each one is a place they can leak from.",
+            "Tell clients you take AI notes, whatever tool you use.",
+            "If you're independent, try MeetMouse on a week of internal calls, then on client meetings once you trust it.",
         ],
         faq=[
-            ("Can financial advisors use AI notetakers?", "Many do, but recordkeeping and privacy rules vary by firm and regulator — ask compliance. Advisor-built tools focus on CRM and records; MeetMouse keeps client data on your Mac."),
-            ("Which AI notetaker keeps client financial data private?", "MeetMouse processes transcription and AI on your Mac by default, so client details aren't uploaded."),
-            ("Does MeetMouse sync to Redtail, Wealthbox or Salesforce?", "No. Notes stay on your Mac. You can copy them or share via an encrypted, expiring link."),
-            ("Does a bot join client meetings?", "Not with MeetMouse — it captures audio on your Mac. Bot tools add a visible participant."),
+            ("What is the best AI notetaker for financial advisors?", "If your firm needs notes synced into a wealth CRM and kept as central records, an advisor-built tool like Jump or Zocks, approved by compliance. If you're independent and want client details kept off other companies' servers, MeetMouse, which runs transcription and AI on your Mac and is free for 3 meetings a week."),
+            ("Can financial advisors use AI notetakers?", "Many do, but recordkeeping and privacy rules vary by firm and regulator, so ask compliance first. Advisor-built tools focus on CRM and records; MeetMouse keeps client data on your Mac."),
+            ("Which AI notetaker keeps client financial data private?", "MeetMouse processes transcription and its default AI on your Mac and works with Wi-Fi off, so client details aren't uploaded. If you add your own Claude or OpenAI key, meeting text goes to that provider, so leave it on local for client meetings."),
+            ("Does MeetMouse sync to Redtail, Wealthbox or Salesforce?", "No. Notes stay on your Mac. You can copy them into your CRM or share them through an encrypted, expiring link."),
+            ("Does a bot join client meetings?", "Not with MeetMouse or Granola, which capture audio on your computer. Otter and Fireflies join as a visible participant, and Fathom does by default."),
+            ("Is MeetMouse compliant with SEC or FINRA rules?", "I can't tell you that, and you should be wary of any notetaker that says yes without your compliance team in the loop. MeetMouse has no compliance certifications. What it does is keep the conversation on your Mac by default, which is a different thing."),
         ],
         cta_body="Free to start. Client finances stay on your Mac. " + REFUND,
-        checked="September 2026",
+        checked="October 2026",
     ),
 ]

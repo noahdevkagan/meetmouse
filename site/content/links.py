@@ -13,6 +13,9 @@ BLOG = [
     ("/blog/fathom-alternatives", "The 5 best Fathom alternatives in 2026", "Ranked, with prices, best-for lines and honest trade-offs, from a competitor."),
     ("/blog/otter-alternatives", "The 5 best Otter.ai alternatives in 2026", "Ranked, with prices, best-for lines and honest trade-offs, from a competitor."),
     ("/blog/fireflies-alternatives", "The 5 best Fireflies.ai alternatives in 2026", "Ranked, with prices, best-for lines and honest trade-offs, from a competitor."),
+    ("/blog/fathom-pricing", "Fathom pricing in 2026", "What the free plan covers, Premium at $20, Team and Business per seat, and what a team actually pays."),
+    ("/blog/granola-pricing", "Granola pricing in 2026", "The free plan's 30-day history catch, Business at $14 a user, and when it's worth paying."),
+    ("/blog/otter-pricing", "Otter.ai pricing in 2026", "The free plan's 30-minute cap, Pro at $16.99 ($8.33 billed annually), and Business."),
 ]
 
 # Freeform "MeetMouse vs X" pages (structured ones come from compare.py).
@@ -33,7 +36,7 @@ X_VS_Y = [
     ("/compare/fathom-vs-fireflies", "Fathom vs Fireflies", "The best free notetaker vs the integration machine."),
     ("/compare/fathom-vs-tldv", "Fathom vs tl;dv", "Two free bots. One gives you better summaries, the other better clips."),
     ("/compare/otter-vs-fathom", "Otter vs Fathom", "The archive veteran vs the free favorite — and the part neither fixes."),
-    ("/compare/otter-vs-fireflies", "Otter vs Fireflies", "An archive for you, or a machine for your team's managers?"),
+    ("/compare/otter-vs-fireflies", "Fireflies vs Otter", "Otter for one person and search, Fireflies for sales teams. Prices and free limits compared."),
 ]
 
 # Sister site. Link to it where the reader's job is dictation, not meetings.
