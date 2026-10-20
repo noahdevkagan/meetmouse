@@ -202,7 +202,7 @@ PAGES = [
         ),
         "intro": (
             "Fathom is the best free notetaker on the market. "
-            "People leave it for three reasons: a bot named Fathom joins every call, every "
+            "People leave it for three reasons: a bot named Fathom joins every call by default, every "
             "recording lives on their servers, or six months of beautiful summaries never made "
             "anyone better at meetings. I make MeetMouse, so it's listed first. Each tool "
             "below says what it does better than us."
@@ -257,7 +257,7 @@ PAGES = [
         "not_ranked": ["poised", "memo"],
         "faqs": [
             ("What is the best free alternative to Otter.ai?",
-             "Fathom. Its free individual plan has no minute cap, while Otter's free tier stops at 300 minutes a month. The trade-off is the same as Otter's: a visible bot joins your calls and recordings live in Fathom's cloud."),
+             "Fathom. Its free individual plan has no minute cap, while Otter's free tier stops at 300 minutes a month. The trade-off is the same as Otter's: a visible bot joins your calls by default and recordings live in Fathom's cloud."),
             ("Is there an Otter alternative without a bot joining the meeting?",
              "Yes. Granola takes notes by capturing system audio on your Mac, so no bot appears in the call. MeetMouse is also bot-free and keeps transcription and AI on your Mac by default."),
             ("Is there an Otter alternative that works offline?",
@@ -337,7 +337,7 @@ PAGES = [
         "not_ranked": ["memo", "poised"],
         "faqs": [
             ("What is the best free alternative to Granola?",
-             "Fathom. Its free plan has unlimited recordings and summaries with no monthly cap. The catch is that a bot joins your calls and meetings are stored in Fathom's cloud."),
+             "Fathom. Its free plan has unlimited recordings and summaries with no monthly cap. The catch is that a bot joins your calls by default and meetings are stored in Fathom's cloud."),
             ("Is there a free Granola alternative without a bot?",
              "MeetMouse is free for 3 meetings a week with no bot, and its notes never expire (I make it). Granola's own free plan is bot-free too, with 30 days of meeting history. Recording with Voice Memos and pasting into an AI chat is also bot-free and costs nothing."),
             ("Is there a Granola alternative without a subscription?",
