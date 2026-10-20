@@ -1967,3 +1967,10 @@ unlocked (the app was paid-only, and paid vs. pirated can't be told apart). The 
 Site CTAs go to /get (Worker: counts, then 302s to the newest DMG); this overrides the 2026-10-02
 "keep 'Buy — $20'" note because Noah asked for free. 30-day refund pitch dropped from copy: the free
 tier is the try-first.
+
+## 2026-10-20 — SEO pages from Search Console + download CTA in the top third
+
+- Pages picked from GSC (Jul 21–Oct 19): Fireflies vs Otter (~55 impressions across variants, pos ~80), Fathom alternatives/pricing (~45, pos 66–91), financial advisors (~35), interview note takers (~30, new page), lawyers long-tail (pos 7–9, FAQ answers). Pricing pages for Fathom, Granola, Otter target buyers comparing plans.
+- Competitor prices re-read from each vendor's own pricing page on Oct 20 (fathom.ai, granola.ai, otter.ai, fireflies.ai). tl;dv's page didn't render its prices to a plain fetch, so tl;dv paid prices are now described without a number until someone checks it in a browser.
+- Fathom now lists bot-free capture (beta) on its free plan, and Otter lists "call objectives + live coaching". Edited pages say so; older pages still say "Fathom joins as a bot" and imply only MeetMouse coaches live. Fix those when touched.
+- Every generated page now has a "Download MeetMouse free" button right under the TL;DR (Noah's rule: CTA in the top third, desktop and mobile). The mobile header was hiding its own Download button (`nav > a` matched it); it now stays visible.

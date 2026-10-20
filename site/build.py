@@ -175,6 +175,10 @@ def faq_block(faq):
     return f'    <section>\n      <h2>Questions</h2>\n      <dl class="faq">{items}\n      </dl>\n    </section>'
 
 
+TOP_CTA = ('    <p class="top-cta">' + '<a class="button" href="/get">Download MeetMouse free</a>'
+           "<span>Free for 3 meetings a week. No bot, and your meeting stays on your Mac.</span></p>")
+
+
 def cta(body, heading="Try MeetMouse"):
     return f'    <section class="doc-cta">\n      <h2>{heading}</h2>\n      <p>{body}</p>\n      {download_button()}\n    </section>'
 
@@ -236,7 +240,7 @@ BLOG_HUB = ("/blog/", "Blog")
 def render_best(p):
     path = p["slug"]
     out = [crumbs(GUIDES, p["label"]), f"    <h1>{p['headline']}</h1>", f'    <p class="dek">{p["dek"]}</p>',
-           answer_box("TL;DR", p["short_answer"], [f"<strong>{k}:</strong> {v}" for k, v in p["short_picks"]]),
+           answer_box("TL;DR", p["short_answer"], [f"<strong>{k}:</strong> {v}" for k, v in p["short_picks"]]), TOP_CTA,
            table(["App", "Best for", "Price", "Stays on your Mac"],
                  [[pk["name"] + (" (mine)" if pk.get("mine") else ""), pk["best_for"], pk["price"], pk["local"]] for pk in p["picks"]],
                  caption="The picks at a glance", mine_row=lambda r: r[0].endswith("(mine)"))]
@@ -268,7 +272,7 @@ def render_compare(p):
     label = f"MeetMouse vs {them}"
     out = [crumbs(COMPARE_HUB, label), f"    <h1>{p['headline']}</h1>", f'    <p class="dek">{p["dek"]}</p>',
            answer_box("The short answer", p["short_answer"],
-                      [f"<strong>Pick {them} if</strong> {p['pick_them']}", f"<strong>Pick MeetMouse if</strong> {p['pick_mm']}"]),
+                      [f"<strong>Pick {them} if</strong> {p['pick_them']}", f"<strong>Pick MeetMouse if</strong> {p['pick_mm']}"]), TOP_CTA,
            table(["", "MeetMouse", them], p["rows"], caption=f"MeetMouse vs {them} at a glance", mm_first=True)]
     for h, ps in p["sections"]:
         out.append(section(h, paras(ps)))
@@ -302,7 +306,7 @@ def render_article(frag):
     out = [crumbs(parent, label), f"    <h1>{front['h1']}</h1>"]
     if front["kind"] == "article":
         out.append(byline("Last checked " + long_date(front["date"])))
-    out += [f'    <p class="dek">{front["dek"]}</p>', answer_box(front["answer_label"], front["answer"])]
+    out += [f'    <p class="dek">{front["dek"]}</p>', answer_box(front["answer_label"], front["answer"]), TOP_CTA]
     if intro:
         out.append(intro)
     out += [body.strip(), faq_block(front["faq"]),
@@ -325,7 +329,7 @@ def render_alternatives(p):
 
     out = [crumbs(BLOG_HUB, p["topic"]), f"    <h1>{esc(p['h1'])}</h1>", byline("Prices checked " + ALT_CHECKED),
            f'    <p class="dek">{esc(p["intro"])}</p>',
-           answer_box("Quick answer", p["quick"]),
+           answer_box("Quick answer", p["quick"]), TOP_CTA,
            table(["Tool", "Best for", "Price for one person"],
                  [[f'{i}. <a href="#{k}">{name(k)}</a>', esc(best_for(k)), esc(TOOLS[k]["cell"])] for i, k in enumerate(order, 1)],
                  caption="The ranking at a glance", mine_row=lambda r: "(mine)" in r[0])]
