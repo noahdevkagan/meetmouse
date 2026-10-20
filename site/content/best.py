@@ -18,7 +18,7 @@ OTTER = dict(name="Otter", price="Free 300 min/mo; Pro $16.99/mo",
              where="A bot records the call; stored in Otter's cloud", local="No", url="https://otter.ai/")
 FIREFLIES = dict(name="Fireflies", price="From $18/user/mo",
                  where="A bot records the call; stored in Fireflies' cloud", local="No", url="https://fireflies.ai/")
-TLDV = dict(name="tl;dv", price="Free (data kept up to 3 months); Pro $29/seat/mo",
+TLDV = dict(name="tl;dv", price="Free (data kept up to 3 months); Pro $29/seat/mo ($18 annual)",
             where="A bot records the call; stored in tl;dv's cloud", local="No", url="https://tldv.io/")
 MACWHISPER = dict(name="MacWhisper", price="Free tier; one-time Pro license",
                   where="On your Mac", local="Yes", url="https://goodsnooze.gumroad.com/l/macwhisper")
@@ -64,7 +64,7 @@ BEST = [
                 "The catch: notes are made with cloud AI, you need an account, and the free plan keeps only 30 days of history.",
             ]),
             pick(FATHOM, "free, if you're fine with a bot", [
-                "Best free plan in the category, period. A bot named Fathom joins your call and everything lives on their servers. It works the same on a Mac as anywhere else, which also means it can't hear FaceTime.",
+                "Best free plan in the category, period. A bot named Fathom joins your call by default and everything lives on their servers. It works the same on a Mac as anywhere else, which also means it can't hear FaceTime.",
             ]),
             pick(OTTER, "a searchable archive of every meeting", [
                 "Otter's been doing this forever and the cross-meeting search is legit. But 300 free minutes a month is one busy Tuesday, and it's a bot plus the cloud.",
@@ -105,7 +105,7 @@ BEST = [
         title="Best AI Meeting Assistant for Sales Calls (2026): Honest Picks",
         description="The best AI tools for sales calls — Gong, Fireflies, Fathom, Granola, MeetMouse — compared on live coaching, CRM sync, bots and price.",
         headline="The best AI meeting assistant for sales calls (2026)",
-        dek="Full disclosure: I make MeetMouse. It's the only tool here that helps during the call, and it's also the only one with no CRM sync. So which one wins depends on whether you're buying for the org or for the rep on the call.",
+        dek="Full disclosure: I make MeetMouse. It's built to help during the call, on your Mac, and it's the only one here with no CRM sync. So which one wins depends on whether you're buying for the org or for the rep on the call.",
         short_answer="Almost every sales AI works after the call: record, summarize, push to the CRM, and let a manager review it next week. That's great for the org. Almost none of it works during the call, when the rep can still address the objection or ask for the next step.",
         short_picks=[
             ("Best for a sales org with RevOps", "Gong"),
@@ -260,7 +260,7 @@ BEST = [
             ("Does MeetMouse keep fundraising conversations private?", "By default, yes. Transcription and AI run on your Mac and nothing is uploaded."),
         ],
         cta_body="Free to start. No bot in front of investors, nothing uploaded. " + REFUND,
-        checked="September 2026",
+        checked="October 2026",
     ),
     # ─────────────────────────────────────────────────────────────
     dict(
@@ -306,7 +306,7 @@ BEST = [
         ],
         faq=[
             ("What's the best AI notetaker for interviews?", "Fireflies or Fathom for recruiting teams that need integrations. Granola for bot-free notes. MeetMouse for hiring managers who want live coaching during the interview."),
-            ("Do candidates see the AI notetaker?", "Bot tools (Fireflies, Fathom, Otter) join as a visible participant. MeetMouse and Granola capture audio on your computer, so nothing joins. Tell candidates either way."),
+            ("Do candidates see the AI notetaker?", "Bot tools (Fireflies, Otter, and Fathom by default) join as a visible participant. MeetMouse and Granola capture audio on your computer, so nothing joins. Tell candidates either way."),
             ("Can I customize the coaching for interviews?", "Yes. MeetMouse's coaching rubric is editable, so you can add the interviewing habits you want to be nudged on."),
             ("Is candidate data stored in the cloud?", "With cloud notetakers, yes. MeetMouse keeps transcripts and notes on your Mac by default, with no account."),
         ],
@@ -487,7 +487,7 @@ BEST = [
         title="Best Meeting Coach for Managers (2026): Better 1:1s in Real Time",
         description="The best AI meeting coaches for managers — live cues in 1:1s and team meetings, talk-time balance and delivery feedback. MeetMouse vs Poised vs notetakers.",
         headline="The best meeting coach for managers (2026)",
-        dek="Full disclosure: I make MeetMouse, which is one of only two tools here that coach you during the meeting. The other one is good too, at a different thing.",
+        dek="Full disclosure: I make MeetMouse, which coaches you during the meeting. So does Poised, which is good too, at a different thing.",
         short_answer="A 1:1 is supposed to be your report's meeting, and it's easy for it to become yours. It's also the worst place for a visible bot: someone about to say \"I'm thinking about leaving\" doesn't say it in front of a participant named Notetaker. Notetakers remember 1:1s; they don't change them.",
         short_picks=[
             ("Best for better 1:1s and team meetings", "MeetMouse, free to start (mine)"),
@@ -538,7 +538,7 @@ BEST = [
         short_answer="The right Zoom notetaker comes down to whose meeting it is. If you host on a paid plan, Zoom's own AI Companion is included. In someone else's meeting, bots need the host to let them in, and bot-free apps that hear your computer's audio just work.",
         short_picks=[
             ("Best if you host on paid Zoom", "Zoom AI Companion"),
-            ("Best free in any meeting", "Fathom (bot joins)"),
+            ("Best free in any meeting", "Fathom (bot joins by default)"),
             ("Best no-bot, cloud notes", "Granola"),
             ("Best no-bot, nothing uploaded, live coaching", "MeetMouse, free to start (mine)"),
         ],
@@ -551,7 +551,7 @@ BEST = [
             pick(OTTER, "recurring meetings you'll search later", ["Live transcript and a searchable history. A bot joins each one."]),
             pick(GRANOLA, "no bot, cloud notes", ["Hears Zoom through your computer, so nothing joins and nothing gets stuck in a waiting room."]),
             mm("no bot, nothing uploaded, and help during the call", [
-                "Mine. It listens through your Mac, so it works in any Zoom — yours, a client's, a webinar — with nothing for the host to block. It's the only one here that coaches you during the call, in an overlay that stays out of your screen share. Notes and a chat after.",
+                "Mine. It listens through your Mac, so it works in any Zoom — yours, a client's, a webinar — with nothing for the host to block. It coaches you during the call from your own Mac, in an overlay that stays out of your screen share. Notes and a chat after.",
                 "It doesn't use Zoom's API, so it doesn't pull participant names from Zoom; it tells speakers apart by voice. Mac only.",
             ]),
         ],
@@ -562,7 +562,7 @@ BEST = [
             "Try MeetMouse in your next Zoom you don't host. It's free for 3 meetings a week, so finding out costs nothing.",
         ],
         faq=[
-            ("What's the best AI notetaker for Zoom?", "If you host on a paid plan, Zoom AI Companion is included. For any meeting: Fathom is free (bot joins), Granola is bot-free with cloud notes, and MeetMouse is bot-free, on-device and coaches you live, free for 3 meetings a week."),
+            ("What's the best AI notetaker for Zoom?", "If you host on a paid plan, Zoom AI Companion is included. For any meeting: Fathom is free (bot joins by default), Granola is bot-free with cloud notes, and MeetMouse is bot-free, on-device and coaches you live, free for 3 meetings a week."),
             ("Can I use an AI notetaker in a Zoom I don't host?", "Bot tools need the host to let them in. Bot-free apps like MeetMouse and Granola capture audio on your computer, so they work in any meeting you can hear."),
             ("Is there a Zoom notetaker without a bot?", "Yes: Zoom AI Companion (host-controlled), Granola and MeetMouse. MeetMouse is the only one that keeps everything on your device."),
             ("Does the MeetMouse overlay show up when I share my screen?", "No. It's excluded from screen shares and recordings."),
