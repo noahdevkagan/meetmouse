@@ -31,6 +31,7 @@ sys.path.insert(0, str(ROOT / "content"))
 from alternatives import CHECKED as ALT_CHECKED, MODIFIED as ALT_MODIFIED, NOT_RANKED, PAGES as ALT_PAGES, TOOLS  # noqa: E402
 from best import BEST  # noqa: E402
 from compare import COMPARE  # noqa: E402
+from es import ES_PAGES  # noqa: E402
 from links import BLOG, MM_VS_ARTICLES, RHINO, RHINO_GUIDES, X_VS_Y  # noqa: E402
 
 esc = html.escape
@@ -96,18 +97,29 @@ FOOTER = f"""  <footer>
   </footer>"""
 
 
-def head(title, desc, path, og_type, ld):
+def hreflang_links(alternates):
+    """alternates: [(lang, href)] including the page itself; x-default points at the English page."""
+    if not alternates:
+        return ""
+    links = [f'<link rel="alternate" hreflang="{l}" href="{BASE}{h}">' for l, h in alternates]
+    en = next((h for l, h in alternates if l == "en"), None)
+    if en:
+        links.append(f'<link rel="alternate" hreflang="x-default" href="{BASE}{en}">')
+    return "\n".join(links) + "\n"
+
+
+def head(title, desc, path, og_type, ld, lang="en", alternates=()):
     url = f"{BASE}/{path}"
     lds = "\n".join('<script type="application/ld+json">' + json.dumps(b, ensure_ascii=False) + "</script>" for b in ld)
     return f"""<!doctype html>
-<html lang="en">
+<html lang="{lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{esc(title)}</title>
 <meta name="description" content="{esc(desc)}">
 <link rel="canonical" href="{url}">
-<link rel="icon" type="image/png" href="/icon.png">
+{hreflang_links(alternates)}<link rel="icon" type="image/png" href="/icon.png">
 <meta property="og:type" content="{og_type}">
 <meta property="og:url" content="{url}">
 <meta property="og:title" content="{esc(title)}">
@@ -125,8 +137,8 @@ def head(title, desc, path, og_type, ld):
 </head>"""
 
 
-def page(title, desc, path, og_type, ld, main):
-    return (head(title, desc, path, og_type, ld) + '\n<body>\n<div class="doc-page">\n' + HEADER
+def page(title, desc, path, og_type, ld, main, lang="en", alternates=(), header=None):
+    return (head(title, desc, path, og_type, ld, lang, alternates) + '\n<body>\n<div class="doc-page">\n' + (header or HEADER)
             + '\n  <main class="doc" id="main">\n' + main + "\n  </main>\n" + FOOTER + "\n</div>\n</body>\n</html>\n")
 
 
@@ -173,6 +185,10 @@ def faq_block(faq):
         return ""
     items = "".join(f"\n        <div><dt>{q}</dt><dd>{a}</dd></div>" for q, a in faq)
     return f'    <section>\n      <h2>Questions</h2>\n      <dl class="faq">{items}\n      </dl>\n    </section>'
+
+
+TOP_CTA = ('    <p class="top-cta">' + '<a class="button" href="/get">Download MeetMouse free</a>'
+           "<span>Free for 3 meetings a week. No bot, and your meeting stays on your Mac.</span></p>")
 
 
 def cta(body, heading="Try MeetMouse"):
@@ -236,7 +252,7 @@ BLOG_HUB = ("/blog/", "Blog")
 def render_best(p):
     path = p["slug"]
     out = [crumbs(GUIDES, p["label"]), f"    <h1>{p['headline']}</h1>", f'    <p class="dek">{p["dek"]}</p>',
-           answer_box("TL;DR", p["short_answer"], [f"<strong>{k}:</strong> {v}" for k, v in p["short_picks"]]),
+           answer_box("TL;DR", p["short_answer"], [f"<strong>{k}:</strong> {v}" for k, v in p["short_picks"]]), TOP_CTA,
            table(["App", "Best for", "Price", "Stays on your Mac"],
                  [[pk["name"] + (" (mine)" if pk.get("mine") else ""), pk["best_for"], pk["price"], pk["local"]] for pk in p["picks"]],
                  caption="The picks at a glance", mine_row=lambda r: r[0].endswith("(mine)"))]
@@ -268,7 +284,7 @@ def render_compare(p):
     label = f"MeetMouse vs {them}"
     out = [crumbs(COMPARE_HUB, label), f"    <h1>{p['headline']}</h1>", f'    <p class="dek">{p["dek"]}</p>',
            answer_box("The short answer", p["short_answer"],
-                      [f"<strong>Pick {them} if</strong> {p['pick_them']}", f"<strong>Pick MeetMouse if</strong> {p['pick_mm']}"]),
+                      [f"<strong>Pick {them} if</strong> {p['pick_them']}", f"<strong>Pick MeetMouse if</strong> {p['pick_mm']}"]), TOP_CTA,
            table(["", "MeetMouse", them], p["rows"], caption=f"MeetMouse vs {them} at a glance", mm_first=True)]
     for h, ps in p["sections"]:
         out.append(section(h, paras(ps)))
@@ -302,7 +318,7 @@ def render_article(frag):
     out = [crumbs(parent, label), f"    <h1>{front['h1']}</h1>"]
     if front["kind"] == "article":
         out.append(byline("Last checked " + long_date(front["date"])))
-    out += [f'    <p class="dek">{front["dek"]}</p>', answer_box(front["answer_label"], front["answer"])]
+    out += [f'    <p class="dek">{front["dek"]}</p>', answer_box(front["answer_label"], front["answer"]), TOP_CTA]
     if intro:
         out.append(intro)
     out += [body.strip(), faq_block(front["faq"]),
@@ -325,7 +341,10 @@ def render_alternatives(p):
 
     out = [crumbs(BLOG_HUB, p["topic"]), f"    <h1>{esc(p['h1'])}</h1>", byline("Prices checked " + ALT_CHECKED),
            f'    <p class="dek">{esc(p["intro"])}</p>',
-           answer_box("Quick answer", p["quick"]),
+           answer_box("Quick answer", p["quick"]), TOP_CTA]
+    out += [f'    <p class="lang-switch" lang="{l}"><a href="{h}" hreflang="{l}">' + ("Leer en español" if l == "es" else l) + "</a></p>"
+            for l, h in p.get("alternates", [])]
+    out += [
            table(["Tool", "Best for", "Price for one person"],
                  [[f'{i}. <a href="#{k}">{name(k)}</a>', esc(best_for(k)), esc(TOOLS[k]["cell"])] for i, k in enumerate(order, 1)],
                  caption="The ranking at a glance", mine_row=lambda r: "(mine)" in r[0])]
@@ -382,7 +401,74 @@ def render_alternatives(p):
           {"@context": "https://schema.org", "@type": "ItemList", "name": p["topic"],
            "itemListElement": [{"@type": "ListItem", "position": i, "name": TOOLS[k]["name"]} for i, k in enumerate(order, 1)]},
           faq_ld(faq)]
-    return path, page(p["title"], p["description"], path, "article", ld, "\n\n".join(out))
+    alts = [("en", "/" + path)] + [(l, h) for l, h in p.get("alternates", [])]
+    return path, page(p["title"], p["description"], path, "article", ld, "\n\n".join(out),
+                      alternates=alts if p.get("alternates") else ())
+
+
+ES_HEADER = f"""  <a class="skip-link" href="#main">Ir al contenido</a>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="MeetMouse">
+      <span class="mark"><img src="/icon.png" alt=""></span>
+      <span>MeetMouse</span>
+    </a>
+    <nav aria-label="Navegación">
+      <a class="button button-compact" href="/get">Descargar gratis</a>
+    </nav>
+  </header>"""
+
+
+def render_es(p):
+    """A standalone Spanish page: same facts as its English twin, minimal Spanish chrome."""
+    path = p["slug"]
+    def card(i, t):
+        badge = '<span class="mine-badge">mía</span>' if t.get("mine") else ""
+        meta = "".join(f"<div><dt>{a}</dt><dd>{esc(b)}</dd></div>" for a, b in
+                       (("Ideal para", t["best"]), ("Precio", t["price"]), ("Plan gratis", t["free"]),
+                        ("¿Entra un bot?", t["bot"]), ("A dónde va el audio", t["audio"])))
+        ext = t["url"].startswith("http")
+        link = (f'<a class="inline-link" href="{t["url"]}"' + (' rel="noopener"' if ext else "")
+                + f'>{"Ver qué hace MeetMouse (en inglés)" if not ext else "Visitar " + esc(t["name"])}</a>')
+        good = "".join(f"<li>{esc(x)}</li>" for x in t["good"])
+        bad = "".join(f"<li>{esc(x)}</li>" for x in t["bad"])
+        return (f'    <section class="pick" id="{t["key"]}">\n      <h2>{i}. {esc(t["name"])}{badge}</h2>\n      <dl class="pick-meta">{meta}</dl>'
+                f"\n      <p>{esc(t['review'])}</p>\n      <h3>Lo bueno</h3>\n      <ul>{good}</ul>\n"
+                f"      <h3>Lo no tan bueno</h3>\n      <ul>{bad}</ul>\n      <p>{link}</p>\n    </section>")
+    top_cta = ('    <p class="top-cta"><a class="button" href="/get">Descargar MeetMouse gratis</a>'
+               "<span>Gratis para 3 reuniones por semana. Sin bot, y tu reunión se queda en tu Mac.</span></p>")
+    out = [f'    <p class="lang-switch" lang="en"><a href="{p["en"]}">English version</a></p>',
+           f"    <h1>{esc(p['h1'])}</h1>",
+           ('    <div class="byline">\n      <img src="/img/noah.jpg" alt="Noah Kagan" width="44" height="44">\n'
+            f'      <div><strong>Noah Kagan</strong><span>Fundador de MeetMouse · Precios revisados el {p["checked"]}</span></div>\n    </div>'),
+           f'    <p class="dek">{esc(p["dek"])}</p>',
+           answer_box("Respuesta rápida", p["quick"]), top_cta,
+           f'    <p>{esc(p["app_note"])}</p>',
+           table(["Herramienta", "Ideal para", "Precio"],
+                 [[f'{i}. <a href="#{t["key"]}">{esc(t["name"])}' + (" (mía)" if t.get("mine") else "") + "</a>", esc(t["best"]), esc(t["price"])]
+                  for i, t in enumerate(p["tools"], 1)],
+                 caption="El ranking de un vistazo", mine_row=lambda r: "(mía)" in r[0])]
+    out += [card(i, t) for i, t in enumerate(p["tools"], 1)]
+    rows = [[esc(t["name"]), esc(t["free"]), esc(t["price"]), esc(t["bot"]), esc(t["audio"])] for t in p["tools"]]
+    rows.append([esc(c) for c in p["fathom_row"]])
+    out.append(section("Cuánto cuesta cada una", table(["Herramienta", "Plan gratis", "De pago", "¿Entra un bot?", "A dónde va el audio"], rows,
+                                                       mine_row=lambda r: r[0] == "MeetMouse")
+                       + f"\n      <p>Precios en dólares (USD) para una persona, tomados de la página de precios de cada herramienta el {p['checked']}. Revisa antes de comprar: cambian seguido.</p>"))
+    out.append(section("Cuándo Fathom es suficiente", paras([esc(p["enough"])])))
+    faq = [(esc(q), esc(a)) for q, a in p["faq"]]
+    items = "".join(f"\n        <div><dt>{q}</dt><dd>{a}</dd></div>" for q, a in faq)
+    out.append(f'    <section>\n      <h2>Preguntas frecuentes</h2>\n      <dl class="faq">{items}\n      </dl>\n    </section>')
+    out.append('    <section class="doc-cta">\n      <h2>Prueba MeetMouse</h2>\n      <p>Primera semana ilimitada, luego 3 reuniones por semana. '
+               'Invita a 2 amigos o paga $20 USD una sola vez para tenerlo ilimitado.</p>\n'
+               '      <a class="button" href="/get">Descargar MeetMouse gratis</a>\n    </section>')
+    out.append('    <p class="checked-note">Todas las marcas pertenecen a sus dueños. Se mencionan solo para comparar.</p>')
+    ld = [{"@context": "https://schema.org", "@type": "Article", "headline": p["h1"], "inLanguage": "es",
+           "author": {"@type": "Person", "name": "Noah Kagan", "url": f"{BASE}/"},
+           "datePublished": "2026-10-20", "publisher": {"@type": "Organization", "name": "MeetMouse"}},
+          {"@context": "https://schema.org", "@type": "ItemList", "name": p["label"],
+           "itemListElement": [{"@type": "ListItem", "position": i, "name": t["name"]} for i, t in enumerate(p["tools"], 1)]},
+          {**faq_ld(faq), "inLanguage": "es"}]
+    return path, page(p["title"], p["description"], path, "article", ld, "\n\n".join(out),
+                      lang="es", alternates=[("en", p["en"]), ("es", "/" + path)], header=ES_HEADER)
 
 
 def hub_list(links):
@@ -424,6 +510,7 @@ def build():
     pages = dict(render_best(p) for p in BEST)
     pages.update(render_compare(p) for p in COMPARE)
     pages.update(render_alternatives(p) for p in ALT_PAGES)
+    pages.update(render_es(p) for p in ES_PAGES)
     for frag in sorted((ROOT / "articles").glob("*.html")):
         k, v = render_article(frag)
         pages[k] = v

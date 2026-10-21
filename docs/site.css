@@ -199,7 +199,7 @@ footer span { color: var(--ink); font-weight: 700; }
 @media (max-width: 680px) {
   .site-header { width: calc(100% - 28px); height: 70px; }
   .site-header nav { gap: 14px; }
-  .site-header nav > a { display: none; }
+  .site-header nav > a:not(.button) { display: none; }
   footer { width: calc(100% - 28px); padding: 20px 0; }
 }
 @media (max-width: 380px) {
@@ -210,3 +210,5 @@ footer span { color: var(--ink); font-weight: 700; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+.top-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 4px 0 28px; }
+.top-cta span { color: var(--muted); font-size: 14px; }
