@@ -1979,3 +1979,17 @@ the streak). The button runs the normal Share notes flow; nothing is ever sent o
 automatically. Rules live in Models/SharePrompt.swift (tests/sharing/share_prompt.swift). The shared
 note viewer now says "Notes by MeetMouse · Free meeting notes for Mac, no bot joins the call" and links
 to meetmouse.com/?src=shared-note.
+
+## 2026-10-20 — Global shortcut opens the existing main window
+Use Control–Command–M, enabled by default with an opt-out in General settings.
+Not Control–Option–M: Control–Option is VoiceOver's modifier and VO-M is its
+"move to menu bar" command, which a default-on global hotkey would steal. Also
+avoided Option–Command–M (Minimize All) and Command–Shift–M (Chrome profiles,
+Mail mailbox list); ⌃⌘M is not a macOS system shortcut.
+Register a Carbon hotkey from the always-alive menu-bar label so it works while
+another app is active and after the main window closes, without Accessibility
+permission or a keyboard monitor. Reuse SwiftUI's existing main-window action;
+never start recording as a side effect. A fully quit app cannot receive hotkeys;
+the existing launch-at-login option keeps the menu-bar app available. Surface
+registration conflicts in settings and release the key/handler before toggling
+or reconfiguring, so retries and disabling work without restarting the app.

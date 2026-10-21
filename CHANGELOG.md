@@ -12,6 +12,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 - Right after a meeting's notes are ready, MeetMouse offers once to copy a private link to send them to the people in the meeting. Dismiss it and it won't ask for that meeting; dismiss it three meetings in a row and it stops asking.
 - Shared notes pages now credit MeetMouse with a small link to the site.
 
+- Press Control–Command–M from any app to open MeetMouse while it’s running in the menu bar. Disable the shortcut in Settings → General.
+
 ## 0.32.1 — 2026-10-19
 
 - When your free week of unlimited meetings ends, MeetMouse tells you once (3 free meetings a week from here, notes never locked) instead of waiting until a meeting won't start.

@@ -29,6 +29,7 @@ struct GeneralSettingsView: View {
     /// property SwiftUI can't observe directly). Synced on appear, written
     /// through on toggle; Sparkle persists it to UserDefaults itself.
     @State private var autoInstallUpdates = true
+    @AppStorage(OpenWindowShortcut.defaultsKey) private var openShortcutEnabled = true
     @AppStorage(VisualSpeakerCapture.automaticDefaultsKey) private var automaticSpeakerSnapshots = false
     @AppStorage(VisualSpeakerOCR.selfNameDefaultsKey) private var speakerSelfName = ""
 
@@ -61,6 +62,18 @@ struct GeneralSettingsView: View {
                 Text("Opens MeetMouse automatically after a restart or log-in, so meeting detection is ready before your first call. Also manageable under System Settings \u{2192} General \u{2192} Login Items.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section("Keyboard shortcut") {
+                Toggle("Open MeetMouse with ⌃⌘M", isOn: $openShortcutEnabled)
+                Text("Press Control–Command–M from any app to show MeetMouse. MeetMouse must be running in the menu bar; this does not start recording.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if openShortcutEnabled, let error = OpenWindowShortcut.shared.registrationError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
 
             Section("Software updates") {
