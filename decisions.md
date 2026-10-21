@@ -1968,6 +1968,18 @@ Site CTAs go to /get (Worker: counts, then 302s to the newest DMG); this overrid
 "keep 'Buy — $20'" note because Noah asked for free. 30-day refund pitch dropped from copy: the free
 tier is the try-first.
 
+## 2026-10-20 — Ask to share at the recap, never post for the user
+
+Sharing was ~5 notes/week (33 total since Sep 21). Noah: "ask at the right moment for meetmouse
+share" and he dislikes tools that go viral by posting into Slack or the meeting chat. So: one quiet
+inline card on the Notes tab ("Send these notes to the people in the meeting?" + Copy share link),
+only for a meeting from the last 24h that has real AI notes and no link yet. Shown until the user
+shares or dismisses it for that meeting; 3 dismissals in a row turn it off for good (any share resets
+the streak). The button runs the normal Share notes flow; nothing is ever sent or posted
+automatically. Rules live in Models/SharePrompt.swift (tests/sharing/share_prompt.swift). The shared
+note viewer now says "Notes by MeetMouse · Free meeting notes for Mac, no bot joins the call" and links
+to meetmouse.com/?src=shared-note.
+
 ## 2026-10-20 — Global shortcut opens the existing main window
 Use Control–Command–M, enabled by default with an opt-out in General settings.
 Not Control–Option–M: Control–Option is VoiceOver's modifier and VO-M is its
