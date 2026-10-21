@@ -39,10 +39,15 @@ test("revocation hashing matches the Swift SHA-256 base64url contract", async ()
   );
 });
 
+test("shared notes carry a small MeetMouse credit that links to the site", () => {
+  assert.match(viewerHTML, /class="made-with"[\s\S]*Notes by MeetMouse · Free meeting notes for Mac, no bot joins the call/);
+  assert.doesNotMatch(viewerHTML, /—/);
+});
+
 test("recipient forwarding preserves the complete fragment-bearing link", () => {
   assert.match(viewerHTML, /id="shareButton"/);
-  assert.match(viewerHTML, /Try MeetMouse/);
-  assert.match(viewerHTML, /href="https:\/\/meetmouse\.com"/);
+  assert.match(viewerHTML, /Get MeetMouse free/);
+  assert.match(viewerHTML, /href="https:\/\/meetmouse\.com\/\?src=shared-note"/);
   assert.match(viewerJS, /url: location\.href/);
   assert.match(viewerJS, /copyText\(location\.href\)/);
   assert.doesNotMatch(viewerJS, /utm_|analytics|track\(/i);

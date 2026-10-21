@@ -12,4 +12,9 @@ swiftc -parse-as-library -O -o "$OUT/sharingcheck" \
   "$SRC/Models/AppSupport.swift"
 "$OUT/sharingcheck"
 
+swiftc -parse-as-library -O -o "$OUT/sharepromptcheck" \
+  tests/sharing/share_prompt.swift \
+  "$SRC/Models/SharePrompt.swift"
+"$OUT/sharepromptcheck"
+
 (cd web-share && npm test)

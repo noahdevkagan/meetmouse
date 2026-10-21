@@ -204,6 +204,7 @@ struct MenuBarLabel: View {
     @ObservedObject var updateBadge: UpdateBadgeModel
     @Environment(\.openWindow) private var openWindow
     @State private var promptPanel: MeetingPromptPanel?
+    @AppStorage(OpenWindowShortcut.defaultsKey) private var openShortcutEnabled = true
 
     var body: some View {
         // A custom mouse silhouette is the brand at menu-bar scale. Drawing
@@ -215,6 +216,7 @@ struct MenuBarLabel: View {
             updateAvailable: updateBadge.updateAvailable))
             .accessibilityLabel("MeetMouse")
             .onAppear {
+                configureOpenShortcut()
                 detection.bind(liveSession: liveSession)
                 // Countdown expiry uses the same start path as the pill's
                 // "Start MeetMouse" button.
@@ -244,6 +246,9 @@ struct MenuBarLabel: View {
                 // launch the main window never opens — without it the engine
                 // handle is nil and launch flows silently no-op.
                 settings.ollamaManager = ollamaManager
+            }
+            .onChange(of: openShortcutEnabled) { _, _ in
+                configureOpenShortcut()
             }
             .onChange(of: liveSession.isLive) { wasLive, isLive in
                 // Session-end update reminder: a login-item menu-bar app can
@@ -335,6 +340,13 @@ struct MenuBarLabel: View {
         return image
     }
 
+    private func configureOpenShortcut() {
+        OpenWindowShortcut.shared.configure(enabled: openShortcutEnabled) {
+            openWindow(id: "main")
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
     private func showPrompt() {
         if promptPanel == nil { promptPanel = MeetingPromptPanel() }
         guard let panel = promptPanel else { return }
@@ -376,6 +388,7 @@ struct MenuBarLabel: View {
 // MARK: - Menu bar content
 
 struct MenuBarView: View {
+    @AppStorage(OpenWindowShortcut.defaultsKey) private var openShortcutEnabled = true
     @Bindable var liveSession: LiveSessionViewModel
     @Bindable var settings: SettingsViewModel
     @Bindable var ollamaManager: OllamaManager
@@ -428,7 +441,9 @@ struct MenuBarView: View {
         Toggle("Auto-detect meetings", isOn: $detection.isEnabled)
         Toggle("Auto-start MeetMouse", isOn: $detection.autoStartEnabled)
             .disabled(!detection.isEnabled)
-        Button("Open MeetMouse") {
+        Button(openShortcutEnabled
+               && OpenWindowShortcut.shared.registrationError == nil
+               ? "Open MeetMouse    ⌃⌘M" : "Open MeetMouse") {
             openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)
         }
