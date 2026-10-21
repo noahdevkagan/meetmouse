@@ -18,7 +18,7 @@ COMPARE = [
         pick_mm="your problem is how the meeting goes, and you want nothing uploaded.",
         rows=[
             ("Job", "Coach you live; notes after", "Record, clip and share moments"),
-            ("Price", "Free (3 meetings/week); $20 once for unlimited", "Free (data kept up to 3 months); Pro $29/seat/mo"),
+            ("Price", "Free (3 meetings/week); $20 once for unlimited", "Free (data kept up to 3 months); Pro $29/seat/mo ($18 annual)"),
             ("Bot joins your call", "No", "Yes"),
             ("Video recording", "No", "Yes"),
             ("Where your meeting goes", "Stays on your Mac by default", "tl;dv's cloud"),
@@ -40,12 +40,12 @@ COMPARE = [
             ]),
         ],
         faq=[
-            ("Is tl;dv free?", "tl;dv has a free plan with unlimited recordings, AI notes on 10 meetings, and data kept up to 3 months. Pro is $29/seat/month. MeetMouse is free for 3 meetings a week, or $20 once for unlimited."),
+            ("Is tl;dv free?", "tl;dv has a free plan with unlimited recordings, AI notes on 10 meetings, and data kept up to 3 months. Pro is $29/seat/month, or $18 billed annually. MeetMouse is free for 3 meetings a week, or $20 once for unlimited."),
             ("Does tl;dv join as a bot?", "Yes, tl;dv's recorder joins the meeting. MeetMouse listens through your Mac, so nothing joins."),
             ("Does MeetMouse record video or make clips?", "No. MeetMouse works from audio, coaches you live and writes notes after. For video clips, tl;dv is the better tool."),
             ("Can I use MeetMouse and tl;dv together?", "Yes. tl;dv records for the team; MeetMouse coaches you during the call."),
         ],
-        checked="September 2026",
+        checked="October 2026",
     ),
     dict(
         slug="compare/meetmouse-vs-gong",
