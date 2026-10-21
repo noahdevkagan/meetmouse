@@ -99,9 +99,7 @@ export function landingHTML(code) {
   <img class="icon" src="/icon.png" alt="">
   <h1>A friend gave you MeetMouse.</h1>
   <p>Notes and live coaching for your meetings, running on your Mac. No bot joins the call, and transcription never leaves your computer.</p>
-  <a class="btn" href="/r/${code}/go?to=appsumo">Get MeetMouse Unlimited free on AppSumo</a>
-  <p class="note">Use coupon <code>${appSumoCoupon}</code> at checkout.</p>
-  <a class="btn secondary" href="/r/${code}/go?to=download">Or download the free version</a>
+  <a class="btn" href="/r/${code}/go?to=download">Download MeetMouse free</a>
   <p class="note">Requires macOS 14 or later.</p>`);
 }
 

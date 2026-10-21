@@ -5,6 +5,20 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-10-20): Global open shortcut — implemented
+
+Control–Command–M opens/raises the existing main window from any app while
+MeetMouse runs in the menu bar. Default-on toggle and conflict feedback live in
+Settings → General; menu item shows the key. Carbon registration is owned at
+app lifetime via the menu-bar label, and does not need Accessibility permission.
+No recording side effects; cannot launch a fully quit process.
+
+Focused native harness passed registration, repeated configuration, event
+routing, disable/unregister, conflict reporting, and recovery after conflict.
+Debug build passed; final incremental verification in `.context/shortcut-build-final.log`.
+Changelog under Unreleased; decisions recorded. No installed-app replacement,
+app launch, push, or release. Actual cross-app/closed-window UI check remains manual.
+
 ## Current state (2026-10-09): Speaker names in Zoom screen-share layout — built, pushed (PR #38)
 
 PR #38 branch. Roster evidence for 1:1 calls without an active-speaker outline

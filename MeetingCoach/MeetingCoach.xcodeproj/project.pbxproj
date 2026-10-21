@@ -49,6 +49,7 @@
 		48DFEC114082BF96EBEF74C8 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D25D2CC8CBD4346DBFB9924 /* main.swift */; };
 		4A4FF91E00B9AFD2E0944107 /* PlatformSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BB9F3C621505E5F9C1C74CF /* PlatformSupport.swift */; };
 		4C4CE6FBC1FF6641932BEC3B /* TrainingExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C9A04C9B391284F7BCDBD2E /* TrainingExample.swift */; };
+		51374A087752B6CB5AD7E944 /* OpenWindowShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA4521E4BBA1A704FF701BBF /* OpenWindowShortcut.swift */; };
 		55D4DD753779ACBE7E35E8D3 /* NoteDistiller.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5AE5052D754AAC4553B6E69 /* NoteDistiller.swift */; };
 		572F7D6B74DEF1C6B976EBBB /* AIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57C620F6E74ECD3050EDCC99 /* AIClient.swift */; };
 		5786720067BE8A950F4165ED /* SignalEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2E43CC253B7430EF30361 /* SignalEngine.swift */; };
@@ -226,6 +227,7 @@
 		B601F828AB17A262298DF0AE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B7CDB212B0E5B6D49D07C0A8 /* FocusGoals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusGoals.swift; sourceTree = "<group>"; };
 		B97FD941E80BA5417049F9CE /* TalkStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkStats.swift; sourceTree = "<group>"; };
+		BA4521E4BBA1A704FF701BBF /* OpenWindowShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWindowShortcut.swift; sourceTree = "<group>"; };
 		BB6CA4D089C636FF9E653ACF /* MeetingDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetector.swift; sourceTree = "<group>"; };
 		BC33A03F287BAB0CDBCFC8FD /* StackedQuestionsSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StackedQuestionsSignal.swift; sourceTree = "<group>"; };
 		C383A162604A3D3AE197F2A2 /* SessionTrends.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTrends.swift; sourceTree = "<group>"; };
@@ -301,6 +303,7 @@
 				E03360FE07AA3CD101D27116 /* AppBundleNameMigration.swift */,
 				B601F828AB17A262298DF0AE /* ContentView.swift */,
 				DF9C912979FF9EFB91A45FF1 /* MeetMouseApp.swift */,
+				BA4521E4BBA1A704FF701BBF /* OpenWindowShortcut.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -707,6 +710,7 @@
 				FF20EDCA009AC9F00BC2968E /* OllamaClient.swift in Sources */,
 				29B5CC4536FD985F624286F8 /* OllamaManager.swift in Sources */,
 				80330BBFB7DC43B0392C9628 /* OnboardingChecklistView.swift in Sources */,
+				51374A087752B6CB5AD7E944 /* OpenWindowShortcut.swift in Sources */,
 				070C44F2395C329D75265ED2 /* OverrunSignal.swift in Sources */,
 				ED6A7299FC6E5DD91524676C /* ParakeetDownloadState.swift in Sources */,
 				4030F7FB23A09D09F296291C /* ParakeetTranscriber.swift in Sources */,
