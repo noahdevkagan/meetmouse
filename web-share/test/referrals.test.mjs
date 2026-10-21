@@ -19,10 +19,10 @@ test("only the three referral paths route", () => {
   assert.equal(referralRoute("/r/<script>"), null);
 });
 
-test("landing links both destinations through the counting route", () => {
+test("landing sends friends to the free download through the counting route", () => {
   const html = landingHTML("abcd2345");
-  assert.match(html, /\/r\/abcd2345\/go\?to=appsumo/);
   assert.match(html, /\/r\/abcd2345\/go\?to=download/);
+  assert.doesNotMatch(html, /to=appsumo/);
   assert.doesNotMatch(html, /<script/);
 });
 
