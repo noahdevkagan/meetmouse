@@ -9,6 +9,11 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- New installs start transcript-first: live AI coaching is off by default (turn it on in Settings → AI), while built-in cues like talk time keep working. Existing setups are unchanged.
+- Setup now asks you to connect your Claude account for great meeting notes, right in the checklist. You can also use an API key or a local model.
+- If a meeting's notes came out basic, the Notes tab offers to connect Claude and rewrites the notes once you turn it on.
+- In-app meeting notes now match the clean layout of shared notes pages: one Notes section with topic headings, then Next steps. Personal coaching moves to a small private footer.
+
 ## 0.33.0 — 2026-10-21
 
 - Press Control–Command–M from any app to open MeetMouse while it’s running in the menu bar. Disable the shortcut in Settings → General.

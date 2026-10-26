@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// First-run empty state for the main pane: a live checklist that gets a
-/// new person to their first coached meeting — permissions, the two model
+/// new person to their first transcribed meeting — permissions, the two model
 /// downloads (already running, with real progress), then "join a meeting".
 /// Replaces the old demo-centric card; the demo survives as a footer link.
 struct OnboardingChecklistView: View {
@@ -27,7 +27,7 @@ struct OnboardingChecklistView: View {
                     .font(Dorado.barlowXBold(22))
                     .foregroundStyle(Dorado.midnight)
                     .frame(maxWidth: .infinity)
-                Text("Two permissions, two downloads — then it's automatic.")
+                Text("Two permissions and one download — then every call gets a transcript and notes.")
                     .font(Dorado.roboto(13))
                     .foregroundStyle(Dorado.grey500)
                     .frame(maxWidth: .infinity)
@@ -36,14 +36,14 @@ struct OnboardingChecklistView: View {
             microphoneRow
             screenRecordingRow
             transcriptionRow
-            coachModelRow
+            notesAIRow
             joinMeetingRow
 
             Divider()
 
             VStack(alignment: .leading, spacing: 6) {
                 Label {
-                    Text("Audio is never stored. Transcripts, models, coaching — everything stays on this Mac.")
+                    Text("Audio is never stored, and transcription runs on this Mac. Meeting text only leaves it if you connect a cloud AI for notes.")
                         .font(Dorado.roboto(12))
                         .foregroundStyle(Dorado.grey600)
                         .fixedSize(horizontal: false, vertical: true)
@@ -90,7 +90,7 @@ struct OnboardingChecklistView: View {
                      title: "Microphone access",
                      caption: micState == .denied
                          ? "Denied — enable MeetMouse in System Settings."
-                         : "So the coach can hear your side of the call.") {
+                         : "So MeetMouse can transcribe your side of the call.") {
             if micState != .granted {
                 Button(micState == .denied ? "Open Settings" : "Grant") {
                     PermissionStatus.requestMicrophone { refreshPermissions() }
@@ -134,43 +134,30 @@ struct OnboardingChecklistView: View {
         }
     }
 
-    @ViewBuilder private var coachModelRow: some View {
-        let hasModel = settings.map { $0.usesCloudAI || !$0.availableModels.isEmpty } ?? false
-        let downloading = settings?.downloadingModel != nil
-        checklistRow(done: hasModel,
-                     active: downloading,
-                     title: "AI coach model",
-                     titleBadge: "optional",
-                     caption: settings?.usesCloudAI == true ? "Cloud AI enabled. Meeting text goes to your selected provider." : "Smarter nudges + meeting reviews. Local model (\(recommendedCatalogModel.diskSize)), or choose cloud AI in Settings.") {
-            if let settings, !hasModel {
-                if downloading {
-                    Button("Cancel") { settings.cancelDownload() }
-                        .font(.caption)
-                } else if UserDefaults.standard.bool(forKey: SettingsViewModel.autoModelPullAttemptedKey) {
-                    Button("Download") { settings.downloadModel(recommendedCatalogModel) }
-                        .font(.caption)
-                }
-            }
+    /// Notes AI, not a coach model: transcript-first is the default, so the
+    /// one AI step worth asking for is the one that makes notes good.
+    @ViewBuilder private var notesAIRow: some View {
+        let hasAI = settings.map { $0.usesCloudAI || !$0.availableModels.isEmpty } ?? false
+        checklistRow(done: hasAI,
+                     active: settings?.downloadingModel != nil,
+                     title: "Great AI notes",
+                     titleBadge: "recommended",
+                     caption: notesAICaption(hasAI: hasAI)) {
+            EmptyView()
         } detail: {
-            if let settings, !hasModel {
-                if downloading {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ProgressView(value: settings.downloadProgress)
-                            .controlSize(.small)
-                        Text(settings.downloadStatus)
-                            .font(.caption2).foregroundStyle(.tertiary)
-                    }
-                } else if let error = settings.downloadError {
-                    Text(error)
-                        .font(.caption2).foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else if !download.isReady(for: resolvedLanguage.preferredEngine)
-                            && PlatformSupport.neuralModelsSupported {
-                    Text("Queued — starts after the transcription engine.")
-                        .font(.caption2).foregroundStyle(.tertiary)
-                }
+            if let settings, !hasAI {
+                NotesAIConnectView(settings: settings, style: .inline)
             }
         }
+    }
+
+    private func notesAICaption(hasAI: Bool) -> String {
+        if let settings, settings.usesCloudAI {
+            return "\(settings.aiConfiguration.provider.title) writes your notes. Meeting text goes to that provider; audio never leaves this Mac."
+        }
+        return hasAI
+            ? "A local model writes your notes on this Mac. Connect Claude any time in Settings → AI for sharper notes."
+            : "Connect your Claude account for clean notes and next steps after each call. Or use an API key or a local model."
     }
 
     private var joinMeetingRow: some View {

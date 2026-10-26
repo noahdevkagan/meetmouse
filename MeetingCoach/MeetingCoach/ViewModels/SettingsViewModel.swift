@@ -144,10 +144,23 @@ final class SettingsViewModel {
 
     private var downloadTask: Task<Void, Never>?
 
+    /// Transcript-first is the default for new installs: live AI coaching
+    /// is opt-in, built-in cues stay on, and notes come from the connected
+    /// AI after the call. Installs that predate this keep coaching on. The
+    /// first decision is persisted so it never flips once onboarding sets
+    /// hasSeenDemo.
+    static func initialSemanticCoachEnabled(_ defaults: UserDefaults = .standard) -> Bool {
+        if let stored = defaults.object(forKey: "semanticCoachEnabled") as? Bool { return stored }
+        let existingInstall = defaults.bool(forKey: "hasSeenDemo")
+            || defaults.bool(forKey: autoModelPullAttemptedKey)
+        defaults.set(existingInstall, forKey: "semanticCoachEnabled")
+        return existingInstall
+    }
+
     init() {
         self.meetingLanguage = MeetingLanguageSelection.current
         self.notesLanguage = NotesLanguagePreference.current
-        self.semanticCoachEnabled = UserDefaults.standard.object(forKey: "semanticCoachEnabled") as? Bool ?? true
+        self.semanticCoachEnabled = Self.initialSemanticCoachEnabled()
         self.showCoachOverlay = UserDefaults.standard.object(forKey: "showCoachOverlay") as? Bool ?? true
         self.showOverlayClock = UserDefaults.standard.object(forKey: "showOverlayClock") as? Bool ?? true
         self.talkBubblePlacement = TalkBubblePlacement(rawValue: UserDefaults.standard.string(forKey: "talkBubblePlacement") ?? "") ?? .rightEdge

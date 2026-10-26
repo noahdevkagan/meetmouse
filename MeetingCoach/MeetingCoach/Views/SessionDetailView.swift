@@ -443,11 +443,35 @@ struct SessionDetailView: View {
         }
     }
 
+    /// Without a cloud provider, nudge toward Claude: always while this
+    /// meeting's notes are basic, once (dismissible) when a local model
+    /// already wrote real notes.
+    @AppStorage("notesAIPromptDismissed") private var notesAIPromptDismissed = false
+
+    private func showsNotesAIPrompt(_ settings: SettingsViewModel) -> Bool {
+        guard !settings.usesCloudAI, !lines.isEmpty, !regenerating, !reviewInProgress else { return false }
+        return review?.hasShareableMeetingNotes != true || !notesAIPromptDismissed
+    }
+
+    /// Basic notes keep the prompt pinned; real local-AI notes can dismiss it.
+    private var notesAIPromptDismissAction: (() -> Void)? {
+        guard review?.hasShareableMeetingNotes == true else { return nil }
+        return { notesAIPromptDismissed = true }
+    }
+
     private var summaryTab: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 if showingSharePrompt { sharePromptCard }
-                if review?.hasShareableMeetingNotes != true {
+                if let settings, showsNotesAIPrompt(settings) {
+                    NotesAIConnectView(
+                        settings: settings,
+                        onEnabled: {
+                            regenerating = true
+                            regenTick += 1
+                        },
+                        onDismiss: notesAIPromptDismissAction)
+                } else if review?.hasShareableMeetingNotes != true {
                     Text("Click Share notes to generate meeting notes and create your private link. Your transcript and coaching stay private.")
                         .font(.callout).foregroundStyle(.secondary)
                 }
