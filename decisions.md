@@ -2005,3 +2005,21 @@ never start recording as a side effect. A fully quit app cannot receive hotkeys;
 the existing launch-at-login option keeps the menu-bar app available. Surface
 registration conflicts in settings and release the key/handler before toggling
 or reconfiguring, so retries and disabling work without restarting the app.
+
+## 2026-10-26 — Transcript-first by default; Claude is the AI we ask for
+
+Noah: most live coaching is slow and low-value; the product is the transcript
+plus great notes, and notes are great with Claude. New installs (no stored
+value, no hasSeenDemo / autoModelPullAttempted) default AI coaching off, and
+the choice is persisted on first read so it never flips once onboarding
+completes; existing installs keep their value. Built-in cues stay on. Since
+coaching-off skips the zero-click local model pull, onboarding's "AI coach
+model" row becomes "Great AI notes" with an inline Claude-account connect, and
+a saved meeting with basic (non-shareable) notes shows the same card, which
+regenerates notes once enabled. Signing in never enables cloud by itself: the
+same explicit consent checkbox as Settings → AI is required. The card picks
+Sonnet for the Claude account (notes are once per meeting; coaching, the
+per-minute cost, is off). API keys and a local model stay one click away so
+offline-only users are not stranded. The in-app notes card now mirrors the web
+share layout (one Notes section with topic subheads, Next steps) with wins,
+next-meeting focus and talk split moved to a muted "Just for you" footer.

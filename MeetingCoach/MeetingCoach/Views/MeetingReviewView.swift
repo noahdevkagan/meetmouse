@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The post-meeting review card: sectioned Summary / Key Takeaways /
-/// Suggested Next Steps with colored icon chips — renders the structured
-/// MeetingReview, so no literal markdown ever reaches the user.
+/// The post-meeting notes card: Summary / Notes (topic subheads) / Next
+/// steps, mirroring the shared web page, with personal coaching in a quiet
+/// footer — renders the structured MeetingReview, so no literal markdown
+/// ever reaches the user.
 struct MeetingReviewView: View {
     let review: MeetingReview
     /// Full shareable recap (summary + session facts + footer). When set,
@@ -11,100 +12,143 @@ struct MeetingReviewView: View {
     var onToggleActionItem: ((UUID) -> Void)?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 18) {
             header
 
             if !review.summary.isEmpty {
-                section(icon: "text.alignleft", tint: .purple, title: "Summary") {
+                section(icon: "text.alignleft", title: "Summary") {
                     Text(review.summary)
-                        .font(.callout)
+                        .font(Self.bodyFont)
+                        .lineSpacing(Self.lineSpacing)
+                        .foregroundStyle(Dorado.grey800)
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
-                    if let share = review.talkShare {
-                        // Whole-meeting on purpose — the live nudges watch
-                        // recent windows; this answers "over the whole call".
-                        Text("Whole meeting: you \(Int(share * 100))% · them \(100 - Int(share * 100))%")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
                 }
             }
 
-            // Topic-grouped notes (the Granola-style body). The flat Key
-            // Takeaways list only renders for deterministic and pre-0.22
-            // reviews — an LLM review carries sections instead.
-            ForEach(Array(review.sections.enumerated()), id: \.offset) { _, topic in
+            // Topic-grouped notes under one "Notes" heading, laid out like
+            // the shared web page (one section, topic subheads) rather than
+            // a chip + divider per topic. The flat Key Takeaways list only
+            // renders for deterministic and pre-0.22 reviews.
+            if !review.sections.isEmpty {
                 Divider()
-                section(icon: "number", tint: .blue, title: topic.heading) {
-                    bulletList(topic.bullets)
+                section(icon: "number", title: "Notes") {
+                    VStack(alignment: .leading, spacing: 18) {
+                        ForEach(Array(review.sections.enumerated()), id: \.offset) { _, topic in
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(topic.heading)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(Dorado.midnight)
+                                    .textSelection(.enabled)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                bulletList(topic.bullets)
+                            }
+                        }
+                    }
                 }
             }
 
             if !review.takeaways.isEmpty {
                 Divider()
-                section(icon: "star.fill", tint: .blue, title: "Key Takeaways") {
+                section(icon: "star.fill", title: "Key takeaways") {
                     bulletList(review.takeaways)
-                }
-            }
-
-            if !review.wins.isEmpty {
-                Divider()
-                section(icon: "hand.thumbsup.fill", tint: Dorado.dollar, title: "Wins") {
-                    bulletList(review.wins)
                 }
             }
 
             if !review.actionItems.isEmpty {
                 Divider()
-                section(icon: "checkmark.circle.fill", tint: Dorado.dollar, title: "Suggested Next Steps") {
-                    ForEach(review.actionItems) { item in
-                        Button {
-                            onToggleActionItem?(item.id)
-                        } label: {
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Image(systemName: item.isDone ? "checkmark.square.fill" : "square")
-                                    .font(.callout)
-                                    .foregroundStyle(item.isDone ? Dorado.dollar : Color.secondary)
-                                Text(item.text)
-                                    .font(.callout)
-                                    .strikethrough(item.isDone)
-                                    .foregroundStyle(item.isDone ? Color.secondary : Color.primary)
-                                    .multilineTextAlignment(.leading)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                Spacer(minLength: 0)
+                section(icon: "checkmark", title: "Next steps") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(review.actionItems) { item in
+                            Button {
+                                onToggleActionItem?(item.id)
+                            } label: {
+                                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                    Image(systemName: item.isDone ? "checkmark.square.fill" : "square")
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(item.isDone ? Dorado.dollar : Color.secondary)
+                                    Text(item.text)
+                                        .font(Self.bodyFont)
+                                        .lineSpacing(Self.lineSpacing)
+                                        .strikethrough(item.isDone)
+                                        .foregroundStyle(item.isDone ? Color.secondary : Dorado.grey800)
+                                        .multilineTextAlignment(.leading)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    Spacer(minLength: 0)
+                                }
+                                .contentShape(Rectangle())
                             }
-                            .contentShape(Rectangle())
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }
 
-            if let focus = review.nextFocus, !focus.isEmpty {
-                Divider()
-                section(icon: "target", tint: .orange, title: "Next Meeting") {
-                    Text(focus)
-                        .font(.callout)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+            if hasCoaching {
+                coachingFooter
             }
 
             if review.isDeterministic {
-                Text("Instant on-device review — add a local model in Advanced for a deeper AI take.")
+                Text("Basic recap written on this Mac without AI. Connect Claude (or another AI) for full notes.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(14)
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle()
     }
 
+    private static let bodyFont = Font.system(size: 14)
+    private static let lineSpacing: CGFloat = 4
+
+    private var hasCoaching: Bool {
+        review.talkShare != nil || !review.wins.isEmpty
+            || !(review.nextFocus ?? "").isEmpty
+    }
+
+    /// Personal coaching sits below the notes, quieter — it is about you,
+    /// not the meeting, and never goes into a shared link.
+    private var coachingFooter: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Just for you", systemImage: "lock")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            if let share = review.talkShare {
+                // Whole-meeting on purpose — the live nudges watch recent
+                // windows; this answers "over the whole call".
+                Text("Talk time: you \(Int(share * 100))% · them \(100 - Int(share * 100))%")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(Array(review.wins.enumerated()), id: \.offset) { _, win in
+                Label {
+                    Text(win).fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: "hand.thumbsup").foregroundStyle(Dorado.dollar)
+                }
+                .font(.caption).foregroundStyle(.secondary)
+                .textSelection(.enabled)
+            }
+            if let focus = review.nextFocus, !focus.isEmpty {
+                Label {
+                    Text("Next meeting: \(focus)").fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: "target").foregroundStyle(.orange)
+                }
+                .font(.caption).foregroundStyle(.secondary)
+                .textSelection(.enabled)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(Color.secondary.opacity(0.06)))
+    }
+
     private var header: some View {
         HStack {
-            Label("Meeting Review", systemImage: "doc.text.magnifyingglass")
+            Label("Meeting notes", systemImage: "doc.text")
                 .font(.subheadline.weight(.semibold))
             Spacer()
             if let recap = recapText {
@@ -121,39 +165,42 @@ struct MeetingReviewView: View {
     }
 
     private func bulletList(_ items: [String]) -> some View {
-        ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Circle()
-                    .fill(Color.secondary.opacity(0.5))
-                    .frame(width: 4, height: 4)
-                    .offset(y: -2)
-                Text(item)
-                    .font(.callout)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Circle()
+                        .fill(Dorado.grey500)
+                        .frame(width: 4, height: 4)
+                        .offset(y: -3)
+                    Text(item)
+                        .font(Self.bodyFont)
+                        .lineSpacing(Self.lineSpacing)
+                        .foregroundStyle(Dorado.grey800)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
 
-    private func section(icon: String, tint: Color, title: String,
+    /// One heading style for every section — the web page's green chip.
+    private func section(icon: String, title: String,
                          @ViewBuilder content: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: icon)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(tint)
-                    .frame(width: 24, height: 24)
+                    .foregroundStyle(Dorado.dollar)
+                    .frame(width: 26, height: 26)
                     .background(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(tint.opacity(0.12))
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Dorado.dollar.opacity(0.12))
                     )
                 Text(title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Dorado.midnight)
             }
-            VStack(alignment: .leading, spacing: 6) {
-                content()
-            }
-            .padding(.leading, 2)
+            content()
         }
     }
 }

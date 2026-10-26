@@ -5,6 +5,20 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-10-26): Transcript-first default + Claude notes — in progress
+
+Branch `claude/vigilant-cray-b52tt6`. Plan (Noah: "transcript, less coaching-ish,
+make sure Claude/LLM is connected so notes are solid"):
+1. New installs default AI coaching off (existing installs keep current value).
+   Built-in cues stay on.
+2. Onboarding: replace "AI coach model" row with "Great AI notes" — inline
+   Connect Claude account (explicit consent), or other options in Settings.
+3. Saved-meeting Notes tab: "Get better notes" card when notes were basic / no
+   cloud AI; connecting regenerates the notes.
+4. In-app notes card restyled to match the web share page (one Notes section
+   with topic subheads, Next steps, coaching extras de-emphasized at the bottom).
+Written in a Linux cloud session: no Xcode — needs `xcodebuild` + manual review on a Mac.
+
 ## Current state (2026-10-20): Global open shortcut — implemented
 
 Control–Command–M opens/raises the existing main window from any app while
