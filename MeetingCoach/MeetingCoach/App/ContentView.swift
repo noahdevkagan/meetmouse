@@ -589,6 +589,35 @@ struct LiveTimelineView: View {
                 }
             }
 
+            // Built-in speakers: the mic hears the far side, so their words
+            // can land in "You" lines and both sides can blend into one
+            // block. One quiet line, dismissible for the session.
+            if liveSession.isLive && liveSession.showsHeadphonesNotice {
+                HStack(spacing: 8) {
+                    Image(systemName: "headphones")
+                        .foregroundStyle(.blue)
+                    Text("Playing through your Mac's speakers. Use headphones so MeetMouse can tell you and them apart.")
+                        .font(.caption)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .help("Without headphones your mic also hears the other side, so their words can show up as yours.")
+                    Spacer(minLength: 4)
+                    Button {
+                        liveSession.dismissHeadphonesNotice()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.caption2)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Dismiss for this meeting")
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(Color.blue.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
             // Fallback engine: fragmented transcripts are EXPECTED here —
             // without this banner users read them as broken settings. The
             // one-line status that said so vanishes under the first nudge.
