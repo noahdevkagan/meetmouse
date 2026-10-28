@@ -82,6 +82,7 @@ jobs:
           bash tests/granola/run.sh
           bash tests/sharing/run.sh
           bash tests/freetier/run.sh
+          bash tests/dock/run.sh
           bash tests/hygiene/run.sh
           bash tests/micsilence/run.sh
 

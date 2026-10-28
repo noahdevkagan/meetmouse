@@ -2005,3 +2005,22 @@ never start recording as a side effect. A fully quit app cannot receive hotkeys;
 the existing launch-at-login option keeps the menu-bar app available. Surface
 registration conflicts in settings and release the key/handler before toggling
 or reconfiguring, so retries and disabling work without restarting the app.
+
+## 2026-10-27: Show in Dock toggle, runtime .accessory policy, no temporary .regular
+User ask (César, Oct 24): run from the menu bar only, without the Dock icon,
+without breaking the signature or Mic/Screen Recording grants. Settings →
+General → Show in Dock (key `showInDock`, default ON so nothing changes for
+existing users). OFF calls `NSApp.setActivationPolicy(.accessory)`; it is
+applied in `applicationWillFinishLaunching` (no icon flash at login) and on
+toggle. Info.plist `LSUIElement`, entitlements and signing are untouched: the
+policy is a runtime call, so TCC grants (keyed to the signed bundle) are
+unaffected. `.prohibited` is never used, because it cannot own windows.
+The main window does not flip the app to `.regular` while open. Why: the user
+asked for no Dock icon at all; flipping on every open/close makes the icon pop
+in and out, and returning to `.accessory` while a window is key can drop focus
+on recent macOS. Accessory apps are not activated by opening a window, so every
+main-window path (menu item, ⌃⌘M, detection pill, overlay) goes through
+`DockVisibility.bringToFront()`: `NSApp.activate` plus `makeKeyAndOrderFront`
+on the next run-loop turn. Cost while hidden: the window is not in ⌘-Tab and
+the app's menus are not shown in the menu bar (key equivalents still work when
+active). Revisit with a temporary `.regular` only if users ask for ⌘-Tab.

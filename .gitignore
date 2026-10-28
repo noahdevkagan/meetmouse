@@ -58,3 +58,4 @@ tests/granola/.build/
 # Encrypted-sharing regression binaries
 tests/sharing/.build/
 tests/freetier/.build/
+tests/dock/.build/

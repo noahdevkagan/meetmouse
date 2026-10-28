@@ -283,7 +283,7 @@ struct ContentView: View {
     // The main window may have been closed during the call.
     private func openMainWindow() {
         openWindow(id: "main")
-        NSApp.activate(ignoringOtherApps: true)
+        DockVisibility.bringToFront()
     }
 
     private func hideOverlay() {

@@ -126,6 +126,7 @@ bash tests/demo/run.sh || { echo "DEMO GATE FAILED"; exit 1; }
 bash tests/granola/run.sh || { echo "GRANOLA GATE FAILED"; exit 1; }
 bash tests/sharing/run.sh || { echo "WEB SHARING GATE FAILED"; exit 1; }
 bash tests/freetier/run.sh || { echo "FREE TIER GATE FAILED"; exit 1; }
+bash tests/dock/run.sh || { echo "DOCK VISIBILITY GATE FAILED"; exit 1; }
 
 echo "--- [4/4] ship scorecard (informational)"
 # Refresh the nudge-signal record from real saved sessions when this

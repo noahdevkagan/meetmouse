@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- New Settings → General → Show in Dock toggle. Turn it off to run MeetMouse from the menu bar only; open the window from the menu bar mouse or with Control–Command–M. On by default, and permissions are not affected.
+
 ## 0.33.0 — 2026-10-21
 
 - Press Control–Command–M from any app to open MeetMouse while it’s running in the menu bar. Disable the shortcut in Settings → General.
