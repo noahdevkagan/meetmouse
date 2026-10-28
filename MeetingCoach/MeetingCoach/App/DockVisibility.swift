@@ -30,9 +30,11 @@ enum DockVisibility {
         let target = policy(showInDock: showInDock)
         guard NSApp.activationPolicy() != target else { return }
         NSApp.setActivationPolicy(target)
-        // Leaving .regular deactivates the app; the toggle is flipped from the
-        // Settings window, which should stay in front and keep focus.
-        if target == .accessory, NSApp.windows.contains(where: { $0.isVisible }) {
+        // A policy change can deactivate the app (or reorder it) in either
+        // direction; the toggle is flipped from the Settings window, which
+        // should stay in front and keep focus. Only real windows count: the
+        // menu-bar status item's window is always "visible".
+        if NSApp.windows.contains(where: { $0.isVisible && $0.canBecomeMain }) {
             Task { @MainActor in NSApp.activate(ignoringOtherApps: true) }
         }
     }
@@ -47,9 +49,12 @@ enum DockVisibility {
         NSApp.activate(ignoringOtherApps: true)
         Task { @MainActor in
             NSApp.activate(ignoringOtherApps: true)
+            // A minimized window is not "visible" but is the one to show.
             if let window = NSApp.windows.first(where: {
-                ($0.identifier?.rawValue ?? "").hasPrefix(windowID) && $0.isVisible
+                ($0.identifier?.rawValue ?? "").hasPrefix(windowID)
+                    && ($0.isVisible || $0.isMiniaturized)
             }) {
+                if window.isMiniaturized { window.deminiaturize(nil) }
                 window.makeKeyAndOrderFront(nil)
             }
         }
