@@ -5,6 +5,17 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-10-27): Show in Dock toggle, PR open, not built locally
+
+Settings → General → Startup → "Show in Dock" (default ON). OFF switches to the
+`.accessory` activation policy at launch and on toggle (`App/DockVisibility.swift`);
+LSUIElement and signing untouched. Main-window openers call
+`DockVisibility.bringToFront()` so the window gets focus with no Dock icon.
+No temporary `.regular` while the window is open (decisions.md 2026-10-27).
+New suite `tests/dock` (in push gate + CI). Written on Linux: not built; rely
+on CI. Manual check on a Mac: toggle off/on with the Settings window open,
+⌃⌘M from another app, menu-bar Open, relaunch with the toggle off.
+
 ## Current state (2026-10-20): Global open shortcut — implemented
 
 Control–Command–M opens/raises the existing main window from any app while

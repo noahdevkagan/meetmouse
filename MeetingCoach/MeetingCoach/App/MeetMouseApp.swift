@@ -205,6 +205,7 @@ struct MenuBarLabel: View {
     @Environment(\.openWindow) private var openWindow
     @State private var promptPanel: MeetingPromptPanel?
     @AppStorage(OpenWindowShortcut.defaultsKey) private var openShortcutEnabled = true
+    @AppStorage(DockVisibility.defaultsKey) private var showInDock = true
 
     var body: some View {
         // A custom mouse silhouette is the brand at menu-bar scale. Drawing
@@ -216,6 +217,8 @@ struct MenuBarLabel: View {
             updateAvailable: updateBadge.updateAvailable))
             .accessibilityLabel("MeetMouse")
             .onAppear {
+                // Idempotent backstop for the launch-time apply.
+                DockVisibility.apply(showInDock: showInDock)
                 configureOpenShortcut()
                 detection.bind(liveSession: liveSession)
                 // Countdown expiry uses the same start path as the pill's
@@ -249,6 +252,11 @@ struct MenuBarLabel: View {
             }
             .onChange(of: openShortcutEnabled) { _, _ in
                 configureOpenShortcut()
+            }
+            // Settings → General → Show in Dock. Launch applies it in
+            // UnlockURLDelegate before the Dock icon would appear.
+            .onChange(of: showInDock) { _, show in
+                DockVisibility.apply(showInDock: show)
             }
             .onChange(of: liveSession.isLive) { wasLive, isLive in
                 // Session-end update reminder: a login-item menu-bar app can
@@ -290,7 +298,7 @@ struct MenuBarLabel: View {
         guard !refusedByFreeTier() else { return }
         detection.sessionStarted()
         openWindow(id: "main")
-        NSApp.activate(ignoringOtherApps: true)
+        DockVisibility.bringToFront()
         liveSession.startLive(context: liveSession.preCallContext,
                               settings: settings,
                               ollamaManager: ollamaManager)
@@ -343,7 +351,7 @@ struct MenuBarLabel: View {
     private func configureOpenShortcut() {
         OpenWindowShortcut.shared.configure(enabled: openShortcutEnabled) {
             openWindow(id: "main")
-            NSApp.activate(ignoringOtherApps: true)
+            DockVisibility.bringToFront()
         }
     }
 
@@ -361,7 +369,7 @@ struct MenuBarLabel: View {
             detection.sessionStarted()
             liveSession.showPreCallForm = true
             openWindow(id: "main")
-            NSApp.activate(ignoringOtherApps: true)
+            DockVisibility.bringToFront()
         } onDismiss: {
             detection.dismissPrompt()
         }
@@ -445,7 +453,7 @@ struct MenuBarView: View {
                && OpenWindowShortcut.shared.registrationError == nil
                ? "Open MeetMouse    ⌃⌘M" : "Open MeetMouse") {
             openWindow(id: "main")
-            NSApp.activate(ignoringOtherApps: true)
+            DockVisibility.bringToFront()
         }
         Divider()
         Button(FreeTier.shared.isUnlocked
@@ -592,6 +600,12 @@ struct CheckForUpdatesView: View {
 /// Receives meetmouse://unlock?code=… from meetmouse.com (/thanks, /appsumo,
 /// and the referral status page) and unlocks the free tier.
 final class UnlockURLDelegate: NSObject, NSApplicationDelegate {
+    /// Settings → General → Show in Dock: applied before launch finishes so a
+    /// menu-bar-only user never sees the Dock icon flash at login.
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        MainActor.assumeIsolated { DockVisibility.apply() }
+    }
+
     func application(_ application: NSApplication, open urls: [URL]) {
         MainActor.assumeIsolated {
             for url in urls where url.scheme == "meetmouse" {

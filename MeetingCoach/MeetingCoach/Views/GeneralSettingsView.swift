@@ -30,6 +30,7 @@ struct GeneralSettingsView: View {
     /// through on toggle; Sparkle persists it to UserDefaults itself.
     @State private var autoInstallUpdates = true
     @AppStorage(OpenWindowShortcut.defaultsKey) private var openShortcutEnabled = true
+    @AppStorage(DockVisibility.defaultsKey) private var showInDock = true
     @AppStorage(VisualSpeakerCapture.automaticDefaultsKey) private var automaticSpeakerSnapshots = false
     @AppStorage(VisualSpeakerOCR.selfNameDefaultsKey) private var speakerSelfName = ""
 
@@ -60,6 +61,10 @@ struct GeneralSettingsView: View {
             Section("Startup") {
                 Toggle("Start MeetMouse at login", isOn: $settings.launchAtLogin)
                 Text("Opens MeetMouse automatically after a restart or log-in, so meeting detection is ready before your first call. Also manageable under System Settings \u{2192} General \u{2192} Login Items.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Toggle("Show in Dock", isOn: $showInDock)
+                Text("Turn off to run MeetMouse from the menu bar only. Open it from the menu bar mouse or with ⌃⌘M. Permissions are not affected.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
