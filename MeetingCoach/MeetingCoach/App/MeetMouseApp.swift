@@ -385,6 +385,7 @@ struct MenuBarLabel: View {
         guard !FreeTier.shared.allowMeetingStart() else { return false }
         detection.dismissPrompt()
         openWindow(id: "main")
+        DockVisibility.bringToFront()
         return true
     }
 
@@ -460,11 +461,11 @@ struct MenuBarView: View {
                ? "Share MeetMouse with Friends…"
                : "Get MeetMouse Unlimited for Free…") {
             openWindow(id: "give")
-            NSApp.activate(ignoringOtherApps: true)
+            DockVisibility.bringToFront(windowID: "give")
         }
         Button("Send Feedback…") {
             openWindow(id: "feedback")
-            NSApp.activate(ignoringOtherApps: true)
+            DockVisibility.bringToFront(windowID: "feedback")
         }
         CheckForUpdatesView(updater: updater)
         Divider()
@@ -484,6 +485,7 @@ struct MenuBarView: View {
         guard FreeTier.shared.allowMeetingStart() else {
             detection.dismissPrompt()
             openWindow(id: "main")
+            DockVisibility.bringToFront()
             return
         }
         detection.sessionStarted()
