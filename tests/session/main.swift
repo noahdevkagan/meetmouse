@@ -48,6 +48,49 @@ func runTests() async {
         vm.stopLive()
     }
 
+    // Built-in speakers (field reports Oct 2026: far side labeled "You",
+    // both sides merged into one block): the live session suggests
+    // headphones, once, dismissible, only while both channels are captured.
+    do {
+        let bltn = OutputRoute.builtInTransport
+        check(OutputRoute.isBuiltInSpeakers(transport: bltn, dataSource: OutputRoute.internalSpeakerSource),
+              "route: MacBook internal speakers are flagged")
+        check(OutputRoute.isBuiltInSpeakers(transport: bltn, dataSource: nil),
+              "route: built-in output without a data source is the speakers")
+        check(!OutputRoute.isBuiltInSpeakers(transport: bltn, dataSource: OutputRoute.headphoneSource),
+              "route: headphones in the built-in jack are not flagged")
+        check(!OutputRoute.isBuiltInSpeakers(transport: 0x626C_7565 /* 'blue' */, dataSource: nil),
+              "route: Bluetooth output (AirPods) is not flagged")
+        check(!OutputRoute.isBuiltInSpeakers(transport: 0x7573_6220 /* 'usb ' */, dataSource: nil),
+              "route: USB output is not flagged")
+
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        for _ in 0..<100 where vm.sessionStartDate == nil { await Task.yield() }
+        check(!vm.showsHeadphonesNotice, "headphones: no notice before the route is known")
+        AudioCaptureManager.last?.onOutputRoute?(true)
+        check(vm.showsHeadphonesNotice, "headphones: built-in speakers show the notice")
+        AudioCaptureManager.last?.onOutputRoute?(false)
+        check(!vm.showsHeadphonesNotice, "headphones: switching to headphones hides it")
+        AudioCaptureManager.last?.onOutputRoute?(true)
+        AudioCaptureManager.last?.onSystemAudioLost?()
+        check(!vm.showsHeadphonesNotice, "headphones: mic-only sessions never show it")
+        AudioCaptureManager.last?.onSystemAudioRestored?()
+        check(vm.showsHeadphonesNotice, "headphones: back to dual-channel shows it again")
+        vm.dismissHeadphonesNotice()
+        check(!vm.showsHeadphonesNotice, "headphones: dismiss hides it")
+        AudioCaptureManager.last?.onOutputRoute?(false)
+        AudioCaptureManager.last?.onOutputRoute?(true)
+        check(!vm.showsHeadphonesNotice, "headphones: dismissal lasts for the meeting")
+        vm.stopLive()
+        vm.startLive(context: PreCallContext())
+        for _ in 0..<100 where vm.sessionStartDate == nil { await Task.yield() }
+        check(!vm.showsHeadphonesNotice, "headphones: a new meeting starts clean")
+        AudioCaptureManager.last?.onOutputRoute?(true)
+        check(vm.showsHeadphonesNotice, "headphones: a new meeting shows it again")
+        vm.stopLive()
+    }
+
     do {
         UserDefaults.standard.set(true, forKey: VisualSpeakerCapture.automaticDefaultsKey)
         defer { UserDefaults.standard.removeObject(forKey: VisualSpeakerCapture.automaticDefaultsKey) }

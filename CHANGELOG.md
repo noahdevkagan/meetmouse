@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- When a call plays through your Mac's built-in speakers, MeetMouse now shows a one-line tip to use headphones. Without them your mic also hears the other side, so their words can show up as yours or both sides can blend into one block. Dismiss it with the x for that meeting.
+
 ## 0.33.0 — 2026-10-21
 
 - Press Control–Command–M from any app to open MeetMouse while it’s running in the menu bar. Disable the shortcut in Settings → General.

@@ -37,6 +37,13 @@ final class LiveSessionViewModel {
     /// changes (e.g. access is then denied).
     private var dismissedMicWarningCause: MicWarning.Cause?
 
+    /// The call plays through the Mac's built-in speakers, so the mic hears
+    /// the far side and You/Them labels blur. See OutputRoute.
+    private(set) var speakerBleed = SpeakerBleedNotice()
+    /// One-line "use headphones" notice: built-in speakers, both channels
+    /// captured, not dismissed this session.
+    var showsHeadphonesNotice: Bool { speakerBleed.isVisible(micOnly: micOnly) }
+
     /// This session transcribed on the SFSpeech fallback (high-accuracy
     /// Parakeet model not ready — usually still downloading on a fresh
     /// install). Fragmented "random words" transcripts are expected on
@@ -581,6 +588,11 @@ final class LiveSessionViewModel {
             self.micWarning = self.dismissedMicWarningCause == nil ? warning : nil
         }
 
+        manager.onOutputRoute = { [weak self] onSpeakers in
+            guard let self, self.currentSessionID == sessionID else { return }
+            self.speakerBleed.update(onSpeakers: onSpeakers)
+        }
+
         manager.onSystemAudioLost = { [weak self] in
             // Flip live state too (isMicOnly was sampled once at start) so
             // the arbiter regains mic-only's unlimited end veto.
@@ -996,6 +1008,7 @@ final class LiveSessionViewModel {
         appleCallCapture = false
         micWarning = nil
         dismissedMicWarningCause = nil
+        speakerBleed = SpeakerBleedNotice()
         usedFallbackEngine = false
         leftFallbackEngine = false
         sessionLanguage = nil
@@ -1016,6 +1029,10 @@ final class LiveSessionViewModel {
         manuallyUncheckedQuestions = []
         elapsedTime = 0
         backoff = NudgeBackoff()
+    }
+
+    func dismissHeadphonesNotice() {
+        speakerBleed.dismiss()
     }
 
     func dismissMicWarning() {
