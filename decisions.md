@@ -2037,7 +2037,13 @@ system-audio watchdog, since a jack plug changes only the data source) and
 show a one-line, per-meeting dismissible "use headphones" tip in the live
 view. Only in dual-channel sessions: in mic-only and Apple-call sessions
 speakers are the supported setup. External/USB/HDMI speakers are not
-flagged (could be headphones; no reliable signal). Follow-ups to evaluate
+flagged (could be headphones; no reliable signal). Known undetected setups:
+aggregate and multi-output devices (transport is not built-in even when they
+play through the Mac's speakers) and Studio Display speakers (USB/DisplayPort
+transport). Apple Silicon wired headphones are a separate built-in device,
+excluded by UID ("BuiltInHeadphoneOutputDevice"). The tip copy is hedged
+("On a call through your Mac's speakers?") because a meeting app can route
+its audio to another device than the Mac default. Follow-ups to evaluate
 with real recordings: a relative (mic vs system) energy gate, and holding a
 mic commit up to ~2 s while the far side is active so EchoFilter sees the
 far partials. Manual check: tests/calls-manual.md scenario 8.

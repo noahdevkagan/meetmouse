@@ -288,7 +288,8 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             mclog("[Capture] Apple call in progress (\(appleCallHolders.sorted().joined(separator: ", "))) — skipping system audio (SCK can't hear call audio), mic-only + diarizer")
         } else {
             // System audio next — whether it works decides mic configuration
-            // (echo cancellation on, mic speaker label "You" vs "Meeting").
+            // (mic speaker label "You" vs "Meeting"; voice processing stays
+            // off either way, see startMicEngine).
             do {
                 try await startSystemAudio()
                 hasSystemAudio = true
@@ -1272,7 +1273,20 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                 device, &address, 0, nil, &size, &source) == noErr
         }
         return OutputRoute.isBuiltInSpeakers(transport: transportType(device),
-                                             dataSource: hasSource ? source : nil)
+                                             dataSource: hasSource ? source : nil,
+                                             uid: deviceUID(device))
+    }
+
+    private static func deviceUID(_ device: AudioDeviceID) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceUID,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var uid: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &uid) == noErr,
+              let uid else { return nil }
+        return uid.takeRetainedValue() as String
     }
 
     /// sysRestartQueue only. Tells the session when the call starts or

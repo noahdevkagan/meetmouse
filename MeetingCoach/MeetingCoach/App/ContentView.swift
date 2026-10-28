@@ -596,10 +596,12 @@ struct LiveTimelineView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "headphones")
                         .foregroundStyle(.blue)
-                    Text("Playing through your Mac's speakers. Use headphones so MeetMouse can tell you and them apart.")
+                    // Hedged: the meeting app may route its audio to another
+                    // device than the Mac default (e.g. Zoom set to AirPods).
+                    Text("On a call through your Mac's speakers? Use headphones so MeetMouse can tell you and them apart.")
                         .font(.caption)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .help("Without headphones your mic also hears the other side, so their words can show up as yours.")
                     Spacer(minLength: 4)
                     Button {

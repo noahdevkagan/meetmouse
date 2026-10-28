@@ -59,6 +59,12 @@ func runTests() async {
               "route: built-in output without a data source is the speakers")
         check(!OutputRoute.isBuiltInSpeakers(transport: bltn, dataSource: OutputRoute.headphoneSource),
               "route: headphones in the built-in jack are not flagged")
+        check(!OutputRoute.isBuiltInSpeakers(transport: bltn, dataSource: nil,
+                                             uid: "BuiltInHeadphoneOutputDevice"),
+              "route: Apple Silicon wired headphones (separate built-in device) are not flagged")
+        check(OutputRoute.isBuiltInSpeakers(transport: bltn, dataSource: nil,
+                                            uid: "BuiltInSpeakerDevice"),
+              "route: Apple Silicon built-in speakers are flagged")
         check(!OutputRoute.isBuiltInSpeakers(transport: 0x626C_7565 /* 'blue' */, dataSource: nil),
               "route: Bluetooth output (AirPods) is not flagged")
         check(!OutputRoute.isBuiltInSpeakers(transport: 0x7573_6220 /* 'usb ' */, dataSource: nil),
@@ -82,10 +88,13 @@ func runTests() async {
         AudioCaptureManager.last?.onOutputRoute?(false)
         AudioCaptureManager.last?.onOutputRoute?(true)
         check(!vm.showsHeadphonesNotice, "headphones: dismissal lasts for the meeting")
+        let stale = AudioCaptureManager.last
         vm.stopLive()
         vm.startLive(context: PreCallContext())
         for _ in 0..<100 where vm.sessionStartDate == nil { await Task.yield() }
         check(!vm.showsHeadphonesNotice, "headphones: a new meeting starts clean")
+        stale?.onOutputRoute?(true)
+        check(!vm.showsHeadphonesNotice, "headphones: a stale session's route callback is ignored")
         AudioCaptureManager.last?.onOutputRoute?(true)
         check(vm.showsHeadphonesNotice, "headphones: a new meeting shows it again")
         vm.stopLive()

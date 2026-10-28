@@ -139,7 +139,7 @@ continuously while alive, so the new watchdog treats a quiet stream as dead.
 
 ### 8. Built-in speakers vs headphones (Oct 2026 field reports: far side labeled "You")
 - [ ] MacBook, no headphones, Zoom/Meet call with one remote person: within
-      ~5 s of Go Live the live view shows the one-line "Playing through your
+      ~5 s of Go Live the live view shows the one-line "On a call through your
       Mac's speakers" headphones tip; `/tmp/mc_debug.log` has
       `[Capture] Output route: built-in speakers`
 - [ ] Mute yourself in the meeting app and let the other side talk for a
@@ -150,6 +150,8 @@ continuously while alive, so the new watchdog treats a quiet stream as dead.
 - [ ] Dismiss with the x: it stays hidden for the rest of the meeting, and
       shows again in the next meeting on speakers
 - [ ] Start with AirPods connected: no tip at any point
+- [ ] Apple Silicon MacBook: plug wired headphones in (they appear as a
+      separate "External Headphones" output): no tip
 - [ ] Mic-only session (Screen Recording off): no tip
 
 ## Record of runs
