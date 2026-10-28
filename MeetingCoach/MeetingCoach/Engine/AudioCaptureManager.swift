@@ -25,10 +25,11 @@ protocol TranscriptionPipeline: AnyObject {
 /// structural — mic = "You", system audio = "Them" — instead of inferred from
 /// audio energy heuristics.
 ///
-/// Echo cancellation (voice processing) is enabled on the mic when system
-/// audio capture is active, so the other side's voice coming out of the
-/// speakers does not bleed into the "You" pipeline. A time-based bleed gate
-/// backstops the case where echo cancellation is unavailable.
+/// Voice processing (Apple's echo cancellation) is deliberately OFF (see
+/// startMicEngine): the far side leaking speakers to mic is handled by a
+/// time-based bleed gate and the software EchoFilter. Neither separates
+/// both sides reliably on open built-in speakers, so the session is told
+/// when output is the Mac's speakers (onOutputRoute, see OutputRoute).
 @available(macOS 14.2, *)
 final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
@@ -64,6 +65,10 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// Fired when MeetMouse can't hear the user's mic (or hears it again —
     /// nil). See MicSilenceMonitor.
     var onMicWarning: (@Sendable @MainActor (MicWarning?) -> Void)?
+    /// Fired when the default output switches to or from the Mac's built-in
+    /// speakers (true = speakers) while system audio is captured. Drives
+    /// the live "use headphones" notice. See OutputRoute.
+    var onOutputRoute: (@Sendable @MainActor (Bool) -> Void)?
 
     /// Vocabulary to bias recognition toward (participant names, deal terms).
     var contextualHints: [String] = []
@@ -131,6 +136,8 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// lastSystemBufferAt must not count as the stream coming back.
     private var sysDeliveredSinceRestart = true // micStateLock-guarded
     private var outputDeviceListener: AudioObjectPropertyListenerBlock?
+    /// Last route sent through onOutputRoute. sysRestartQueue-confined.
+    private var reportedBuiltInSpeakers: Bool?
 
     // Mic device-change recovery. When the default input device changes
     // mid-session — a Continuity phone call handed to this Mac, AirPods
@@ -281,10 +288,12 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             mclog("[Capture] Apple call in progress (\(appleCallHolders.sorted().joined(separator: ", "))) — skipping system audio (SCK can't hear call audio), mic-only + diarizer")
         } else {
             // System audio next — whether it works decides mic configuration
-            // (echo cancellation on, mic speaker label "You" vs "Meeting").
+            // (mic speaker label "You" vs "Meeting"; voice processing stays
+            // off either way, see startMicEngine).
             do {
                 try await startSystemAudio()
                 hasSystemAudio = true
+                sysRestartQueue.async { [weak self] in self?.publishOutputRoute() }
             } catch {
                 mclog("[Capture] System audio failed: \(error.localizedDescription)")
                 hasSystemAudio = false
@@ -1175,6 +1184,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         timer.schedule(deadline: .now() + 5, repeating: 3)
         timer.setEventHandler { [weak self] in
             guard let self, self.isRunning, !self.sysRecovering else { return }
+            // Wired headphones in a MacBook jack change the data source, not
+            // the default device, so the device listener never sees them.
+            self.publishOutputRoute()
             self.micStateLock.lock()
             let lastBuffer = self.lastSystemBufferAt
             let delivered = self.sysDeliveredSinceRestart
@@ -1207,8 +1219,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// so no rebuild is triggered here.
     private func observeOutputDeviceChanges() {
         var address = Self.defaultOutputAddress
-        let block: AudioObjectPropertyListenerBlock = { _, _ in
+        let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
             mclog("[Capture] Default output device changed → \(Self.defaultOutputDeviceName() ?? "unknown")")
+            self?.publishOutputRoute()
         }
         AudioObjectAddPropertyListenerBlock(
             AudioObjectID(kAudioObjectSystemObject), &address, sysRestartQueue, block)
@@ -1231,13 +1244,62 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     }
 
     private static func defaultOutputDeviceName() -> String? {
+        defaultOutputDeviceID().flatMap(deviceName)
+    }
+
+    private static func defaultOutputDeviceID() -> AudioDeviceID? {
         var address = defaultOutputAddress
         var device = AudioDeviceID(0)
         var size = UInt32(MemoryLayout<AudioDeviceID>.size)
         let err = AudioObjectGetPropertyData(
             AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device)
         guard err == noErr, device != 0 else { return nil }
-        return deviceName(device)
+        return device
+    }
+
+    /// The default output is the Mac's built-in speakers (not its headphone
+    /// jack). See OutputRoute.isBuiltInSpeakers.
+    private static func defaultOutputIsBuiltInSpeakers() -> Bool {
+        guard let device = defaultOutputDeviceID() else { return false }
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDataSource,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain)
+        var source: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        var hasSource = false
+        if AudioObjectHasProperty(device, &address) {
+            hasSource = AudioObjectGetPropertyData(
+                device, &address, 0, nil, &size, &source) == noErr
+        }
+        return OutputRoute.isBuiltInSpeakers(transport: transportType(device),
+                                             dataSource: hasSource ? source : nil,
+                                             uid: deviceUID(device))
+    }
+
+    private static func deviceUID(_ device: AudioDeviceID) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceUID,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var uid: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &uid) == noErr,
+              let uid else { return nil }
+        return uid.takeRetainedValue() as String
+    }
+
+    /// sysRestartQueue only. Tells the session when the call starts or
+    /// stops playing out loud through the Mac's speakers.
+    private func publishOutputRoute() {
+        guard isRunning, hasSystemAudio else { return }
+        let speakers = Self.defaultOutputIsBuiltInSpeakers()
+        guard speakers != reportedBuiltInSpeakers else { return }
+        reportedBuiltInSpeakers = speakers
+        mclog("[Capture] Output route: \(speakers ? "built-in speakers (far side can reach the mic)" : "not built-in speakers")")
+        Task { @MainActor [onOutputRoute] in
+            onOutputRoute?(speakers)
+        }
     }
 
     /// sysRestartQueue only. Tears down the dead stream and brings a fresh

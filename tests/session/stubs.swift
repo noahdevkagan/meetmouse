@@ -51,6 +51,7 @@ final class AudioCaptureManager {
     var onSystemAudioLost: (() -> Void)?
     var onSystemAudioRestored: (() -> Void)?
     var onMicWarning: ((MicWarning?) -> Void)?
+    var onOutputRoute: ((Bool) -> Void)?
     /// Recorded renames (label, name) — the real manager routes these to
     /// the channel diarizers and the voice-profile store.
     private(set) var renames: [(String, String)] = []
