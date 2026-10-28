@@ -25,11 +25,17 @@ enum OutputRoute {
     /// True when the default output is the Mac's built-in speakers.
     /// `dataSource` is nil when the device doesn't report one: built-in
     /// output without a data source is still the speakers (iMac, Mac mini).
-    /// Wired headphones in a MacBook's jack keep the built-in device but
-    /// switch its data source to 'hdpn'. External, USB, Bluetooth and
-    /// virtual devices are not flagged: they may be headphones.
-    static func isBuiltInSpeakers(transport: UInt32, dataSource: UInt32?) -> Bool {
+    /// Wired headphones show up two ways: Intel Macs keep the built-in
+    /// device and switch its data source to 'hdpn'; Apple Silicon exposes a
+    /// separate built-in device (UID "BuiltInHeadphoneOutputDevice", name
+    /// "External Headphones"), caught by its UID. External, USB, Bluetooth
+    /// and virtual devices are not flagged: they may be headphones.
+    static func isBuiltInSpeakers(transport: UInt32, dataSource: UInt32?,
+                                  uid: String? = nil) -> Bool {
         guard transport == builtInTransport else { return false }
+        if let uid, uid.range(of: "headphone", options: .caseInsensitive) != nil {
+            return false
+        }
         return dataSource != headphoneSource
     }
 }
