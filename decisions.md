@@ -2005,3 +2005,45 @@ never start recording as a side effect. A fully quit app cannot receive hotkeys;
 the existing launch-at-login option keeps the menu-bar app available. Surface
 registration conflicts in settings and release the key/handler before toggling
 or reconfiguring, so retries and disabling work without restarting the app.
+
+## 2026-10-27: Built-in speakers: suggest headphones, don't guess a software fix yet
+
+Field reports Oct 15 to 21 (3 users, v0.31 to v0.33, MacBook speakers, no
+headphones): the far side's words labeled "You" (even while muted), and both
+sides blended into one block. Read the capture path for a code-level cause:
+
+- Voice processing is off on purpose (2026-08 decision: it ducks the call and
+  forces call-mode formats), so on open speakers the mic hears the far side
+  at speech level. The file header still claimed it was on; corrected.
+- The bleed gate keys on absolute mic energy: it drops a mic chunk only when
+  the mic has been below 0.005 RMS for 3 s at delivery. The mic pipeline only
+  transcribes audio above 0.006, so any bleed loud enough to transcribe also
+  keeps the mic "loud": the gate cannot fire during active bleed. It catches
+  only chunks that commit late.
+- EchoFilter is a text match against far-side partials (25% edit budget,
+  exact match for 3 to 4 word sentences). Speaker-to-mic echo transcribes
+  worse than the clean system stream, and the mic (0.9 s commit gap) can
+  commit before the far pipeline (2.0 s gap, partial refresh every 2 to 3
+  ticks on long windows) has published the matching words. Mixed sentences
+  (user + echo with no punctuation between) fail the match and stay "You".
+
+No change here is small AND verifiable without real hardware: an energy
+gate that needs "near-only" mic energy would drop real double-talk and
+backchannels; delaying mic delivery to let far partials catch up changes
+transcript timing for every session. So this change is the mitigation:
+detect built-in speakers (default output transport 'bltn' and data source
+not 'hdpn', checked at start, on default-device change and every 3 s via the
+system-audio watchdog, since a jack plug changes only the data source) and
+show a one-line, per-meeting dismissible "use headphones" tip in the live
+view. Only in dual-channel sessions: in mic-only and Apple-call sessions
+speakers are the supported setup. External/USB/HDMI speakers are not
+flagged (could be headphones; no reliable signal). Known undetected setups:
+aggregate and multi-output devices (transport is not built-in even when they
+play through the Mac's speakers) and Studio Display speakers (USB/DisplayPort
+transport). Apple Silicon wired headphones are a separate built-in device,
+excluded by UID ("BuiltInHeadphoneOutputDevice"). The tip copy is hedged
+("On a call through your Mac's speakers?") because a meeting app can route
+its audio to another device than the Mac default. Follow-ups to evaluate
+with real recordings: a relative (mic vs system) energy gate, and holding a
+mic commit up to ~2 s while the far side is active so EchoFilter sees the
+far partials. Manual check: tests/calls-manual.md scenario 8.
