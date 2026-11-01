@@ -6,9 +6,10 @@ cd "$(dirname "$0")/.."
 
 SRC=MeetingCoach/MeetingCoach
 OUT=bench/.build
-mkdir -p "$OUT"
+mkdir -p "$OUT/ModuleCache"
+export CLANG_MODULE_CACHE_PATH="$PWD/$OUT/ModuleCache"
 
-swiftc -O -o "$OUT/mc-backtest" \
+swiftc -O -module-cache-path "$OUT/ModuleCache" -o "$OUT/mc-backtest" \
   bench/backtest.swift \
   "$SRC/Engine/SignalEngine.swift" \
   "$SRC/Engine/TuningTypes.swift" \
@@ -16,6 +17,7 @@ swiftc -O -o "$OUT/mc-backtest" \
   "$SRC/Engine/TranscriptAnalysis.swift" \
   "$SRC/Engine/TranscriptParser.swift" \
   "$SRC/Engine/SemanticCoach.swift" \
+  "$SRC/Engine/OllamaProvider.swift" \
   "$SRC/Engine/OllamaClient.swift" \
   "$SRC/Engine/AIProvider.swift" \
   "$SRC/Engine/AIClient.swift" \

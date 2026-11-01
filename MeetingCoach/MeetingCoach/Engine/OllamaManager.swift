@@ -28,6 +28,7 @@ final class OllamaManager {
     }
 
     private var process: Process?
+    private var didAdoptEngine = false
     private let port: Int = 11434
     private let logger = Logger(subsystem: "com.coach.MeetingCoach", category: "OllamaManager")
 
@@ -95,6 +96,7 @@ final class OllamaManager {
         if let systemModels = systemOllamaModelCount() {
             if systemModels > 0 || !appHasLocalModels {
                 logger.info("Using ollama already on port \(self.port) (\(systemModels) models)")
+                didAdoptEngine = true
                 status = .running
                 return
             }
@@ -224,16 +226,31 @@ final class OllamaManager {
     func stop() {
         guard let proc = process, proc.isRunning else {
             // Adopted engine (system Ollama / leftover) — we can't stop it,
-            // but quitting must not leave our multi-GB model pinned in
+            // but quitting in local mode must not leave our multi-GB model pinned in
             // someone else's process for the rest of its keep_alive.
-            releaseAdoptedModels()
+            if didAdoptEngine && AIConfiguration.current.provider == .local {
+                releaseAdoptedModels()
+            }
+            didAdoptEngine = false
             status = .stopped
             return
         }
         logger.info("Stopping embedded ollama (PID \(proc.processIdentifier))")
         proc.terminate()
         process = nil
+        didAdoptEngine = false
         status = .stopped
+    }
+
+    /// Stops the embedded child process if running, freeing port 11434
+    /// when switching to an external provider or system Ollama.
+    func stopEmbeddedIfRunning() {
+        if let proc = process, proc.isRunning {
+            logger.info("Stopping embedded ollama child (PID \(proc.processIdentifier))")
+            proc.terminate()
+            process = nil
+            status = .stopped
+        }
     }
 
     /// Best-effort synchronous model eviction from an engine we didn't

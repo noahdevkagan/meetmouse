@@ -242,8 +242,16 @@ struct SearchResultsView: View {
             // phase so a warm live-session runner is reused, not respawned.
             let client = AIClient(model: settings.effectiveModel,
                                       numCtx: 4096, numPredict: 384)
-            if !settings.usesCloudAI, await !OllamaClient(model: settings.effectiveModel).runningModels().contains(settings.effectiveModel),
-               question == query {
+            let isRunning: Bool
+            if !settings.usesCloudAI {
+                isRunning = await OllamaClient(model: settings.effectiveModel).runningModels().contains(settings.effectiveModel)
+            } else if settings.aiConfiguration.provider == .ollama,
+                      let url = settings.aiConfiguration.normalizedOllamaURL {
+                isRunning = await OllamaProvider.runningModels(baseURL: url).contains(settings.effectiveModel)
+            } else {
+                isRunning = true
+            }
+            if !isRunning, question == query {
                 askState = .thinking(
                     "Loading \(settings.effectiveModel) — the first question pays this once, repeats are much faster…")
             }

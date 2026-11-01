@@ -40,8 +40,9 @@ done
 
 SRC=MeetingCoach/MeetingCoach
 OUT=tests/nudges/.build
-mkdir -p "$OUT"
-swiftc -O -o "$OUT/sigcheck" \
+mkdir -p "$OUT/ModuleCache"
+export CLANG_MODULE_CACHE_PATH="$PWD/$OUT/ModuleCache"
+swiftc -O -module-cache-path "$OUT/ModuleCache" -o "$OUT/sigcheck" \
   tests/nudges/sigcheck/main.swift \
   "$SRC/Engine/TranscriptAnalysis.swift" \
   "$SRC/Engine/SignalEngine.swift" \
