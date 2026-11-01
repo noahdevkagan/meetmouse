@@ -93,6 +93,14 @@ struct Backtest {
 
         guard runSemantic else { return }
 
+        if OllamaLocalEndpoint.activeURL() == nil,
+           let host = ProcessInfo.processInfo.environment["OLLAMA_HOST"],
+           let url = URL(string: host.contains("://") ? host : "http://\(host)"),
+           let port = url.port,
+           (url.host == "127.0.0.1" || url.host == "localhost" || url.host == "::1") {
+            OllamaLocalEndpoint.setActivePort(port)
+        }
+
         let coach = await SemanticCoach(model: model)
         var fed = 0
         var tier2: [Nudge] = []

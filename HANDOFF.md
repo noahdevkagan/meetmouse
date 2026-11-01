@@ -5,6 +5,23 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-01): Ephemeral local Ollama port, live model refresh & missing-model fallback (#53) — completed
+
+1. Move MeetMouse's internal `Local (on this Mac)` `ollama serve` off hardcoded
+   `127.0.0.1:11434` onto an OS-assigned ephemeral loopback port coordinated via
+   `~/Library/Application Support/MeetingCoach/ollama/{ollama.pid,ollama.port}`
+   (`OllamaLocalEndpoint`), removing standalone `11434` adoption and eviction.
+   Release builds run only the bundled runtime; unvendored dev builds connect passively
+   to `127.0.0.1:11434` when already running (`setActivePort(11434)`) without spawning unbundled binaries.
+2. Fetch `GET /api/tags` live (`refreshModelsLive()`) when opening "Download
+   Models" (`ModelCatalogView`), immediately syncing `availableModels` and the
+   `Model` dropdown. Opening the dropdown itself never queries the network.
+3. Missing-model fallback: when the user's selected model is missing while other
+   models exist, silently switch `selectedModel` and the dropdown to the RAM-aware
+   fallback model without showing an error banner. An orange warning banner is
+   surfaced only when 0 models remain after an explicit selection was saved. Deleting
+   the final model in MeetMouse resets to clean onboarding with no false warning.
+
 ## Current state (2026-10-20): Global open shortcut — implemented
 
 Control–Command–M opens/raises the existing main window from any app while

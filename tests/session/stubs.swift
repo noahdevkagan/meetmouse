@@ -100,14 +100,43 @@ final class SettingsViewModel {
     var hasCheckedModels = false
     var ollamaReachable = false
     var availableModels: [OllamaModel] = []
+    var hasExplicitModelSelection: Bool = true
+    var hasInstalledSelectedModel: Bool {
+        !selectedModel.isEmpty && availableModels.contains(where: { $0.name == selectedModel })
+    }
+    static func fallbackInstalledModel(in models: [OllamaModel]) -> String? {
+        guard !models.isEmpty else { return nil }
+        let fitting = models.filter { ModelMemory.fits($0) }
+        if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
+            return recommended.name
+        }
+        return fitting.min(by: { $0.size < $1.size })?.name ?? models.first?.name
+    }
+    var isSavedModelVanished: Bool {
+        !usesCloudAI && hasCheckedModels && !useMock
+            && availableModels.isEmpty
+            && hasExplicitModelSelection
+            && !selectedModel.isEmpty
+    }
+    func reconcileSelectedModel() {
+        guard !usesCloudAI else { return }
+        guard !availableModels.isEmpty else { return }
+        if !availableModels.contains(where: { $0.name == selectedModel }) {
+            if let fallback = Self.fallbackInstalledModel(in: availableModels) {
+                selectedModel = fallback
+            }
+        }
+    }
     var meetingLanguage: MeetingLanguageSelection = .english
     var notesLanguage: NotesLanguagePreference = .meeting
     func loadRubricOrDefault() throws -> Rubric { Rubric() }
     func prepareAI(ollamaManager: OllamaManager) async -> Bool {
         if usesCloudAI { return true }
+        await refreshModels()
+        guard hasInstalledSelectedModel else { return false }
         guard await ollamaManager.ensureRunning() else { return false }
         await refreshModels()
-        return !availableModels.isEmpty
+        return hasInstalledSelectedModel
     }
 
     // Test hooks. The real path reads this machine's free memory and talks to
@@ -123,6 +152,8 @@ final class SettingsViewModel {
 
     func refreshModels() async {
         callLog.append("refresh")
+        hasCheckedModels = true
+        reconcileSelectedModel()
         if let gate = refreshGate {
             var it = gate.stream.makeAsyncIterator()
             _ = await it.next()

@@ -9,6 +9,9 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Local AI runs on an isolated port so running your own Ollama on port 11434 never conflicts with MeetMouse or leaves the model menu blank.
+- When an active model is removed or missing from disk, MeetMouse automatically falls back to another installed model so AI coaching and notes keep working.
+
 ## 0.33.1 — 2026-10-27
 
 - When a call plays through your Mac's built-in speakers, MeetMouse now shows a one-line tip to use headphones. Without them your mic also hears the other side, so their words can show up as yours or both sides can blend into one block. Dismiss it with the x for that meeting.
