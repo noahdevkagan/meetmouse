@@ -56,7 +56,7 @@ Every `git push` runs `scripts/push-gate.sh` (~4 min; docs/markdown-only pushes 
 ## Gotchas (agents hit these)
 
 - **SourceKit/LSP diagnostics in this repo are noise** (no module context). Trust `xcodebuild` only.
-- **`Resources/ollama/` is gitignored and empty in a fresh clone** — the ~80 MB runtime is vendored by CI at release time. Dev builds without it fall back to a system Ollama on `127.0.0.1:11434`; to embed locally run `./scripts/vendor-ollama.sh`.
+- **`Resources/ollama/` is gitignored and empty in a fresh clone** — the ~80 MB runtime is vendored by CI at release time. Dev builds without it discover a local `ollama` executable and launch an isolated child process on an ephemeral loopback port (`127.0.0.1:<ephemeral>`); to embed locally run `./scripts/vendor-ollama.sh`.
 - **The installed `/Applications/MeetMouse.app` shares UserDefaults and the model store with dev builds.** Never kill its processes. To clean up a dev engine use the Debug-scoped pattern: `pkill -f "Debug/MeetMouse.app.*ollama serve"` — the broad `Resources/ollama` pattern kills the user's live session.
 - **First launch shows a welcome sheet** gated by `defaults read com.coach.MeetingCoach hasSeenDemo`; set it to `true` to skip, delete it to re-test onboarding.
 - Live capture needs mic + **Screen Recording** permission (system audio). Without Screen Recording the app runs mic-only with a warning banner. The bundled demo (`Watch a 15-second demo`) needs no permissions at all.

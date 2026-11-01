@@ -711,6 +711,16 @@ final class LiveSessionViewModel {
         await settings.refreshModels()
         guard stillCurrent() else { return }
 
+        if settings.availableModels.isEmpty {
+            if settings.isSavedModelVanished {
+                return settleDeterministic(
+                    "saved model vanished",
+                    notice: .init(cause: "model unavailable",
+                                  detail: "Model '\(settings.selectedModel)' is no longer available. Using built-in coaching until you download a model in Settings."))
+            }
+            return settleDeterministic("no local model installed", notice: nil)
+        }
+
         guard let availableGB = Self.availableMemoryGB() else {
             return settleDeterministic("free memory unreadable")
         }
@@ -1729,9 +1739,17 @@ final class LiveSessionViewModel {
                     mclog("[Review] AI unavailable; using instant review")
                 }
             } else {
-                reviewAIError = settings.availableModels.isEmpty
-                    ? "A basic recap is shown. For AI notes, connect Claude or choose a model in Settings → AI."
-                    : "AI is unavailable. A basic recap is shown; check Settings → AI, then retry from the saved meeting."
+                if !settings.usesCloudAI && !settings.hasInstalledSelectedModel {
+                    if settings.isSavedModelVanished {
+                        reviewAIError = "Model '\(settings.selectedModel)' is unavailable. A basic recap is shown; download a model in Settings → AI."
+                    } else if settings.availableModels.isEmpty {
+                        reviewAIError = "A basic recap is shown. For AI notes, connect Claude or choose a model in Settings → AI."
+                    } else {
+                        reviewAIError = "Model '\(settings.selectedModel)' is unavailable. A basic recap is shown; select a model in Settings → AI."
+                    }
+                } else {
+                    reviewAIError = "AI is unavailable. A basic recap is shown; check Settings → AI, then retry from the saved meeting."
+                }
             }
             guard reviewGenerationID == generationID else { return }
             if let summary, !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -1915,6 +1933,11 @@ final class LiveSessionViewModel {
                         } else {
                             self.basicModeNotice = nil
                         }
+                    } else if case .error(let msg) = ollamaManager.status {
+                        self.basicModeNotice = .init(cause: "AI engine stopped",
+                                                    detail: "\(msg) Transcription and built-in coaching continue.")
+                    } else if self.basicModeNotice?.cause == "AI engine stopped", ollamaManager.status == .running {
+                        self.basicModeNotice = nil
                     }
                     interval = newNudges.isEmpty
                         ? min(interval + 30, 120)

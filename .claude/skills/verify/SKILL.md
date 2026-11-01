@@ -28,7 +28,7 @@ Find the CGWindowID for the PID (layer 0, largest area) via a small Swift snippe
 using `CGWindowListCopyWindowInfo`, then `screencapture -x -o -l<WID> out.png`.
 
 ## Embedded Ollama facts
-- Engine binary: `Contents/Resources/ollama/ollama` (serve on 127.0.0.1:11434).
+- Engine binary: `Contents/Resources/ollama/ollama` (serve on an ephemeral loopback port `127.0.0.1:<port>`).
 - Models/log dir: `~/Library/Application Support/MeetingCoach/ollama/` (log: `ollama.log`).
 - The app quits WITHOUT stopping its `ollama serve` child — kill it between test runs
   (`pkill -f "Debug/MeetMouse.app.*ollama serve"`), or the next run exercises the
