@@ -6,7 +6,7 @@ no invented anecdotes, competitor prices only where already verified on this
 site (otherwise described without a number), and a `checked` month.
 """
 
-MM_WHERE = "On your Mac. Local AI by default; if you add your own Claude or OpenAI key, meeting text goes to that provider."
+MM_WHERE = "On your Mac. Local AI by default; if you add your own Claude, OpenAI, or Gemini key, meeting text goes to that provider."
 MM_PRICE = "Free for 3 meetings a week; $20 once for unlimited"
 REFUND = "Unlimited your first week, then 3 meetings a week. Invite 2 friends or pay $20 once for unlimited."
 
@@ -176,7 +176,7 @@ BEST = [
         picks=[
             mm("privileged calls where nothing can leave the laptop", [
                 "Mine. It hears the call through your Mac, so no bot joins. Transcription runs on-device and the default AI runs locally; pull the Wi-Fi mid-call and it keeps working. You get notes with next steps, and you can ask a saved meeting what was said about a term and jump to the timestamp. No MeetMouse account, no MeetMouse server holding your client's information.",
-                "Two things to know. You can add your own Claude or OpenAI key for a bigger model; then meeting text goes to that provider, so leave it on local for client work. And it's a personal Mac tool: no matter management, no firm-wide archive.",
+                "Two things to know. You can add your own Claude, OpenAI, or Gemini key for a bigger model; then meeting text goes to that provider, so leave it on local for client work. And it's a personal Mac tool: no matter management, no firm-wide archive.",
             ]),
             pick(MACWHISPER, "turning recorded interviews into text", [
                 "If you already record (with consent) and just need text, MacWhisper transcribes on your Mac. Nothing uploaded.",
@@ -588,7 +588,7 @@ BEST = [
             ("Is MeetMouse the same as MeetingCoach?", "Yes. MeetingCoach was renamed MeetMouse in September 2026. Same app, same team, and existing installs updated automatically."),
             ("Is there a free AI meeting coach?", "MeetMouse is free: unlimited your first week, then 3 meetings a week, with notes never locked. Unlimited is $20 once. Yoodli has a free plan for practice roleplays."),
             ("Can other people on the call see the coaching?", "Not with MeetMouse. Cues show in an overlay that's excluded from screen shares and recordings, and no bot joins the call."),
-            ("Does an AI meeting coach record my calls?", "Depends on the tool. Bot-based tools record to their cloud. MeetMouse transcribes on your Mac and keeps the meeting there by default; if you add your own Claude or OpenAI key, meeting text goes to that provider."),
+            ("Does an AI meeting coach record my calls?", "Depends on the tool. Bot-based tools record to their cloud. MeetMouse transcribes on your Mac and keeps the meeting there by default; if you add your own Claude, OpenAI, or Gemini key, meeting text goes to that provider."),
             ("Which meetings does MeetMouse work with?", "Zoom, Google Meet, Microsoft Teams and other calls on your Mac, because it listens to your Mac's audio instead of joining the call."),
         ],
         cta_body="Free to start, and the coaching stays on your Mac. " + REFUND,
@@ -693,7 +693,7 @@ BEST = [
         faq=[
             ("What is the best AI notetaker for financial advisors?", "If your firm needs notes synced into a wealth CRM and kept as central records, an advisor-built tool like Jump or Zocks, approved by compliance. If you're independent and want client details kept off other companies' servers, MeetMouse, which runs transcription and AI on your Mac and is free for 3 meetings a week."),
             ("Can financial advisors use AI notetakers?", "Many do, but recordkeeping and privacy rules vary by firm and regulator, so ask compliance first. Advisor-built tools focus on CRM and records; MeetMouse keeps client data on your Mac."),
-            ("Which AI notetaker keeps client financial data private?", "MeetMouse processes transcription and its default AI on your Mac and works with Wi-Fi off, so client details aren't uploaded. If you add your own Claude or OpenAI key, meeting text goes to that provider, so leave it on local for client meetings."),
+            ("Which AI notetaker keeps client financial data private?", "MeetMouse processes transcription and its default AI on your Mac and works with Wi-Fi off, so client details aren't uploaded. If you add your own Claude, OpenAI, or Gemini key, meeting text goes to that provider, so leave it on local for client meetings."),
             ("Does MeetMouse sync to Redtail, Wealthbox or Salesforce?", "No. Notes stay on your Mac. You can copy them into your CRM or share them through an encrypted, expiring link."),
             ("Does a bot join client meetings?", "Not with MeetMouse or Granola, which capture audio on your computer. Otter and Fireflies join as a visible participant, and Fathom does by default."),
             ("Is MeetMouse compliant with SEC or FINRA rules?", "I can't tell you that, and you should be wary of any notetaker that says yes without your compliance team in the loop. MeetMouse has no compliance certifications. What it does is keep the conversation on your Mac by default, which is a different thing."),

@@ -34,7 +34,7 @@ TOOLS = {
         "bad": [
             "Mac only (macOS 14.2 or later)",
             "No CRM sync or team dashboard",
-            "If you turn on Claude or OpenAI in Settings, text goes to that provider (audio never does)",
+            "If you turn on Claude, OpenAI or Gemini in Settings, text goes to that provider (audio never does)",
         ],
     },
     "fathom": {

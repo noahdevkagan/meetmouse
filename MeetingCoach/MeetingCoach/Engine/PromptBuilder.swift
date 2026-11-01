@@ -3,11 +3,40 @@ import Foundation
 /// Builds LLM prompts for the post-call review.
 enum PromptBuilder {
 
+    /// Auto-calculate the maximum transcript length (in characters) to send for review.
+    /// Cloud models scale with the provider's context window; local models scale with
+    /// this Mac's unified memory so KV cache does not cause a memory freeze.
+    static func maxReviewTranscriptChars(for model: String, ramGB: Int = ModelMemory.physicalRAMGB) -> Int {
+        if let cloud = AIConfiguration.cloud(from: model) {
+            if cloud.provider == .claudeAccount || cloud.model == "claude-haiku-4-5-20251001" {
+                return 500_000 // ~10 hours (200K token window)
+            }
+            return 2_000_000 // ~40 hours (1M token window)
+        }
+        if ramGB >= 48 { return 200_000 } // ~4 hours
+        if ramGB >= 24 { return 100_000 } // ~2 hours
+        return 32_000 // ~45 minutes
+    }
+
+    /// Sized from the actual sent prompt length: short calls (<=32K chars) keep the
+    /// default 12,288 KV cache and 120s timeout even on high-RAM Macs.
+    static func reviewCallBudget(model: String, userChars: Int) -> (numCtx: Int, timeout: TimeInterval) {
+        let isCloud = AIConfiguration.cloud(from: model) != nil
+        if userChars <= 36_000 {
+            return (12_288, 120)
+        } else if userChars <= 106_000 {
+            return (32_768, 240)
+        } else {
+            return (65_536, isCloud ? 240 : 300)
+        }
+    }
+
     /// Build a post-call review prompt that includes nudges, feedback, pre-call context, and transcript.
     static func buildPostCallReviewPrompt(nudges: [Nudge], transcript: String,
                                           context: PreCallContext,
                                           durationMinutes: Int,
-                                          languageName: String? = nil)
+                                          languageName: String? = nil,
+                                          maxTranscriptChars: Int = 32_000)
         -> (system: String, user: String) {
         // Strictly-delimited sections, one item per line — the app parses
         // this into a structured card (MeetingReview.parse). Small local
@@ -116,8 +145,10 @@ enum PromptBuilder {
             // token reply. Noah's real 43-min meeting was 35K chars and the
             // old 24K cap amputated exactly the middle where the team
             // review happened (2026-09-04) — most meetings now fit whole.
-            if t.count > 32_000 {
-                t = t.prefix(10_000) + "\n[… middle of the meeting trimmed …]\n" + t.suffix(22_000)
+            if t.count > maxTranscriptChars {
+                let headCount = (maxTranscriptChars * 10_000) / 32_000
+                let tailCount = maxTranscriptChars - headCount
+                t = t.prefix(headCount) + "\n[… middle of the meeting trimmed …]\n" + t.suffix(tailCount)
             }
             userLines.append("\nTranscript (You = the user, the person these notes are for):\n\(t)")
         }

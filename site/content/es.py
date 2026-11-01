@@ -50,7 +50,7 @@ ES_PAGES = [
                 "bad": ["Solo Mac (macOS 14.2 o posterior)",
                         "Sin sincronización con CRM ni panel para equipos",
                         "Los menús están en inglés, y en reuniones en español el coaching en vivo es más limitado",
-                        "Si activas Claude u OpenAI en Ajustes, el texto va a ese proveedor (el audio nunca)"],
+                        "Si activas Claude, OpenAI o Gemini en Ajustes, el texto va a ese proveedor (el audio nunca)"],
                 "url": "/",
             },
             {

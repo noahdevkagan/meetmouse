@@ -39,7 +39,7 @@ Noah's voice, first person. The live posts are the reference.
 ## 3. Facts and claims
 
 - **Our product:** only claim what the homepage/code says. MeetMouse: transcription on the
-  Mac; AI local by default, optional own Claude/OpenAI key; no bot; notes + chat + live
+  Mac; AI local by default, optional own Claude/OpenAI/Gemini key; no bot; notes + chat + live
   coaching; Mac only, macOS 14.2+, Apple Silicon recommended. Rhino Voice: on-device only,
   Apple Silicon, macOS 14+.
 - **Competitors:** reuse prices already verified on the site. If a price isn't verified,

@@ -28,7 +28,9 @@ func runTests() async {
 
     do {
         let vm = LiveSessionViewModel()
-        vm.startLive(context: PreCallContext())
+        let settings = SettingsViewModel()
+        settings.meetingLanguage = .english
+        vm.startLive(context: PreCallContext(), settings: settings)
         for _ in 0..<100 where vm.sessionStartDate == nil { await Task.yield() }
         check(!vm.visualSpeakerCapture.isRunning, "visual: default-off meeting start takes no screenshots")
         let window = SpeakerWindowChoice(id: 0, pid: 0, app: "Synthetic", title: "Synthetic")
@@ -202,7 +204,9 @@ func runTests() async {
     //    collapsed to its empty state the moment Stop was hit.
     do {
         let vm = LiveSessionViewModel()
-        vm.startLive(context: PreCallContext())
+        let settings = SettingsViewModel()
+        settings.meetingLanguage = .english
+        vm.startLive(context: PreCallContext(), settings: settings)
         try? await Task.sleep(for: .milliseconds(300))   // let start settle
         guard let capture = AudioCaptureManager.last else {
             check(false, "capture manager wired"); return
@@ -224,7 +228,9 @@ func runTests() async {
     //    Stop must not lose them (or the final pending tail on top).
     do {
         let vm = LiveSessionViewModel()
-        vm.startLive(context: PreCallContext())
+        let settings = SettingsViewModel()
+        settings.meetingLanguage = .english
+        vm.startLive(context: PreCallContext(), settings: settings)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else {
             check(false, "capture manager wired (2)"); return
@@ -282,7 +288,9 @@ func runTests() async {
     //    and renames reach the capture manager (voice-profile path).
     do {
         let vm = LiveSessionViewModel()
-        vm.startLive(context: PreCallContext())
+        let settings = SettingsViewModel()
+        settings.meetingLanguage = .english
+        vm.startLive(context: PreCallContext(), settings: settings)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else {
             check(false, "capture manager wired (3)"); return
@@ -337,7 +345,9 @@ func runTests() async {
     //    no crash, no phantom turns, pane shows its empty state honestly.
     do {
         let vm = LiveSessionViewModel()
-        vm.startLive(context: PreCallContext())
+        let settings = SettingsViewModel()
+        settings.meetingLanguage = .english
+        vm.startLive(context: PreCallContext(), settings: settings)
         try? await Task.sleep(for: .milliseconds(300))
         vm.stopLive()
         check(vm.turns.isEmpty && vm.utterances.isEmpty && !vm.hasSession,
@@ -351,7 +361,9 @@ func runTests() async {
     //    speaker changes still split.
     do {
         let vm = LiveSessionViewModel()
-        vm.startLive(context: PreCallContext())
+        let settings = SettingsViewModel()
+        settings.meetingLanguage = .english
+        vm.startLive(context: PreCallContext(), settings: settings)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else {
             check(false, "capture manager wired (5)"); return
@@ -586,7 +598,9 @@ func runTests() async {
     //     section — title and review survive byte-for-byte.
     do {
         let vm = LiveSessionViewModel()
-        vm.startLive(context: PreCallContext())
+        let settings = SettingsViewModel()
+        settings.meetingLanguage = .english
+        vm.startLive(context: PreCallContext(), settings: settings)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else {
             check(false, "capture manager wired (10)"); return
@@ -1211,6 +1225,34 @@ func runTests() async {
 
     // Multilingual review content keeps the parser's five English headers,
     // while legacy files (no Language header) ask for dominant-language output.
+    check(PromptBuilder.maxReviewTranscriptChars(for: "qwen3.5:4b", ramGB: 8) == 32_000, "8 GB RAM cap 32K")
+    check(PromptBuilder.maxReviewTranscriptChars(for: "qwen3.5:4b", ramGB: 16) == 32_000, "16 GB RAM cap 32K")
+    check(PromptBuilder.maxReviewTranscriptChars(for: "qwen3.5:4b", ramGB: 24) == 100_000, "24 GB RAM cap 100K")
+    check(PromptBuilder.maxReviewTranscriptChars(for: "qwen3.5:4b", ramGB: 36) == 100_000, "36 GB RAM cap 100K")
+    check(PromptBuilder.maxReviewTranscriptChars(for: "qwen3.5:9b", ramGB: 48) == 200_000, "48 GB RAM cap 200K")
+    check(PromptBuilder.maxReviewTranscriptChars(for: "qwen3.5:9b", ramGB: 64) == 200_000, "64 GB RAM cap 200K")
+    check(PromptBuilder.maxReviewTranscriptChars(for: "cloud:claudeAccount:haiku") == 500_000, "Claude account cap 500K")
+    check(PromptBuilder.maxReviewTranscriptChars(for: "cloud:anthropic:claude-haiku-4-5-20251001") == 500_000, "Haiku cap 500K")
+    check(PromptBuilder.maxReviewTranscriptChars(for: "cloud:anthropic:claude-sonnet-5") == 2_000_000, "Sonnet cap 2M")
+    check(PromptBuilder.maxReviewTranscriptChars(for: "cloud:openai:gpt-4.1-mini") == 2_000_000, "OpenAI cap 2M")
+    check(PromptBuilder.maxReviewTranscriptChars(for: "cloud:gemini:gemini-3.5-flash-lite") == 2_000_000, "Gemini Lite cap 2M")
+    check(PromptBuilder.maxReviewTranscriptChars(for: "cloud:gemini:gemini-3.8-flash") == 2_000_000, "Gemini 3.8 cap 2M")
+
+    let b1 = PromptBuilder.reviewCallBudget(model: "qwen3.5:4b", userChars: 20_000)
+    check(b1.numCtx == 12_288 && b1.timeout == 120, "short meeting keeps 12K numCtx and 120s timeout")
+    let b2 = PromptBuilder.reviewCallBudget(model: "qwen3.5:4b", userChars: 80_000)
+    check(b2.numCtx == 32_768 && b2.timeout == 240, "medium meeting scales to 32K numCtx and 240s timeout")
+    let b3Local = PromptBuilder.reviewCallBudget(model: "qwen3.5:9b", userChars: 150_000)
+    check(b3Local.numCtx == 65_536 && b3Local.timeout == 300, "long local meeting scales to 64K numCtx and 300s timeout")
+    let b3Cloud = PromptBuilder.reviewCallBudget(model: "cloud:gemini:gemini-3.8-flash", userChars: 150_000)
+    check(b3Cloud.numCtx == 65_536 && b3Cloud.timeout == 240, "long cloud meeting uses 240s timeout")
+
+    let longT = String(repeating: "a", count: 50_000)
+    let p32 = PromptBuilder.buildPostCallReviewPrompt(nudges: [], transcript: longT, context: PreCallContext(), durationMinutes: 60, maxTranscriptChars: 32_000)
+    check(p32.user.contains("[… middle of the meeting trimmed …]"), "32K cap trims 50K transcript")
+    let p100 = PromptBuilder.buildPostCallReviewPrompt(nudges: [], transcript: longT, context: PreCallContext(), durationMinutes: 60, maxTranscriptChars: 100_000)
+    check(!p100.user.contains("[… middle of the meeting trimmed …]"), "100K cap keeps 50K transcript untrimmed")
+
     let spanishPrompt = PromptBuilder.buildPostCallReviewPrompt(
         nudges: [], transcript: "Them: El presupuesto está aprobado.",
         context: PreCallContext(), durationMinutes: 10, languageName: "Spanish")
@@ -1513,7 +1555,9 @@ func runTests() async {
     //     as one-on-one.
     do {
         let vm = LiveSessionViewModel()
-        vm.startLive(context: PreCallContext())
+        let settings = SettingsViewModel()
+        settings.meetingLanguage = .english
+        vm.startLive(context: PreCallContext(), settings: settings)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else {
             check(false, "capture manager wired (10)"); return
@@ -1702,7 +1746,9 @@ func runTests() async {
     // Renaming an undiarized line must not label every future remote voice.
     do {
         let vm = LiveSessionViewModel()
-        vm.startLive(context: PreCallContext())
+        let settings = SettingsViewModel()
+        settings.meetingLanguage = .english
+        vm.startLive(context: PreCallContext(), settings: settings)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else { return }
         capture.onUtterance?(Utterance(t: 1, speaker: "Them", text: "Tadeas here.", endT: 3))
