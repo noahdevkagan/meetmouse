@@ -2141,7 +2141,7 @@ struct ModelSection: View {
                         if settings.aiConfiguration.isLoopbackOllama {
                             return "\(settings.aiConfiguration.model) · Local Ollama instance. Audio and text stay on this Mac. Manage in Settings → AI."
                         } else {
-                            return "\(settings.aiConfiguration.model) · Remote Ollama at \(settings.aiConfiguration.baseURL ?? ""). Manage in Settings → AI."
+                            return "\(settings.aiConfiguration.model) · Remote Ollama at \(settings.aiConfiguration.baseURL). Manage in Settings → AI."
                         }
                     } else {
                         return "\(AIProvider.modelTitle(settings.aiConfiguration.model)) · Meeting text is sent to this provider. Manage your key in Settings → AI."
@@ -2363,13 +2363,14 @@ struct ModelCatalogView: View {
 
             Divider()
 
-            if !settings.availableModels.isEmpty {
+            let installedList = settings.aiConfiguration.provider == .ollama ? settings.ollamaModels : settings.availableModels
+            if !installedList.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Installed").font(.caption.bold()).foregroundStyle(.secondary)
                         .padding(.horizontal)
                         .padding(.top, 8)
 
-                    ForEach(settings.availableModels) { model in
+                    ForEach(installedList) { model in
                         InstalledModelRow(model: model, settings: settings)
                     }
                 }
@@ -2414,6 +2415,9 @@ struct ModelCatalogView: View {
             }
         }
         .frame(width: 520, height: 500)
+        .task {
+            await settings.refreshModelsLive()
+        }
     }
 }
 
@@ -2421,7 +2425,12 @@ struct InstalledModelRow: View {
     let model: OllamaModel
     @Bindable var settings: SettingsViewModel
 
-    var isSelected: Bool { settings.selectedModel == model.name }
+    var isSelected: Bool {
+        if settings.aiConfiguration.provider == .ollama {
+            return OllamaProvider.modelNamesMatch(configured: settings.aiConfiguration.model, installed: model.name)
+        }
+        return settings.selectedModel == model.name
+    }
 
     var body: some View {
         HStack {
@@ -2459,8 +2468,13 @@ struct InstalledModelRow: View {
             Spacer()
             if !isSelected {
                 Button("Use") {
-                    settings.selectedModel = model.name
-                    settings.save()
+                    if settings.aiConfiguration.provider == .ollama {
+                        settings.aiConfiguration.model = model.name
+                        settings.aiConfiguration.save()
+                    } else {
+                        settings.selectedModel = model.name
+                        settings.save()
+                    }
                 }
                 .font(.caption)
                 .buttonStyle(.bordered)

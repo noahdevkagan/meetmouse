@@ -1,6 +1,28 @@
 import Foundation
 import AppKit
 
+/// Progress update from a model pull operation.
+struct PullProgress: Sendable {
+    let status: String
+    let completed: Int64
+    let total: Int64
+
+    var fraction: Double {
+        total > 0 ? Double(completed) / Double(total) : 0
+    }
+
+    var isComplete: Bool {
+        status == "success"
+    }
+
+    var sizeLabel: String {
+        guard total > 0 else { return status }
+        let completedGB = Double(completed) / 1_073_741_824
+        let totalGB = Double(total) / 1_073_741_824
+        return String(format: "%.1f / %.1f GB", completedGB, totalGB)
+    }
+}
+
 struct OllamaModel: Identifiable, Sendable, Equatable {
     let name: String
     let size: Int64
@@ -112,91 +134,6 @@ enum OllamaProviderError: LocalizedError, Equatable {
     }
 }
 
-actor SystemOllamaLauncher {
-    static let shared = SystemOllamaLauncher()
-    private var spawnedProcess: Process?
-    nonisolated(unsafe) static var customExecutablePaths: [String]?
-
-    init() {
-        NotificationCenter.default.addObserver(
-            forName: NSApplication.willTerminateNotification, object: nil, queue: nil
-        ) { [weak self] _ in
-            Task { [weak self] in
-                await self?.stopSpawned()
-            }
-        }
-    }
-
-    func stopSpawned() {
-        if let proc = spawnedProcess, proc.isRunning {
-            proc.terminate()
-            spawnedProcess = nil
-        }
-    }
-
-    static var standardExecutablePaths: [String] {
-        if let custom = customExecutablePaths { return custom }
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return [
-            "/opt/homebrew/bin/ollama",
-            "/usr/local/bin/ollama",
-            "/Applications/Ollama.app/Contents/Resources/ollama",
-            "\(home)/.local/bin/ollama"
-        ]
-    }
-
-    static func findExecutable() -> URL? {
-        for path in standardExecutablePaths {
-            if FileManager.default.isExecutableFile(atPath: path) {
-                return URL(fileURLWithPath: path)
-            }
-        }
-        return nil
-    }
-
-    func ensureRunning(for baseURL: URL) async -> Bool {
-        guard OllamaEndpoint.isLoopback(baseURL) else { return false }
-        if await OllamaProvider.isReachable(baseURL: baseURL) { return true }
-        guard let execURL = Self.findExecutable() else {
-            return false
-        }
-        if let current = spawnedProcess, current.isRunning {
-            for _ in 0..<20 {
-                try? await Task.sleep(for: .milliseconds(500))
-                if await OllamaProvider.isReachable(baseURL: baseURL) { return true }
-            }
-            return false
-        }
-        let host = baseURL.host() ?? baseURL.host ?? "127.0.0.1"
-        let port = baseURL.port ?? 11434
-        let proc = Process()
-        proc.executableURL = execURL
-        proc.arguments = ["serve"]
-        var env: [String: String] = [:]
-        for k in ["HOME", "USER", "LOGNAME", "TMPDIR", "PATH"] {
-            if let v = ProcessInfo.processInfo.environment[k] { env[k] = v }
-        }
-        if let models = ProcessInfo.processInfo.environment["OLLAMA_MODELS"] {
-            env["OLLAMA_MODELS"] = models
-        }
-        env["OLLAMA_HOST"] = "\(host):\(port)"
-        proc.environment = env
-        proc.standardOutput = FileHandle.nullDevice
-        proc.standardError = FileHandle.nullDevice
-        do {
-            try proc.run()
-            spawnedProcess = proc
-        } catch {
-            return false
-        }
-        for _ in 0..<20 {
-            try? await Task.sleep(for: .milliseconds(500))
-            if await OllamaProvider.isReachable(baseURL: baseURL) { return true }
-        }
-        return false
-    }
-}
-
 enum OllamaProvider {
     static let didDetectMissingModel = Notification.Name("OllamaProvider.didDetectMissingModel")
 
@@ -231,11 +168,7 @@ enum OllamaProvider {
     }
 
     static func listModels(baseURL: URL,
-                           autoStartLocal: Bool = true,
                            session testSession: URLSession? = nil) async throws -> [OllamaModel] {
-        if autoStartLocal && OllamaEndpoint.isLoopback(baseURL) {
-            _ = await SystemOllamaLauncher.shared.ensureRunning(for: baseURL)
-        }
         let url = baseURL.appendingPathComponent("api/tags")
         var request = URLRequest(url: url)
         request.timeoutInterval = 10
@@ -272,13 +205,12 @@ enum OllamaProvider {
     }
 
     static func verifyModelExists(configuration: AIConfiguration,
-                                  autoStartLocal: Bool = true,
                                   session testSession: URLSession? = nil) async -> Result<OllamaModel, OllamaProviderError> {
         guard let baseURL = configuration.normalizedOllamaURL else {
             return .failure(.invalidURL("Invalid Ollama URL."))
         }
         do {
-            let models = try await listModels(baseURL: baseURL, autoStartLocal: autoStartLocal, session: testSession)
+            let models = try await listModels(baseURL: baseURL, session: testSession)
             if let matched = models.first(where: { modelNamesMatch(configured: configuration.model, installed: $0.name) }) {
                 return .success(matched)
             }
@@ -288,6 +220,64 @@ enum OllamaProvider {
             return .failure(err)
         } catch {
             return .failure(.unreachable(error.localizedDescription))
+        }
+    }
+
+    static func pullModel(baseURL: URL, name: String, session testSession: URLSession? = nil) -> AsyncStream<PullProgress> {
+        let url = baseURL.appendingPathComponent("api/pull")
+        return AsyncStream { continuation in
+            Task {
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.timeoutInterval = 3600
+
+                let payload: [String: Any] = ["name": name, "stream": true]
+                request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+
+                do {
+                    let (bytes, _) = try await (testSession ?? session).bytes(for: request)
+                    for try await line in bytes.lines {
+                        guard let data = line.data(using: .utf8),
+                              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                            continue
+                        }
+                        if let serverError = json["error"] as? String {
+                            let compact = serverError
+                                .components(separatedBy: .whitespacesAndNewlines)
+                                .filter { !$0.isEmpty }
+                                .joined(separator: " ")
+                                .prefix(200)
+                            continuation.yield(PullProgress(status: "error: \(compact)", completed: 0, total: 0))
+                            break
+                        }
+                        let status = json["status"] as? String ?? ""
+                        let completed = json["completed"] as? Int64 ?? 0
+                        let total = json["total"] as? Int64 ?? 0
+                        continuation.yield(PullProgress(status: status, completed: completed, total: total))
+                        if status == "success" { break }
+                    }
+                } catch {
+                    continuation.yield(PullProgress(status: "error: \(error.localizedDescription)", completed: 0, total: 0))
+                }
+                continuation.finish()
+            }
+        }
+    }
+
+    static func deleteModel(baseURL: URL, name: String, session testSession: URLSession? = nil) async throws {
+        let url = baseURL.appendingPathComponent("api/delete")
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 10
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["name": name])
+        let (data, response) = try await (testSession ?? session).data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else {
+            let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+            let err = json["error"] as? String ?? "HTTP \(status)"
+            throw OllamaProviderError.serverError("Delete failed: \(err)")
         }
     }
 
@@ -386,15 +376,6 @@ enum OllamaProvider {
         guard let baseURL = configuration.normalizedOllamaURL else {
             throw OllamaProviderError.invalidURL("Invalid Ollama server URL.")
         }
-        try Task.checkCancellation()
-        if requireEnabled && AIConfiguration.current != configuration {
-            throw OllamaProviderError.disabledOrChanged
-        }
-
-        if configuration.isLoopbackOllama {
-            _ = await SystemOllamaLauncher.shared.ensureRunning(for: baseURL)
-        }
-
         try Task.checkCancellation()
         if requireEnabled && AIConfiguration.current != configuration {
             throw OllamaProviderError.disabledOrChanged

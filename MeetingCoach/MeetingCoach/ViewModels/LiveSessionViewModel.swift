@@ -351,7 +351,7 @@ final class LiveSessionViewModel {
         await OllamaClient(model: model).unloadIfLoaded()
     }
     nonisolated static func livePrepareOllamaSession(_ config: AIConfiguration) async -> Result<Bool, OllamaProviderError> {
-        let exists = await OllamaProvider.verifyModelExists(configuration: config, autoStartLocal: true)
+        let exists = await OllamaProvider.verifyModelExists(configuration: config)
         switch exists {
         case .failure(let err):
             return .failure(err)
@@ -724,7 +724,6 @@ final class LiveSessionViewModel {
         if settings.usesCloudAI {
             let candidate = settings.effectiveModel
             if let cloud = AIConfiguration.cloud(from: candidate), cloud.provider == .ollama {
-                ollamaManager.stopEmbeddedIfRunning()
                 let prepResult = await Self.prepareOllamaSession(cloud)
                 guard stillCurrent() else {
                     if case .success(let wasLoaded) = prepResult {
@@ -1776,10 +1775,7 @@ final class LiveSessionViewModel {
             var summary: String?
             let ready: Bool
             if let pinnedModel {
-                if let cloud = AIConfiguration.cloud(from: pinnedModel) {
-                    if cloud.provider == .ollama && cloud.isLoopbackOllama, let url = cloud.normalizedOllamaURL {
-                        _ = await SystemOllamaLauncher.shared.ensureRunning(for: url)
-                    }
+                if AIConfiguration.cloud(from: pinnedModel) != nil {
                     ready = true
                 } else {
                     ready = await ollamaManager.ensureRunning()

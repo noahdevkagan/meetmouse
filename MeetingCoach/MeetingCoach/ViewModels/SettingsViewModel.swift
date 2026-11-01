@@ -52,7 +52,6 @@ final class SettingsViewModel {
         guard installedModels.contains(where: { OllamaProvider.modelNamesMatch(configured: chosenModel, installed: $0.name) }) else {
             throw AIError.message("Model '\(chosenModel)' is not installed on this Ollama server.")
         }
-        ollamaManager?.stopEmbeddedIfRunning()
         cancelDownload()
         downloadError = nil
         let cleanConfig = AIConfiguration(provider: .ollama, model: chosenModel, baseURL: normalized.absoluteString)
@@ -74,16 +73,8 @@ final class SettingsViewModel {
     func prepareAI(ollamaManager: OllamaManager) async -> Bool {
         if usesCloudAI {
             if aiConfiguration.provider == .ollama {
-                ollamaManager.stopEmbeddedIfRunning()
-                if aiConfiguration.isLoopbackOllama, let url = aiConfiguration.normalizedOllamaURL {
-                    _ = await SystemOllamaLauncher.shared.ensureRunning(for: url)
-                }
-                if let url = aiConfiguration.normalizedOllamaURL,
-                   let models = try? await OllamaProvider.listModels(baseURL: url, autoStartLocal: false) {
-                    ollamaModels = models
-                    ollamaSelectedModelMissing = !models.contains {
-                        OllamaProvider.modelNamesMatch(configured: aiConfiguration.model, installed: $0.name)
-                    }
+                if let url = aiConfiguration.normalizedOllamaURL {
+                    _ = try? await refreshOllamaModels(baseURL: url.absoluteString)
                 }
             }
             return true
@@ -91,6 +82,17 @@ final class SettingsViewModel {
         guard await ollamaManager.ensureRunning() else { return false }
         await refreshModels()
         return !availableModels.isEmpty
+    }
+
+    /// Fallback order matching `effectiveModel`: RAM-tiered recommendation if installed
+    /// and fits, else smallest fitting installed model, else first installed model.
+    static func fallbackInstalledModel(in models: [OllamaModel]) -> String? {
+        guard !models.isEmpty else { return nil }
+        let fitting = models.filter { ModelMemory.fits($0) }
+        if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
+            return recommended.name
+        }
+        return fitting.min(by: { $0.size < $1.size })?.name ?? models.first?.name
     }
 
     var selectedModel: String
@@ -326,21 +328,41 @@ final class SettingsViewModel {
         let models = try await OllamaProvider.listModels(baseURL: url)
         self.ollamaModels = models
         if aiConfiguration.provider == .ollama {
-            self.ollamaSelectedModelMissing = !models.contains {
-                OllamaProvider.modelNamesMatch(configured: aiConfiguration.model, installed: $0.name)
+            if models.isEmpty {
+                self.ollamaSelectedModelMissing = !aiConfiguration.model.isEmpty
+            } else if !models.contains(where: { OllamaProvider.modelNamesMatch(configured: aiConfiguration.model, installed: $0.name) }) {
+                if let fallback = Self.fallbackInstalledModel(in: models) {
+                    mclog("[Settings] Ollama model '\(aiConfiguration.model)' not found; silently falling back to '\(fallback)'")
+                    aiConfiguration.model = fallback
+                    aiConfiguration.save()
+                    self.ollamaSelectedModelMissing = false
+                } else {
+                    self.ollamaSelectedModelMissing = true
+                }
+            } else {
+                self.ollamaSelectedModelMissing = false
             }
         }
         return models
     }
 
+    func refreshModelsLive() async {
+        if aiConfiguration.provider == .ollama {
+            if let url = aiConfiguration.normalizedOllamaURL {
+                _ = try? await refreshOllamaModels(baseURL: url.absoluteString)
+            }
+            return
+        }
+        guard !usesCloudAI else { return }
+        if let manager = ollamaManager {
+            _ = await manager.ensureRunning()
+        }
+        await refreshModels()
+    }
+
     func refreshModels() async {
         if aiConfiguration.provider == .ollama, let url = aiConfiguration.normalizedOllamaURL {
-            if let models = try? await OllamaProvider.listModels(baseURL: url, autoStartLocal: false) {
-                ollamaModels = models
-                ollamaSelectedModelMissing = !models.contains {
-                    OllamaProvider.modelNamesMatch(configured: aiConfiguration.model, installed: $0.name)
-                }
-            }
+            _ = try? await refreshOllamaModels(baseURL: url.absoluteString)
         }
         let client = OllamaClient(model: selectedModel)
         do {
@@ -456,6 +478,39 @@ final class SettingsViewModel {
 
         let client = OllamaClient(model: fullName)
         downloadTask = Task {
+            if self.aiConfiguration.provider == .ollama {
+                guard let baseURL = self.aiConfiguration.normalizedOllamaURL else {
+                    self.downloadError = "error: Invalid Ollama server URL."
+                    self.downloadingModel = nil
+                    return
+                }
+                for await progress in OllamaProvider.pullModel(baseURL: baseURL, name: fullName) {
+                    guard !Task.isCancelled else { return }
+                    self.downloadStatus = progress.status
+                    if progress.total > 0 {
+                        self.downloadProgress = progress.fraction
+                        self.downloadStatus = progress.sizeLabel
+                    }
+                    if progress.isComplete {
+                        self.downloadingModel = nil
+                        self.aiConfiguration.model = fullName
+                        self.aiConfiguration.save()
+                        _ = try? await self.refreshOllamaModels(baseURL: baseURL.absoluteString)
+                        return
+                    }
+                    if progress.status.hasPrefix("error") {
+                        self.downloadError = progress.status
+                        self.downloadingModel = nil
+                        return
+                    }
+                }
+                if self.downloadingModel != nil {
+                    self.downloadingModel = nil
+                    _ = try? await self.refreshOllamaModels(baseURL: baseURL.absoluteString)
+                }
+                return
+            }
+
             // The engine starts lazily at session time, so on a fresh
             // install nothing is listening yet — bring it up first.
             if let manager = self.ollamaManager {
@@ -585,6 +640,16 @@ final class SettingsViewModel {
     }
 
     func deleteModel(_ name: String) async {
+        if aiConfiguration.provider == .ollama {
+            guard let baseURL = aiConfiguration.normalizedOllamaURL else { return }
+            do {
+                try await OllamaProvider.deleteModel(baseURL: baseURL, name: name)
+                _ = try? await refreshOllamaModels(baseURL: baseURL.absoluteString)
+            } catch {
+                downloadError = "Failed to delete: \(error.localizedDescription)"
+            }
+            return
+        }
         let client = OllamaClient(model: name)
         do {
             try await client.deleteModel(name: name)
@@ -598,7 +663,10 @@ final class SettingsViewModel {
     }
 
     func isInstalled(_ catalogModel: CatalogModel) -> Bool {
-        availableModels.contains { $0.name == catalogModel.fullName }
+        if aiConfiguration.provider == .ollama {
+            return ollamaModels.contains { OllamaProvider.modelNamesMatch(configured: catalogModel.fullName, installed: $0.name) }
+        }
+        return availableModels.contains { $0.name == catalogModel.fullName }
     }
 
     func loadRubricOrDefault() throws -> Rubric {

@@ -892,7 +892,7 @@ func runTests() async {
         vm.deleteSession()
     }
 
-    // Ollama provider activation: successful loopback pins model and stops embedded child
+    // Ollama provider activation: successful loopback pins model and leaves embedded manager alone
     do {
         resetSeams()
         var ollamaPrepared = false
@@ -916,14 +916,14 @@ func runTests() async {
         try? await Task.sleep(for: .milliseconds(500))
         check(vm.sessionModelState?.pinnedModel == target, "ollama provider pins selected model")
         check(ollamaPrepared, "prepareOllamaSession invoked during activation")
-        check(manager.status == .stopped, "embedded ollama stopped to avoid port conflict")
+        check(manager.status == .running, "embedded ollama server is not terminated")
         vm.stopLive()
         try? await Task.sleep(for: .milliseconds(150))
         check(ollamaReleased, "releaseOllamaSession invoked on session stop")
         vm.deleteSession()
     }
 
-    // Ollama provider missing model: degrades to deterministic basic mode, warns user, does not silently pick another model
+    // Ollama provider missing model: settles deterministic, warns user, does not pin model
     do {
         resetSeams()
         LiveSessionViewModel.prepareOllamaSession = { _ in

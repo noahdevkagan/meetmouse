@@ -148,7 +148,7 @@ struct OnboardingChecklistView: View {
                 }
                 return s.aiConfiguration.isLoopbackOllama
                     ? "Ollama enabled on this Mac. Audio and text stay on your Mac."
-                    : "Remote Ollama enabled. Meeting text goes to \(s.aiConfiguration.baseURL ?? "")."
+                    : "Remote Ollama enabled. Meeting text goes to \(s.aiConfiguration.baseURL)."
             }
             return "Cloud AI enabled. Meeting text goes to your selected provider."
         }()
