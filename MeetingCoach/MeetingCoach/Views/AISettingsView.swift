@@ -5,6 +5,8 @@ struct AISettingsView: View {
     let liveSession: LiveSessionViewModel
     @State private var provider: AIProvider = .local
     @State private var model = ""
+    @State private var ollamaURL = OllamaEndpoint.defaultURL.absoluteString
+    @State private var refreshingOllama = false
     @State private var key = ""
     @State private var hasSavedKey = false
     @State private var consent = false
@@ -14,18 +16,35 @@ struct AISettingsView: View {
     @State private var status: String?
     @State private var isError = false
 
+    private var activeProviderTitle: String {
+        if !settings.usesCloudAI { return "Active: Local (on this Mac)" }
+        if settings.aiConfiguration.provider == .ollama {
+            return settings.aiConfiguration.isLoopbackOllama
+                ? "Active: Ollama (on this Mac)"
+                : "Active: Ollama (\(settings.aiConfiguration.baseURL ?? ""))"
+        }
+        return "Active: \(settings.aiConfiguration.provider.title)"
+    }
+
+    private var activeProviderIcon: String {
+        if !settings.usesCloudAI { return "desktopcomputer" }
+        if settings.aiConfiguration.provider == .ollama {
+            return settings.aiConfiguration.isLoopbackOllama ? "desktopcomputer" : "server.rack"
+        }
+        return "cloud"
+    }
+
     var body: some View {
         Form {
             Section("AI for meeting notes") {
                 Text("Writes your notes after each call and answers questions about your meetings. Nothing here slows your calls unless you turn on advanced live coaching below.")
                     .font(.caption).foregroundStyle(.secondary)
-                Label(settings.usesCloudAI ? "Active: \(settings.aiConfiguration.provider.title)" : "Active: Local (on this Mac)",
-                      systemImage: settings.usesCloudAI ? "cloud" : "desktopcomputer")
+                Label(activeProviderTitle, systemImage: activeProviderIcon)
                     .font(.headline)
                 Picker("Provider", selection: $provider) {
                     ForEach(AIProvider.allCases) { Text($0.title).tag($0) }
                 }
-                .disabled(testing)
+                .disabled(testing || refreshingOllama)
 
                 if provider == .local {
                     Text("Local AI works offline after model downloads. Meeting text stays on your Mac. Manage local models in the main window’s coaching settings.")
@@ -33,7 +52,80 @@ struct AISettingsView: View {
                     if settings.usesCloudAI {
                         Button("Use local AI") {
                             settings.useLocalAI()
-                            status = "Local AI enabled. Future cloud requests are stopped."
+                            status = "Local AI enabled. Future external requests are stopped."
+                            isError = false
+                        }
+                    }
+                } else if provider == .ollama {
+                    TextField("Ollama server URL", text: $ollamaURL)
+                        .disabled(testing || refreshingOllama)
+                        .textFieldStyle(.roundedBorder)
+
+                    HStack {
+                        Button(refreshingOllama ? "Refreshing…" : "Refresh models") {
+                            Task { await refreshOllama() }
+                        }
+                        .disabled(testing || refreshingOllama)
+
+                        Spacer()
+                        if OllamaEndpoint.isLoopback(ollamaURL) {
+                            Text("Local server (auto-starts if installed)")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        } else {
+                            Text("Remote server")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if settings.ollamaModels.isEmpty {
+                        Text("No models found on Ollama server. Verify the server is running and pull a model with `ollama pull <model>`.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Picker("Model", selection: $model) {
+                            ForEach(settings.ollamaModels) { m in
+                                Text(m.name + (m.parameterSize.isEmpty ? "" : " (\(m.parameterSize))")).tag(m.name)
+                            }
+                        }
+                        .disabled(testing || refreshingOllama)
+
+                        if OllamaEndpoint.isLoopback(ollamaURL),
+                           let selected = settings.ollamaModels.first(where: { OllamaProvider.modelNamesMatch(configured: model, installed: $0.name) }),
+                           !ModelMemory.fits(selected) {
+                            Label("This model may exceed comfortable memory on this Mac (\(ModelMemory.physicalRAMGB) GB RAM).", systemImage: "exclamationmark.triangle")
+                                .font(.caption).foregroundStyle(.orange)
+                        }
+                    }
+
+                    if settings.aiConfiguration.provider == .ollama && settings.ollamaSelectedModelMissing {
+                        Label("The selected model '\(settings.aiConfiguration.model)' is not found on your Ollama server. MeetMouse is running with built-in coaching and basic notes until a model is selected.", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption).foregroundStyle(.orange)
+                    }
+
+                    if OllamaEndpoint.isLoopback(ollamaURL) {
+                        Text("Ollama on this Mac works offline. Meeting text stays on your Mac. No network access or cloud sharing required.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text("When enabled, meeting text, participant names, coaching context, notes and questions used by AI features go to your remote Ollama server at \(ollamaURL). Audio and transcription stay on your Mac.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Toggle("Allow AI features to send this text to \(ollamaURL)", isOn: $consent)
+                            .disabled(testing || refreshingOllama)
+                    }
+
+                    HStack {
+                        Button(testing ? "Working…" : "Test connection") { testConnection() }
+                            .disabled(testing || refreshingOllama || model.isEmpty)
+                        Button("Save and enable") { enable() }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(testing || refreshingOllama || model.isEmpty || (!OllamaEndpoint.isLoopback(ollamaURL) && !consent))
+                    }
+                    Text(OllamaEndpoint.isLoopback(ollamaURL)
+                         ? "Test sends only a short sample prompt to your local Ollama instance."
+                         : "Test sends only a short sample prompt to your remote Ollama server.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                    if settings.usesCloudAI {
+                        Button("Use local AI") {
+                            settings.useLocalAI()
+                            status = "Local AI enabled. Ollama provider disabled."
                             isError = false
                         }
                     }
@@ -116,11 +208,47 @@ struct AISettingsView: View {
         .onDisappear { accountTask?.cancel() }
         .onChange(of: model) { _, _ in status = nil }
         .onChange(of: key) { _, _ in status = nil }
+        .onChange(of: ollamaURL) { _, _ in status = nil }
+    }
+
+    private func refreshOllama() async {
+        guard let url = OllamaEndpoint.normalize(ollamaURL) else {
+            status = "Invalid server URL. Include http:// or https://"
+            isError = true
+            return
+        }
+        refreshingOllama = true
+        defer { refreshingOllama = false }
+        do {
+            let models = try await settings.refreshOllamaModels(baseURL: url.absoluteString)
+            if !models.contains(where: { OllamaProvider.modelNamesMatch(configured: model, installed: $0.name) }) {
+                model = models.first?.name ?? ""
+            }
+            isError = false
+        } catch {
+            fail(error)
+        }
     }
 
     private func loadProvider() {
         accountConnected = false
         key = ""; consent = false; status = nil; isError = false
+        if provider == .ollama {
+            if let activeURL = settings.aiConfiguration.baseURL, !activeURL.isEmpty {
+                ollamaURL = activeURL
+            } else {
+                ollamaURL = OllamaEndpoint.defaultURL.absoluteString
+            }
+            if settings.aiConfiguration.provider == .ollama {
+                model = settings.aiConfiguration.model
+            } else {
+                model = settings.ollamaModels.first?.name ?? ""
+            }
+            Task {
+                await refreshOllama()
+            }
+            return
+        }
         model = settings.aiConfiguration.provider == provider
             ? settings.aiConfiguration.model : (provider.models.first ?? "")
         if !provider.models.contains(model) { model = provider.models.first ?? "" }
@@ -130,6 +258,29 @@ struct AISettingsView: View {
     }
     private func fail(_ error: Error) { status = error.localizedDescription; isError = true }
     private func enable() {
+        if provider == .ollama {
+            guard let url = OllamaEndpoint.normalize(ollamaURL) else {
+                fail(OllamaProviderError.invalidURL(ollamaURL))
+                return
+            }
+            testing = true
+            Task {
+                defer { testing = false }
+                do {
+                    try settings.enableOllama(
+                        AIConfiguration(provider: .ollama, model: model, baseURL: url.absoluteString),
+                        installedModels: settings.ollamaModels
+                    )
+                    isError = false
+                    status = OllamaEndpoint.isLoopback(url)
+                        ? "Ollama enabled on this Mac."
+                        : "Ollama enabled at \(url.absoluteString)."
+                } catch {
+                    fail(error)
+                }
+            }
+            return
+        }
         if provider == .claudeAccount {
             let configuration = AIConfiguration(provider: provider, model: model)
             testing = true
@@ -176,6 +327,34 @@ struct AISettingsView: View {
         }
     }
     private func testConnection() {
+        if provider == .ollama {
+            guard let url = OllamaEndpoint.normalize(ollamaURL) else {
+                fail(OllamaProviderError.invalidURL(ollamaURL))
+                return
+            }
+            testing = true; status = nil
+            Task {
+                defer { testing = false }
+                do {
+                    let candidate = model.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !candidate.isEmpty else {
+                        throw OllamaProviderError.modelNotFound("No model selected.")
+                    }
+                    _ = try await OllamaProvider.complete(
+                        baseURL: url,
+                        model: candidate,
+                        system: "Reply briefly.",
+                        user: "Say OK.",
+                        maxTokens: 16
+                    )
+                    isError = false
+                    status = "Connection successful. Model responded."
+                } catch {
+                    fail(error)
+                }
+            }
+            return
+        }
         if provider == .claudeAccount {
             let configuration = AIConfiguration(provider: provider, model: model)
             testing = true; status = nil

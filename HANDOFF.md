@@ -140,6 +140,16 @@ theirs), no automatic model pull, checklist row becomes "AI notes after each
 call" with Connect Claude or a local download, and the checklist shows on the
 empty home screen. No engine launch when no model is installed. Why: decisions.md 2026-11-04.
 
+## Current state (2026-11-01): Direct Ollama provider support — implemented & verified
+
+First-class Ollama support via `AIProvider.ollama` is complete:
+- Configurable server URL in Settings → AI (default `http://127.0.0.1:11434`, or remote server URL) with dynamic model listing via `/api/tags` and memory fit checks.
+- Automatic launching of user's installed `ollama serve` only when URL is loopback and unreachable; stops embedded child process via `stopEmbeddedIfRunning()` to avoid port 11434 conflicts.
+- Loopback inference stays 100% on-device (no cloud consent needed); remote URLs require explicit text-sharing consent, refuse redirects, and use ephemeral URLSession.
+- Missing model detection at Settings load, session activation, mid-call heartbeat, and post-call notes; warns user with an actionable banner and degrades to built-in coaching / basic notes without silent model substitution.
+- ATS `NSAllowsLocalNetworking = true` configured in Info.plist and project.yml for LAN Ollama servers.
+- Verified: `tests/ai` (91/91 passing), `tests/session` (all passing including Ollama provider pins and missing model degradation), `tests/nudges` (all golden and timing checks passing), `tests/hygiene` (all passing), changelog check passing.
+
 ## Current state (2026-10-20): Global open shortcut — implemented
 
 Control–Command–M opens/raises the existing main window from any app while

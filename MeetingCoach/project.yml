@@ -54,6 +54,9 @@ targets:
         SUAutomaticallyUpdate: true
         # Daily is enough (and it also checks at every launch).
         SUScheduledCheckInterval: 86400
+        # Permit local network HTTP for LAN/remote Ollama servers (loopback works regardless)
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
     sources:
       - path: MeetingCoach
         excludes:

@@ -25,6 +25,10 @@ actor AIClient {
             return try await ClaudeAccount.complete(configuration: cloud, system: system, user: user,
                                                      maxTokens: numPredict, timeout: timeout)
         }
+        if cloud.provider == .ollama {
+            return try await OllamaProvider.complete(configuration: cloud, system: system, user: user,
+                                                     numCtx: numCtx, numPredict: numPredict, timeout: timeout)
+        }
         guard let key = try AIKeychain.read(cloud.provider), !key.isEmpty else {
             throw AIError.message("Add your \(cloud.provider.title) API key in Settings → AI.")
         }
@@ -38,7 +42,7 @@ actor AIClient {
 }
 
 /// Refuse redirects so credentials and meeting text cannot move to another host.
-private final class NoAIRedirects: NSObject, URLSessionTaskDelegate, Sendable {
+final class NoAIRedirects: NSObject, URLSessionTaskDelegate, Sendable {
     func urlSession(_ session: URLSession, task: URLSessionTask,
                     willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest,

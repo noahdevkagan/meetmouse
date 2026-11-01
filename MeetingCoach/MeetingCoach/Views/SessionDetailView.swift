@@ -697,10 +697,19 @@ struct SessionDetailView: View {
         // in-call phase; 384 covers a 150-word answer).
         let client = AIClient(model: settings.effectiveModel,
                                   numCtx: 4096, numPredict: 384)
-        if !settings.usesCloudAI,
-           await !OllamaClient(model: settings.effectiveModel).runningModels().contains(settings.effectiveModel) {
-            guard !Task.isCancelled else { return }
-            askBusy = "Warming up the local model…"
+        if !settings.usesCloudAI {
+            if await !OllamaClient(model: settings.effectiveModel).runningModels().contains(settings.effectiveModel) {
+                guard !Task.isCancelled else { return }
+                askBusy = "Warming up the local model…"
+            }
+        } else if settings.aiConfiguration.provider == .ollama,
+                  let url = settings.aiConfiguration.normalizedOllamaURL {
+            if await !OllamaProvider.runningModels(baseURL: url).contains(settings.effectiveModel) {
+                guard !Task.isCancelled else { return }
+                askBusy = settings.aiConfiguration.isLoopbackOllama
+                    ? "Warming up the local model…"
+                    : "Connecting to Ollama…"
+            }
         }
         guard !Task.isCancelled else { return }
         do {

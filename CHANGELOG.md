@@ -16,6 +16,11 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 - Speaker-name settings now explain Zoom’s name-visibility option. When all snapshots miss the names, MeetMouse explains how to name a speaker manually.
 - Calls now run lighter by default. New installs start with advanced live coaching off, so no large AI model downloads or runs during calls, and built-in nudges still work. A setup checklist on the home screen offers your Claude account or a local model for AI notes after each call. Want AI nudges during calls? Turn on advanced live coaching in Settings → AI, which now shows what it costs in memory on your Mac. Existing installs keep their current setting.
 
+- Connect to an existing Ollama installation directly: choose "Ollama" in Settings → AI to use models already installed on your Mac or a remote Ollama server without downloading them twice.
+- Automatically lists installed models from your Ollama server and checks whether they fit in your Mac's memory.
+- If a chosen Ollama model is removed, MeetMouse alerts you and gracefully continues with built-in coaching and basic notes until you choose another model.
+- Automatically launches installed `ollama serve` on your Mac when using loopback; meeting audio and transcript stay completely on-device.
+
 ## 0.33.1 — 2026-10-27
 
 - When a call plays through your Mac's built-in speakers, MeetMouse now shows a one-line tip to use headphones. Without them your mic also hears the other side, so their words can show up as yours or both sides can blend into one block. Dismiss it with the x for that meeting.

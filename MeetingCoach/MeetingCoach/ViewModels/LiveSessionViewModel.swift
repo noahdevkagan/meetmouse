@@ -335,6 +335,11 @@ final class LiveSessionViewModel {
     static var unloadModel: (String) async -> Void = liveUnload
     @ObservationIgnored private var reviewGenerationID = UUID()
 
+    /// Verifies and preloads an Ollama session. Returns true if model was already resident in engine.
+    static var prepareOllamaSession: (AIConfiguration) async -> Result<Bool, OllamaProviderError> = livePrepareOllamaSession
+    static var releaseOllamaSession: (AIConfiguration, Bool) async -> Void = liveReleaseOllamaSession
+    @ObservationIgnored private var sessionOllamaWasAlreadyLoaded = false
+
     /// Runs the post-call review prompt against the resolved model.
     static var completeReview: (String, String, String) async throws -> String = liveCompleteReview
 
@@ -344,6 +349,26 @@ final class LiveSessionViewModel {
     }
     nonisolated static func liveUnload(_ model: String) async {
         await OllamaClient(model: model).unloadIfLoaded()
+    }
+    nonisolated static func livePrepareOllamaSession(_ config: AIConfiguration) async -> Result<Bool, OllamaProviderError> {
+        let exists = await OllamaProvider.verifyModelExists(configuration: config, autoStartLocal: true)
+        switch exists {
+        case .failure(let err):
+            return .failure(err)
+        case .success:
+            if config.isLoopbackOllama, let baseURL = config.normalizedOllamaURL {
+                let running = await OllamaProvider.runningModels(baseURL: baseURL)
+                let wasAlreadyLoaded = running.contains { OllamaProvider.modelNamesMatch(configured: config.model, installed: $0) }
+                _ = await OllamaProvider.preload(configuration: config, keepAlive: "30m", numCtx: 4096)
+                return .success(wasAlreadyLoaded)
+            }
+            return .success(false)
+        }
+    }
+    nonisolated static func liveReleaseOllamaSession(_ config: AIConfiguration, _ wasAlreadyLoaded: Bool) async {
+        if config.isLoopbackOllama && !wasAlreadyLoaded {
+            await OllamaProvider.unloadIfLoaded(configuration: config)
+        }
     }
     nonisolated static func liveCompleteReview(_ model: String,
                                                _ system: String,
@@ -698,11 +723,51 @@ final class LiveSessionViewModel {
 
         if settings.usesCloudAI {
             let candidate = settings.effectiveModel
+            if let cloud = AIConfiguration.cloud(from: candidate), cloud.provider == .ollama {
+                ollamaManager.stopEmbeddedIfRunning()
+                let prepResult = await Self.prepareOllamaSession(cloud)
+                guard stillCurrent() else {
+                    if case .success(let wasLoaded) = prepResult {
+                        await Self.releaseOllamaSession(cloud, wasLoaded)
+                    }
+                    return
+                }
+                guard settings.semanticCoachEnabled else {
+                    if case .success(let wasLoaded) = prepResult {
+                        await Self.releaseOllamaSession(cloud, wasLoaded)
+                    }
+                    return settleDeterministic("AI coaching turned off during activation")
+                }
+                switch prepResult {
+                case .failure(let err):
+                    let notice: BasicModeNotice
+                    switch err {
+                    case .modelNotFound:
+                        notice = .init(cause: "Ollama model missing",
+                                       detail: "Model '\(cloud.model)' was not found in Ollama. Coaching uses built-in signals.",
+                                       lowMemory: false)
+                    case .insufficientMemory:
+                        notice = .init(cause: "low memory",
+                                       detail: "Not enough memory for '\(cloud.model)' in Ollama. Coaching uses built-in signals.",
+                                       lowMemory: true)
+                    default:
+                        notice = .init(cause: "Ollama unavailable",
+                                       detail: "\(err.localizedDescription) Coaching uses built-in signals.",
+                                       lowMemory: false)
+                    }
+                    return settleDeterministic(err.localizedDescription, notice: notice)
+                case .success(let wasLoaded):
+                    sessionOllamaWasAlreadyLoaded = wasLoaded
+                }
+            }
             sessionModelState = .pinned(sessionID, candidate)
             semanticCoach = SemanticCoach(model: candidate, tuning: setup.tuning,
                                           customSignals: setup.customSignals, noteExamples: setup.noteExamples)
             nameInference = SpeakerNameInference(model: candidate)
             startSemanticHeartbeat(ollamaManager: ollamaManager, settings: settings)
+            if let cloud = AIConfiguration.cloud(from: candidate), cloud.isLoopbackOllama {
+                startMemoryPressureWatch()
+            }
             return
         }
 
@@ -794,7 +859,13 @@ final class LiveSessionViewModel {
     /// at Stop, and a session replaced by a new one. Safe to call with a
     /// state that never pinned anything.
     private func releaseSessionModel(_ state: SessionModelState?) async {
-        guard let model = state?.pinnedModel, AIConfiguration.cloud(from: model) == nil else { return }
+        guard let model = state?.pinnedModel else { return }
+        if let cloud = AIConfiguration.cloud(from: model) {
+            if cloud.provider == .ollama {
+                await Self.releaseOllamaSession(cloud, sessionOllamaWasAlreadyLoaded)
+            }
+            return
+        }
         await Self.unloadModel(model)
         mclog("[Session] Released \(model)")
     }
@@ -1705,7 +1776,10 @@ final class LiveSessionViewModel {
             var summary: String?
             let ready: Bool
             if let pinnedModel {
-                if AIConfiguration.cloud(from: pinnedModel) != nil {
+                if let cloud = AIConfiguration.cloud(from: pinnedModel) {
+                    if cloud.provider == .ollama && cloud.isLoopbackOllama, let url = cloud.normalizedOllamaURL {
+                        _ = await SystemOllamaLauncher.shared.ensureRunning(for: url)
+                    }
                     ready = true
                 } else {
                     ready = await ollamaManager.ensureRunning()
@@ -1898,7 +1972,8 @@ final class LiveSessionViewModel {
                     self.shedSessionModel(settings: nil)
                     break
                 }
-                let cloud = self.sessionModelState?.pinnedModel.flatMap(AIConfiguration.cloud(from:)) != nil
+                let cloudConfig = self.sessionModelState?.pinnedModel.flatMap(AIConfiguration.cloud(from:))
+                let cloud = cloudConfig != nil
                 if cloud || ollamaManager.status == .running, let coach = self.semanticCoach,
                    self.utterances.count - analyzedCount >= 3 {
                     analyzedCount = self.utterances.count
@@ -1908,9 +1983,15 @@ final class LiveSessionViewModel {
                         context: self.sessionContext
                     )
                     guard self.isLive, !Task.isCancelled else { break }
-                    if cloud {
+                    if let cfg = cloudConfig {
                         if let error = coach.lastError {
-                            self.basicModeNotice = .init(cause: "Cloud AI unavailable",
+                            let cause: String
+                            if cfg.provider == .ollama {
+                                cause = error.localizedCaseInsensitiveContains("not found") ? "Ollama model missing" : "Ollama unavailable"
+                            } else {
+                                cause = "Cloud AI unavailable"
+                            }
+                            self.basicModeNotice = .init(cause: cause,
                                                         detail: "\(error) Transcription and built-in coaching continue.")
                         } else {
                             self.basicModeNotice = nil

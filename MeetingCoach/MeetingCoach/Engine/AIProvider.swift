@@ -2,14 +2,20 @@ import Foundation
 import Security
 
 enum AIProvider: String, Codable, CaseIterable, Identifiable, Sendable {
-    case local, anthropic, openai, claudeAccount
+    case local, ollama, anthropic, openai, claudeAccount
     var id: String { rawValue }
     var title: String {
-        switch self { case .local: "Local (on this Mac)"; case .anthropic: "Claude API"; case .claudeAccount: "Claude account"; case .openai: "OpenAI" }
+        switch self {
+        case .local: "Local (on this Mac)"
+        case .ollama: "Ollama"
+        case .anthropic: "Claude API"
+        case .claudeAccount: "Claude account"
+        case .openai: "OpenAI"
+        }
     }
     var models: [String] {
         switch self {
-        case .local: []
+        case .local, .ollama: []
         case .claudeAccount: ["haiku", "sonnet"]
         case .anthropic: ["claude-haiku-4-5-20251001", "claude-sonnet-5"]
         case .openai: ["gpt-4.1-mini", "gpt-4.1"]
@@ -36,26 +42,81 @@ enum AIProvider: String, Codable, CaseIterable, Identifiable, Sendable {
 struct AIConfiguration: Codable, Equatable, Sendable {
     var provider: AIProvider = .local
     var model: String = ""
+    var baseURL: String = ""
+
+    enum CodingKeys: String, CodingKey {
+        case provider, model, baseURL
+    }
+
+    init(provider: AIProvider = .local, model: String = "", baseURL: String = "") {
+        self.provider = provider
+        self.model = model
+        self.baseURL = baseURL
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        provider = try container.decode(AIProvider.self, forKey: .provider)
+        model = try container.decode(String.self, forKey: .model)
+        baseURL = try container.decodeIfPresent(String.self, forKey: .baseURL) ?? ""
+    }
+
     static let defaultsKey = "aiProviderConfiguration"
     static var current: AIConfiguration { read(from: .standard) }
     static func read(from defaults: UserDefaults) -> AIConfiguration {
         guard let data = defaults.data(forKey: defaultsKey),
-              let value = try? JSONDecoder().decode(Self.self, from: data),
-              value.provider == .local || value.provider.models.contains(value.model) else { return .init() }
+              let value = try? JSONDecoder().decode(Self.self, from: data) else { return .init() }
+        if value.provider == .local { return value }
+        if value.provider == .ollama {
+            guard !value.model.isEmpty, (try? OllamaEndpoint.normalize(value.baseURL)) != nil else { return .init() }
+            return value
+        }
+        guard value.provider.models.contains(value.model) else { return .init() }
         return value
     }
     func save(to defaults: UserDefaults = .standard) {
         defaults.set(try? JSONEncoder().encode(self), forKey: Self.defaultsKey)
     }
+
+    var normalizedOllamaURL: URL? {
+        provider == .ollama ? (try? OllamaEndpoint.normalize(baseURL)) : nil
+    }
+
+    var isLoopbackOllama: Bool {
+        normalizedOllamaURL.map(OllamaEndpoint.isLoopback) == true
+    }
+
+    var sendsTextOffDevice: Bool {
+        switch provider {
+        case .local: false
+        case .ollama: !isLoopbackOllama
+        case .anthropic, .openai, .claudeAccount: true
+        }
+    }
+
     // The existing session lifecycle pins a string model identifier. Namespace
-    // cloud IDs so that a local session can never turn into a cloud session
-    // when settings change, and a cloud ID can never reach Ollama.
-    var modelReference: String { "cloud:\(provider.rawValue):\(model)" }
+    // cloud/configured IDs so that a local session can never turn into a cloud session
+    // when settings change, and a cloud ID can never reach OllamaClient.
+    var modelReference: String {
+        if provider == .ollama {
+            let encodedURL = Data(baseURL.utf8).base64EncodedString()
+            return "cloud:ollama:\(encodedURL):\(model)"
+        }
+        return "cloud:\(provider.rawValue):\(model)"
+    }
+
     static func cloud(from reference: String) -> AIConfiguration? {
-        let parts = reference.split(separator: ":", maxSplits: 2).map(String.init)
-        guard parts.count == 3, parts[0] == "cloud",
-              let provider = AIProvider(rawValue: parts[1]), provider != .local,
-              !parts[2].isEmpty else { return nil }
+        let parts = reference.split(separator: ":", maxSplits: 3).map(String.init)
+        guard parts.count >= 3, parts[0] == "cloud",
+              let provider = AIProvider(rawValue: parts[1]), provider != .local else { return nil }
+        if provider == .ollama {
+            guard parts.count == 4,
+                  let urlData = Data(base64Encoded: parts[2]),
+                  let urlStr = String(data: urlData, encoding: .utf8),
+                  !parts[3].isEmpty else { return nil }
+            return .init(provider: .ollama, model: parts[3], baseURL: urlStr)
+        }
+        guard !parts[2].isEmpty else { return nil }
         return .init(provider: provider, model: parts[2])
     }
 }

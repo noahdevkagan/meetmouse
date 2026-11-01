@@ -2153,3 +2153,26 @@ no real-call accuracy row until a publishable corpus exists (a staged call); the
 old rows stay under a neutral name. Real names in tests and comments became made-up
 ones, and the review prompt's example was rewritten because it used real-call terms.
 All of this remains in git history and forks until cleaned separately.
+
+## 2026-11-01: Direct Ollama provider support (local and remote)
+
+Added `.ollama` as a first-class AI provider in Settings → AI to allow users with
+pre-existing Ollama installations to connect directly, share models without duplicate
+disk usage (~6.6 GB saved per model), and optionally point to external Ollama servers.
+
+Key design choices:
+- Loopback vs Remote: loopback addresses (`127.0.0.1`, `localhost`, `::1`) remain 100%
+  on-device; no cloud consent toggle is shown or required. Remote server URLs (LAN/VPN)
+  require explicit text-sharing consent, ephemeral URLSession with redirect refusal,
+  and NSAllowsLocalNetworking for HTTP access on LANs.
+- Auto-launch: only loopback URLs trigger `SystemOllamaLauncher` to spawn installed
+  `ollama serve` on demand. Remote URLs never attempt local process spawns.
+- Port 11434 conflict management: activating an external Ollama configuration terminates
+  any embedded child process via `OllamaManager.stopEmbeddedIfRunning()`, and adopted
+  engine eviction is scoped to local mode so external Ollama models aren't wiped on quit.
+- Missing model policy: if a configured Ollama model is deleted/missing, MeetMouse
+  posts `didDetectMissingModel`, alerts the user with a warning banner, and degrades
+  to built-in coaching and deterministic notes until the user explicitly selects
+  another installed model. It never silently guesses or auto-pulls a different model.
+- Model reference encoding: encoded as `cloud:ollama:<base64-url>:<model>` ensuring
+  session pins are self-contained and survive app restarts without ambiguity.

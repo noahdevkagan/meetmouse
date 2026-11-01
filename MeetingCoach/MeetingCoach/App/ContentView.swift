@@ -1769,7 +1769,9 @@ struct SidebarView: View {
                         Divider()
                         ModelSection(settings: settings, liveSession: liveSession)
                         Text(settings.usesCloudAI
-                             ? "Cloud AI is enabled for \(settings.semanticCoachEnabled ? "coaching, reviews" : "reviews") and questions. Audio stays on this Mac."
+                             ? (settings.aiConfiguration.provider == .ollama && settings.aiConfiguration.isLoopbackOllama
+                                 ? "Ollama on this Mac is enabled for \(settings.semanticCoachEnabled ? "coaching, reviews" : "reviews") and questions. Audio stays on this Mac."
+                                 : "\(settings.aiConfiguration.provider.title) is enabled for \(settings.semanticCoachEnabled ? "coaching, reviews" : "reviews") and questions. Audio stays on this Mac.")
                              : settings.semanticCoachEnabled
                                  ? "AI nudges and the meeting summary switch on automatically when a model is installed."
                                  : "AI notes switch on automatically when a model is installed.")
@@ -2146,9 +2148,32 @@ struct ModelSection: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             if settings.usesCloudAI {
-                Label(settings.aiConfiguration.provider.title, systemImage: "cloud")
-                Text("\(AIProvider.modelTitle(settings.aiConfiguration.model)) · Meeting text is sent to this provider. Manage your key in Settings → AI.")
+                let provider = settings.aiConfiguration.provider
+                let icon = provider == .ollama ? (settings.aiConfiguration.isLoopbackOllama ? "desktopcomputer" : "server.rack") : "cloud"
+                Label(provider == .ollama ? "Ollama" : provider.title, systemImage: icon)
+
+                let desc: String = {
+                    if provider == .ollama {
+                        if settings.aiConfiguration.isLoopbackOllama {
+                            return "\(settings.aiConfiguration.model) · Local Ollama instance. Audio and text stay on this Mac. Manage in Settings → AI."
+                        } else {
+                            return "\(settings.aiConfiguration.model) · Remote Ollama at \(settings.aiConfiguration.baseURL ?? ""). Manage in Settings → AI."
+                        }
+                    } else {
+                        return "\(AIProvider.modelTitle(settings.aiConfiguration.model)) · Meeting text is sent to this provider. Manage your key in Settings → AI."
+                    }
+                }()
+                Text(desc)
                     .font(.caption).foregroundStyle(.secondary)
+
+                if settings.aiConfiguration.provider == .ollama && settings.ollamaSelectedModelMissing {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        Text("Model '\(settings.aiConfiguration.model)' is not found on your Ollama server. MeetMouse is running with built-in coaching and basic notes until a model is selected.")
+                            .font(.caption2).foregroundStyle(.orange)
+                    }
+                    .padding(.vertical, 2)
+                }
             } else if hasModels {
                 DisclosureGroup(isExpanded: $isExpanded) {
                     VStack(alignment: .leading, spacing: 8) {

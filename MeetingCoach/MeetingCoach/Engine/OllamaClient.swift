@@ -1,21 +1,5 @@
 import Foundation
 
-struct OllamaModel: Identifiable, Sendable {
-    let name: String
-    let size: Int64
-    let parameterSize: String
-    var id: String { name }
-
-    var sizeLabel: String {
-        let gb = Double(size) / 1_073_741_824
-        if gb >= 1 {
-            return String(format: "%.1f GB", gb)
-        }
-        let mb = Double(size) / 1_048_576
-        return String(format: "%.0f MB", mb)
-    }
-}
-
 /// Progress update from a model pull operation.
 struct PullProgress: Sendable {
     let status: String

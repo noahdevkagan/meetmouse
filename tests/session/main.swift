@@ -262,7 +262,8 @@ func runTests() async {
         }
         check(!savedFile.isEmpty, "session file written to the scratch folder")
         check(body.contains("still pending"), "saved session includes the pending tail")
-        check(body.contains("**Language:** en"),
+        let expectedLang = MeetingLanguageSelection.system.resolved().code
+        check(body.contains("**Language:** \(expectedLang)"),
               "saved session persists resolved ISO language")
         check(savedFile.first?.isNumber == true && savedFile.contains("T"),
               "date-led AI-toolable filename", "got \(savedFile)")
@@ -713,6 +714,8 @@ func runTests() async {
         LiveSessionViewModel.preloadModel = { _ in nil }
         LiveSessionViewModel.unloadModel = { _ in }
         LiveSessionViewModel.completeReview = { _, _, _ in "" }
+        LiveSessionViewModel.prepareOllamaSession = { _ in .success(true) }
+        LiveSessionViewModel.releaseOllamaSession = { _, _ in }
     }
     /// A settings stub wired for the real (non-mock) path.
     func liveSettings(_ model: String = "qwen3.5:4b") -> SettingsViewModel {
@@ -886,6 +889,58 @@ func runTests() async {
         try? await Task.sleep(for: .milliseconds(150))
         check(reviewed == target, "cloud recap keeps session's pinned provider with empty local inventory")
         check(!unloaded && manager.status == .stopped, "cloud recap never loads or unloads Ollama")
+        vm.deleteSession()
+    }
+
+    // Ollama provider activation: successful loopback pins model and stops embedded child
+    do {
+        resetSeams()
+        var ollamaPrepared = false
+        var ollamaReleased = false
+        LiveSessionViewModel.prepareOllamaSession = { _ in
+            ollamaPrepared = true
+            return .success(false) // was not already loaded -> should release on stop
+        }
+        LiveSessionViewModel.releaseOllamaSession = { _, _ in
+            ollamaReleased = true
+        }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings()
+        let target = AIConfiguration(provider: .ollama, model: "llama3:8b", baseURL: "http://127.0.0.1:11434").modelReference
+        settings.usesCloudAI = true
+        settings.selectedModel = target
+        let manager = OllamaManager()
+        manager.start() // simulate running embedded manager
+        check(manager.status == .running, "precondition: embedded manager running")
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == target, "ollama provider pins selected model")
+        check(ollamaPrepared, "prepareOllamaSession invoked during activation")
+        check(manager.status == .stopped, "embedded ollama stopped to avoid port conflict")
+        vm.stopLive()
+        try? await Task.sleep(for: .milliseconds(150))
+        check(ollamaReleased, "releaseOllamaSession invoked on session stop")
+        vm.deleteSession()
+    }
+
+    // Ollama provider missing model: degrades to deterministic basic mode, warns user, does not silently pick another model
+    do {
+        resetSeams()
+        LiveSessionViewModel.prepareOllamaSession = { _ in
+            .failure(.modelNotFound("Model 'ghost' was not found in Ollama."))
+        }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings()
+        let target = AIConfiguration(provider: .ollama, model: "ghost", baseURL: "http://127.0.0.1:11434").modelReference
+        settings.usesCloudAI = true
+        settings.selectedModel = target
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == nil, "missing ollama model settles deterministic without pinning")
+        check(vm.basicModeNotice?.cause == "Ollama model missing", "missing ollama model reports specific basic-mode notice")
+        check(vm.basicModeNotice?.detail.contains("ghost") == true, "missing notice mentions missing model name")
+        vm.stopLive()
         vm.deleteSession()
     }
 

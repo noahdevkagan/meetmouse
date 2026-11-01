@@ -8,8 +8,9 @@ cd "$(dirname "$0")/../.."
 
 SRC=MeetingCoach/MeetingCoach
 OUT=tests/session/.build
-mkdir -p "$OUT"
-swiftc -O -o "$OUT/sessioncheck" \
+mkdir -p "$OUT/ModuleCache"
+export CLANG_MODULE_CACHE_PATH="$PWD/$OUT/ModuleCache"
+swiftc -O -module-cache-path "$OUT/ModuleCache" -o "$OUT/sessioncheck" \
   tests/session/main.swift \
   tests/session/visual-speakers.swift \
   tests/session/stubs.swift \
@@ -25,6 +26,7 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/VisualSpeakerCapture.swift" \
   "$SRC/Engine/MeetingWindowHeuristics.swift" \
   "$SRC/Engine/VisualSpeakerEvidence.swift" \
+  "$SRC/Engine/OllamaProvider.swift" \
   "$SRC/Engine/OllamaClient.swift" \
   "$SRC/Engine/AIProvider.swift" \
   "$SRC/Engine/AIClient.swift" \

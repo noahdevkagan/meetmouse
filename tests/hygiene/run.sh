@@ -6,8 +6,9 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 OUT=tests/hygiene/.build
-mkdir -p "$OUT"
-swiftc -O -o "$OUT/hygienecheck" \
+mkdir -p "$OUT/ModuleCache"
+export CLANG_MODULE_CACHE_PATH="$PWD/$OUT/ModuleCache"
+swiftc -O -module-cache-path "$OUT/ModuleCache" -o "$OUT/hygienecheck" \
   tests/hygiene/main.swift \
   MeetingCoach/MeetingCoach/App/AppBundleNameMigration.swift \
   MeetingCoach/MeetingCoach/Engine/TranscriptCleanup.swift \

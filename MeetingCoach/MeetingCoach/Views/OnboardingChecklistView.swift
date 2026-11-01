@@ -148,20 +148,35 @@ struct OnboardingChecklistView: View {
     }
 
     @ViewBuilder private var aiNotesRow: some View {
-        let usesCloud = settings?.usesCloudAI == true
+        let isMissing = settings?.ollamaSelectedModelMissing == true
+        let usesCloud = (settings?.usesCloudAI == true) && !isMissing
         let hasLocalModel = settings.map { !$0.availableModels.isEmpty } ?? false
         let downloading = settings?.downloadingModel != nil
+        let caption: String = {
+            if isMissing {
+                return "Selected Ollama model is missing. Choose another model in Settings → AI."
+            }
+            if usesCloud {
+                if settings?.aiConfiguration.provider == .ollama {
+                    return settings?.aiConfiguration.isLoopbackOllama == true
+                        ? "Ollama on this Mac writes your notes after each call."
+                        : "Ollama at \(settings?.aiConfiguration.baseURL ?? "") writes your notes after each call."
+                }
+                return "\(settings?.aiConfiguration.provider.title ?? "Cloud AI") writes your notes after each call."
+            }
+            if hasLocalModel {
+                return "A local model writes your notes on this Mac after each call."
+            }
+            if claudeCodeInstalled {
+                return "Your Claude account is the lightest way to get them, and nothing slows your Mac during calls. Without AI you still get a basic recap."
+            }
+            return "A local model writes them on this Mac and only loads after a call, so calls stay fast. Without AI you still get a basic recap."
+        }()
         checklistRow(done: usesCloud || hasLocalModel,
                      active: downloading || claudeBusy,
                      title: "AI notes after each call",
                      titleBadge: "optional",
-                     caption: usesCloud
-                         ? "\(settings?.aiConfiguration.provider.title ?? "Cloud AI") writes your notes after each call."
-                         : hasLocalModel
-                             ? "A local model writes your notes on this Mac after each call."
-                             : claudeCodeInstalled
-                                 ? "Your Claude account is the lightest way to get them, and nothing slows your Mac during calls. Without AI you still get a basic recap."
-                                 : "A local model writes them on this Mac and only loads after a call, so calls stay fast. Without AI you still get a basic recap.") {
+                     caption: caption) {
             if let settings, downloading {
                 Button("Cancel") { settings.cancelDownload() }
                     .font(.caption)
@@ -169,7 +184,8 @@ struct OnboardingChecklistView: View {
                 Button("Cancel") { claudeTask?.cancel() }
                     .font(.caption)
             }
-        } detail: {
+        }
+ detail: {
             if let settings, !usesCloud, !hasLocalModel {
                 if downloading {
                     VStack(alignment: .leading, spacing: 2) {
