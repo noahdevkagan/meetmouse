@@ -7,6 +7,11 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Add Google Gemini to Settings → AI: connect your own API key from Google AI Studio to run meeting recaps, coaching, and Q&A on Gemini 3.5 Flash-Lite or Gemini 3.8 Flash. Audio and transcription remain 100% on your Mac; meeting text is shared only after you opt in, and keys are stored in this Mac's Keychain.
+- Automatic full-context meeting notes: meetings on Macs with 24 GB+ RAM and calls on cloud AI providers now automatically summarize longer transcripts (up to 2–4 hours locally, up to 10–40 hours on cloud models) without cutting out middle sections.
+
 ## 0.34.0 — 2026-11-04
 
 - Speaker name suggestions now appear right beside the talk bubble with Yes and No buttons, so you can confirm a name during the call without opening MeetMouse.

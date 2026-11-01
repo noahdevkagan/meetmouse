@@ -2,10 +2,16 @@ import Foundation
 import Security
 
 enum AIProvider: String, Codable, CaseIterable, Identifiable, Sendable {
-    case local, anthropic, openai, claudeAccount
+    case local, anthropic, openai, gemini, claudeAccount
     var id: String { rawValue }
     var title: String {
-        switch self { case .local: "Local (on this Mac)"; case .anthropic: "Claude API"; case .claudeAccount: "Claude account"; case .openai: "OpenAI" }
+        switch self {
+        case .local: "Local (on this Mac)"
+        case .anthropic: "Claude API"
+        case .openai: "OpenAI"
+        case .gemini: "Google Gemini"
+        case .claudeAccount: "Claude account"
+        }
     }
     var models: [String] {
         switch self {
@@ -13,6 +19,7 @@ enum AIProvider: String, Codable, CaseIterable, Identifiable, Sendable {
         case .claudeAccount: ["haiku", "sonnet"]
         case .anthropic: ["claude-haiku-4-5-20251001", "claude-sonnet-5"]
         case .openai: ["gpt-4.1-mini", "gpt-4.1"]
+        case .gemini: ["gemini-3.5-flash-lite", "gemini-3.8-flash"]
         }
     }
     static func modelTitle(_ model: String) -> String {
@@ -23,12 +30,19 @@ enum AIProvider: String, Codable, CaseIterable, Identifiable, Sendable {
         case "claude-sonnet-5": "Claude Sonnet 5"
         case "gpt-4.1-mini": "GPT-4.1 mini (fast)"
         case "gpt-4.1": "GPT-4.1"
+        case "gemini-3.5-flash-lite": "Gemini 3.5 Flash-Lite (fast)"
+        case "gemini-3.8-flash": "Gemini 3.8 Flash"
         default: model
         }
     }
-    var requiresAPIKey: Bool { self == .anthropic || self == .openai }
+    var requiresAPIKey: Bool { self == .anthropic || self == .openai || self == .gemini }
     var keyURL: URL {
-        URL(string: self == .anthropic ? "https://platform.claude.com/settings/keys" : "https://platform.openai.com/api-keys")!
+        switch self {
+        case .anthropic: URL(string: "https://platform.claude.com/settings/keys")!
+        case .openai: URL(string: "https://platform.openai.com/api-keys")!
+        case .gemini: URL(string: "https://aistudio.google.com/apikey")!
+        case .local, .claudeAccount: URL(string: "https://meetmouse.com")!
+        }
     }
 }
 

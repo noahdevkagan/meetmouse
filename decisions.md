@@ -2116,6 +2116,29 @@ Do not scan behind an unrelated front browser window, pick between multiple
 calls automatically, or capture previews before Allow. This keeps selection
 easy without widening screenshot consent or the six-snapshot budget.
 
+## 2026-11-01 — Google Gemini BYOK & automatic capability-based review sizing
+
+Add opt-in Google Gemini Bring-Your-Own-Key (BYOK) support in Settings → AI
+alongside Local, Claude API, OpenAI, and Claude account. Curated Flash lineup
+(`gemini-3.5-flash-lite` as fast default, `gemini-3.8-flash` as standard),
+header-only `x-goog-api-key` auth (never in query URLs), and ephemeral URLSession
+with redirects refused. `maxOutputTokens` is deliberately omitted on Gemini to
+prevent internal thinking tokens from consuming the response budget and
+causing artificial `MAX_TOKENS` truncation failures; each model generation uses
+its lowest valid `thinkingLevel` (`"minimal"` on 3.5-flash-lite; `"low"` on 3.8-flash).
+Safety filter blocks (`promptFeedback.blockReason`, `SAFETY`, etc.) return
+an actionable explanation to try another model or local AI.
+
+Post-call review transcript capping replaces the fixed 32,000-character cap
+with automatic capability-based sizing rather than adding an extra settings knob:
+Local AI scales with physical unified memory (`ModelMemory.physicalRAMGB`:
+32K for <24 GB, 100K for 24–47 GB, 200K for 48+ GB) to respect the 70% memory
+ceiling and avoid swap freezes, while Cloud AI scales with provider context
+windows (500K chars for 200K-token models; 2M chars for 1M-token models).
+Ollama `num_ctx` (12,288 -> 32,768 -> 65,536) and timeout (120s -> 240s -> 300s)
+scale from actual sent prompt size, so normal-length calls on high-RAM Macs
+never over-allocate KV cache.
+
 ## 2026-11-04 — Name suggestions go on the talk bubble; platform colors are measured
 On a real Zoom call the suggestion was right but sat in the main window behind
 the call. Show the next suggestion as a Yes/No card beside the bubble, for every

@@ -348,11 +348,11 @@ final class LiveSessionViewModel {
     nonisolated static func liveCompleteReview(_ model: String,
                                                _ system: String,
                                                _ user: String) async throws -> String {
-        // 12288/1500 (not the 8192/512 defaults): the topic-sectioned
-        // review is the one long reply — sized with PromptBuilder's 32K
-        // transcript cap so a 43-min meeting fits untrimmed (2026-09-04).
-        // Post-call only — ASR and the in-call runner are already gone.
-        try await AIClient(model: model, numCtx: 12_288, numPredict: 1500)
+        // Scaled against PromptBuilder's hardware/context sizing: short calls
+        // stay at 12288 ctx and 120s timeout, while long calls scale up to
+        // 65536 ctx and 240-300s timeout. Post-call only.
+        let budget = PromptBuilder.reviewCallBudget(model: model, userChars: user.count)
+        return try await AIClient(model: model, timeout: budget.timeout, numCtx: budget.numCtx, numPredict: 1500)
             .complete(system: system, user: user)
     }
 
@@ -1680,6 +1680,7 @@ final class LiveSessionViewModel {
         let pinnedModel = sessionModelState?.pinnedModel
         let generationID = UUID()
         reviewGenerationID = generationID
+        let reviewModel = pinnedModel ?? settings.effectiveModel
 
         // Speaker-labeled TURNS, not raw utterances — the review has to
         // attribute commitments and positions, which needs who-said-what,
@@ -1698,7 +1699,8 @@ final class LiveSessionViewModel {
             durationMinutes: durationMin,
             languageName: (settings.notesLanguage).notesLanguageName(
                 meetingLanguage: singleSessionLanguage,
-                detected: languageTally.dominant)
+                detected: languageTally.dominant),
+            maxTranscriptChars: PromptBuilder.maxReviewTranscriptChars(for: reviewModel)
         )
 
         Task {

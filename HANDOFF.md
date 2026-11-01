@@ -5,6 +5,22 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-01): Google Gemini BYOK (#48) & automatic notes cap — built, verified
+
+Implemented Google Gemini BYOK support in Settings → AI alongside Local (default),
+Claude API, OpenAI, and Claude account. Curated Flash lineup (`gemini-3.5-flash-lite`
+fast default with `thinkingLevel: "minimal"`, and `gemini-3.8-flash` with `thinkingLevel: "low"`),
+`x-goog-api-key` header authentication, ephemeral URLSession with redirects refused,
+canonical Proto3 JSON REST schema mapping (`systemInstruction`, `generationConfig`),
+and `maxOutputTokens` omitted to prevent thinking token truncation. Also replaced
+the hardcoded 32K post-call review cap with silent automatic capability-based sizing:
+Local AI auto-caps by Mac RAM (32K / 100K / 200K) with dynamic Ollama `num_ctx` scaling,
+and Cloud AI auto-caps by context window (500K / 2M chars). Zero telemetry preserved.
+
+Verified with 88 passing AI provider checks (tests/ai), full passing session suite (tests/session),
+all hygiene and nudge tests passing, site regenerated and verified clean (site/build.py --check),
+and changelog freshness verified (scripts/build-changelog.py --check). No live meeting interrupted.
+
 ## Current state (2026-11-04): Speaker prompt at the bubble; four-platform check
 
 User: Zoom suggestion was right on a real guest call but they had to open the app

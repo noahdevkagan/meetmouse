@@ -64,7 +64,7 @@ struct AISettingsView: View {
                             .disabled(testing)
                             .textContentType(.password)
                         Link("Get an API key ↗", destination: provider.keyURL)
-                        Text("Your key is stored in this Mac’s Keychain. API usage is billed directly by your provider, separately from a Claude or ChatGPT subscription.")
+                        Text("Your key is stored in this Mac’s Keychain. API usage is billed directly by your provider, separately from a Claude, ChatGPT, or Gemini subscription.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
 

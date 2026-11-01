@@ -58,27 +58,44 @@ enum CloudAI {
 
     static func request(configuration: AIConfiguration, key: String, system: String, user: String,
                         maxTokens: Int, timeout: TimeInterval) throws -> URLRequest {
-        guard configuration.provider.requiresAPIKey else { throw AIError.message("Select a cloud provider first.") }
+        guard configuration.provider.requiresAPIKey,
+              configuration.provider.models.contains(configuration.model) else {
+            throw AIError.message("Choose a supported cloud model.")
+        }
         let key = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty, !key.contains(where: { $0.isWhitespace }) else { throw AIError.message("Enter a valid API key.") }
-        let anthropic = configuration.provider == .anthropic
-        let url = URL(string: anthropic ? "https://api.anthropic.com/v1/messages" : "https://api.openai.com/v1/responses")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = timeout
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let url: URL
+        var request: URLRequest
         let body: [String: Any]
-        if anthropic {
+        switch configuration.provider {
+        case .anthropic:
+            url = URL(string: "https://api.anthropic.com/v1/messages")!
+            request = URLRequest(url: url)
             request.setValue(key, forHTTPHeaderField: "x-api-key")
             request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
             body = ["model": configuration.model, "system": system,
                     "messages": [["role": "user", "content": user]],
                     "max_tokens": maxTokens, "stream": false]
-        } else {
+        case .openai:
+            url = URL(string: "https://api.openai.com/v1/responses")!
+            request = URLRequest(url: url)
             request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
             body = ["model": configuration.model, "instructions": system, "input": user,
                     "max_output_tokens": maxTokens, "store": false, "stream": false]
+        case .gemini:
+            url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(configuration.model):generateContent")!
+            request = URLRequest(url: url)
+            request.setValue(key, forHTTPHeaderField: "x-goog-api-key")
+            let thinkingLevel = configuration.model == "gemini-3.5-flash-lite" ? "minimal" : "low"
+            body = ["systemInstruction": ["parts": [["text": system]]],
+                    "contents": [["role": "user", "parts": [["text": user]]]],
+                    "generationConfig": ["thinkingConfig": ["thinkingLevel": thinkingLevel]]]
+        case .local, .claudeAccount:
+            throw AIError.message("Select a cloud provider first.")
         }
+        request.httpMethod = "POST"
+        request.timeoutInterval = timeout
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         return request
     }
@@ -124,7 +141,7 @@ enum CloudAI {
             texts = (json["content"] as? [[String: Any]] ?? []).compactMap {
                 $0["type"] as? String == "text" ? $0["text"] as? String : nil
             }
-        } else {
+        } else if provider == .openai {
             guard json["status"] as? String == "completed" else {
                 throw AIError.message("The AI provider did not finish its reply. Try again.")
             }
@@ -134,6 +151,33 @@ enum CloudAI {
                     $0["type"] as? String == "output_text" ? $0["text"] as? String : nil
                 }
             }
+        } else if provider == .gemini {
+            if let promptFeedback = json["promptFeedback"] as? [String: Any],
+               promptFeedback["blockReason"] != nil {
+                throw AIError.message("Google Gemini blocked this response due to content filters. Try another model or local AI.")
+            }
+            guard let candidates = json["candidates"] as? [[String: Any]],
+                  let firstCandidate = candidates.first else {
+                throw AIError.message("The AI provider did not finish its reply. Try again.")
+            }
+            let finishReason = firstCandidate["finishReason"] as? String ?? ""
+            let filterReasons: Set<String> = ["SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"]
+            if filterReasons.contains(finishReason) {
+                throw AIError.message("Google Gemini blocked this response due to content filters. Try another model or local AI.")
+            }
+            guard finishReason == "STOP" else {
+                throw AIError.message("The AI provider did not finish its reply. Try again.")
+            }
+            guard let content = firstCandidate["content"] as? [String: Any],
+                  let parts = content["parts"] as? [[String: Any]] else {
+                throw AIError.message("The AI provider returned an unreadable response.")
+            }
+            texts = parts.compactMap { part -> String? in
+                if part["thought"] as? Bool == true { return nil }
+                return part["text"] as? String
+            }
+        } else {
+            texts = []
         }
         let text = texts.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw AIError.message("The AI provider returned no text. Try again.") }

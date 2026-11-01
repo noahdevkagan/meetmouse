@@ -36,10 +36,14 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
         check(AIConfiguration.read(from: defaults).provider == .local, "corrupt config fails closed")
         let openai = AIConfiguration(provider: .openai, model: "gpt-4.1-mini")
         let claude = AIConfiguration(provider: .anthropic, model: "claude-haiku-4-5-20251001")
+        let gemini = AIConfiguration(provider: .gemini, model: "gemini-3.5-flash-lite")
         openai.save(to: defaults)
         check(AIConfiguration.read(from: defaults) == openai, "cloud preference round trips without key")
         check(AIConfiguration.cloud(from: openai.modelReference) == openai, "pinned reference retains provider and model")
         check(AIConfiguration.cloud(from: "qwen3.5:4b") == nil, "local names are never cloud references")
+        gemini.save(to: defaults)
+        check(AIConfiguration.read(from: defaults) == gemini, "gemini preference round trips without key")
+        check(AIConfiguration.cloud(from: gemini.modelReference) == gemini, "gemini reference retains provider and model")
         defaults.removeObject(forKey: AIConfiguration.defaultsKey)
 
         check(!LiveCoachingDefault.resolve(in: defaults, isExistingInstall: false), "new install starts with advanced live coaching off")
@@ -55,7 +59,10 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
 
         // A disposable service isolates these checks from every real app key.
         let keyService = "com.meetmouse.byok-tests.\(UUID())"
-        defer { try? AIKeychain.delete(.openai, serviceName: keyService) }
+        defer {
+            try? AIKeychain.delete(.openai, serviceName: keyService)
+            try? AIKeychain.delete(.gemini, serviceName: keyService)
+        }
         let absent = try AIKeychain.read(.openai, serviceName: keyService)
         check(absent == nil, "missing Keychain key is absent")
         try AIKeychain.save("test-only-first", for: .openai, serviceName: keyService)
@@ -66,6 +73,11 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
         check(second == "test-only-replacement", "Keychain replaces API key")
         let other = try AIKeychain.read(.anthropic, serviceName: keyService)
         check(other == nil, "provider credentials are isolated")
+        try AIKeychain.save("test-gemini-key", for: .gemini, serviceName: keyService)
+        check(try AIKeychain.read(.gemini, serviceName: keyService) == "test-gemini-key", "Keychain stores Gemini key")
+        check(try AIKeychain.read(.anthropic, serviceName: keyService) == nil, "Gemini key is isolated from Anthropic")
+        try AIKeychain.delete(.gemini, serviceName: keyService)
+        check(try AIKeychain.read(.gemini, serviceName: keyService) == nil, "Keychain removes Gemini key")
         try AIKeychain.delete(.openai, serviceName: keyService)
         let removed = try AIKeychain.read(.openai, serviceName: keyService)
         check(removed == nil, "Keychain removes API key")
@@ -86,6 +98,32 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
         check(claudeRequest.value(forHTTPHeaderField: "x-api-key") == "test-key" && claudeRequest.value(forHTTPHeaderField: "anthropic-version") == "2023-06-01", "Claude authentication and API version")
         check(claudeBody["system"] as? String == "instructions" && claudeBody["max_tokens"] as? Int == 1500, "Claude prompt and review cap")
 
+        let geminiLiteRequest = try CloudAI.request(configuration: gemini, key: "test-key", system: "instructions",
+                                                     user: "meeting excerpt", maxTokens: 1500, timeout: 45)
+        let geminiLiteBody = try JSONSerialization.jsonObject(with: geminiLiteRequest.httpBody!) as! [String: Any]
+        check(geminiLiteRequest.url?.absoluteString == "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent", "Gemini Lite HTTPS endpoint")
+        check(geminiLiteRequest.value(forHTTPHeaderField: "x-goog-api-key") == "test-key", "Gemini header auth")
+        check(geminiLiteRequest.value(forHTTPHeaderField: "Authorization") == nil && geminiLiteRequest.value(forHTTPHeaderField: "x-api-key") == nil, "No bearer or anthropic headers on Gemini")
+        let liteGenConfig = geminiLiteBody["generationConfig"] as? [String: Any]
+        check(liteGenConfig?["maxOutputTokens"] == nil, "Gemini omits maxOutputTokens")
+        let liteThinking = liteGenConfig?["thinkingConfig"] as? [String: Any]
+        check(liteThinking?["thinkingLevel"] as? String == "minimal", "Gemini Lite uses minimal thinkingLevel")
+
+        let gemini38 = AIConfiguration(provider: .gemini, model: "gemini-3.8-flash")
+        let gemini38Request = try CloudAI.request(configuration: gemini38, key: "test-key", system: "instructions",
+                                                   user: "meeting excerpt", maxTokens: 1500, timeout: 45)
+        let gemini38Body = try JSONSerialization.jsonObject(with: gemini38Request.httpBody!) as! [String: Any]
+        let g38Thinking = (gemini38Body["generationConfig"] as? [String: Any])?["thinkingConfig"] as? [String: Any]
+        check(g38Thinking?["thinkingLevel"] as? String == "low", "Gemini 3.8 uses low thinkingLevel")
+
+        let unlistedGemini = AIConfiguration(provider: .gemini, model: "unsupported-model")
+        do {
+            _ = try CloudAI.request(configuration: unlistedGemini, key: "test-key", system: "s", user: "u", maxTokens: 100, timeout: 10)
+            check(false, "unlisted Gemini model must be rejected")
+        } catch {
+            check(true, "unlisted Gemini model rejected")
+        }
+
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [StubHTTP.self]
         let session = URLSession(configuration: config)
@@ -96,6 +134,9 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
         StubHTTP.body = Data(#"{"stop_reason":"end_turn","content":[{"type":"thinking","thinking":"private"},{"type":"text","text":"A Claude answer"}]}"#.utf8)
         let claudeAnswer = try await CloudAI.complete(configuration: claude, key: "test-key", system: "s", user: "u", session: session)
         check(claudeAnswer == "A Claude answer", "Claude HTTP response extracts only text")
+        StubHTTP.body = Data(#"{"candidates":[{"finishReason":"STOP","content":{"parts":[{"thought":true,"text":"internal thought"},{"text":"A Gemini answer"}]}}]}"#.utf8)
+        let geminiAnswer = try await CloudAI.complete(configuration: gemini, key: "test-key", system: "s", user: "u", session: session)
+        check(geminiAnswer == "A Gemini answer", "Gemini HTTP response ignores thought parts")
         for status in [301, 400, 401, 403, 404, 429, 500] {
             StubHTTP.status = status
             StubHTTP.body = Data(#"{"error":{"message":"secret-key and private meeting text"}}"#.utf8)
@@ -105,11 +146,22 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
             } catch {
                 check(!error.localizedDescription.contains("secret-key") && !error.localizedDescription.contains("private meeting"), "HTTP \(status) safe actionable error")
             }
+            do {
+                _ = try await CloudAI.complete(configuration: gemini, key: "test-key", system: "s", user: "u", session: session)
+                check(false, "HTTP \(status) must throw")
+            } catch {
+                check(!error.localizedDescription.contains("secret-key") && !error.localizedDescription.contains("private meeting"), "Gemini HTTP \(status) safe actionable error")
+            }
         }
         for (provider, body) in [(AIProvider.openai, #"{"status":"incomplete","output":[]}"#),
                                   (.openai, #"{"status":"completed","output":[]}"#),
                                   (.anthropic, #"{"stop_reason":"max_tokens","content":[{"type":"text","text":"partial"}]}"#),
-                                  (.anthropic, "bad JSON")] {
+                                  (.anthropic, "bad JSON"),
+                                  (.gemini, #"{"promptFeedback":{"blockReason":"SAFETY"}}"#),
+                                  (.gemini, #"{"candidates":[{"finishReason":"SAFETY","content":{"parts":[]}}]}"#),
+                                  (.gemini, #"{"candidates":[{"finishReason":"MAX_TOKENS","content":{"parts":[{"text":"cut short"}]}}]}"#),
+                                  (.gemini, #"{"candidates":[{"finishReason":"STOP","content":{"parts":[]}}]}"#),
+                                  (.gemini, #"{"candidates":[]}"#)] {
             do { _ = try CloudAI.parse(data: Data(body.utf8), status: 200, provider: provider); check(false, "invalid reply must throw") }
             catch { check(true, "empty, truncated or malformed response rejected") }
         }
@@ -123,6 +175,11 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
             _ = try await AIClient(model: openai.modelReference).complete(system: "private", user: "meeting")
             check(false, "old provider must not send after switching")
         } catch { check(error.localizedDescription.contains("changed"), "switching providers revokes old clients") }
+        gemini.save()
+        do {
+            _ = try await AIClient(model: openai.modelReference).complete(system: "private", user: "meeting")
+            check(false, "old provider must not send after switching to Gemini")
+        } catch { check(error.localizedDescription.contains("changed"), "switching to Gemini revokes old clients") }
         let local = try await AIClient(model: "qwen3.5:4b").complete(system: "s", user: "u")
         check(local == "local-only", "local reference remains local")
         let account = AIConfiguration(provider: .claudeAccount, model: "haiku")
