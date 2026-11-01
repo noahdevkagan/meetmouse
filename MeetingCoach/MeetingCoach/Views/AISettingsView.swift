@@ -5,7 +5,7 @@ struct AISettingsView: View {
     let liveSession: LiveSessionViewModel
     @State private var provider: AIProvider = .local
     @State private var model = ""
-    @State private var ollamaURL = OllamaEndpoint.defaultURL.absoluteString
+    @State private var ollamaURL = OllamaEndpoint.defaultBaseURL
     @State private var refreshingOllama = false
     @State private var key = ""
     @State private var hasSavedKey = false
@@ -21,7 +21,7 @@ struct AISettingsView: View {
         if settings.aiConfiguration.provider == .ollama {
             return settings.aiConfiguration.isLoopbackOllama
                 ? "Active: Ollama (on this Mac)"
-                : "Active: Ollama (\(settings.aiConfiguration.baseURL ?? ""))"
+                : "Active: Ollama (\(settings.aiConfiguration.baseURL))"
         }
         return "Active: \(settings.aiConfiguration.provider.title)"
     }
@@ -69,7 +69,7 @@ struct AISettingsView: View {
 
                         Spacer()
                         if OllamaEndpoint.isLoopback(ollamaURL) {
-                            Text("Local server (auto-starts if installed)")
+                            Text("Local server")
                                 .font(.caption2).foregroundStyle(.secondary)
                         } else {
                             Text("Remote server")
@@ -78,13 +78,22 @@ struct AISettingsView: View {
                     }
 
                     if settings.ollamaModels.isEmpty {
-                        Text("No models found on Ollama server. Verify the server is running and pull a model with `ollama pull <model>`.")
+                        Text("No models found on Ollama server. Verify the server is running and pull a model.")
                             .font(.caption).foregroundStyle(.secondary)
+                        Button("Download models…") {
+                            settings.showModelCatalog = true
+                        }
+                        .disabled(testing || refreshingOllama)
                     } else {
                         Picker("Model", selection: $model) {
                             ForEach(settings.ollamaModels) { m in
                                 Text(m.name + (m.parameterSize.isEmpty ? "" : " (\(m.parameterSize))")).tag(m.name)
                             }
+                        }
+                        .disabled(testing || refreshingOllama)
+
+                        Button("Download models…") {
+                            settings.showModelCatalog = true
                         }
                         .disabled(testing || refreshingOllama)
 
@@ -212,7 +221,7 @@ struct AISettingsView: View {
     }
 
     private func refreshOllama() async {
-        guard let url = OllamaEndpoint.normalize(ollamaURL) else {
+        guard let url = OllamaEndpoint.normalizeOrNil(ollamaURL) else {
             status = "Invalid server URL. Include http:// or https://"
             isError = true
             return
@@ -234,10 +243,10 @@ struct AISettingsView: View {
         accountConnected = false
         key = ""; consent = false; status = nil; isError = false
         if provider == .ollama {
-            if let activeURL = settings.aiConfiguration.baseURL, !activeURL.isEmpty {
-                ollamaURL = activeURL
+            if !settings.aiConfiguration.baseURL.isEmpty {
+                ollamaURL = settings.aiConfiguration.baseURL
             } else {
-                ollamaURL = OllamaEndpoint.defaultURL.absoluteString
+                ollamaURL = OllamaEndpoint.defaultBaseURL
             }
             if settings.aiConfiguration.provider == .ollama {
                 model = settings.aiConfiguration.model
@@ -259,7 +268,7 @@ struct AISettingsView: View {
     private func fail(_ error: Error) { status = error.localizedDescription; isError = true }
     private func enable() {
         if provider == .ollama {
-            guard let url = OllamaEndpoint.normalize(ollamaURL) else {
+            guard let url = OllamaEndpoint.normalizeOrNil(ollamaURL) else {
                 fail(OllamaProviderError.invalidURL(ollamaURL))
                 return
             }
@@ -328,7 +337,7 @@ struct AISettingsView: View {
     }
     private func testConnection() {
         if provider == .ollama {
-            guard let url = OllamaEndpoint.normalize(ollamaURL) else {
+            guard let url = OllamaEndpoint.normalizeOrNil(ollamaURL) else {
                 fail(OllamaProviderError.invalidURL(ollamaURL))
                 return
             }
@@ -345,7 +354,7 @@ struct AISettingsView: View {
                         model: candidate,
                         system: "Reply briefly.",
                         user: "Say OK.",
-                        maxTokens: 16
+                        numPredict: 16
                     )
                     isError = false
                     status = "Connection successful. Model responded."

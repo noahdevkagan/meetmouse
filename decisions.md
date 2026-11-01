@@ -2165,14 +2165,20 @@ Key design choices:
   on-device; no cloud consent toggle is shown or required. Remote server URLs (LAN/VPN)
   require explicit text-sharing consent, ephemeral URLSession with redirect refusal,
   and NSAllowsLocalNetworking for HTTP access on LANs.
-- Auto-launch: only loopback URLs trigger `SystemOllamaLauncher` to spawn installed
-  `ollama serve` on demand. Remote URLs never attempt local process spawns.
-- Port 11434 conflict management: activating an external Ollama configuration terminates
-  any embedded child process via `OllamaManager.stopEmbeddedIfRunning()`, and adopted
-  engine eviction is scoped to local mode so external Ollama models aren't wiped on quit.
-- Missing model policy: if a configured Ollama model is deleted/missing, MeetMouse
-  posts `didDetectMissingModel`, alerts the user with a warning banner, and degrades
-  to built-in coaching and deterministic notes until the user explicitly selects
-  another installed model. It never silently guesses or auto-pulls a different model.
+- Passive connection & zero process spawning: MeetMouse never launches external or unbundled
+  system binaries (`SystemOllamaLauncher` removed). Release builds run only the signed, bundled
+  runtime on an isolated ephemeral port; dev builds and external Ollama connect passively to
+  `127.0.0.1:11434` or the configured URL. If offline, MeetMouse does not execute `ollama serve`.
+- Claude-identical retry: when external Ollama is unreachable at session start, MeetMouse pins
+  the model, surfaces a non-fatal `basicModeNotice` ("Coaching is in basic mode — Ollama unavailable"),
+  and continues Tier 1 built-in coaching. On every regular 60–120s semantic heartbeat, it retries
+  `coach.analyze()`; the moment Ollama comes online, `basicModeNotice` clears and AI coaching resumes.
+- Server preservation: activating or using loopback Ollama never terminates the server
+  serving models; OllamaManager only manages the lifecycle of the bundled runtime in local mode.
+- Missing model policy: if a configured Ollama model fails verification or is missing at
+  session start, MeetMouse displays a basic-mode notice and settles into deterministic coaching
+  without pinning or running polling loops against the missing model. If another model is available
+  in Settings, it silently switches to the RAM-aware fallback model without a warning banner. An
+  orange warning banner is displayed only when 0 models remain.
 - Model reference encoding: encoded as `cloud:ollama:<base64-url>:<model>` ensuring
   session pins are self-contained and survive app restarts without ambiguity.

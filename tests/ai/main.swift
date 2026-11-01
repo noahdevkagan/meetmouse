@@ -225,7 +225,7 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
         // Ollama HTTP parsing & error handling
         StubHTTP.status = 200
         StubHTTP.body = Data(#"{"models":[{"name":"llama3:8b","size":4500000000,"details":{"parameter_size":"8.0B"}}]}"#.utf8)
-        let listed = try await OllamaProvider.listModels(baseURL: URL(string: "http://127.0.0.1:11434")!, autoStartLocal: false, session: session)
+        let listed = try await OllamaProvider.listModels(baseURL: URL(string: "http://127.0.0.1:11434")!, session: session)
         check(listed.count == 1 && listed.first?.name == "llama3:8b", "listModels parses models JSON")
         check(listed.first?.parameterSize == "8.0B", "listModels parses parameter size")
 
@@ -284,9 +284,15 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
             check(false, "expected OllamaProviderError, got \(error)")
         }
 
-        // System launcher rejects remote
-        let remoteLaunch = await SystemOllamaLauncher.shared.ensureRunning(for: URL(string: "http://192.168.1.1:11434")!)
-        check(!remoteLaunch, "SystemOllamaLauncher refuses to spawn for non-loopback host")
+        // Ollama delete model parsing
+        StubHTTP.status = 200
+        StubHTTP.body = Data(#"{"status":"success"}"#.utf8)
+        do {
+            try await OllamaProvider.deleteModel(baseURL: URL(string: "http://127.0.0.1:11434")!, name: "old-model", session: session)
+            check(true, "deleteModel succeeds on HTTP 200")
+        } catch {
+            check(false, "deleteModel failed: \(error)")
+        }
 
         // Notification on missing model
         final class NoticeBox: @unchecked Sendable { var received = false }
