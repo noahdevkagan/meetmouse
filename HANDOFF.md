@@ -5,6 +5,13 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-02): Vision OCR roster — verified
+
+Vision recognized both fixture names, but their different bounding-box heights
+failed an asymmetric size comparison. Roster matching now compares the size
+difference against the larger height. Visual checks: 68 passed; isolated session
+suite: 336 passed.
+
 ## Current state (2026-10-20): Global open shortcut — implemented
 
 Control–Command–M opens/raises the existing main window from any app while

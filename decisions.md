@@ -2047,3 +2047,9 @@ its audio to another device than the Mac default. Follow-ups to evaluate
 with real recordings: a relative (mic vs system) energy gate, and holding a
 mic commit up to ~2 s while the far side is active so EchoFilter sees the
 far partials. Manual check: tests/calls-manual.md scenario 8.
+
+## 2026-11-02 — Compare roster OCR heights symmetrically
+Vision can assign different text-box heights to equally sized labels. Compare
+their difference to 30% of the larger height, rather than only the self-label
+height, so swapping the anchor does not change whether two labels match. Keep
+the size, alignment, confidence and white-on-dark filters to limit false matches.
