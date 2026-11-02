@@ -94,6 +94,7 @@ final class SettingsViewModel {
     var usesCloudAI = false
     var selectedModel = "stub-model"
     var effectiveModel: String { selectedModel }
+    var deletingModel: String?
     var semanticCoachEnabled = false
     var useMock = true
     var defaultMeetingMinutes = 0

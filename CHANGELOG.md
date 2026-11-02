@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Delete local AI models from the Download Models catalog with confirmation. If a model is currently in use by an active meeting or meeting notes recap, MeetMouse protects it and explains when it can be removed. Deleting the active model automatically selects another installed model that fits your Mac and saves your choice.
+
 ## 0.33.1 — 2026-10-27
 
 - When a call plays through your Mac's built-in speakers, MeetMouse now shows a one-line tip to use headphones. Without them your mic also hears the other side, so their words can show up as yours or both sides can blend into one block. Dismiss it with the x for that meeting.

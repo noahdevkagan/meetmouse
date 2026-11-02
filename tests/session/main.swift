@@ -1209,6 +1209,84 @@ func runTests() async {
         vm.deleteSession()
     }
 
+    // Model in use: idle session allows deletion, pinned session protects pinned model,
+    // and activation skips models being deleted.
+    do {
+        resetSeams()
+        let vm = LiveSessionViewModel()
+        let idleCheck = vm.isModelInUse("qwen3.5:4b")
+        check(!idleCheck.inUse && idleCheck.reason == nil, "idle session protects no models")
+
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        LiveSessionViewModel.preloadModel = { _ in nil }
+        let settings = liveSettings("qwen3.5:4b")
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+
+        let pinnedCheck = vm.isModelInUse("qwen3.5:4b")
+        check(pinnedCheck.inUse && pinnedCheck.reason!.contains("in use by your active meeting"),
+              "active meeting protects its pinned model")
+
+        let unpinnedCheck = vm.isModelInUse("gemma4:e4b")
+        check(!unpinnedCheck.inUse && unpinnedCheck.reason == nil,
+              "active meeting allows deletion of an unpinned model")
+
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // Session activation ignores a model whose deletion is in flight.
+    do {
+        resetSeams()
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        LiveSessionViewModel.preloadModel = { _ in nil }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings("qwen3.5:9b")
+        settings.availableModels = [
+            OllamaModel(name: "qwen3.5:9b", size: 6_600_000_000, parameterSize: "9B"),
+            OllamaModel(name: "qwen3.5:4b", size: 3_400_000_000, parameterSize: "4B")
+        ]
+        // Simulate qwen3.5:9b deletion in flight
+        settings.deletingModel = "qwen3.5:9b"
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+
+        check(vm.sessionModelState?.pinnedModel == "qwen3.5:4b",
+              "session activation avoids candidate whose deletion is in flight",
+              "pinned: \(String(describing: vm.sessionModelState?.pinnedModel))")
+
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // Session activation with custom model installed (not in recommendationLadder)
+    // selects the custom model when the active model is deleting.
+    do {
+        resetSeams()
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        LiveSessionViewModel.preloadModel = { _ in nil }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings("qwen3.5:9b")
+        settings.availableModels = [
+            OllamaModel(name: "qwen3.5:9b", size: 6_600_000_000, parameterSize: "9B"),
+            OllamaModel(name: "custom-gemma:2b", size: 2_000_000_000, parameterSize: "2B")
+        ]
+        // Simulate qwen3.5:9b deletion in flight
+        settings.deletingModel = "qwen3.5:9b"
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+
+        check(vm.sessionModelState?.pinnedModel == "custom-gemma:2b",
+              "session activation falls back to custom installed model when selected model is deleting",
+              "pinned: \(String(describing: vm.sessionModelState?.pinnedModel))")
+
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
     // Multilingual review content keeps the parser's five English headers,
     // while legacy files (no Language header) ask for dominant-language output.
     let spanishPrompt = PromptBuilder.buildPostCallReviewPrompt(

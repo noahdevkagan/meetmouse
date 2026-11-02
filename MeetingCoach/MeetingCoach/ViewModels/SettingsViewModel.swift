@@ -58,6 +58,8 @@ final class SettingsViewModel {
     var hasCheckedModels: Bool = false
     var useMock: Bool = false
     var showModelCatalog: Bool = false
+    var deletingModel: String?
+    var deletionError: String?
 
     /// Global selection, resolved and snapshotted by LiveSessionViewModel at
     /// meeting start. Changing it begins the needed download but never mutates
@@ -498,16 +500,99 @@ final class SettingsViewModel {
         downloadStatus = ""
     }
 
-    func deleteModel(_ name: String) async {
+    func deleteModel(_ name: String, canDelete: (() -> (allowed: Bool, reason: String?))? = nil) async {
+        guard deletingModel == nil else { return }
+
+        // Re-check ownership atomically on the main actor before reserving deletion
+        if let canDelete {
+            let check = canDelete()
+            guard check.allowed else {
+                deletionError = check.reason ?? "Cannot delete \(name): it is in use by your active meeting."
+                return
+            }
+        }
+
+        deletingModel = name
+        deletionError = nil
+        defer { deletingModel = nil }
+
+        if let manager = ollamaManager {
+            guard await manager.ensureRunning() else {
+                deletionError = "Could not start the local AI engine. Make sure Ollama can run on your Mac, then try again."
+                return
+            }
+        }
+
+        let previousSelection = selectedModel
         let client = OllamaClient(model: name)
+
+        var deletionConfirmed = false
+        var engineReachableAfterDelete = false
+        var freshModels: [OllamaModel] = []
+
         do {
             try await client.deleteModel(name: name)
-            await refreshModels()
-            if selectedModel == name {
+            deletionConfirmed = true
+        } catch let ollamaError as OllamaError {
+            // Ollama server explicitly responded with an error (e.g. model not found, invalid name)
+            deletionError = "Failed to delete: \(ollamaError.localizedDescription)"
+            return
+        } catch {
+            // Transport / network failure (connection dropped, timeout, etc.)
+            // Check for lost deletion response: query the engine directly to verify if the model was deleted
+            do {
+                let checkList = try await client.listModels()
+                engineReachableAfterDelete = true
+                freshModels = checkList
+                if !checkList.contains(where: { $0.name == name }) {
+                    // Ollama executed the deletion, but response was lost in transport
+                    deletionConfirmed = true
+                } else {
+                    // Model is still present; deletion definitely failed
+                    deletionError = "Failed to delete: \(error.localizedDescription)"
+                    return
+                }
+            } catch {
+                // Both delete and listModels failed — outcome is uncertain
+                deletionError = "Could not confirm whether '\(name)' was deleted because the engine did not respond. Check your engine connection."
+                return
+            }
+        }
+
+        guard deletionConfirmed else { return }
+
+        // Reconcile installed list directly from the engine
+        if !engineReachableAfterDelete {
+            do {
+                freshModels = try await client.listModels()
+                engineReachableAfterDelete = true
+            } catch {
+                engineReachableAfterDelete = false
+            }
+        }
+
+        if engineReachableAfterDelete {
+            ollamaReachable = true
+            availableModels = freshModels.filter { $0.name != name }
+        } else {
+            // Deletion succeeded, but post-delete refresh failed.
+            // Do NOT fall back to installedModelsOnDisk() — that could be an adopted system Ollama
+            // or stale files, which would corrupt selection.
+            availableModels.removeAll { $0.name == name }
+            deletionError = "Model '\(name)' was deleted, but MeetMouse could not refresh the model list from the engine."
+        }
+
+        // Reconcile selection if the deleted model was selected
+        if selectedModel == name || (selectedModel == previousSelection && previousSelection == name) {
+            let fitting = availableModels.filter { ModelMemory.fits($0) }
+            if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
+                selectedModel = recommended.name
+            } else if let smallest = fitting.min(by: { $0.size < $1.size }) {
+                selectedModel = smallest.name
+            } else {
                 selectedModel = availableModels.first?.name ?? ""
             }
-        } catch {
-            downloadError = "Failed to delete: \(error.localizedDescription)"
+            save()
         }
     }
 

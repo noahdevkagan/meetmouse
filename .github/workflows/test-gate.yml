@@ -77,6 +77,7 @@ jobs:
           bash tests/rubric/run.sh
           bash tests/detector/run.sh
           bash tests/ai/run.sh
+          bash tests/model/run.sh
           bash tests/session/run.sh
           bash tests/demo/run.sh
           bash tests/granola/run.sh

@@ -519,9 +519,16 @@ actor OllamaClient {
         request.httpMethod = "DELETE"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["name": name])
-        let (_, response) = try await URLSession.shared.data(for: request)
-        if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let errorMsg = json["error"] as? String, !errorMsg.isEmpty {
+                throw OllamaError.serverError(errorMsg)
+            }
+            throw OllamaError.serverError("Server returned status \(http.statusCode)")
         }
     }
 

@@ -2047,3 +2047,38 @@ its audio to another device than the Mac default. Follow-ups to evaluate
 with real recordings: a relative (mic vs system) energy gate, and holding a
 mic commit up to ~2 s while the far side is active so EchoFilter sees the
 far partials. Manual check: tests/calls-manual.md scenario 8.
+
+## 2026-11-02 — Confirmed model deletion with in-use protection (#55)
+
+User report (#55): unable to delete installed local model in pt-BR environment.
+Root causes: (1) `deleteModel` sent HTTP DELETE without starting Ollama first
+when idle, causing immediate connection failure; (2) deletion errors were stored
+in `downloadError` rendered outside the modal sheet, leaving the user with no
+feedback; (3) replacement selection after deleting the active model was not saved
+to UserDefaults; (4) no protection prevented deleting a model pinned by a meeting
+or post-meeting recap.
+
+Decision:
+- Require explicit confirmation dialog naming the model before deletion: multi-gigabyte
+  models are costly to re-download on slower connections.
+- Block deletion and display an explanatory alert/notice if the model is actively
+  in use by an ongoing meeting or post-meeting recap notes, or while a meeting is
+  preparing.
+- Atomic ownership re-check in `SettingsViewModel.deleteModel` on `@MainActor`
+  prevents race conditions with meeting activation or note recaps.
+- Ensure the engine is running via `ollamaManager.ensureRunning()` before issuing
+  the delete command.
+- Display in-progress spinner and actionable errors directly inside `ModelCatalogView`.
+- Lost-response recovery: if a transport failure occurs, query the engine directly;
+  if the model was already deleted by Ollama, confirm the deletion rather than reporting
+  a false failure. If both queries fail, report the outcome as uncertain.
+- No silent store fallback on refresh: query the engine directly; if list refresh fails,
+  do not fall back to the app's internal manifests directory (which could clobber an
+  adopted system Ollama store or stale files), and surface a reconciliation notice.
+- Reconcile selection after deleting the active model using the memory-aware
+  fallback policy (recommended fitting model -> smallest fitting -> first remaining -> "")
+  and persist to UserDefaults via `save()`.
+- During concurrent deletion of the selected model, session activation and recap notes
+  pick the best alternative from remaining installed models (including custom models),
+  avoiding false degradation to basic mode.
+- Regression suite `tests/model/run.sh` wired into `push-gate.sh` and CI `test-gate.yml`.
