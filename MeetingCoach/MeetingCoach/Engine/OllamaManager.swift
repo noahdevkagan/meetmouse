@@ -28,7 +28,8 @@ final class OllamaManager {
     }
 
     private var process: Process?
-    private let port: Int = 11434
+    private var activePort: Int?
+    private var reusedSharedEngine = false
     private let logger = Logger(subsystem: "com.coach.MeetingCoach", category: "OllamaManager")
 
     /// Last time the engine was auto-restarted after dying unexpectedly.
@@ -71,8 +72,7 @@ final class OllamaManager {
     /// Data directory for models — stored in Application Support so models
     /// persist across app updates.
     private var modelsDir: URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return appSupport.appendingPathComponent("MeetingCoach/ollama")
+        OllamaLocalEndpoint.modelsDirectory
     }
 
     /// True when the app's own model store has at least one pulled model.
@@ -82,55 +82,73 @@ final class OllamaManager {
         return !contents.isEmpty
     }
 
-    /// Start the embedded Ollama server.
+    /// Start the embedded Ollama server on an OS-assigned ephemeral loopback port.
     func start() {
         guard status != .running && status != .starting else { return }
 
-        // A server already on our port can be a leftover embedded engine
-        // (which serves our models) or a system Ollama (which usually
-        // doesn't). Use it only when it actually has models to offer, or
-        // when we have none of our own either. Otherwise the app would bind
-        // to an empty server and wrongly re-show model onboarding while
-        // 20+ GB of pulled models sit unused in our store.
-        if let systemModels = systemOllamaModelCount() {
-            if systemModels > 0 || !appHasLocalModels {
-                logger.info("Using ollama already on port \(self.port) (\(systemModels) models)")
-                status = .running
+        // Coexistence check: if a MeetMouse-managed server is already running
+        // (e.g. spawned by /Applications/MeetMouse.app or a previous window),
+        // check whether it answers on its recorded ephemeral port.
+        if let existing = OllamaLocalEndpoint.existingManagedServer() {
+            if isServerResponding(port: existing.port) {
+                logger.info("Using existing MeetMouse ollama on port \(existing.port) (PID \(existing.pid))")
+                OllamaLocalEndpoint.setActivePort(existing.port)
+                self.activePort = existing.port
+                self.reusedSharedEngine = true
+                self.status = .running
                 return
             }
-            status = .error("Another Ollama is running without your models — quit Ollama.app (or `brew services stop ollama`), then Retry.")
+            // Stale server record from a previous crash — clean it up
+            OllamaLocalEndpoint.clearServerState(matchingPID: existing.pid)
+            OllamaLocalEndpoint.setActivePort(nil)
+        }
+
+        guard let embedded = embeddedOllamaURL, let dir = ollamaDir else {
+            // Unvendored dev builds fall back to a system Ollama on 127.0.0.1:11434 without spawning.
+            if isServerResponding(port: 11434) {
+                logger.info("Dev build without embedded runtime: connected to system Ollama on 127.0.0.1:11434")
+                OllamaLocalEndpoint.setActivePort(11434)
+                self.activePort = 11434
+                self.reusedSharedEngine = true
+                self.status = .running
+                return
+            }
+            logger.info("Dev build without embedded runtime: no system Ollama responding on 127.0.0.1:11434")
+            status = .error("Local AI engine not running on 127.0.0.1:11434. Start Ollama or run scripts/vendor-ollama.sh.")
             return
         }
 
-        guard let ollamaBin = embeddedOllamaURL, let ollamaDir = ollamaDir else {
-            NSLog("[OllamaManager] No embedded ollama and no system ollama")
-            status = .error("Ollama not running. Start Ollama.app first.")
+        let binaryURL = embedded
+        let workingDir = dir
+        let port: Int
+        do {
+            port = try OllamaLocalEndpoint.allocateEphemeralPort()
+        } catch {
+            status = .error("Could not allocate port for local AI engine: \(error.localizedDescription)")
             return
         }
-        logger.info("Found embedded ollama at: \(ollamaBin.path)")
 
         status = .starting
 
         // Ensure models directory exists
         try? FileManager.default.createDirectory(at: modelsDir, withIntermediateDirectories: true)
 
-        // Make binaries executable (in case code signing stripped permissions)
-        for bin in ["ollama", "llama-server", "llama-quantize"] {
-            let path = ollamaDir.appendingPathComponent(bin).path
-            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path)
+        // Make binaries executable if in bundle (in case code signing stripped permissions)
+        if let dir = ollamaDir {
+            for bin in ["ollama", "llama-server", "llama-quantize"] {
+                let path = dir.appendingPathComponent(bin).path
+                try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path)
+            }
         }
 
         let proc = Process()
-        proc.executableURL = ollamaBin
+        proc.executableURL = binaryURL
         proc.arguments = ["serve"]
-        proc.currentDirectoryURL = ollamaDir
-        proc.environment = [
+        if let workingDir { proc.currentDirectoryURL = workingDir }
+
+        var env = [
             "OLLAMA_HOST": "127.0.0.1:\(port)",
             "OLLAMA_MODELS": modelsDir.path,
-            "OLLAMA_LLM_LIBRARY": ollamaDir.path,
-            // DYLD_LIBRARY_PATH may be stripped by SIP, so also set runner paths
-            "DYLD_LIBRARY_PATH": ollamaDir.path,
-            "PATH": ollamaDir.path + ":/usr/bin:/bin",
             "HOME": NSHomeDirectory(),
             "TMPDIR": NSTemporaryDirectory(),
             // Memory posture: the app sends exactly one request at a time
@@ -144,6 +162,13 @@ final class OllamaManager {
             "OLLAMA_FLASH_ATTENTION": "1",
             "OLLAMA_KV_CACHE_TYPE": "q8_0",
         ]
+        if let dir = workingDir {
+            env["OLLAMA_LLM_LIBRARY"] = dir.path
+            // DYLD_LIBRARY_PATH may be stripped by SIP, so also set runner paths
+            env["DYLD_LIBRARY_PATH"] = dir.path
+            env["PATH"] = dir.path + ":/usr/bin:/bin"
+        }
+        proc.environment = env
 
         // Log file for ollama output (helpful for debugging)
         let logFile = modelsDir.appendingPathComponent("ollama.log")
@@ -156,9 +181,14 @@ final class OllamaManager {
             logHandle?.closeFile()
             Task { @MainActor in
                 guard let self else { return }
+                OllamaLocalEndpoint.clearServerState(matchingPID: process.processIdentifier)
+                OllamaLocalEndpoint.setActivePort(nil)
+                self.process = nil
+                self.activePort = nil
+                self.reusedSharedEngine = false
+
                 guard self.status == .running || self.status == .starting else { return }
                 self.logger.warning("Embedded ollama terminated (code \(process.terminationStatus))")
-                self.process = nil
 
                 // Unexpected death (external kill, engine blip): restart
                 // once per window before bothering the user.
@@ -171,26 +201,26 @@ final class OllamaManager {
                     return
                 }
 
-                // Second death inside the window — fall back or surface it.
-                if let systemModels = self.systemOllamaModelCount(), systemModels > 0 {
-                    self.logger.info("Falling back to system ollama")
-                    self.status = .running
-                } else {
-                    self.status = .error("Local AI engine stopped — instant nudges still work. Retry restores AI nudges.")
-                }
+                self.status = .error("Local AI engine stopped — instant nudges still work. Retry restores AI nudges.")
             }
         }
 
         do {
             try proc.run()
             self.process = proc
-            logger.info("Started embedded ollama (PID \(proc.processIdentifier))")
+            self.activePort = port
+            self.reusedSharedEngine = false
+            OllamaLocalEndpoint.setActivePort(port)
+            OllamaLocalEndpoint.writeServerState(pid: proc.processIdentifier, port: port)
+            logger.info("Started embedded ollama (PID \(proc.processIdentifier)) on port \(port)")
 
             // Poll until the server is ready
             Task {
                 await waitForReady()
             }
         } catch {
+            OllamaLocalEndpoint.setActivePort(nil)
+            OllamaLocalEndpoint.clearServerState()
             status = .error("Failed to start: \(error.localizedDescription)")
             logger.error("Failed to start ollama: \(error)")
         }
@@ -202,8 +232,6 @@ final class OllamaManager {
     /// Returns false if the engine can't come up within ~15s.
     func ensureRunning() async -> Bool {
         if status == .running {
-            // A previously-detected server may have died since (e.g. the
-            // user quit Ollama.app) — verify before trusting the status.
             if await OllamaClient().isReachable() { return true }
             status = .stopped
         }
@@ -222,53 +250,28 @@ final class OllamaManager {
 
     /// Stop the embedded Ollama server. Only called at app termination.
     func stop() {
+        if reusedSharedEngine {
+            logger.info("Releasing shared MeetMouse ollama without terminating it")
+            reusedSharedEngine = false
+            activePort = nil
+            OllamaLocalEndpoint.setActivePort(nil)
+            status = .stopped
+            return
+        }
         guard let proc = process, proc.isRunning else {
-            // Adopted engine (system Ollama / leftover) — we can't stop it,
-            // but quitting must not leave our multi-GB model pinned in
-            // someone else's process for the rest of its keep_alive.
-            releaseAdoptedModels()
+            process = nil
+            activePort = nil
+            OllamaLocalEndpoint.setActivePort(nil)
             status = .stopped
             return
         }
         logger.info("Stopping embedded ollama (PID \(proc.processIdentifier))")
+        OllamaLocalEndpoint.clearServerState(matchingPID: proc.processIdentifier)
+        OllamaLocalEndpoint.setActivePort(nil)
         proc.terminate()
         process = nil
+        activePort = nil
         status = .stopped
-    }
-
-    /// Best-effort synchronous model eviction from an engine we didn't
-    /// spawn. Runs during willTerminate, so every request gets a hard
-    /// sub-second budget — a hung engine must not stall quit.
-    private func releaseAdoptedModels() {
-        let base = URL(string: "http://127.0.0.1:\(port)")!
-        guard let data = Self.blockingRequest(URLRequest(url: base.appendingPathComponent("api/ps"))),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let models = json["models"] as? [[String: Any]], !models.isEmpty else { return }
-        for name in models.compactMap({ $0["name"] as? String }) {
-            var req = URLRequest(url: base.appendingPathComponent("api/generate"))
-            req.httpMethod = "POST"
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.httpBody = try? JSONSerialization.data(withJSONObject: [
-                "model": name, "keep_alive": 0,
-            ])
-            _ = Self.blockingRequest(req)
-            logger.info("Released adopted-engine model \(name)")
-        }
-    }
-
-    /// A loopback HTTP call that blocks the caller for at most ~0.8s.
-    private static func blockingRequest(_ request: URLRequest) -> Data? {
-        final class Box: @unchecked Sendable { var data: Data? }
-        var request = request
-        request.timeoutInterval = 0.8
-        let box = Box()
-        let done = DispatchSemaphore(value: 0)
-        URLSession.shared.dataTask(with: request) { data, _, _ in
-            box.data = data
-            done.signal()
-        }.resume()
-        guard done.wait(timeout: .now() + 1) == .success else { return nil }
-        return box.data
     }
 
     /// Poll until Ollama responds on its API port.
@@ -289,24 +292,20 @@ final class OllamaManager {
         }
     }
 
-    /// nil when nothing answers on the port; otherwise how many models the
-    /// server there offers. Distinguishes a leftover embedded engine (has
-    /// our models) from a bare system Ollama (usually has none).
-    private func systemOllamaModelCount() -> Int? {
-        // Quick synchronous check — try to connect
-        guard let url = URL(string: "http://127.0.0.1:\(port)/api/tags") else { return nil }
+    /// Quick synchronous check to see if an existing server answers on the port.
+    private func isServerResponding(port: Int) -> Bool {
+        guard let url = URL(string: "http://127.0.0.1:\(port)/api/tags") else { return false }
         var request = URLRequest(url: url)
-        request.timeoutInterval = 1
-        var count: Int?
+        request.timeoutInterval = 0.8
+        var responding = false
         let sem = DispatchSemaphore(value: 0)
-        URLSession.shared.dataTask(with: request) { data, _, _ in
-            if let data,
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                count = (json["models"] as? [[String: Any]])?.count ?? 0
+        URLSession.shared.dataTask(with: request) { _, response, _ in
+            if let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) {
+                responding = true
             }
             sem.signal()
         }.resume()
-        sem.wait()
-        return count
+        _ = sem.wait(timeout: .now() + 1.0)
+        return responding
     }
 }

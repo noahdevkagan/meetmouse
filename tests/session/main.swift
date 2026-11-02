@@ -262,7 +262,7 @@ func runTests() async {
         }
         check(!savedFile.isEmpty, "session file written to the scratch folder")
         check(body.contains("still pending"), "saved session includes the pending tail")
-        check(body.contains("**Language:** en"),
+        check(body.contains("**Language:** \(MeetingLanguageSelection.current.resolved().language.rawValue)"),
               "saved session persists resolved ISO language")
         check(savedFile.first?.isNumber == true && savedFile.contains("T"),
               "date-led AI-toolable filename", "got \(savedFile)")
@@ -1807,6 +1807,144 @@ func runTests() async {
               "adjacent turns do not discard solo speech")
         check(VoiceClipSelection.soloRanges(start: 2, end: 2, excluding: []).isEmpty,
               "empty speech produces no clip")
+    }
+
+    // Ephemeral port allocation and OllamaLocalEndpoint isolation
+    do {
+        let port1 = try OllamaLocalEndpoint.allocateEphemeralPort()
+        let port2 = try OllamaLocalEndpoint.allocateEphemeralPort()
+        check((1024...65535).contains(port1), "ephemeral port in valid range", "got \(port1)")
+        check(port1 != 11434, "ephemeral port never collides with standalone default 11434")
+        check(port1 != port2, "sequential ephemeral ports allocate cleanly", "\(port1) vs \(port2)")
+
+        let client = OllamaClient(model: "qwen3.5:9b")
+        do {
+            _ = try await client.listModels()
+            check(false, "OllamaClient must fail with notRunning when no managed server is active")
+        } catch let err as OllamaError {
+            check(err == .notRunning, "OllamaClient throws OllamaError.notRunning without probing 11434")
+        } catch {
+            check(false, "unexpected error type: \(error)")
+        }
+
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mc_endpoint_test_\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        OllamaLocalEndpoint.configureForTesting(modelsDirectory: tempDir) { _ in
+            return "/usr/local/bin/ollama"
+        }
+
+        let myPid = ProcessInfo.processInfo.processIdentifier
+        OllamaLocalEndpoint.writeServerState(pid: myPid, port: port1)
+        check(OllamaLocalEndpoint.existingManagedServer()?.port == port1,
+              "existingManagedServer discovers valid active managed pid and port")
+        check(OllamaLocalEndpoint.activeURL() == URL(string: "http://127.0.0.1:\(port1)"),
+              "activeURL reflects recorded managed server port")
+
+        // Rejects standalone port 11434
+        OllamaLocalEndpoint.writeServerState(pid: myPid, port: 11434)
+        check(OllamaLocalEndpoint.existingManagedServer() == nil,
+              "existingManagedServer rejects default standalone port 11434")
+
+        // Rejects non-ollama process
+        OllamaLocalEndpoint.configureForTesting(modelsDirectory: tempDir) { _ in
+            return "/bin/zsh"
+        }
+        OllamaLocalEndpoint.writeServerState(pid: myPid, port: port1)
+        check(OllamaLocalEndpoint.existingManagedServer() == nil,
+              "existingManagedServer rejects non-ollama process")
+
+        OllamaLocalEndpoint.clearServerState(matchingPID: myPid)
+        check(OllamaLocalEndpoint.existingManagedServer() == nil,
+              "clearServerState removes pid and port files")
+
+        // Passive dev fallback on port 11434 sets activeURL
+        OllamaLocalEndpoint.setActivePort(11434)
+        check(OllamaLocalEndpoint.activeURL() == URL(string: "http://127.0.0.1:11434"),
+              "setActivePort(11434) sets activeURL for passive dev fallback")
+        OllamaLocalEndpoint.setActivePort(nil)
+        check(OllamaLocalEndpoint.activeURL() == nil,
+              "setActivePort(nil) clears activeURL")
+
+        OllamaLocalEndpoint.configureForTesting(modelsDirectory: nil)
+    } catch {
+        check(false, "OllamaLocalEndpoint test threw error", error.localizedDescription)
+    }
+
+    // Fresh install with empty store: settles deterministic with NO false low memory banner
+    do {
+        resetSeams()
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings()
+        settings.availableModels = []
+        settings.hasExplicitModelSelection = false
+        settings.selectedModel = "qwen3.5:9b"
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == nil,
+              "fresh install settles deterministic")
+        check(vm.basicModeNotice == nil,
+              "fresh install with empty store shows no false low-memory warning banner")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // Saved model vanished leaving 0 models: surfaces vanished model warning
+    do {
+        resetSeams()
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings()
+        settings.availableModels = []
+        settings.hasExplicitModelSelection = true
+        settings.selectedModel = "qwen3.5:9b"
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == nil,
+              "vanished model settles deterministic")
+        check(vm.basicModeNotice?.cause == "model unavailable",
+              "vanished model surfaces model unavailable notice")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // Missing model when other models exist: silently switches to fallback and pins it
+    do {
+        resetSeams()
+        var preloaded: [String] = []
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        LiveSessionViewModel.preloadModel = { preloaded.append($0); return nil }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings("qwen3.5:9b")
+        settings.availableModels = [installed("granite4:3b", 2.1)]
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(settings.selectedModel == "granite4:3b",
+              "reconcileSelectedModel updates selectedModel to fallback installed model")
+        check(vm.sessionModelState?.pinnedModel == "granite4:3b",
+              "session pins the fallback installed model")
+        check(preloaded == ["granite4:3b"],
+              "preloads the fallback installed model")
+        check(vm.basicModeNotice == nil,
+              "no error notice when fallback model loads successfully")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // Deleting the final model resets explicit selection and avoids false vanished-model warning
+    do {
+        let settings = liveSettings("granite4:3b")
+        settings.availableModels = []
+        settings.hasCheckedModels = true
+        // Simulates deleteModel() when store becomes empty
+        settings.selectedModel = recommendedCatalogModel.fullName
+        settings.hasExplicitModelSelection = false
+        check(!settings.hasExplicitModelSelection, "deleting final model clears explicit selection")
+        check(!settings.isSavedModelVanished, "deleting final model does not show false vanished model warning")
     }
 
     resetSeams()

@@ -2047,3 +2047,12 @@ its audio to another device than the Mac default. Follow-ups to evaluate
 with real recordings: a relative (mic vs system) energy gate, and holding a
 mic commit up to ~2 s while the far side is active so EchoFilter sees the
 far partials. Manual check: tests/calls-manual.md scenario 8.
+
+## 2026-11-01: Ephemeral loopback port for managed Ollama; automatic fallback on missing model
+
+1. **Embedded Ollama port isolation (Issue #53):**
+   Previously, MeetMouse ran or adopted an Ollama instance on the fixed default port `11434`. When a user ran standalone Ollama on `11434` with different models installed, MeetMouse's model dropdown went blank, models could be evicted, and port collisions occurred.
+   Decision: MeetMouse's managed local engine now binds strictly to an OS-assigned ephemeral loopback port (`127.0.0.1:<port>`, `!= 11434`) coordinated via `ollama.pid` and `ollama.port` in Application Support. It never probes, adopts, or interferes with external Ollama instances on `11434`. Unvendored dev builds connect passively to `127.0.0.1:11434` when already running (`setActivePort(11434)`) without spawning external binaries.
+2. **Missing model fallback policy:**
+   When an active model is removed from disk or missing, MeetMouse automatically falls back to the RAM-aware installed model (`SettingsViewModel.fallbackInstalledModel`), updating `selectedModel` and the Model dropdown silently with no warning banner so AI coaching and notes keep working uninterrupted.
+   If all models are removed after an explicit selection was saved, an orange warning banner alerts the user that the saved model vanished, and coaching falls back to deterministic built-in signals. Deleting the final installed model in MeetMouse resets explicit selection to clean onboarding state without a false vanished-model warning. On clean fresh installs, no missing-model or false low-memory warning is shown.
