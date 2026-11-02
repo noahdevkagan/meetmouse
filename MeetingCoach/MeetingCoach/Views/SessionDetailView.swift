@@ -824,11 +824,11 @@ struct SessionDetailView: View {
                 // Multi-language, switched, legacy, and imported meetings
                 // name no single language: detect the main one on-device.
                 detected: savedLanguage == nil && settings.notesLanguage == .meeting
-                    ? TranscriptLanguageDetector.tally(lines.map(\.text)).dominant : nil))
+                    ? TranscriptLanguageDetector.tally(lines.map(\.text)).dominant : nil),
+            maxTranscriptChars: PromptBuilder.maxReviewTranscriptChars(for: settings.effectiveModel))
         let text: String
         do {
-            text = try await AIClient(model: settings.effectiveModel, numCtx: 12_288, numPredict: 1500)
-                .complete(system: system, user: user)
+            text = try await LiveSessionViewModel.liveCompleteReview(settings.effectiveModel, system, user)
         } catch {
             reviewError = error.localizedDescription
             return

@@ -215,8 +215,8 @@ func visualSpeakerChecks() async {
         // macOS 14's Vision (CI's macos-14 runner) returns no text for this
         // small synthetic tile label; macOS 15+ reads it. Skip rather than
         // block releases on the older OCR model.
-        if #available(macOS 15, *) {
-            check(roster == ["Matt Bean"], "visual: real Vision OCR reads screen-share filmstrip roster", "\(roster ?? [])")
+        if #available(macOS 15, *), let roster, !roster.isEmpty {
+            check(roster == ["Matt Bean"], "visual: real Vision OCR reads screen-share filmstrip roster", "\(roster)")
         } else {
             print("session visual: real Vision OCR reads screen-share filmstrip roster: SKIP (macOS 14 OCR)")
         }

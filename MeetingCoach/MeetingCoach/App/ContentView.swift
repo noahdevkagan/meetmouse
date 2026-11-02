@@ -2943,7 +2943,7 @@ struct WelcomeSheet: View {
                 .frame(width: 72, height: 72)
             Text("Welcome to MeetMouse")
                 .font(.title2.bold())
-            Text("A live transcript and recap for every meeting — zero setup. The coach stays quiet unless something's genuinely worth saying. Transcription runs on your Mac. AI is local by default, with optional Claude or OpenAI in Settings.")
+            Text("A live transcript and recap for every meeting — zero setup. The coach stays quiet unless something's genuinely worth saying. Transcription runs on your Mac. AI is local by default, with optional Claude, OpenAI, or Gemini in Settings.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: 400)

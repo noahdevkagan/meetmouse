@@ -9,6 +9,9 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Add Google Gemini to Settings → AI: connect your own API key from Google AI Studio to run meeting recaps, coaching, and Q&A on Gemini 3.5 Flash-Lite or Gemini 3.8 Flash. Audio and transcription remain 100% on your Mac; meeting text is shared only after you opt in, and keys are stored in this Mac's Keychain.
+- Automatic full-context meeting notes: meetings on Macs with 24 GB+ RAM and calls on cloud AI providers now automatically summarize longer transcripts (up to 2–4 hours locally, up to 10–40 hours on cloud models) without cutting out middle sections.
+
 ## 0.33.1 — 2026-10-27
 
 - When a call plays through your Mac's built-in speakers, MeetMouse now shows a one-line tip to use headphones. Without them your mic also hears the other side, so their words can show up as yours or both sides can blend into one block. Dismiss it with the x for that meeting.
