@@ -452,7 +452,9 @@ final class LiveSessionViewModel {
         // monitors expose only a cooldown knob, and the semantic coach
         // scales its per-signal cooldowns from the same value.
         focusTypes = FocusGoals.activeTypes()
-        var tuning = rubric.builtins
+        // Field tuning: thresholds learned across opted-in users by the weekly
+        // improve loop (Engine/FieldTuning.swift). Empty table = no change.
+        var tuning = FieldTuning.applied(to: rubric.builtins)
         for type in focusTypes {
             var t = tuning[type.rawValue] ?? SignalTuning()
             t.thresholdMultiplier *= FocusGoals.sensitivityBoost
@@ -865,6 +867,24 @@ final class LiveSessionViewModel {
 
         // Process feedback to adapt thresholds for next session
         AdaptiveThresholds.processSessionFeedback(nudges)
+
+        // Opt-in coaching feedback (Settings → General → "Help improve
+        // coaching", off by default): rated nudges as ids and numbers only.
+        // A no-op unless the user turned it on.
+        let rated = nudges.compactMap { nudge -> FeedbackLedger.RatedNudge? in
+            guard let feedback = nudge.feedback else { return nil }
+            return FeedbackLedger.RatedNudge(signalKey: nudge.typeKey, rating: feedback.rawValue,
+                                             timestamp: nudge.timestamp)
+        }
+        if !rated.isEmpty {
+            let samples = (signalEngine?.turns ?? []).map {
+                FeedbackLedger.TurnSample(isYou: $0.isYou, isStructural: $0.speaker == "Meeting",
+                                          t: $0.t, endT: $0.endT, words: $0.wordCount)
+            }
+            FeedbackReporter.record(rated, meetingType: sessionContext.effectiveMeetingType.rawValue,
+                                    turns: samples)
+            Task.detached(priority: .utility) { await FeedbackReporter.sendIfDue() }
+        }
 
         saveSession()
 

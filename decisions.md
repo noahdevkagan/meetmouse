@@ -2062,3 +2062,32 @@ numbers. The website strip reads aggregate totals from /api/stats and hides
 itself below thresholds so a small number never shows. Training on user
 content is deliberately NOT part of this: that would need a separate,
 per-item consent flow.
+
+## 2026-11-02 — Coaching feedback opt-in + weekly improve loop
+
+Noah wants both apps to "keep improving without me". Usage counts can't
+tune coaching, so a SECOND opt-in, separate from counts and also OFF by
+default: "Help improve coaching". It shares only what the user already
+rated in-app (useful / annoying / wrong): the built-in signal key, rating,
+minute, meeting type id, and three rounded numbers about the moment (your
+talk share so far, your last turn's length, turns so far). No text of any
+kind. Custom rubric signals are sent as the bare word "custom" because
+their ids are text the user wrote. Unrated nudges are not sent; ignores
+stay local. Opt-out wipes the queue and ID and asks the server to delete
+rows; the server purges everything after 180 days regardless.
+
+Training on transcripts or audio was rejected: the other side of the call
+never consented, and the coaching tuning needs only ratings.
+
+What "improving" means here: `Engine/FieldTuning.swift`, a per-signal
+multiplier on threshold AND cooldown (same reach as AdaptiveThresholds),
+folded into the rubric at session start. A weekly workflow reads the
+aggregate (signals rated by >=5 distinct installs, Bearer ADMIN_TOKEN) and
+`scripts/improve/propose.py` moves each value at most +10% (relax, when
+<50% helpful) or -5% (tighten, when >75% with >=40 ratings) per week,
+clamped 0.67–1.5, flags <30% helpful for a human, and opens a PR only after
+the app builds and tests/feedback, tests/nudges and tests/rubric pass. It
+never merges and never disables a signal: shipping a behaviour change
+stays a human decision, and a bad week can only move things 10%. The
+golden nudge replay keeps testing stock behaviour because field tuning is
+applied in the view model, not the engine.

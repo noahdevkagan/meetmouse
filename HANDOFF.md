@@ -5,6 +5,40 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-02, later): Opt-in coaching feedback + weekly improve loop — built, pushed (CI is the Swift gate)
+
+Noah: "do both so apps can keep improving without me". Second, SEPARATE
+opt-in (decisions.md 2026-11-02 "coaching feedback"). Plan:
+1. App: nudges already take useful/annoying/wrong feedback (overlay + feed).
+   New toggle `shareCoachingFeedback` (off by default, independent of usage
+   counts). At session end every rated nudge is queued locally as
+   {signal key, rating, minute, numeric context: your talk share so far, your
+   last turn length, turns so far, meeting type id} — no text. Daily POST to
+   https://meetmouse.com/api/feedback (`Engine/FeedbackReporter.swift`).
+   Settings shows pending count + Delete all; opt-out wipes queue + ID and
+   asks the server to delete rows. Debug never sends without
+   MEETMOUSE_USAGE_DEBUG=1.
+2. Field tuning: `Engine/FieldTuning.swift` ships per-signal threshold
+   multipliers learned across opted-in users (clamped 0.67–1.5), applied on
+   top of the rubric at session start. Golden replay stays stock (engine
+   untouched) so tests/nudges still pins signal behavior.
+3. Worker: migration 0004 `feedback_events`, POST /api/feedback (validated,
+   rate-limited), DELETE /api/feedback/<installId>, 180-day purge in the daily
+   cron, GET /api/admin/feedback-summary (Bearer ADMIN_TOKEN, signals with
+   >=5 distinct installs only).
+4. Loop: `.github/workflows/improve-weekly.yml` → `scripts/improve/propose.py`
+   reads the summary, moves each signal's field multiplier <=10%/week, flags
+   <30% helpful, runs tests (feedback + nudges), opens a PR on
+   `claude/improve-<date>`. Never merges. No secret / no data → clean exit.
+Status: worker tests pass (32); propose.py self-test + an end-to-end dry run
+pass; scorecard shows field helpful rate. Swift (FeedbackReporter,
+FieldTuning, settings toggle, session-end hook, tests/feedback) NOT compiled
+here — CI Build Check is the first compile. Post-hoc ratings given in the
+saved-session view after a meeting ends are not queued (only ratings present
+when the session stops). Noah must: `cd web-share && npm run db:remote &&
+npx wrangler secret put ADMIN_TOKEN && npm run deploy`, then add the same
+value as repo secret FEEDBACK_ADMIN_TOKEN.
+
 ## Current state (2026-11-02): Opt-in anonymous usage stats — built, pushed (CI is the Swift gate)
 
 Noah asked for trust stats on the site (meetings, hours, downloads) and chose an

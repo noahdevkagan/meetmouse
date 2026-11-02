@@ -10,6 +10,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 ## Unreleased
 
 - New, off by default: Settings → General → "Share anonymous usage counts". Turn it on to help improve MeetMouse: once a day it sends how many meetings it coached, their total minutes and how many nudges it showed. Never audio, transcripts, notes, or who you met with. Turning it off deletes the random ID and anything not yet sent.
+- New, off by default and separate: Settings → General → "Help improve coaching". When you rate a nudge useful, annoying or wrong, MeetMouse can share that rating with the nudge type and a few numbers about the moment (your talk share, your last turn's length, the minute). Never audio, transcripts, notes, names, or your own rubric's signal names. Each week those ratings tune when nudges fire for everyone, as a reviewed update. Settings shows how many ratings are waiting, with Delete all; turning it off also asks our server to delete what was sent.
 
 ## 0.33.1 — 2026-10-27
 

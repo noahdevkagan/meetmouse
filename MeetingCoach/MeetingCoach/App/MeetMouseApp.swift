@@ -50,6 +50,8 @@ struct MeetMouseApp: App {
         Task.detached(priority: .background) {
             try? await Task.sleep(for: .seconds(60))
             await UsageReporter.sendIfDue()
+            // Separate opt-in: rated nudges for the weekly improve loop.
+            await FeedbackReporter.sendIfDue()
         }
 
         let badge = UpdateBadgeModel()

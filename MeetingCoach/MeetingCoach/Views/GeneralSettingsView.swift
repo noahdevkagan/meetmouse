@@ -88,6 +88,24 @@ struct GeneralSettingsView: View {
                 Text("Counts only \u{2014} never audio, transcripts, notes, or who you met with. Once a day MeetMouse sends how many meetings it coached, their total minutes and how many nudges it showed, with the app and macOS version and a random ID that resets when you turn this off. Off by default.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Toggle("Help improve coaching", isOn: $settings.shareCoachingFeedback)
+                Text("Shares which nudges you found helpful \u{2014} the nudge type and a few numbers like talk-time ratio. Never audio, transcripts, notes, or names. MeetMouse uses it to tune when nudges fire for everyone. Turning this off deletes what's waiting and asks our server to delete what was sent. Off by default.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if settings.shareCoachingFeedback {
+                    HStack {
+                        Text(settings.pendingCoachingFeedback == 1
+                             ? "1 rating waiting to send"
+                             : "\(settings.pendingCoachingFeedback) ratings waiting to send")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Delete all") { settings.deletePendingCoachingFeedback() }
+                            .disabled(settings.pendingCoachingFeedback == 0)
+                    }
+                    .onAppear { settings.refreshPendingCoachingFeedback() }
+                }
             }
 
             Section("Transcripts") {

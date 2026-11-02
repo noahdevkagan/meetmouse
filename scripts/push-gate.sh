@@ -127,6 +127,7 @@ bash tests/granola/run.sh || { echo "GRANOLA GATE FAILED"; exit 1; }
 bash tests/sharing/run.sh || { echo "WEB SHARING GATE FAILED"; exit 1; }
 bash tests/freetier/run.sh || { echo "FREE TIER GATE FAILED"; exit 1; }
 bash tests/usage/run.sh || { echo "USAGE STATS GATE FAILED"; exit 1; }
+bash tests/feedback/run.sh || { echo "COACHING FEEDBACK GATE FAILED"; exit 1; }
 
 echo "--- [4/4] ship scorecard (informational)"
 # Refresh the nudge-signal record from real saved sessions when this

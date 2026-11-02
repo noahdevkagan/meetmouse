@@ -142,6 +142,30 @@ final class SettingsViewModel {
         didSet { UsageLedger(defaults: .standard).setOptedIn(shareUsageStats) }
     }
 
+    /// Separate opt-in, default OFF: rated nudges as ids and numbers only
+    /// (see FeedbackLedger). Turning it off wipes the queue and the random
+    /// id and asks the server to delete what this Mac sent.
+    var shareCoachingFeedback: Bool {
+        didSet {
+            guard oldValue != shareCoachingFeedback else { return }
+            if let removed = FeedbackLedger(defaults: .standard).setOptedIn(shareCoachingFeedback) {
+                Task.detached(priority: .utility) { await FeedbackReporter.deleteRemote(installId: removed) }
+            }
+            pendingCoachingFeedback = FeedbackLedger(defaults: .standard).pendingCount
+        }
+    }
+    /// Rated nudges waiting to be sent — shown under the toggle.
+    var pendingCoachingFeedback: Int = 0
+
+    func deletePendingCoachingFeedback() {
+        FeedbackLedger(defaults: .standard).deletePending()
+        pendingCoachingFeedback = 0
+    }
+
+    func refreshPendingCoachingFeedback() {
+        pendingCoachingFeedback = FeedbackLedger(defaults: .standard).pendingCount
+    }
+
     // Download state
     var downloadingModel: String?
     var downloadProgress: Double = 0
@@ -162,6 +186,8 @@ final class SettingsViewModel {
         let storedLaunchAtLogin = UserDefaults.standard.object(forKey: "launchAtLogin") as? Bool
         self.launchAtLogin = storedLaunchAtLogin ?? true
         self.shareUsageStats = UsageLedger(defaults: .standard).isOptedIn
+        self.shareCoachingFeedback = FeedbackLedger(defaults: .standard).isOptedIn
+        self.pendingCoachingFeedback = FeedbackLedger(defaults: .standard).pendingCount
         // Fresh installs default to the RAM-aware recommendation — the old
         // one-size qwen3.5:9b default swapped 8–16 GB Macs into a freeze.
         self.selectedModel = UserDefaults.standard.string(forKey: "selectedModel")

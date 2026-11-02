@@ -1,0 +1,128 @@
+name: Improve coaching (weekly)
+
+# The self-improving loop (decisions.md 2026-11-02 "coaching feedback").
+# Reads the aggregate of opted-in users' nudge ratings (ids and numbers only)
+# from the web-share Worker, lets scripts/improve/propose.py nudge each
+# signal's field multiplier by a bounded step, proves the app still builds
+# and the nudge/feedback suites pass, then opens a PR with the evidence.
+# It NEVER merges: a human (or a reviewer you trust) approves each step.
+#
+# Needs repo secret FEEDBACK_ADMIN_TOKEN (same value as the Worker's
+# ADMIN_TOKEN). Without it, or without enough data, the run exits green
+# having changed nothing.
+
+on:
+  schedule:
+    - cron: "23 14 * * 1"   # Mondays 14:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: improve-weekly
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.propose.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Propose field-tuning changes
+        id: propose
+        env:
+          FEEDBACK_ADMIN_TOKEN: ${{ secrets.FEEDBACK_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/improve/propose.py \
+            --fetch https://meetmouse.com/api/admin/feedback-summary \
+            --token-env FEEDBACK_ADMIN_TOKEN \
+            --evidence evidence.md | tee propose.log
+          tail -1 propose.log >> "$GITHUB_OUTPUT"
+          if [ -f evidence.md ]; then cat evidence.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Hand the proposal to the verify job
+        if: steps.propose.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: proposal
+          path: |
+            MeetingCoach/MeetingCoach/Engine/FieldTuning.swift
+            bench/field-feedback.jsonl
+            evidence.md
+
+  verify-and-open-pr:
+    needs: propose
+    if: needs.propose.outputs.changed == 'true'
+    runs-on: macos-14
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: proposal
+          path: proposal
+
+      - name: Apply proposal
+        run: |
+          set -euo pipefail
+          cp proposal/MeetingCoach/MeetingCoach/Engine/FieldTuning.swift MeetingCoach/MeetingCoach/Engine/FieldTuning.swift
+          cp proposal/bench/field-feedback.jsonl bench/field-feedback.jsonl
+          git diff --stat
+
+      - name: Select Xcode 16
+        run: |
+          set -euo pipefail
+          XCODE_PATH="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)"
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          brew install xcodegen
+          cd MeetingCoach
+          xcodegen
+          xcodebuild -project MeetingCoach.xcodeproj -scheme MeetingCoach \
+            -configuration Debug -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build > build.log 2>&1 || { grep -E "(error|fatal error): " build.log | head -40; tail -60 build.log; exit 1; }
+          grep -m1 "BUILD SUCCEEDED" build.log
+
+      - name: Regression suites (must pass to open a PR)
+        run: |
+          set -euo pipefail
+          bash tests/feedback/run.sh
+          bash tests/nudges/run.sh
+          bash tests/rubric/run.sh
+
+      - name: Open PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          branch="claude/improve-$(date -u +%Y-%m-%d)"
+          git config user.name "meetmouse-improve-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add MeetingCoach/MeetingCoach/Engine/FieldTuning.swift bench/field-feedback.jsonl
+          git commit -m "Field tuning: weekly adjustment from opted-in coaching feedback"
+          git push -u origin "$branch"
+          {
+            cat proposal/evidence.md
+            echo
+            echo "Regression suites passed on macOS (feedback, nudges, rubric) and the app builds."
+            echo "Merging ships these multipliers in the next release. Nothing merges automatically."
+          } > body.md
+          gh pr create --base main --head "$branch" \
+            --title "Field tuning $(date -u +%Y-%m-%d): weekly coaching adjustment" \
+            --body-file body.md
+          # PRs opened with GITHUB_TOKEN don't trigger push CI; dispatch the gate.
+          gh workflow run test-gate.yml --ref "$branch" || true

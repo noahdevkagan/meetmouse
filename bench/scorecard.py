@@ -31,6 +31,9 @@ import transcription  # noqa: E402
 REPO = Path(__file__).resolve().parent.parent
 ASR_HISTORY = REPO / "bench" / "asr-history.jsonl"
 NUDGE_HISTORY = REPO / "bench" / "history.jsonl"
+# Written by the weekly improve loop (scripts/improve/propose.py) from
+# opted-in users' nudge ratings: per-signal helpful rate in the field.
+FIELD_HISTORY = REPO / "bench" / "field-feedback.jsonl"
 CORPUS_DIR = REPO / "bench" / "asr-corpus"
 
 
@@ -196,6 +199,24 @@ def main() -> int:
             md.append(f"| {name} | {p_s} | {fmt.format(c)} | |")
             if p is not None and worse(c, p):
                 warns.append(f"nudges: {name} regressed ({p_s} -> {fmt.format(c)})")
+
+    # ---- Field feedback (opted-in users' ratings, weekly improve loop) ----
+    field_history = load_history(FIELD_HISTORY)
+    if field_history:
+        curr = field_history[-1]
+        prev = field_history[-2] if len(field_history) > 1 else None
+        text.append("")
+        text.append(f"Field helpful rate (bench/field-feedback.jsonl, {curr.get('date', '?')[:10]})")
+        md += ["", "### Field helpful rate (opted-in ratings)",
+               "| signal | previous | current | multiplier |", "|---|---|---|---|"]
+        for key, rec in sorted(curr.get("signals", {}).items()):
+            c = rec.get("helpfulRate")
+            p = (prev or {}).get("signals", {}).get(key, {}).get("helpfulRate")
+            p_s = f"{p:.0%}" if p is not None else "n/a"
+            text.append(f"    {key:17s} {c:>6.0%}   (prev {p_s}, x{rec.get('multiplier', 1.0):.2f})")
+            md.append(f"| {key} | {p_s} | {c:.0%} | {rec.get('multiplier', 1.0):.2f} |")
+            if p is not None and c < p - 0.05:
+                warns.append(f"field: {key} helpful rate fell ({p_s} -> {c:.0%})")
 
     # ---- Verdict ----
     text.append("")

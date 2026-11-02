@@ -6,6 +6,9 @@ import {
   appSumoUrl, landingHTML, latestDMG, recordReferralClick, referralCount, referralRoute, statusHTML,
 } from "./referrals.js";
 import { MAX_USAGE_BYTES, recordDownload, storeUsage, usageStats, validateUsageReport } from "./usage.js";
+import {
+  MAX_FEEDBACK_BYTES, deleteFeedback, feedbackSummary, purgeOldFeedback, storeFeedback, validateFeedbackReport,
+} from "./feedback.js";
 
 export { shareIDFromPath, sha256Base64URL, validateCreateBody } from "./core.js";
 
@@ -182,6 +185,55 @@ async function receiveUsage(request, env) {
   return response(null, 204, { "Cache-Control": "no-store" });
 }
 
+async function readJSON(request, maxBytes) {
+  const declaredLength = Number(request.headers.get("content-length") ?? "0");
+  if (declaredLength > maxBytes) return { failure: error("Report is too large.", 413) };
+  const raw = await request.text();
+  if (new TextEncoder().encode(raw).byteLength > maxBytes) return { failure: error("Report is too large.", 413) };
+  try {
+    return { body: JSON.parse(raw) };
+  } catch {
+    return { failure: error("Invalid JSON.", 400) };
+  }
+}
+
+async function receiveFeedback(request, env) {
+  // Same limiter as usage reports: the IP keys the binding and is never stored.
+  const clientKey = request.headers.get("cf-connecting-ip") ?? "local-development";
+  const limit = await env.USAGE_RATE_LIMITER.limit({ key: clientKey });
+  if (!limit.success) return error("Too many reports. Try again later.", 429);
+  const { body, failure } = await readJSON(request, MAX_FEEDBACK_BYTES);
+  if (failure) return failure;
+  const { report, error: invalid } = validateFeedbackReport(body);
+  if (invalid) return error(invalid, 400);
+  await storeFeedback(env.DB, report);
+  return response(null, 204, { "Cache-Control": "no-store" });
+}
+
+const FEEDBACK_DELETE = /^\/api\/feedback\/([0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})$/;
+
+async function removeFeedback(request, env, installId) {
+  // Opt-out: the app asks for its rows to go. Knowing the random id is the
+  // only credential; it never left that Mac except in these reports.
+  const clientKey = request.headers.get("cf-connecting-ip") ?? "local-development";
+  const limit = await env.USAGE_RATE_LIMITER.limit({ key: clientKey });
+  if (!limit.success) return error("Too many requests. Try again later.", 429);
+  await deleteFeedback(env.DB, installId);
+  return response(null, 204, { "Cache-Control": "no-store" });
+}
+
+async function serveFeedbackSummary(request, env) {
+  // Read by .github/workflows/improve-weekly.yml. Not configured = not here.
+  if (typeof env.ADMIN_TOKEN !== "string" || env.ADMIN_TOKEN.length < 32) return error("Not found.", 404);
+  const header = request.headers.get("authorization") ?? "";
+  const candidate = header.startsWith("Bearer ") ? header.slice(7) : "";
+  if (!constantTimeEqual(candidate, env.ADMIN_TOKEN)) return error("Unauthorized.", 401);
+  return response(JSON.stringify(await feedbackSummary(env.DB)), 200, {
+    "Cache-Control": "no-store",
+    "Content-Type": "application/json; charset=utf-8",
+  });
+}
+
 async function serveStats(env) {
   // Aggregates only. Public and cached: the website strip reads this.
   return response(JSON.stringify(await usageStats(env.DB)), 200, {
@@ -265,6 +317,12 @@ export default {
       }
       if (request.method === "POST" && url.pathname === "/api/usage") return await receiveUsage(request, env);
       if (request.method === "GET" && url.pathname === "/api/stats") return await serveStats(env);
+      if (request.method === "POST" && url.pathname === "/api/feedback") return await receiveFeedback(request, env);
+      const feedbackDelete = request.method === "DELETE" && FEEDBACK_DELETE.exec(url.pathname);
+      if (feedbackDelete) return await removeFeedback(request, env, feedbackDelete[1]);
+      if (request.method === "GET" && url.pathname === "/api/admin/feedback-summary") {
+        return await serveFeedbackSummary(request, env);
+      }
       const referral = referralRoute(url.pathname);
       if (referral && request.method === "GET") return await handleReferral(referral, request, env, url);
       if (request.method === "POST" && url.pathname === "/api/shared-notes/create") {
@@ -288,5 +346,6 @@ export default {
         .bind(now)
         .run(),
     );
+    context.waitUntil(purgeOldFeedback(env.DB, now));
   },
 };

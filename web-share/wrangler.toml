@@ -72,6 +72,21 @@ zone_name = "meetmouse.com"
 pattern = "meetmouse.com/api/stats"
 zone_name = "meetmouse.com"
 
+# Opt-in coaching feedback (separate toggle), its opt-out delete, and the
+# summary the weekly improve workflow reads (Bearer ADMIN_TOKEN secret:
+# `npx wrangler secret put ADMIN_TOKEN`; unset = the summary route 404s).
+[[routes]]
+pattern = "meetmouse.com/api/feedback"
+zone_name = "meetmouse.com"
+
+[[routes]]
+pattern = "meetmouse.com/api/feedback/*"
+zone_name = "meetmouse.com"
+
+[[routes]]
+pattern = "meetmouse.com/api/admin/*"
+zone_name = "meetmouse.com"
+
 # Legacy host: links created before 0.32 (and their revocation tokens) live
 # here. Keep path-specific so the existing rhinovoice.app Worker continues to
 # own every other page.
