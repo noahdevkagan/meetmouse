@@ -2282,6 +2282,14 @@ struct ModelSection: View {
                 }
             }
 
+            if !settings.usesCloudAI && settings.selectionNeedsReconciliation {
+                Label("Local AI needs a verified installed model. Check the engine connection or download a model in Settings → AI.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             // The clear error that replaces the old freeze: selection too
             // big for this Mac's RAM, or the launch-time model load failed.
             if let memoryNote = settings.modelFitNote ?? settings.modelWarmupError {
@@ -2962,10 +2970,13 @@ struct FeedbackSection: View {
     private func distillNote(text: String, exampleId: UUID) {
         guard !settings.useMock else { return }
         distillStatus = "Reading your note with AI…"
-        let model = settings.effectiveModel
 
         Task { @MainActor in
-            guard await settings.prepareAI(ollamaManager: ollamaManager) else { distillStatus = nil; return }
+            guard await settings.prepareAI(ollamaManager: ollamaManager) else {
+                distillStatus = "AI is unavailable — check Settings → AI, then try again."
+                return
+            }
+            let model = settings.effectiveModel
             do {
                 let extraction = try await NoteDistiller.distill(note: text, model: model)
                 applyExtraction(extraction, exampleId: exampleId)

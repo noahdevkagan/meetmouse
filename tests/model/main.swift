@@ -18,6 +18,10 @@ enum AppSupport {
     static func backupActiveRubric(label: String) {}
 }
 
+enum TranscriptSearch {
+    static func sessionFiles() -> [URL] { [] }
+}
+
 func loadRubric(from url: URL) throws -> Rubric { Rubric() }
 func mclog(_ message: String) {}
 
@@ -175,7 +179,7 @@ extension URLRequest {
         let savedDefaults = defaults.persistentDomain(forName: domain) ?? [:]
         defer {
             URLProtocol.unregisterClass(MockOllamaProtocol.self)
-            for key in ["selectedModel", "rubricPath", "launchAtLogin"] {
+            for key in ["selectedModel", "rubricPath", "launchAtLogin", "modelSelectionNeedsReconciliation"] {
                 if let value = savedDefaults[key] {
                     defaults.set(value, forKey: key)
                 } else {
@@ -347,6 +351,18 @@ extension URLRequest {
                       "got: '\(vm.selectedModel)'")
                 check(UserDefaults.standard.string(forKey: "selectedModel") == "",
                       "empty selection persisted to UserDefaults")
+                check(vm.selectionNeedsReconciliation,
+                      "deleting the last model keeps selection reconciliation pending")
+                vm.availableModels = [OllamaModel(name: "stale:1b", size: 1_000_000_000, parameterSize: "1B")]
+                vm.selectedModel = "stale:1b"
+                check(vm.effectiveModel.isEmpty,
+                      "deleting the last model cannot authorize a later stale selection")
+            }
+            MockOllamaProtocol.installedModels = ["new-model:1b"]
+            await vm.refreshModels()
+            await MainActor.run {
+                check(vm.effectiveModel == "new-model:1b" && !vm.selectionNeedsReconciliation,
+                      "a verified model restores selection after deleting the last model")
             }
         }
 
@@ -550,6 +566,115 @@ extension URLRequest {
             MockOllamaProtocol.tagsTransportError = false
         }
 
+        // A later successful refresh recovers a selection left pending by a failed one.
+        for userPicksFirst in [false, true] {
+            MockOllamaProtocol.statusCode = 200
+            MockOllamaProtocol.tagsStatusCode = 200
+            MockOllamaProtocol.tagsSuccessOverride = nil
+            MockOllamaProtocol.tagsTransportError = true
+            MockOllamaProtocol.installedModels = ["qwen3.5:4b", "actual-server:1b", "other:1b"]
+            let manager = await MainActor.run { OllamaManager() }
+            let vm = await MainActor.run { () -> SettingsViewModel in
+                let settings = SettingsViewModel()
+                settings.ollamaManager = manager
+                settings.selectedModel = "qwen3.5:4b"
+                settings.availableModels = [
+                    OllamaModel(name: "qwen3.5:4b", size: 3_400_000_000, parameterSize: "4B"),
+                    OllamaModel(name: "llama3.2:1b", size: 1_300_000_000, parameterSize: "1B")
+                ]
+                settings.save()
+                return settings
+            }
+            await vm.deleteModel("qwen3.5:4b")
+            let pending = await MainActor.run { vm.selectionNeedsReconciliation }
+            check(pending, "failed refresh leaves selection reconciliation pending")
+            check(UserDefaults.standard.bool(forKey: "modelSelectionNeedsReconciliation"),
+                  "pending reconciliation persists across relaunch")
+            let relaunched = await MainActor.run { SettingsViewModel() }
+            await MainActor.run {
+                relaunched.availableModels = [
+                    OllamaModel(name: "llama3.2:1b", size: 1_300_000_000, parameterSize: "1B")
+                ]
+                check(relaunched.effectiveModel.isEmpty,
+                      "relaunch with a pending reconciliation never adopts an unverified model",
+                      "effective: \(relaunched.effectiveModel)")
+            }
+
+            if userPicksFirst {
+                await MainActor.run {
+                    vm.selectedModel = "other:1b"
+                    vm.save()
+                    check(vm.effectiveModel.isEmpty,
+                          "user selection cannot use a stale model while reconciliation is pending",
+                          "effective: \(vm.effectiveModel)")
+                    check(vm.modelForCurrentMemory() == nil,
+                          "memory fallback cannot use a stale model while reconciliation is pending")
+                }
+                let pickedRelaunch = await MainActor.run { SettingsViewModel() }
+                await MainActor.run {
+                    pickedRelaunch.availableModels = vm.availableModels
+                    check(pickedRelaunch.effectiveModel.isEmpty,
+                          "relaunch retains pending reconciliation after a user selection")
+                }
+            }
+            MockOllamaProtocol.tagsTransportError = false
+            let ready = await vm.prepareAI(ollamaManager: manager)
+            await MainActor.run {
+                let label = userPicksFirst ? " (user picked first)" : ""
+                check(ready, "prepareAI ready after a later successful refresh\(label)")
+                check(!vm.selectionNeedsReconciliation
+                      && !UserDefaults.standard.bool(forKey: "modelSelectionNeedsReconciliation"),
+                      "successful refresh clears pending reconciliation\(label)")
+                let installed = MockOllamaProtocol.installedModels
+                check(installed.contains(vm.effectiveModel),
+                      "recovered effective model is verified on the engine\(label)",
+                      "effective: \(vm.effectiveModel), installed: \(installed)")
+                if userPicksFirst {
+                    check(vm.selectedModel == "other:1b",
+                          "recovery keeps the user's own pick")
+                } else {
+                    check(!vm.selectedModel.isEmpty
+                          && UserDefaults.standard.string(forKey: "selectedModel") == vm.selectedModel,
+                          "recovered selection persisted without user action",
+                          "selected: \(vm.selectedModel)")
+                }
+            }
+        }
+
+        // An empty verified inventory must not permit a later unverified fallback.
+        do {
+            MockOllamaProtocol.statusCode = 200
+            MockOllamaProtocol.tagsStatusCode = 200
+            MockOllamaProtocol.tagsSuccessOverride = nil
+            MockOllamaProtocol.tagsTransportError = true
+            MockOllamaProtocol.installedModels = ["qwen3.5:4b"]
+            let manager = await MainActor.run { OllamaManager() }
+            let vm = await MainActor.run { () -> SettingsViewModel in
+                let settings = SettingsViewModel()
+                settings.ollamaManager = manager
+                settings.selectedModel = "qwen3.5:4b"
+                settings.availableModels = [OllamaModel(name: "qwen3.5:4b", size: 3_400_000_000, parameterSize: "4B")]
+                return settings
+            }
+            await vm.deleteModel("qwen3.5:4b")
+            MockOllamaProtocol.tagsTransportError = false
+            await vm.refreshModels()
+            await MainActor.run {
+                check(vm.selectionNeedsReconciliation && vm.selectedModel.isEmpty,
+                      "an empty verified inventory keeps reconciliation pending")
+                vm.availableModels = [OllamaModel(name: "llama3.2:1b", size: 1_300_000_000, parameterSize: "1B")]
+                vm.selectedModel = "llama3.2:1b"
+                check(vm.effectiveModel.isEmpty,
+                      "empty verified inventory cannot authorize a later stale model")
+            }
+            MockOllamaProtocol.installedModels = ["llama3.2:1b"]
+            await vm.refreshModels()
+            await MainActor.run {
+                check(!vm.selectionNeedsReconciliation && vm.effectiveModel == "llama3.2:1b",
+                      "a later verified model clears empty-inventory reconciliation")
+            }
+        }
+
         // A valid list can establish that a lost response did not delete the target.
         do {
             MockOllamaProtocol.deleteTransportError = true
@@ -669,6 +794,7 @@ extension URLRequest {
             MockOllamaProtocol.tagsSuccessOverride = nil
         }
 
+        UserDefaults.standard.removeObject(forKey: "modelSelectionNeedsReconciliation")
         if recommendedCatalogModel.fitsThisMac {
             let vm = await MainActor.run { () -> SettingsViewModel in
                 let settings = SettingsViewModel()

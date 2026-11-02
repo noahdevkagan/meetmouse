@@ -224,16 +224,27 @@ final class LiveSessionViewModel {
     }
 
     private(set) var sessionModelState: SessionModelState?
-    private(set) var activeSavedMeetingRegenerationModels: Set<String> = []
+    /// Models held by saved-meeting note regeneration (SessionDetailView),
+    /// counted so overlapping holders of one model can't release each other.
+    private(set) var savedMeetingRegenerationHolds: [String: Int] = [:]
 
-    func beginSavedMeetingRegeneration(model: String) {
-        guard !model.isEmpty else { return }
-        activeSavedMeetingRegenerationModels.insert(model)
+    /// Atomically (on the main actor, no suspension) claims `model` for a
+    /// saved-meeting recap. Refuses when that model's deletion is already in
+    /// flight; once claimed, `isModelInUse` blocks a later deletion. The
+    /// caller must use exactly this model and release it when done.
+    func beginSavedMeetingRegeneration(model: String, deletingModel: String?) -> Bool {
+        guard !model.isEmpty, model != deletingModel else { return false }
+        savedMeetingRegenerationHolds[model, default: 0] += 1
+        return true
     }
 
     func endSavedMeetingRegeneration(model: String) {
-        guard !model.isEmpty else { return }
-        activeSavedMeetingRegenerationModels.remove(model)
+        guard let count = savedMeetingRegenerationHolds[model] else { return }
+        if count <= 1 {
+            savedMeetingRegenerationHolds[model] = nil
+        } else {
+            savedMeetingRegenerationHolds[model] = count - 1
+        }
     }
 
     /// Checks if an installed model is currently protected from deletion because an
@@ -249,7 +260,7 @@ final class LiveSessionViewModel {
         if case .preparing = sessionModelState {
             return (true, "Meeting is preparing its AI model. Please try deleting again in a moment.")
         }
-        if activeSavedMeetingRegenerationModels.contains(modelName) {
+        if savedMeetingRegenerationHolds[modelName] != nil {
             return (true, "\(modelName) is currently generating meeting recap notes. You can delete it after the notes finish.")
         }
         return (false, nil)
@@ -740,6 +751,13 @@ final class LiveSessionViewModel {
         // has to be current before memory is even consulted.
         await settings.refreshModels()
         guard stillCurrent() else { return }
+
+        guard !settings.selectionNeedsReconciliation else {
+            return settleDeterministic(
+                "model list awaiting verification",
+                notice: .init(cause: "AI model unavailable",
+                              detail: "No local AI model is verified. Check Settings → AI, then start a new session to retry AI coaching."))
+        }
 
         guard let availableGB = Self.availableMemoryGB() else {
             return settleDeterministic("free memory unreadable")

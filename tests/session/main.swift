@@ -838,6 +838,27 @@ func runTests() async {
         vm.deleteSession()
     }
 
+    // An unverified inventory cannot become a memory-based fallback.
+    for deletionInFlight in [false, true] {
+        resetSeams()
+        var preloaded: [String] = []
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        LiveSessionViewModel.preloadModel = { preloaded.append($0); return nil }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings()
+        settings.selectionNeedsReconciliation = true
+        if deletionInFlight { settings.deletingModel = "other:1b" }
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: OllamaManager())
+        try? await Task.sleep(for: .milliseconds(500))
+        check(preloaded.isEmpty && vm.sessionModelState?.pinnedModel == nil,
+              "pending reconciliation never preloads an unverified session model",
+              "deletion in flight: \(deletionInFlight), preloaded: \(preloaded)")
+        check(vm.basicModeNotice?.cause == "AI model unavailable",
+              "pending reconciliation explains why the session uses basic coaching")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
     // Preload failure cannot produce a heartbeat, and it tells the user.
     do {
         resetSeams()
@@ -874,6 +895,7 @@ func runTests() async {
         let settings = liveSettings()
         let target = AIConfiguration(provider: .openai, model: "gpt-4.1-mini").modelReference
         settings.usesCloudAI = true
+        settings.selectionNeedsReconciliation = true
         settings.selectedModel = target
         settings.availableModels = []
         settings.hasCheckedModels = true
@@ -1226,14 +1248,26 @@ func runTests() async {
         let idleCheck = vm.isModelInUse("qwen3.5:4b")
         check(!idleCheck.inUse && idleCheck.reason == nil, "idle session protects no models")
 
-        vm.beginSavedMeetingRegeneration(model: "qwen3.5:4b")
+        check(vm.beginSavedMeetingRegeneration(model: "qwen3.5:4b", deletingModel: nil),
+              "saved-meeting recap claims an idle model")
         let regenCheck = vm.isModelInUse("qwen3.5:4b")
         check(regenCheck.inUse && regenCheck.reason!.contains("generating meeting recap notes"),
               "saved-meeting recap protects its active model")
+        check(vm.beginSavedMeetingRegeneration(model: "qwen3.5:4b", deletingModel: nil),
+              "overlapping saved-meeting recaps can share a model")
+        vm.endSavedMeetingRegeneration(model: "qwen3.5:4b")
+        check(vm.isModelInUse("qwen3.5:4b").inUse,
+              "one finished recap does not release a model another recap still holds")
         vm.endSavedMeetingRegeneration(model: "qwen3.5:4b")
         let postRegenCheck = vm.isModelInUse("qwen3.5:4b")
         check(!postRegenCheck.inUse && postRegenCheck.reason == nil,
               "saved-meeting recap unprotects model when complete")
+        check(!vm.beginSavedMeetingRegeneration(model: "qwen3.5:4b", deletingModel: "qwen3.5:4b"),
+              "saved-meeting recap refuses a model whose deletion is in flight")
+        check(!vm.isModelInUse("qwen3.5:4b").inUse,
+              "a refused recap claim holds nothing")
+        check(!vm.beginSavedMeetingRegeneration(model: "", deletingModel: nil),
+              "saved-meeting recap refuses an empty model")
 
         LiveSessionViewModel.availableMemoryGB = { 24 }
         LiveSessionViewModel.preloadModel = { _ in nil }

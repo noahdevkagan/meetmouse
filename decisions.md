@@ -2157,15 +2157,29 @@ Decision:
 - During concurrent deletion of the selected model, session activation and recap notes
   pick the best alternative from remaining installed models (including custom models),
   avoiding false degradation to basic mode.
-- Saved-meeting recap protection: `SessionDetailView.regenerateReview()` registers its active
-  model via `liveSession.beginSavedMeetingRegeneration(model:)` and clears it on completion,
-  extending `isModelInUse` protection to prevent model deletion during saved-meeting recap regeneration.
+- Saved-meeting recap protection: `SessionDetailView.regenerateReview()` resolves the model
+  once, after `prepareAI`'s refresh, and claims it via
+  `liveSession.beginSavedMeetingRegeneration(model:deletingModel:)` with no suspension between
+  resolve and claim. The claim is refused if that model is being deleted; otherwise
+  `isModelInUse` blocks deletion until release. Generation uses the claimed model, never a
+  re-read of `effectiveModel` (which could drift to an unprotected model). Holds are counted.
 - Strict entry validation: `OllamaClient.listModels` requires every entry in `models` to have a non-empty
   `name`; malformed entries throw `OllamaError.serverError` rather than being silently omitted, preventing
   a malformed list from being misinterpreted as proof of model deletion during lost-response recovery.
-- Stale effective model prevention: `SettingsViewModel.effectiveModel` guards `!selectedModel.isEmpty`,
-  returning empty when `selectedModel` is cleared following a refresh failure, preventing stale snapshot models
-  from becoming effective before reconciliation.
+- Stale effective model prevention with recovery: a failed post-deletion refresh sets a persisted
+  `selectionNeedsReconciliation` flag; while it is set and the selection is empty, `effectiveModel`
+  resolves to nothing. Reverses the earlier unconditional `!selectedModel.isEmpty` guard, which
+  left AI unusable after a later successful refresh until the user re-picked a model. Now the next
+  verified engine refresh selects and persists a replacement (respecting a user pick made meanwhile)
+  and clears the flag. `prepareAI` requires a non-empty effective model.
 - Regression suite `tests/model/run.sh` wired into `push-gate.sh` and CI `test-gate.yml`.
+
+## 2026-11-02 — Pending model selections require engine verification
+Keep local model resolution and memory-based session fallback disabled while
+selection reconciliation is pending, even if the user picks a model. A user
+pick can come from an unverified list; it is retained and honored when a
+nonempty engine inventory confirms it. An empty verified inventory leaves
+reconciliation pending, including when the last installed model is deleted.
+This supersedes the earlier empty-selection-only guard.
 
 ## 2026-11-04 — Name suggestions go on the talk bubble; platform colors are measured
