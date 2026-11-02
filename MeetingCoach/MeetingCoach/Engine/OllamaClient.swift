@@ -465,8 +465,10 @@ actor OllamaClient {
               let models = json["models"] as? [[String: Any]] else {
             throw OllamaError.serverError("Malformed response from Ollama: missing 'models' list")
         }
-        return models.compactMap { dict in
-            guard let name = dict["name"] as? String else { return nil }
+        return try models.map { dict in
+            guard let name = dict["name"] as? String, !name.isEmpty else {
+                throw OllamaError.serverError("Malformed response from Ollama: model entry missing 'name'")
+            }
             let size = dict["size"] as? Int64 ?? 0
             let details = dict["details"] as? [String: Any] ?? [:]
             let paramSize = details["parameter_size"] as? String ?? ""

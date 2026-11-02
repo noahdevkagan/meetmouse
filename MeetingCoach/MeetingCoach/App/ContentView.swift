@@ -100,6 +100,7 @@ struct ContentView: View {
                 if let sessionURL = selectedSessionURL {
                     SessionDetailView(url: sessionURL, highlightQuery: activeSearch,
                                       settings: settings, ollamaManager: ollamaManager,
+                                      liveSession: liveSession,
                                       reviewRevision: sessionURL.path == liveSession.savedPath ? liveSession.meetingReview : nil,
                                       reviewInProgress: sessionURL.path == liveSession.savedPath && liveSession.isGeneratingSummary,
                                       automaticReviewError: sessionURL.path == liveSession.savedPath ? liveSession.reviewAIError : nil) {

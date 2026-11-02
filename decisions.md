@@ -2157,6 +2157,15 @@ Decision:
 - During concurrent deletion of the selected model, session activation and recap notes
   pick the best alternative from remaining installed models (including custom models),
   avoiding false degradation to basic mode.
+- Saved-meeting recap protection: `SessionDetailView.regenerateReview()` registers its active
+  model via `liveSession.beginSavedMeetingRegeneration(model:)` and clears it on completion,
+  extending `isModelInUse` protection to prevent model deletion during saved-meeting recap regeneration.
+- Strict entry validation: `OllamaClient.listModels` requires every entry in `models` to have a non-empty
+  `name`; malformed entries throw `OllamaError.serverError` rather than being silently omitted, preventing
+  a malformed list from being misinterpreted as proof of model deletion during lost-response recovery.
+- Stale effective model prevention: `SettingsViewModel.effectiveModel` guards `!selectedModel.isEmpty`,
+  returning empty when `selectedModel` is cleared following a refresh failure, preventing stale snapshot models
+  from becoming effective before reconciliation.
 - Regression suite `tests/model/run.sh` wired into `push-gate.sh` and CI `test-gate.yml`.
 
 ## 2026-11-04 — Name suggestions go on the talk bubble; platform colors are measured

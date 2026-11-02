@@ -1226,6 +1226,15 @@ func runTests() async {
         let idleCheck = vm.isModelInUse("qwen3.5:4b")
         check(!idleCheck.inUse && idleCheck.reason == nil, "idle session protects no models")
 
+        vm.beginSavedMeetingRegeneration(model: "qwen3.5:4b")
+        let regenCheck = vm.isModelInUse("qwen3.5:4b")
+        check(regenCheck.inUse && regenCheck.reason!.contains("generating meeting recap notes"),
+              "saved-meeting recap protects its active model")
+        vm.endSavedMeetingRegeneration(model: "qwen3.5:4b")
+        let postRegenCheck = vm.isModelInUse("qwen3.5:4b")
+        check(!postRegenCheck.inUse && postRegenCheck.reason == nil,
+              "saved-meeting recap unprotects model when complete")
+
         LiveSessionViewModel.availableMemoryGB = { 24 }
         LiveSessionViewModel.preloadModel = { _ in nil }
         let settings = liveSettings("qwen3.5:4b")
@@ -1363,6 +1372,37 @@ func runTests() async {
         }
     } else {
         print("session memory-pressure fallback: SKIP — recommended model does not fit this host")
+    }
+
+    // The real settings model can resolve an oversized deleting selection to
+    // the recommendation before activation checks current memory.
+    if recommendedCatalogModel.fitsThisMac {
+        resetSeams()
+        LiveSessionViewModel.availableMemoryGB = { 4 }
+        LiveSessionViewModel.preloadModel = { _ in nil }
+        let settings = liveSettings("deleting:1b")
+        settings.deletingModel = "deleting:1b"
+        settings.effectiveModelOverride = recommendedCatalogModel.fullName
+        let recommendedSize: Int64 = recommendedCatalogModel.fullName == "qwen3.5:9b"
+            ? 6_600_000_000 : 3_400_000_000
+        settings.availableModels = [
+            OllamaModel(name: "deleting:1b",
+                        size: Int64(ModelMemory.physicalRAMGB) * 1_073_741_824,
+                        parameterSize: ""),
+            OllamaModel(name: recommendedCatalogModel.fullName, size: recommendedSize, parameterSize: ""),
+            OllamaModel(name: "small-custom:1b", size: 500_000_000, parameterSize: "")
+        ]
+        let vm = LiveSessionViewModel()
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == "small-custom:1b",
+              "oversized deleting selection uses a custom model under current memory pressure",
+              "effective: \(settings.effectiveModel), pinned: \(String(describing: vm.sessionModelState?.pinnedModel))")
+        vm.stopLive()
+        vm.deleteSession()
+    } else {
+        print("session oversized deleting selection: SKIP — recommended model does not fit this host")
     }
 
     // Multilingual review content keeps the parser's five English headers,

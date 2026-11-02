@@ -257,6 +257,7 @@ final class SettingsViewModel {
     /// qwen, costing ~6 GB of a meeting's headroom for marginal quality.
     var effectiveModel: String {
         if usesCloudAI { return aiConfiguration.modelReference }
+        guard !selectedModel.isEmpty else { return "" }
         guard !availableModels.isEmpty else { return selectedModel }
         let fitting = availableModels.filter { ModelMemory.fits($0) }
         if let selected = availableModels.first(where: { $0.name == selectedModel }),

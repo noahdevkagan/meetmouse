@@ -126,7 +126,8 @@ struct Rubric {
 final class SettingsViewModel {
     var usesCloudAI = false
     var selectedModel = "stub-model"
-    var effectiveModel: String { selectedModel }
+    var effectiveModelOverride: String?
+    var effectiveModel: String { effectiveModelOverride ?? selectedModel }
     var deletingModel: String?
     var semanticCoachEnabled = false
     var useMock = true

@@ -540,6 +540,9 @@ extension URLRequest {
                       "selected: \(vm.selectedModel)")
                 check(UserDefaults.standard.string(forKey: "selectedModel") != "llama3.2:1b",
                       "failed refresh does not persist an unverified stale model")
+                check(vm.effectiveModel != "llama3.2:1b",
+                      "failed refresh does not use an unverified stale effective model",
+                      "effective: \(vm.effectiveModel)")
                 check(vm.deletionError != nil && vm.deletionError!.contains("could not refresh"),
                       "reconciliation failure surfaced as actionable notice",
                       "got: \(String(describing: vm.deletionError))")
@@ -628,6 +631,64 @@ extension URLRequest {
             MockOllamaProtocol.tagsStatusCode = 200
             MockOllamaProtocol.tagsSuccessOverride = nil
           }
+        }
+
+        // A malformed entry cannot prove that the target disappeared after a lost response.
+        do {
+            MockOllamaProtocol.statusCode = 200
+            MockOllamaProtocol.tagsStatusCode = 200
+            MockOllamaProtocol.tagsSuccessOverride = Data(#"{"models":[{"size":1000000000}]}"#.utf8)
+            MockOllamaProtocol.deleteTransportError = true
+            MockOllamaProtocol.deleteCompletesOnTransportError = false
+            MockOllamaProtocol.installedModels = ["qwen3.5:4b"]
+            let manager = await MainActor.run { OllamaManager() }
+            let vm = await MainActor.run { () -> SettingsViewModel in
+                let settings = SettingsViewModel()
+                settings.ollamaManager = manager
+                settings.selectedModel = "qwen3.5:4b"
+                settings.availableModels = [
+                    OllamaModel(name: "qwen3.5:4b", size: 3_400_000_000, parameterSize: "4B")
+                ]
+                settings.save()
+                return settings
+            }
+            await vm.deleteModel("qwen3.5:4b")
+            await MainActor.run {
+                check(MockOllamaProtocol.installedModels.contains("qwen3.5:4b"),
+                      "mock malformed-list case leaves the target installed")
+                check(vm.selectedModel == "qwen3.5:4b"
+                      && UserDefaults.standard.string(forKey: "selectedModel") == "qwen3.5:4b",
+                      "malformed model entry cannot clear the selected model",
+                      "selected: \(vm.selectedModel)")
+                check(vm.deletionError?.contains("Could not confirm") == true,
+                      "malformed model entry reports an uncertain deletion outcome",
+                      "error: \(String(describing: vm.deletionError))")
+            }
+            MockOllamaProtocol.deleteTransportError = false
+            MockOllamaProtocol.deleteCompletesOnTransportError = true
+            MockOllamaProtocol.tagsSuccessOverride = nil
+        }
+
+        if recommendedCatalogModel.fitsThisMac {
+            let vm = await MainActor.run { () -> SettingsViewModel in
+                let settings = SettingsViewModel()
+                settings.selectedModel = "deleting:1b"
+                settings.deletingModel = "deleting:1b"
+                settings.availableModels = [
+                    OllamaModel(name: "deleting:1b",
+                                size: Int64(ModelMemory.physicalRAMGB) * 1_073_741_824,
+                                parameterSize: ""),
+                    OllamaModel(name: recommendedCatalogModel.fullName, size: 3_400_000_000, parameterSize: ""),
+                    OllamaModel(name: "small-custom:1b", size: 500_000_000, parameterSize: "")
+                ]
+                return settings
+            }
+            await MainActor.run {
+                check(vm.effectiveModel == recommendedCatalogModel.fullName,
+                      "oversized deleting selection resolves to the recommended effective model")
+            }
+        } else {
+            print("SKIP: effective-model fallback requires the recommended model to fit this host")
         }
 
         print("\nModel deletion checks: \(passed) passed, \(failed) failed.")

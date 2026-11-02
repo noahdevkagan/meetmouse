@@ -224,6 +224,17 @@ final class LiveSessionViewModel {
     }
 
     private(set) var sessionModelState: SessionModelState?
+    private(set) var activeSavedMeetingRegenerationModels: Set<String> = []
+
+    func beginSavedMeetingRegeneration(model: String) {
+        guard !model.isEmpty else { return }
+        activeSavedMeetingRegenerationModels.insert(model)
+    }
+
+    func endSavedMeetingRegeneration(model: String) {
+        guard !model.isEmpty else { return }
+        activeSavedMeetingRegenerationModels.remove(model)
+    }
 
     /// Checks if an installed model is currently protected from deletion because an
     /// active meeting or post-meeting recap is using it.
@@ -237,6 +248,9 @@ final class LiveSessionViewModel {
         }
         if case .preparing = sessionModelState {
             return (true, "Meeting is preparing its AI model. Please try deleting again in a moment.")
+        }
+        if activeSavedMeetingRegenerationModels.contains(modelName) {
+            return (true, "\(modelName) is currently generating meeting recap notes. You can delete it after the notes finish.")
         }
         return (false, nil)
     }
@@ -735,14 +749,20 @@ final class LiveSessionViewModel {
             $0.size > 0 && ModelMemory.runtimeNeedGB(installedBytes: $0.size) + ModelMemory.postCaptureHeadroomGB <= availableGB
         }
         let safeChosen: String
-        if settings.effectiveModel != settings.deletingModel && safeInstalled.contains(where: { $0.name == settings.effectiveModel }) {
+        if settings.deletingModel == nil {
             safeChosen = settings.effectiveModel
-        } else if let recommended = currentFitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
-            safeChosen = recommended.name
-        } else if let smallest = currentFitting.min(by: { $0.size < $1.size }) {
-            safeChosen = smallest.name
         } else {
-            safeChosen = safeInstalled.first?.name ?? ""
+            // A deletion is in flight. If the effective model is not the deleting model
+            // and fits current memory, prefer it.
+            if settings.effectiveModel != settings.deletingModel && currentFitting.contains(where: { $0.name == settings.effectiveModel }) {
+                safeChosen = settings.effectiveModel
+            } else if let recommended = currentFitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
+                safeChosen = recommended.name
+            } else if let smallest = currentFitting.min(by: { $0.size < $1.size }) {
+                safeChosen = smallest.name
+            } else {
+                safeChosen = safeInstalled.first?.name ?? ""
+            }
         }
         let candidates = ModelMemory.candidatesForCurrentMemory(
             chosen: safeChosen,
