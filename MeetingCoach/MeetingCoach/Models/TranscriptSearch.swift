@@ -40,13 +40,13 @@ enum TranscriptSearch {
         return stampFormatter.date(from: String(stem.prefix(16)))
     }
 
-    nonisolated(unsafe) private static let stampFormatter: DateFormatter = {
+    private static let stampFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd'T'HH-mm"
         return f
     }()
-    nonisolated(unsafe) private static let legacyStampFormatter: DateFormatter = {
+    private static let legacyStampFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd_HH-mm"

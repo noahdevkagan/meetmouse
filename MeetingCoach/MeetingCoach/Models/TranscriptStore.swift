@@ -91,7 +91,7 @@ enum TranscriptStore {
         return file
     }
 
-    nonisolated(unsafe) private static let stampFormatter: DateFormatter = {
+    private static let stampFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd'T'HH-mm"
