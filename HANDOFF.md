@@ -5,6 +5,22 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-02): macOS language detection for pt-BR — implemented
+
+Resolved `.system` language resolution to read from `Locale.preferredLanguages.first`
+instead of `Locale.current.identifier`. Normalizes BCP-47 and underscore variants
+(`pt-BR`, `pt_BR`, `pt` -> `.portuguese`), retains detected OS language in
+`ResolvedMeetingLanguage.detectedSystemLanguage` for accurate UI copy even on
+unsupported languages, derives `quickName` from `systemLanguageDisplayName` when
+`selection == .system` (so sidebar chip and detection pill subtitles accurately
+name unsupported system languages rather than mislabeling them as English), routes
+Portuguese to Parakeet v3 on Apple Silicon, and centralizes resolved language values
+across `GeneralSettingsView`, `ContentView`, `MeetingPromptPanel`, and
+`MeetingLanguageMenu`. Tested with `tests/language/run.sh` (40 passing tests) and
+verified live against the host machine's pt-BR locale. The session test suite
+(`tests/session/main.swift`) was also updated to verify against the resolved system
+language rather than assuming English.
+
 ## Current state (2026-10-20): Global open shortcut — implemented
 
 Control–Command–M opens/raises the existing main window from any app while

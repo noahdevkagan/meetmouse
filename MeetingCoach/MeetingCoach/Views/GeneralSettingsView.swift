@@ -158,7 +158,7 @@ struct GeneralSettingsView: View {
 
             Section("Meeting language") {
                 Picker("Transcribe meetings in", selection: $settings.meetingLanguage) {
-                    Text("Mac language (\(MeetingLanguageSelection.system.resolved().englishName))")
+                    Text(MeetingLanguageSelection.system.pickerName)
                         .tag(MeetingLanguageSelection.system)
                     if PlatformSupport.neuralModelsSupported {
                         Text(MeetingLanguageSelection.auto.pickerName)
@@ -175,7 +175,7 @@ struct GeneralSettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                 } else if resolvedLanguage.usedUnsupportedSystemFallback {
-                    Text("Your Mac language isn't supported yet, so meetings use English. Choose another supported language here if needed.")
+                    Text("Your Mac language (\(resolvedLanguage.systemLanguageDisplayName)) isn't supported yet, so meetings use English. Choose another supported language here if needed.")
                         .font(.caption)
                         .foregroundStyle(.orange)
                 } else if !PlatformSupport.neuralModelsSupported {
