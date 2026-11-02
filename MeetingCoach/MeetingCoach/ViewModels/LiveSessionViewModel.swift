@@ -224,6 +224,47 @@ final class LiveSessionViewModel {
     }
 
     private(set) var sessionModelState: SessionModelState?
+    /// Models held by saved-meeting note regeneration (SessionDetailView),
+    /// counted so overlapping holders of one model can't release each other.
+    private(set) var savedMeetingRegenerationHolds: [String: Int] = [:]
+
+    /// Atomically (on the main actor, no suspension) claims `model` for a
+    /// saved-meeting recap. Refuses when that model's deletion is already in
+    /// flight; once claimed, `isModelInUse` blocks a later deletion. The
+    /// caller must use exactly this model and release it when done.
+    func beginSavedMeetingRegeneration(model: String, deletingModel: String?) -> Bool {
+        guard !model.isEmpty, model != deletingModel else { return false }
+        savedMeetingRegenerationHolds[model, default: 0] += 1
+        return true
+    }
+
+    func endSavedMeetingRegeneration(model: String) {
+        guard let count = savedMeetingRegenerationHolds[model] else { return }
+        if count <= 1 {
+            savedMeetingRegenerationHolds[model] = nil
+        } else {
+            savedMeetingRegenerationHolds[model] = count - 1
+        }
+    }
+
+    /// Checks if an installed model is currently protected from deletion because an
+    /// active meeting or post-meeting recap is using it.
+    func isModelInUse(_ modelName: String) -> (inUse: Bool, reason: String?) {
+        if let pinned = sessionModelState?.pinnedModel, pinned == modelName {
+            if isGeneratingSummary {
+                return (true, "\(modelName) is currently generating meeting recap notes. You can delete it after the notes finish.")
+            } else {
+                return (true, "\(modelName) is currently in use by your active meeting. You can delete it after the meeting finishes.")
+            }
+        }
+        if case .preparing = sessionModelState {
+            return (true, "Meeting is preparing its AI model. Please try deleting again in a moment.")
+        }
+        if savedMeetingRegenerationHolds[modelName] != nil {
+            return (true, "\(modelName) is currently generating meeting recap notes. You can delete it after the notes finish.")
+        }
+        return (false, nil)
+    }
 
     /// Why coaching is running without an LLM this session, in words the
     /// banner can show. Set only for degraded causes the user didn't choose
@@ -711,12 +752,39 @@ final class LiveSessionViewModel {
         await settings.refreshModels()
         guard stillCurrent() else { return }
 
+        guard !settings.selectionNeedsReconciliation else {
+            return settleDeterministic(
+                "model list awaiting verification",
+                notice: .init(cause: "AI model unavailable",
+                              detail: "No local AI model is verified. Check Settings → AI, then start a new session to retry AI coaching."))
+        }
+
         guard let availableGB = Self.availableMemoryGB() else {
             return settleDeterministic("free memory unreadable")
         }
+        let safeInstalled = settings.availableModels.filter { $0.name != settings.deletingModel }
+        let currentFitting = safeInstalled.filter {
+            $0.size > 0 && ModelMemory.runtimeNeedGB(installedBytes: $0.size) + ModelMemory.postCaptureHeadroomGB <= availableGB
+        }
+        let safeChosen: String
+        if settings.deletingModel == nil {
+            safeChosen = settings.effectiveModel
+        } else {
+            // A deletion is in flight. If the effective model is not the deleting model
+            // and fits current memory, prefer it.
+            if settings.effectiveModel != settings.deletingModel && currentFitting.contains(where: { $0.name == settings.effectiveModel }) {
+                safeChosen = settings.effectiveModel
+            } else if let recommended = currentFitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
+                safeChosen = recommended.name
+            } else if let smallest = currentFitting.min(by: { $0.size < $1.size }) {
+                safeChosen = smallest.name
+            } else {
+                safeChosen = safeInstalled.first?.name ?? ""
+            }
+        }
         let candidates = ModelMemory.candidatesForCurrentMemory(
-            chosen: settings.effectiveModel,
-            installed: settings.availableModels,
+            chosen: safeChosen,
+            installed: safeInstalled,
             availableGB: availableGB,
             headroomGB: ModelMemory.postCaptureHeadroomGB)
         guard !candidates.isEmpty else {
@@ -1714,8 +1782,38 @@ final class LiveSessionViewModel {
                 ready = await settings.prepareAI(ollamaManager: ollamaManager)
             }
             guard reviewGenerationID == generationID else { return }
-            let reviewModel = pinnedModel ?? settings.effectiveModel
-            if ready {
+            let safeInstalled = settings.availableModels.filter { $0.name != settings.deletingModel }
+            let fallbackCandidate: String
+            if settings.usesCloudAI || AIConfiguration.cloud(from: settings.effectiveModel) != nil {
+                fallbackCandidate = settings.effectiveModel
+            } else if settings.effectiveModel != settings.deletingModel && safeInstalled.contains(where: { $0.name == settings.effectiveModel }) {
+                fallbackCandidate = settings.effectiveModel
+            } else {
+                let currentGB = Self.availableMemoryGB()
+                let currentFitting = safeInstalled.filter {
+                    guard $0.size > 0 else { return false }
+                    if let currentGB {
+                        return ModelMemory.runtimeNeedGB(installedBytes: $0.size) + ModelMemory.currentHeadroomGB <= currentGB
+                    }
+                    return ModelMemory.fits($0)
+                }
+                if let recommended = currentFitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
+                    fallbackCandidate = recommended.name
+                } else if let smallest = currentFitting.min(by: { $0.size < $1.size }) {
+                    fallbackCandidate = smallest.name
+                } else {
+                    let fitting = safeInstalled.filter { ModelMemory.fits($0) }
+                    if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
+                        fallbackCandidate = recommended.name
+                    } else if let smallest = fitting.min(by: { $0.size < $1.size }) {
+                        fallbackCandidate = smallest.name
+                    } else {
+                        fallbackCandidate = safeInstalled.first?.name ?? ""
+                    }
+                }
+            }
+            let reviewModel = pinnedModel ?? fallbackCandidate
+            if ready && !reviewModel.isEmpty {
                 // Give a notes-only model the same ownership as a live model,
                 // so a replacing meeting can release it through the lifecycle.
                 if pinnedModel == nil {

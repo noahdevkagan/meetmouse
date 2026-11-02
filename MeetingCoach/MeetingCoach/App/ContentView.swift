@@ -100,6 +100,7 @@ struct ContentView: View {
                 if let sessionURL = selectedSessionURL {
                     SessionDetailView(url: sessionURL, highlightQuery: activeSearch,
                                       settings: settings, ollamaManager: ollamaManager,
+                                      liveSession: liveSession,
                                       reviewRevision: sessionURL.path == liveSession.savedPath ? liveSession.meetingReview : nil,
                                       reviewInProgress: sessionURL.path == liveSession.savedPath && liveSession.isGeneratingSummary,
                                       automaticReviewError: sessionURL.path == liveSession.savedPath ? liveSession.reviewAIError : nil) {
@@ -2267,6 +2268,14 @@ struct ModelSection: View {
                 }
             }
 
+            if !settings.usesCloudAI && settings.selectionNeedsReconciliation {
+                Label("Local AI needs a verified installed model. Check the engine connection or download a model in Settings → AI.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             // The clear error that replaces the old freeze: selection too
             // big for this Mac's RAM, or the launch-time model load failed.
             if let memoryNote = settings.modelFitNote ?? settings.modelWarmupError {
@@ -2308,7 +2317,7 @@ struct ModelSection: View {
             }
         }
         .sheet(isPresented: $settings.showModelCatalog) {
-            ModelCatalogView(settings: settings)
+            ModelCatalogView(settings: settings, liveSession: liveSession)
         }
     }
 }
@@ -2317,7 +2326,10 @@ struct ModelSection: View {
 
 struct ModelCatalogView: View {
     @Bindable var settings: SettingsViewModel
+    var liveSession: LiveSessionViewModel
     @Environment(\.dismiss) private var dismiss
+    @State private var inUseAlertMessage: String?
+    @State private var modelPendingDeletion: OllamaModel?
 
     // Models that can't run in this Mac's RAM aren't offered at all —
     // downloading one ends in a mid-meeting freeze, not a quality upgrade.
@@ -2333,12 +2345,34 @@ struct ModelCatalogView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Done") { dismiss() }
-                    .keyboardShortcut(.defaultAction)
+                Button("Done") {
+                    settings.deletionError = nil
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
             }
             .padding()
 
             Divider()
+
+            if let error = settings.deletionError {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                    Spacer()
+                    Button("Dismiss") {
+                        settings.deletionError = nil
+                    }
+                    .font(.caption2)
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 6)
+                .background(Color.red.opacity(0.1))
+            }
 
             if !settings.availableModels.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
@@ -2347,7 +2381,17 @@ struct ModelCatalogView: View {
                         .padding(.top, 8)
 
                     ForEach(settings.availableModels) { model in
-                        InstalledModelRow(model: model, settings: settings)
+                        InstalledModelRow(
+                            model: model,
+                            settings: settings,
+                            liveSession: liveSession,
+                            onModelInUse: { reason in
+                                inUseAlertMessage = reason
+                            },
+                            onRequestDelete: { target in
+                                modelPendingDeletion = target
+                            }
+                        )
                     }
                 }
             }
@@ -2391,14 +2435,58 @@ struct ModelCatalogView: View {
             }
         }
         .frame(width: 520, height: 500)
+        .confirmationDialog(
+            "Delete \(modelPendingDeletion?.name ?? "")?",
+            isPresented: Binding(
+                get: { modelPendingDeletion != nil },
+                set: { if !$0 { modelPendingDeletion = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete \(modelPendingDeletion?.name ?? "")", role: .destructive) {
+                if let target = modelPendingDeletion {
+                    modelPendingDeletion = nil
+                    Task {
+                        await settings.deleteModel(target.name) {
+                            let check = liveSession.isModelInUse(target.name)
+                            return (!check.inUse, check.reason)
+                        }
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                modelPendingDeletion = nil
+            }
+        } message: {
+            if let target = modelPendingDeletion {
+                Text("This will remove \(target.name) (\(target.sizeLabel)) from this Mac. You can download it again later.")
+            }
+        }
+        .alert("Model in Use", isPresented: Binding(
+            get: { inUseAlertMessage != nil },
+            set: { if !$0 { inUseAlertMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { inUseAlertMessage = nil }
+        } message: {
+            if let msg = inUseAlertMessage {
+                Text(msg)
+            }
+        }
+        .onDisappear {
+            settings.deletionError = nil
+        }
     }
 }
 
 struct InstalledModelRow: View {
     let model: OllamaModel
     @Bindable var settings: SettingsViewModel
+    var liveSession: LiveSessionViewModel
+    var onModelInUse: (String) -> Void
+    var onRequestDelete: (OllamaModel) -> Void
 
     var isSelected: Bool { settings.selectedModel == model.name }
+    var isDeleting: Bool { settings.deletingModel == model.name }
 
     var body: some View {
         HStack {
@@ -2441,16 +2529,28 @@ struct InstalledModelRow: View {
                 }
                 .font(.caption)
                 .buttonStyle(.bordered)
+                .disabled(settings.deletingModel != nil)
             }
-            Button {
-                Task { await settings.deleteModel(model.name) }
-            } label: {
-                Image(systemName: "trash")
-                    .foregroundStyle(.red.opacity(0.7))
+            if isDeleting {
+                ProgressView().controlSize(.small)
+                    .padding(.horizontal, 4)
+            } else {
+                Button {
+                    let inUseCheck = liveSession.isModelInUse(model.name)
+                    if inUseCheck.inUse {
+                        onModelInUse(inUseCheck.reason ?? "\(model.name) is currently in use.")
+                    } else {
+                        onRequestDelete(model)
+                    }
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundStyle(settings.deletingModel != nil ? .secondary : .red.opacity(0.7))
+                }
+                .font(.caption)
+                .buttonStyle(.plain)
+                .disabled(settings.deletingModel != nil)
+                .help("Delete model")
             }
-            .font(.caption)
-            .buttonStyle(.plain)
-            .help("Delete model")
         }
         .padding(.horizontal)
         .padding(.vertical, 6)
@@ -2856,10 +2956,13 @@ struct FeedbackSection: View {
     private func distillNote(text: String, exampleId: UUID) {
         guard !settings.useMock else { return }
         distillStatus = "Reading your note with AI…"
-        let model = settings.effectiveModel
 
         Task { @MainActor in
-            guard await settings.prepareAI(ollamaManager: ollamaManager) else { distillStatus = nil; return }
+            guard await settings.prepareAI(ollamaManager: ollamaManager) else {
+                distillStatus = "AI is unavailable — check Settings → AI, then try again."
+                return
+            }
+            let model = settings.effectiveModel
             do {
                 let extraction = try await NoteDistiller.distill(note: text, model: model)
                 applyExtraction(extraction, exampleId: exampleId)

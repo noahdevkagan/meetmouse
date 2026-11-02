@@ -15,6 +15,7 @@ struct SessionDetailView: View {
     /// model was installed.
     var settings: SettingsViewModel?
     var ollamaManager: OllamaManager?
+    var liveSession: LiveSessionViewModel? = nil
     var reviewRevision: MeetingReview? = nil
     var reviewInProgress = false
     var automaticReviewError: String? = nil
@@ -810,6 +811,23 @@ struct SessionDetailView: View {
             return
         }
         guard !Task.isCancelled else { return }
+
+        // Resolve the model once, after the refresh, and claim it with no
+        // suspension in between: model deletion re-checks `isModelInUse` on
+        // the main actor before reserving, so either the claim sees the
+        // in-flight deletion and refuses, or the deletion sees the claim.
+        // Generation below uses exactly this model, never a re-read.
+        let model = settings.effectiveModel
+        if let liveSession {
+            guard liveSession.beginSavedMeetingRegeneration(
+                model: model, deletingModel: settings.deletingModel) else {
+                reviewError = model.isEmpty
+                    ? "No AI model is selected — choose one in Settings → AI."
+                    : "\(model) is being deleted. Choose another model in Settings → AI, then try again."
+                return
+            }
+        }
+        defer { liveSession?.endSavedMeetingRegeneration(model: model) }
         reviewError = nil
 
         let transcript = lines.map { "\($0.speaker): \($0.text)" }.joined(separator: "\n")
@@ -827,7 +845,7 @@ struct SessionDetailView: View {
                     ? TranscriptLanguageDetector.tally(lines.map(\.text)).dominant : nil))
         let text: String
         do {
-            text = try await AIClient(model: settings.effectiveModel, numCtx: 12_288, numPredict: 1500)
+            text = try await AIClient(model: model, numCtx: 12_288, numPredict: 1500)
                 .complete(system: system, user: user)
         } catch {
             reviewError = error.localizedDescription

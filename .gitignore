@@ -44,6 +44,7 @@ tests/rubric/.build/
 tests/rubric/yamlcheck/.build/
 tests/detector/.build/
 tests/ai/.build/
+tests/model/.build/
 tests/demo/.build/
 tests/asr/.out/
 tests/nudges/.build/

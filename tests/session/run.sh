@@ -30,7 +30,6 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/AIClient.swift" \
   "$SRC/Engine/ClaudeAccount.swift" \
   "$SRC/Engine/TalkStats.swift" \
-  "$SRC/Engine/Mclog.swift" \
   "$SRC/Engine/MicSilenceMonitor.swift" \
   "$SRC/Engine/OutputRoute.swift" \
   "$SRC/Engine/DemoScript.swift" \
@@ -49,7 +48,6 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Models/TranscriptLanguageDetector.swift" \
   "$SRC/Engine/PlatformSupport.swift" \
   "$SRC/Models/PreCallContext.swift" \
-  "$SRC/Models/TrainingExample.swift" \
   "$SRC/Models/FocusGoals.swift" \
   "$SRC/Models/AppSupport.swift" \
   "$SRC/Models/UsageGate.swift" \

@@ -5,6 +5,16 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-02): Safe local-model deletion (#55) — confirmed & robust
+
+Implemented noahdevkagan/meetmouse#55 and addressed review findings:
+1. Destructive confirmation dialog: `ModelCatalogView` presents an explicit confirmation dialog naming the model and size before deleting, preventing accidental removal.
+2. Meeting & recap protection: `SettingsViewModel.deleteModel` synchronously re-checks `canDelete()` on `@MainActor` before marking in-flight deletion. Active meetings and live recap generation protect their pinned model. Saved-meeting regeneration (`SessionDetailView`) resolves its model once after the refresh and claims it with `beginSavedMeetingRegeneration(model:deletingModel:)` without suspending — refused if that model's deletion is in flight; generation uses exactly the claimed model (counted holds).
+3. Engine reconciliation & store isolation: Post-deletion reconciliation queries the engine directly rather than falling back to internal on-disk manifests. If refresh fails or no replacement remains, a persisted `selectionNeedsReconciliation` flag prevents local model use (including session memory fallbacks), even after a user pick or relaunch. The next nonempty verified engine list picks and persists a replacement (keeping a confirmed user pick) and clears the flag; `prepareAI` reports ready only with a non-empty effective model. Note distillation now resolves its model after AI preparation.
+4. HTTP & schema validation: `OllamaClient.listModels` and `deleteModel` validate HTTP 200..<300 and verify every model entry has a non-empty `name`, throwing `OllamaError.serverError` on 500s or malformed entries rather than misinterpreting errors as empty model lists. Transport errors query the engine to verify deletion, reporting an uncertain outcome if indeterminate.
+5. Memory pressure & custom model fallback: When the selected model is deleting, session activation and recap notes filter against current free memory (`availableGB`), selecting a usable custom model when the recommended catalog model does not fit. Cloud notes bypass local installed model lists when live coaching is off.
+6. CI & Release Gate: `tests/model/run.sh` is in local `push-gate.sh` and CI `.github/workflows/test-gate.yml`. Mocked model suite: 83 passed. Isolated session suite: 364 passed.
+
 ## Current state (2026-10-20): Global open shortcut — implemented
 
 Control–Command–M opens/raises the existing main window from any app while

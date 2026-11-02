@@ -2047,3 +2047,69 @@ its audio to another device than the Mac default. Follow-ups to evaluate
 with real recordings: a relative (mic vs system) energy gate, and holding a
 mic commit up to ~2 s while the far side is active so EchoFilter sees the
 far partials. Manual check: tests/calls-manual.md scenario 8.
+
+## 2026-11-02 — Confirmed model deletion with in-use protection (#55)
+
+User report (#55): unable to delete installed local model in pt-BR environment.
+Root causes: (1) `deleteModel` sent HTTP DELETE without starting Ollama first
+when idle, causing immediate connection failure; (2) deletion errors were stored
+in `downloadError` rendered outside the modal sheet, leaving the user with no
+feedback; (3) replacement selection after deleting the active model was not saved
+to UserDefaults; (4) no protection prevented deleting a model pinned by a meeting
+or post-meeting recap.
+
+Decision:
+- Require explicit confirmation dialog naming the model before deletion: multi-gigabyte
+  models are costly to re-download on slower connections.
+- Block deletion and display an explanatory alert/notice if the model is actively
+  in use by an ongoing meeting or post-meeting recap notes, or while a meeting is
+  preparing.
+- Atomic ownership re-check in `SettingsViewModel.deleteModel` on `@MainActor`
+  prevents race conditions with meeting activation or note recaps.
+- Ensure the engine is running via `ollamaManager.ensureRunning()` before issuing
+  the delete command.
+- Display in-progress spinner and actionable errors directly inside `ModelCatalogView`.
+- Lost-response recovery: if a transport failure occurs, query the engine directly;
+  if the model was already deleted by Ollama, confirm the deletion rather than reporting
+  a false failure. If both queries fail, report the outcome as uncertain.
+- No silent store fallback on refresh: query the engine directly; if list refresh fails,
+  do not fall back to the app's internal manifests directory or select from stale in-memory
+  lists (which could clobber an adopted system Ollama store or persist unverified models).
+  Instead, clear `selectedModel = ""` and persist `""`, and surface a reconciliation notice.
+- Strict HTTP & schema validation: `OllamaClient.listModels` and `deleteModel` validate HTTP 200..<300
+  and require a valid `models` JSON array; HTTP 500 and malformed responses throw `OllamaError.serverError`
+  rather than returning `[]`, preventing false deletion confirmation and erroneous selection clearing.
+- Custom model fallback under memory pressure: when the selected model is deleting, session activation
+  and recap notes filter against current free memory (`availableGB`), selecting a usable custom model
+  if the recommended catalog model does not fit under memory pressure. Cloud AI models bypass local
+  installed list checks when live coaching is off.
+- Reconcile selection after deleting the active model using the memory-aware
+  fallback policy (recommended fitting model -> smallest fitting -> first remaining -> "")
+  and persist to UserDefaults via `save()`.
+- During concurrent deletion of the selected model, session activation and recap notes
+  pick the best alternative from remaining installed models (including custom models),
+  avoiding false degradation to basic mode.
+- Saved-meeting recap protection: `SessionDetailView.regenerateReview()` resolves the model
+  once, after `prepareAI`'s refresh, and claims it via
+  `liveSession.beginSavedMeetingRegeneration(model:deletingModel:)` with no suspension between
+  resolve and claim. The claim is refused if that model is being deleted; otherwise
+  `isModelInUse` blocks deletion until release. Generation uses the claimed model, never a
+  re-read of `effectiveModel` (which could drift to an unprotected model). Holds are counted.
+- Strict entry validation: `OllamaClient.listModels` requires every entry in `models` to have a non-empty
+  `name`; malformed entries throw `OllamaError.serverError` rather than being silently omitted, preventing
+  a malformed list from being misinterpreted as proof of model deletion during lost-response recovery.
+- Stale effective model prevention with recovery: a failed post-deletion refresh sets a persisted
+  `selectionNeedsReconciliation` flag; while it is set and the selection is empty, `effectiveModel`
+  resolves to nothing. Reverses the earlier unconditional `!selectedModel.isEmpty` guard, which
+  left AI unusable after a later successful refresh until the user re-picked a model. Now the next
+  verified engine refresh selects and persists a replacement (respecting a user pick made meanwhile)
+  and clears the flag. `prepareAI` requires a non-empty effective model.
+- Regression suite `tests/model/run.sh` wired into `push-gate.sh` and CI `test-gate.yml`.
+
+## 2026-11-02 — Pending model selections require engine verification
+Keep local model resolution and memory-based session fallback disabled while
+selection reconciliation is pending, even if the user picks a model. A user
+pick can come from an unverified list; it is retained and honored when a
+nonempty engine inventory confirms it. An empty verified inventory leaves
+reconciliation pending, including when the last installed model is deleted.
+This supersedes the earlier empty-selection-only guard.

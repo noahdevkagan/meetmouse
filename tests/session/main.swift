@@ -16,6 +16,11 @@ func check(_ ok: Bool, _ label: String, _ detail: String = "") {
 
 @MainActor
 func runTests() async {
+    guard URLProtocol.registerClass(BlockNetworkProtocol.self) else {
+        check(false, "network blocker registered")
+        return
+    }
+    defer { URLProtocol.unregisterClass(BlockNetworkProtocol.self) }
     await visualSpeakerChecks()
     // Session saves land in a scratch dir, never ~/Documents.
     let scratch = FileManager.default.temporaryDirectory
@@ -833,6 +838,27 @@ func runTests() async {
         vm.deleteSession()
     }
 
+    // An unverified inventory cannot become a memory-based fallback.
+    for deletionInFlight in [false, true] {
+        resetSeams()
+        var preloaded: [String] = []
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        LiveSessionViewModel.preloadModel = { preloaded.append($0); return nil }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings()
+        settings.selectionNeedsReconciliation = true
+        if deletionInFlight { settings.deletingModel = "other:1b" }
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: OllamaManager())
+        try? await Task.sleep(for: .milliseconds(500))
+        check(preloaded.isEmpty && vm.sessionModelState?.pinnedModel == nil,
+              "pending reconciliation never preloads an unverified session model",
+              "deletion in flight: \(deletionInFlight), preloaded: \(preloaded)")
+        check(vm.basicModeNotice?.cause == "AI model unavailable",
+              "pending reconciliation explains why the session uses basic coaching")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
     // Preload failure cannot produce a heartbeat, and it tells the user.
     do {
         resetSeams()
@@ -869,6 +895,7 @@ func runTests() async {
         let settings = liveSettings()
         let target = AIConfiguration(provider: .openai, model: "gpt-4.1-mini").modelReference
         settings.usesCloudAI = true
+        settings.selectionNeedsReconciliation = true
         settings.selectedModel = target
         settings.availableModels = []
         settings.hasCheckedModels = true
@@ -996,7 +1023,7 @@ func runTests() async {
 
     // Coaching-off calls still prepare notes; failures retain the transcript
     // and basic recap. No real AI or audio hardware is used in these checks.
-    for mode in ["local", "cloud", "unavailable", "failure", "empty"] {
+    for mode in ["local", "cloud", "cloud-local", "unavailable", "failure", "empty"] {
         resetSeams()
         var reviewed: String?
         var unloaded: [String] = []
@@ -1008,13 +1035,13 @@ func runTests() async {
         }
         let settings = liveSettings()
         settings.semanticCoachEnabled = false
-        if mode == "cloud" {
+        if mode == "cloud" || mode == "cloud-local" {
             settings.usesCloudAI = true
             settings.selectedModel = AIConfiguration(provider: .openai, model: "gpt-4.1-mini").modelReference
-            settings.availableModels = []
+            if mode == "cloud" { settings.availableModels = [] }
         }
         let manager = OllamaManager()
-        manager.engineAvailable = mode != "unavailable" && mode != "cloud"
+        manager.engineAvailable = !["unavailable", "cloud", "cloud-local"].contains(mode)
         let vm = LiveSessionViewModel()
         vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
         try? await Task.sleep(for: .milliseconds(150))
@@ -1025,7 +1052,11 @@ func runTests() async {
         check(!vm.isGeneratingSummary && vm.meetingReview != nil, "stop produces notes without a click (\(mode))")
         check((reviewed != nil) == (mode != "unavailable"), "automatic AI attempts follow availability (\(mode))")
         check((vm.reviewAIError != nil) == ["unavailable", "failure", "empty"].contains(mode), "fallback reports retryable error (\(mode))")
-        check(unloaded.isEmpty == ["cloud", "unavailable"].contains(mode), "post-call local model is released (\(mode))")
+        check(unloaded.isEmpty == ["cloud", "cloud-local", "unavailable"].contains(mode), "post-call local model is released (\(mode))")
+        if mode == "cloud" || mode == "cloud-local" {
+            check(reviewed == settings.selectedModel, "automatic notes use the configured cloud provider (\(mode))",
+                  "reviewed: \(String(describing: reviewed))")
+        }
         if let path = vm.savedPath, let saved = try? String(contentsOfFile: path, encoding: .utf8) {
             check(saved.contains("## Review"), "automatic notes persist (\(mode))")
         } else { check(false, "automatic notes have a saved file (\(mode))") }
@@ -1207,6 +1238,205 @@ func runTests() async {
         check(unloaded.contains("qwen3.5:4b"),
               "empty session unloads its model", "unloaded: \(unloaded)")
         vm.deleteSession()
+    }
+
+    // Model in use: idle session allows deletion, pinned session protects pinned model,
+    // and activation skips models being deleted.
+    do {
+        resetSeams()
+        let vm = LiveSessionViewModel()
+        let idleCheck = vm.isModelInUse("qwen3.5:4b")
+        check(!idleCheck.inUse && idleCheck.reason == nil, "idle session protects no models")
+
+        check(vm.beginSavedMeetingRegeneration(model: "qwen3.5:4b", deletingModel: nil),
+              "saved-meeting recap claims an idle model")
+        let regenCheck = vm.isModelInUse("qwen3.5:4b")
+        check(regenCheck.inUse && regenCheck.reason!.contains("generating meeting recap notes"),
+              "saved-meeting recap protects its active model")
+        check(vm.beginSavedMeetingRegeneration(model: "qwen3.5:4b", deletingModel: nil),
+              "overlapping saved-meeting recaps can share a model")
+        vm.endSavedMeetingRegeneration(model: "qwen3.5:4b")
+        check(vm.isModelInUse("qwen3.5:4b").inUse,
+              "one finished recap does not release a model another recap still holds")
+        vm.endSavedMeetingRegeneration(model: "qwen3.5:4b")
+        let postRegenCheck = vm.isModelInUse("qwen3.5:4b")
+        check(!postRegenCheck.inUse && postRegenCheck.reason == nil,
+              "saved-meeting recap unprotects model when complete")
+        check(!vm.beginSavedMeetingRegeneration(model: "qwen3.5:4b", deletingModel: "qwen3.5:4b"),
+              "saved-meeting recap refuses a model whose deletion is in flight")
+        check(!vm.isModelInUse("qwen3.5:4b").inUse,
+              "a refused recap claim holds nothing")
+        check(!vm.beginSavedMeetingRegeneration(model: "", deletingModel: nil),
+              "saved-meeting recap refuses an empty model")
+
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        LiveSessionViewModel.preloadModel = { _ in nil }
+        let settings = liveSettings("qwen3.5:4b")
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+
+        let pinnedCheck = vm.isModelInUse("qwen3.5:4b")
+        check(pinnedCheck.inUse && pinnedCheck.reason!.contains("in use by your active meeting"),
+              "active meeting protects its pinned model")
+
+        let unpinnedCheck = vm.isModelInUse("gemma4:e4b")
+        check(!unpinnedCheck.inUse && unpinnedCheck.reason == nil,
+              "active meeting allows deletion of an unpinned model")
+
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // Session activation ignores a model whose deletion is in flight.
+    do {
+        resetSeams()
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        LiveSessionViewModel.preloadModel = { _ in nil }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings("qwen3.5:9b")
+        settings.availableModels = [
+            OllamaModel(name: "qwen3.5:9b", size: 6_600_000_000, parameterSize: "9B"),
+            OllamaModel(name: "qwen3.5:4b", size: 3_400_000_000, parameterSize: "4B")
+        ]
+        // Simulate qwen3.5:9b deletion in flight
+        settings.deletingModel = "qwen3.5:9b"
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+
+        check(vm.sessionModelState?.pinnedModel == "qwen3.5:4b",
+              "session activation avoids candidate whose deletion is in flight",
+              "pinned: \(String(describing: vm.sessionModelState?.pinnedModel))")
+
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // Session activation with custom model installed (not in recommendationLadder)
+    // selects the custom model when the active model is deleting.
+    do {
+        resetSeams()
+        LiveSessionViewModel.availableMemoryGB = { 24 }
+        LiveSessionViewModel.preloadModel = { _ in nil }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings("qwen3.5:9b")
+        settings.availableModels = [
+            OllamaModel(name: "qwen3.5:9b", size: 6_600_000_000, parameterSize: "9B"),
+            OllamaModel(name: "custom-gemma:2b", size: 2_000_000_000, parameterSize: "2B")
+        ]
+        // Simulate qwen3.5:9b deletion in flight
+        settings.deletingModel = "qwen3.5:9b"
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+
+        check(vm.sessionModelState?.pinnedModel == "custom-gemma:2b",
+              "session activation falls back to custom installed model when selected model is deleting",
+              "pinned: \(String(describing: vm.sessionModelState?.pinnedModel))")
+
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // Under memory pressure, session activation selects a usable custom model when
+    // the active model is deleting and the recommended model does not fit current memory.
+    do {
+        resetSeams()
+        LiveSessionViewModel.availableMemoryGB = { 5 }
+        LiveSessionViewModel.preloadModel = { _ in nil }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings("qwen3.5:9b")
+        settings.availableModels = [
+            OllamaModel(name: "qwen3.5:9b", size: 6_600_000_000, parameterSize: "9B"),
+            OllamaModel(name: "custom-gemma:2b", size: 2_000_000_000, parameterSize: "2B")
+        ]
+        // Simulate selected model deletion in flight
+        settings.deletingModel = "qwen3.5:9b"
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+
+        check(vm.sessionModelState?.pinnedModel == "custom-gemma:2b",
+              "under memory pressure, session activation falls back to usable custom model",
+              "pinned: \(String(describing: vm.sessionModelState?.pinnedModel)), notice: \(String(describing: vm.basicModeNotice))")
+
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // The recommended model can fit the Mac overall but not the current
+    // free-memory budget; a smaller custom model may still fit.
+    if recommendedCatalogModel.fitsThisMac {
+        for availableGB in [4.0, 10.0] {
+            resetSeams()
+            LiveSessionViewModel.availableMemoryGB = { availableGB }
+            LiveSessionViewModel.preloadModel = { _ in nil }
+            let settings = liveSettings("deleting:1b")
+            settings.deletingModel = "deleting:1b"
+            let recommendedSize: Int64 = recommendedCatalogModel.fullName == "qwen3.5:9b"
+                ? 6_600_000_000 : 3_400_000_000
+            settings.availableModels = [
+                OllamaModel(name: "deleting:1b", size: 2_000_000_000, parameterSize: "1B"),
+                OllamaModel(name: recommendedCatalogModel.fullName, size: recommendedSize, parameterSize: ""),
+                OllamaModel(name: "small-custom:1b", size: 500_000_000, parameterSize: "1B")
+            ]
+            let safeInstalled = settings.availableModels.filter { $0.name != settings.deletingModel }
+            if availableGB == 4 {
+                check(ModelMemory.candidatesForCurrentMemory(
+                    chosen: "small-custom:1b", installed: safeInstalled,
+                    availableGB: availableGB, headroomGB: ModelMemory.postCaptureHeadroomGB)
+                    .contains("small-custom:1b"), "memory-pressure precondition: custom model fits")
+                check(!ModelMemory.candidatesForCurrentMemory(
+                    chosen: recommendedCatalogModel.fullName, installed: safeInstalled,
+                    availableGB: availableGB, headroomGB: ModelMemory.postCaptureHeadroomGB)
+                    .contains(recommendedCatalogModel.fullName),
+                    "memory-pressure precondition: recommended model does not fit")
+            }
+            let vm = LiveSessionViewModel()
+            let manager = OllamaManager()
+            vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+            try? await Task.sleep(for: .milliseconds(500))
+            let expected = availableGB == 4 ? "small-custom:1b" : recommendedCatalogModel.fullName
+            check(vm.sessionModelState?.pinnedModel == expected,
+                  "activation selects a fitting fallback with \(availableGB) GB free",
+                  "pinned: \(String(describing: vm.sessionModelState?.pinnedModel))")
+            vm.stopLive()
+            vm.deleteSession()
+        }
+    } else {
+        print("session memory-pressure fallback: SKIP — recommended model does not fit this host")
+    }
+
+    // The real settings model can resolve an oversized deleting selection to
+    // the recommendation before activation checks current memory.
+    if recommendedCatalogModel.fitsThisMac {
+        resetSeams()
+        LiveSessionViewModel.availableMemoryGB = { 4 }
+        LiveSessionViewModel.preloadModel = { _ in nil }
+        let settings = liveSettings("deleting:1b")
+        settings.deletingModel = "deleting:1b"
+        settings.effectiveModelOverride = recommendedCatalogModel.fullName
+        let recommendedSize: Int64 = recommendedCatalogModel.fullName == "qwen3.5:9b"
+            ? 6_600_000_000 : 3_400_000_000
+        settings.availableModels = [
+            OllamaModel(name: "deleting:1b",
+                        size: Int64(ModelMemory.physicalRAMGB) * 1_073_741_824,
+                        parameterSize: ""),
+            OllamaModel(name: recommendedCatalogModel.fullName, size: recommendedSize, parameterSize: ""),
+            OllamaModel(name: "small-custom:1b", size: 500_000_000, parameterSize: "")
+        ]
+        let vm = LiveSessionViewModel()
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == "small-custom:1b",
+              "oversized deleting selection uses a custom model under current memory pressure",
+              "effective: \(settings.effectiveModel), pinned: \(String(describing: vm.sessionModelState?.pinnedModel))")
+        vm.stopLive()
+        vm.deleteSession()
+    } else {
+        print("session oversized deleting selection: SKIP — recommended model does not fit this host")
     }
 
     // Multilingual review content keeps the parser's five English headers,
@@ -1810,6 +2040,9 @@ func runTests() async {
     }
 
     resetSeams()
+    check(BlockNetworkProtocol.unexpectedRequests.isEmpty,
+          "session tests make no real network requests",
+          "blocked: \(BlockNetworkProtocol.unexpectedRequests)")
 }
 
 await runTests()
