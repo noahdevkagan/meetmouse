@@ -7,7 +7,42 @@
 <title>Changelog — MeetMouse for Mac</title>
 <meta name="description" content="What's new in MeetMouse — every release, in plain language.">
 <link rel="canonical" href="https://meetmouse.com/changelog">
-<link rel="icon" type="image/png" href="/icon.png">
+  <link rel="alternate" hreflang="x-default" href="https://meetmouse.com/changelog">
+  <link rel="alternate" hreflang="en" href="https://meetmouse.com/changelog">
+  <link rel="alternate" hreflang="pt-BR" href="https://meetmouse.com/br/changelog">
+<style>
+.lang-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 550;
+  color: #1a1a1a;
+  background-color: #ffffff;
+  border: 1px solid #e5ded8;
+  border-radius: 8px;
+  padding: 5px 28px 5px 11px;
+  cursor: pointer;
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23444444' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px 6px;
+  line-height: 1.4;
+  vertical-align: middle;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.lang-select:hover {
+  border-color: #bbbbbb;
+}
+.lang-select:focus {
+  border-color: #2bbd3e;
+  box-shadow: 0 0 0 2px rgba(43, 189, 62, 0.15);
+}
+</style>
+<script src="lang.js" defer></script>
+<link rel="icon" type="image/png" href="icon.png">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://meetmouse.com/changelog">
 <meta property="og:title" content="Changelog — MeetMouse for Mac">
@@ -72,21 +107,25 @@
 </head>
 <body>
 <main>
-  <a class="home" href="/">&larr; MeetMouse</a>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+    <a class="home" href="/">&larr; MeetMouse</a>
+    <select class="lang-select" aria-label="Language">
+        <option value="/changelog" data-lang="en" selected>English</option>
+        <option value="/br/changelog" data-lang="pt-BR">Português</option>
+      </select>
+
+  </div>
   <h1>Changelog</h1>
   <p class="sub">What's new in MeetMouse — every release, in plain language. The app updates itself automatically.</p>
 
   <section class="release">
-    <h2>0.33.1
-      <span class="date">October 27, 2026</span></h2>
+    <h2>0.33.1 <span class="date">October 27, 2026</span></h2>
     <ul>
       <li>When a call plays through your Mac's built-in speakers, MeetMouse now shows a one-line tip to use headphones. Without them your mic also hears the other side, so their words can show up as yours or both sides can blend into one block. Dismiss it with the x for that meeting.</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.33.0
-      <span class="date">October 21, 2026</span></h2>
+    <h2>0.33.0 <span class="date">October 21, 2026</span></h2>
     <ul>
       <li>Press Control–Command–M from any app to open MeetMouse while it’s running in the menu bar. Disable the shortcut in Settings → General.</li>
       <li>Right after a meeting's notes are ready, MeetMouse offers once to copy a private link to send them to the people in the meeting. Dismiss it and it won't ask for that meeting; dismiss it three meetings in a row and it stops asking.</li>
@@ -94,18 +133,14 @@
       <li>Invite links now send friends straight to the free download.</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.32.1
-      <span class="date">October 19, 2026</span></h2>
+    <h2>0.32.1 <span class="date">October 19, 2026</span></h2>
     <ul>
       <li>When your free week of unlimited meetings ends, MeetMouse tells you once (3 free meetings a week from here, notes never locked) instead of waiting until a meeting won't start.</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.32.0
-      <span class="date">October 18, 2026</span></h2>
+    <h2>0.32.0 <span class="date">October 18, 2026</span></h2>
     <ul>
       <li>MeetMouse is now free. New installs get unlimited meetings for the first week, then 3 meetings a week (resets Monday). Your notes, transcripts and search are never locked. For unlimited meetings, invite 2 friends with your link (Get MeetMouse Unlimited, in the menu bar or sidebar), pay $20 once, or enter an AppSumo code. Everyone who installed MeetMouse before this version keeps unlimited automatically.</li>
       <li>Fixed meetings not stopping automatically after a Zoom call. Zoom 7 (Zoom Workplace) renamed its windows' owner, so MeetMouse never saw the meeting window and could not tell the call had ended; the meeting window is now recognized by the app's identity instead of its display name. Automatic speaker snapshots find the Zoom 7 window again for the same reason.</li>
@@ -114,66 +149,52 @@
       <li>Speaker snapshots can now name the other person on one-on-one Zoom calls with no speaker highlight, such as while they share their screen. Add your name under Settings → General → Speaker names so MeetMouse can tell your tile from theirs. The name still needs your confirmation.</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.31.0
-      <span class="date">October 8, 2026</span></h2>
+    <h2>0.31.0 <span class="date">October 8, 2026</span></h2>
     <ul>
       <li>Optional automatic speaker snapshots: enable once to detect your meeting window and suggest speaker names each meeting. Images stay on-device and are discarded; names still need confirmation.</li>
       <li>Speaker snapshots now explain when no visible names were read and that suggestions require a reliable voice match, instead of implying that suggestions are ready.</li>
       <li>MeetMouse now warns you when it can't hear your microphone — for example when microphone access is off or your Mac's selected mic is silent (a MacBook's built-in mic is off with the lid closed). Before, your side of the meeting could go missing from the transcript with no sign anything was wrong.</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.30.0
-      <span class="date">October 6, 2026</span></h2>
+    <h2>0.30.0 <span class="date">October 6, 2026</span></h2>
     <ul>
       <li>Optional speaker snapshots: automatically detect your meeting window to help match visible speaker names to voices. Up to six snapshots are read on-device and discarded; suggested names need your confirmation.</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.29.0
-      <span class="date">October 5, 2026</span></h2>
+    <h2>0.29.0 <span class="date">October 5, 2026</span></h2>
     <ul>
       <li>Fixed an echo-filter issue that could remove your replies when they reused words from the other speaker’s question, including French coaching conversations.</li>
       <li>Multi-language meetings: choose "Auto-detect" to transcribe any of the 25 supported languages, even several in one call. Change the language in one click under Start meeting, from the Meeting Detected pill, or mid-meeting from the meeting header; your recent languages stay at the top. AI notes can follow the meeting's language or always be written in English.</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.28.0
-      <span class="date">October 1, 2026</span></h2>
+    <h2>0.28.0 <span class="date">October 1, 2026</span></h2>
     <ul>
       <li>The talk bubble now defaults to a slim, rounded vertical shape on the right edge of your screen. Choose Floating or Right edge and Horizontal or Vertical in General settings; your saved choices are preserved.</li>
       <li>AI notes now generate automatically after meetings even when live AI coaching is off or could not load. If AI is unavailable, a basic recap remains available.</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.27.1
-      <span class="date">September 28, 2026</span></h2>
+    <h2>0.27.1 <span class="date">September 28, 2026</span></h2>
     <ul>
       <li>Ending a meeting now always opens its notes. Previously only the first meeting after launching the app did; later ones went back to the home screen.</li>
       <li>Double-click the meeting bubble to open MeetMouse.</li>
       <li>Removed the extra stop button from the top of the live meeting view. End a meeting from the Stop button in the sidebar or the menu bar.</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.27.0
-      <span class="date">September 25, 2026</span></h2>
+    <h2>0.27.0 <span class="date">September 25, 2026</span></h2>
     <ul>
       <li>Delete saved meetings from their detail view, with confirmation and cleanup of the local transcript, notes, and chat.</li>
       <li>Meeting titles now describe the purpose, confirmed participants, and company context instead of guessing names from repeated words. Regenerating notes upgrades old keyword titles while preserving manual renames.</li>
       <li>The meeting bubble's activity bars move faster and more smoothly.</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.26.0
-      <span class="date">September 25, 2026</span></h2>
+    <h2>0.26.0 <span class="date">September 25, 2026</span></h2>
     <ul>
       <li>Local AI coaching no longer reserves transcription memory twice at meeting startup, allowing smaller models to run with less available memory. Model selection labels now distinguish installed models from running AI.</li>
       <li>The floating meeting overlay is now a compact bubble with a timer, speaker-colored activity bars, and vertical talk-share edges. Coaching nudges and warnings still expand when needed.</li>
@@ -181,27 +202,21 @@
       <li>Finished meetings open directly to Notes, including when you reopen the window after a call.</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.25.2
-      <span class="date">September 22, 2026</span></h2>
+    <h2>0.25.2 <span class="date">September 22, 2026</span></h2>
     <ul>
       <li>Share notes now generates missing AI notes automatically, then creates and copies the private link with visible progress and retryable errors, without an extra confirmation.</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.25.1
-      <span class="date">September 21, 2026</span></h2>
+    <h2>0.25.1 <span class="date">September 21, 2026</span></h2>
     <ul>
       <li>Share notes is one click now: it creates and copies the private link right away and opens the ready-to-send screen, with no preview confirmation in between</li>
       <li>The AI provider control in the bottom-left of the sidebar is now a compact gear icon; hover it for the label</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.25.0
-      <span class="date">September 21, 2026</span></h2>
+    <h2>0.25.0 <span class="date">September 21, 2026</span></h2>
     <ul>
       <li>Meetings are now the home screen. A cleaner meetings list replaces the coaching dashboard as the starting view; coaching progress stays one click away in the sidebar</li>
       <li>Open a saved meeting and it lands in a dedicated AI chat: suggested questions, follow-ups, copyable answers, and a stop button. Chats save locally and restore when you return, and clicking an answer's timestamp jumps to that spot in the transcript. Notes, transcript, and coaching stay one click away</li>
@@ -213,37 +228,29 @@
       <li>Post-meeting notes now refresh as soon as AI generation finishes, and watching the demo no longer blocks the Meetings and Coaching buttons</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.24.0
-      <span class="date">September 17, 2026</span></h2>
+    <h2>0.24.0 <span class="date">September 17, 2026</span></h2>
     <ul>
       <li>Speaker names now come only from the people you confirm in this call's setup. MeetMouse no longer reaches back to whoever you met with last time — that guest's name can't appear on live text, ASR hints, coaching prompts, saved titles, filenames, or transcript metadata for a call they weren't part of</li>
       <li>Naming one person no longer names everyone. Previously a single named voice was taken as proof of a one-on-one, so unassigned speech inherited that name; now a second detected voice suspends the guess and each speaker keeps their own label</li>
       <li>Saved voice profiles are cleaner: a speaker's voice clip now excludes other people's overlapping speech, so a crosstalk moment can't be learned as someone's voice. If less than three seconds of solo speech is available, no profile is saved rather than a bad one</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.23.1
-      <span class="date">September 17, 2026</span></h2>
+    <h2>0.23.1 <span class="date">September 17, 2026</span></h2>
     <ul>
       <li>MeetMouse now actually shows up as "MeetMouse" in Finder, the Dock, and Spotlight. If you updated from Meeting Coach, the app on disk kept its old <code>MeetingCoach.app</code> filename — it renames itself once on the next launch and reopens straight away. Settings, models, transcripts, permissions, and updates all carry over untouched</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.23.0
-      <span class="date">September 16, 2026</span></h2>
+    <h2>0.23.0 <span class="date">September 16, 2026</span></h2>
     <ul>
       <li>The app has a new name and face: MeetMouse, with a phone-listening gray mouse on NoahKagan green throughout the app and the same recognizable animal in the menu bar. Your settings, models, transcripts, and updates continue exactly where they left off</li>
       <li>If you had connected an AI agent, re-add it: the built-in MCP server moved with the rename. Open Advanced → Agent access and copy the new <code>claude mcp add</code> command — an older <code>meetingcoach</code> entry points at a path that no longer exists</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.22.0
-      <span class="date">September 4, 2026</span></h2>
+    <h2>0.22.0 <span class="date">September 4, 2026</span></h2>
     <ul>
       <li>Meeting reviews are now organized by topic: a NOTES section with a heading per subject discussed and dense factual bullets under each, plus NEXT STEPS with an owner on every item — instead of one flat list of takeaways. Long meetings fit whole: a 43-minute call is reviewed untrimmed</li>
       <li>Reviews stick closer to what was actually said: someone who was mentioned is no longer written up as if they spoke, and no deadlines are invented that nobody committed to. Reviews saved by earlier versions still open as before</li>
@@ -253,10 +260,8 @@
       <li>The AI model picker now shows each model's download size next to its name</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.21.0
-      <span class="date">September 2, 2026</span></h2>
+    <h2>0.21.0 <span class="date">September 2, 2026</span></h2>
     <ul>
       <li>New "AI coaching" toggle in Settings → Model: turn it off and MeetingCoach runs transcript-first — live transcript, speaker names, and built-in nudges keep working, but no AI model is loaded. Flip it off mid-call and the memory (~7 GB for the default model) comes back right away, not next session. "Generate AI review" on saved sessions still works on demand</li>
       <li>If the AI model is slowing your Mac, a 🐢 tip now appears in the main window and floating overlay with a one-click way to turn AI coaching off; the low-memory banner offers the same. Decline it three times and it stays quiet</li>
@@ -267,19 +272,15 @@
       <li>Fixed a fresh install occasionally running without AI coaching: if the first transcription-model download failed and you clicked Retry, the AI model download that was supposed to follow never started until the next launch</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.20.1
-      <span class="date">August 18, 2026</span></h2>
+    <h2>0.20.1 <span class="date">August 18, 2026</span></h2>
     <ul>
       <li>Picking a different AI model during a live session now says what actually happens: the session keeps the model it started with, and your new pick takes over from your next session — before, the change looked ignored</li>
       <li>The low-memory banner now tells you when a small model is installed and ready for your next session, instead of going quiet right after its download finishes</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.20.0
-      <span class="date">August 14, 2026</span></h2>
+    <h2>0.20.0 <span class="date">August 14, 2026</span></h2>
     <ul>
       <li>When the full AI coach cannot load because your Mac is busy or low on memory, the main window and floating overlay now say “Basic mode” instead of leaving you wondering why no AI nudges appear; built-in coaching keeps working</li>
       <li>MeetingCoach now tries smaller AI models you already downloaded before falling back to basic mode</li>
@@ -287,18 +288,14 @@
       <li>Fixed named speakers occasionally losing their name on short replies in a one-on-one call when speaker detection briefly imagined an extra voice that never said anything</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.19.1
-      <span class="date">August 13, 2026</span></h2>
+    <h2>0.19.1 <span class="date">August 13, 2026</span></h2>
     <ul>
       <li>Fixed a crash that could quit MeetingCoach as a meeting started, when a headset or other microphone was still connecting. The app now gives the mic a moment to settle, and if it never becomes usable it says so instead of quitting</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.19.0
-      <span class="date">August 13, 2026</span></h2>
+    <h2>0.19.0 <span class="date">August 13, 2026</span></h2>
     <ul>
       <li>MeetingCoach now speaks your language: meetings can be transcribed in 25 languages — English plus 24 European languages, from Spanish and French to Ukrainian and Greek. Pick yours in Settings → General; by default it follows your Mac's language</li>
       <li>Non-English meetings use a new high-accuracy on-device engine (Apple Silicon, one ~600 MB download the first time). Your audio still never leaves your Mac</li>
@@ -307,10 +304,8 @@
       <li>The language you pick is locked in when a meeting starts, so changing it mid-call never scrambles a running transcript. Intel Macs stay English-only (explained right in Settings)</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.18.1
-      <span class="date">August 11, 2026</span></h2>
+    <h2>0.18.1 <span class="date">August 11, 2026</span></h2>
     <ul>
       <li>MeetMouse now checks how much memory is actually free once a call is underway — not just how much your Mac has — and picks a lighter model when your machine is busy. A 32 GB Mac with a lot already open no longer slows to a crawl mid-meeting</li>
       <li>If nothing can run safely, coaching continues without the AI parts instead of freezing your call, and it stays that way for the whole meeting rather than loading a model at the end</li>
@@ -318,10 +313,8 @@
       <li>Models are no longer loaded speculatively when a meeting is detected: your Mac only holds one while a call is actually running</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.18.0
-      <span class="date">August 11, 2026</span></h2>
+    <h2>0.18.0 <span class="date">August 11, 2026</span></h2>
     <ul>
       <li>Naming speakers is now dependable: rename someone once and they stay named — including the words they said before the transcript learned to tell voices apart, and anything they say next. On a two-person call, naming the other person (or listing them in pre-call setup) labels the whole far side with their name; if a third voice joins, the transcript honestly goes back to numbered speakers</li>
       <li>Naming someone in the first moments of a call now still saves their voice — the app waits for enough speech and saves automatically, then keeps the fullest sample at the end of the call so future meetings recognize them</li>
@@ -334,10 +327,8 @@
       <li>The app now records its version when it starts, so support questions get answered from your first log line instead of guesswork</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.17.1
-      <span class="date">August 10, 2026</span></h2>
+    <h2>0.17.1 <span class="date">August 10, 2026</span></h2>
     <ul>
       <li>A red dot on the menu bar icon shows when an update is waiting, with "Update available…" pinned to the top of the dropdown — so a dismissed update popup doesn't mean a missed update</li>
       <li>Fixed a crash on Intel Macs: the high-accuracy transcription model only runs on Apple Silicon, and starting a session on an Intel Mac could quit the app mid-meeting. Intel Macs now automatically use Apple's built-in transcription instead, and the app says clearly (during setup and in each session) that Intel isn't fully supported — reduced accuracy, no speaker identification. Intel Macs also no longer download the unusable 600 MB model</li>
@@ -345,10 +336,8 @@
       <li>The microphone also now notices when it's receiving dead silence (a call grabbed it mid-session, a device glitch) and reconnects automatically instead of listening to nothing forever</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.17.0
-      <span class="date">August 6, 2026</span></h2>
+    <h2>0.17.0 <span class="date">August 6, 2026</span></h2>
     <ul>
       <li>FaceTime and iPhone calls taken on your Mac are now real meetings: they trigger the "Meeting detected" prompt just like Zoom, and call sessions are titled with the caller's name</li>
       <li>When a call's audio never reaches your Mac (you answered on the iPhone, or it's playing in a headset), the app now says "Can't hear this meeting" with how to fix it — instead of showing "Listening" over an empty transcript and then blaming a quiet room</li>
@@ -358,28 +347,22 @@
       <li>Fixed: quiet speech close to the mic could be silently discarded as speaker echo</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.16.0
-      <span class="date">August 6, 2026</span></h2>
+    <h2>0.16.0 <span class="date">August 6, 2026</span></h2>
     <ul>
       <li>Phone calls on your Mac no longer silence coaching: handing a call to the Mac makes the iPhone's microphone the system input, which delivers nothing to other apps — the app kept saying "Listening" over an empty transcript. It now detects that and listens through the Mac's own microphone instead, whether the call started before or during your session</li>
       <li>Granola re-import now repairs meetings that came in empty: if an earlier import left a meeting without its transcript (a bug fixed in 0.12.0), importing the same export again fills the transcript in instead of saying "already imported" — your renames and notes stay untouched</li>
       <li>The Questions to Ask, Coaching Notes, and Model rows in Advanced now open with a click anywhere on the row, not just the tiny chevron</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.15.0
-      <span class="date">August 5, 2026</span></h2>
+    <h2>0.15.0 <span class="date">August 5, 2026</span></h2>
     <ul>
       <li>Fixed: switching audio devices mid-meeting (taking a phone call on your Mac, connecting AirPods, plugging in a headset) silently killed the microphone — the app kept saying "Listening" but stopped transcribing. It now detects the change and reconnects to your mic automatically</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.14.0
-      <span class="date">August 5, 2026</span></h2>
+    <h2>0.14.0 <span class="date">August 5, 2026</span></h2>
     <ul>
       <li>No more picking an AI model that's too big for your Mac: the app now knows how much memory you have — the model list only shows ones that will run well, the recommended download matches your machine, and the biggest models stay reserved for Macs that can handle them</li>
       <li>If a too-big model does end up selected (say, from before this update), you get a clear orange note in Settings and the app quietly uses your best-fitting installed model instead — no more whole-Mac freeze mid-meeting</li>
@@ -387,10 +370,8 @@
       <li>Under the hood: removed a chunk of leftover code from retired features, so the app is a little leaner</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.13.0
-      <span class="date">August 5, 2026</span></h2>
+    <h2>0.13.0 <span class="date">August 5, 2026</span></h2>
     <ul>
       <li>A fresh coat of paint everywhere: new AppSumo-yellow Go live button, cleaner type, and a simpler title bar — same layout and flow you already know</li>
       <li>Follows your Mac's appearance: light, dark, or auto — the new design now has a proper dark side</li>
@@ -401,10 +382,8 @@
       <li>Your Progress is the home screen again, redesigned to match</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.12.0
-      <span class="date">August 4, 2026</span></h2>
+    <h2>0.12.0 <span class="date">August 4, 2026</span></h2>
     <ul>
       <li>Granola import actually works now — validated against a real export: your meetings come in with their true titles, notes, and full searchable transcripts (the first version choked on the file format and imported empty shells)</li>
       <li>Naming a speaker sticks: tagging someone while they're still labeled "Them" saved nothing before (you had to wait for "Them 1") — now every tag saves their voice locally so future meetings can label them automatically</li>
@@ -415,19 +394,15 @@
       <li>Renaming a chat back to its date now sticks instead of a topic name reappearing</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.11.1
-      <span class="date">August 4, 2026</span></h2>
+    <h2>0.11.1 <span class="date">August 4, 2026</span></h2>
     <ul>
       <li>Fixed a crash when editing lists with a row deleted mid-edit — typing in a vocabulary term, pre-call participant, or custom coaching signal and removing a row could quit the app and lose what you typed</li>
       <li>Vocabulary edits now confirm themselves: a green "Saved" appears when a term is stored, and a hint tells you when a row still needs its "Corrected to…" filled in to save</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.11.0
-      <span class="date">August 3, 2026</span></h2>
+    <h2>0.11.0 <span class="date">August 3, 2026</span></h2>
     <ul>
       <li>New first-run checklist: the main pane walks you to your first coached meeting — two permissions with Grant buttons, both models downloading with real progress bars (they start on their own, no clicks), then "join a meeting"</li>
       <li>Coming from Granola? Export your meetings as a CSV in Granola, pick the file in Settings → General, and your notes become searchable MeetMouse sessions — on your Mac, like everything else</li>
@@ -436,18 +411,14 @@
       <li>The sidebar's Advanced section starts open so Questions to Ask and Coaching Notes are visible, and the whole header row is clickable</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.10.1
-      <span class="date">August 3, 2026</span></h2>
+    <h2>0.10.1 <span class="date">August 3, 2026</span></h2>
     <ul>
       <li>MeetMouse now starts automatically when you log in (so it's ready after a restart) — turn it off any time in Settings → General → Startup</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.10.0
-      <span class="date">July 31, 2026</span></h2>
+    <h2>0.10.0 <span class="date">July 31, 2026</span></h2>
     <ul>
       <li>Coaching now stops when your meeting ends, even with a TV or podcast playing nearby — background audio no longer keeps the session (and the transcript) running past the call</li>
       <li>The other side's words now read as full sentences: transcripts save whole thoughts with one timestamp each, instead of shredded 1-3 word lines</li>
@@ -456,27 +427,21 @@
       <li>Click a misheard word in the transcript to fix it — the word comes pre-filled, you type what it should be, and the fix applies on the spot, to the rest of the call, and to every future meeting (right-click a line for multi-word phrases); your term list lives in Settings → General → Vocabulary</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.9.2
-      <span class="date">July 29, 2026</span></h2>
+    <h2>0.9.2 <span class="date">July 29, 2026</span></h2>
     <ul>
       <li>First sessions now say when transcript accuracy is reduced: a banner during the call (and a note on the review) explains the high-accuracy engine is still downloading and will be ready next session — no more "why did it only catch random words?"</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.9.1
-      <span class="date">July 29, 2026</span></h2>
+    <h2>0.9.1 <span class="date">July 29, 2026</span></h2>
     <ul>
       <li>Give MeetMouse to a friend for FREE: grab an invite from the menu bar (you have 3) — one click copies a ready-to-send message with a code your friend redeems free on AppSumo</li>
       <li>After your first coached meeting, MeetMouse asks if you know someone who'd want it too</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.9.0
-      <span class="date">July 28, 2026</span></h2>
+    <h2>0.9.0 <span class="date">July 28, 2026</span></h2>
     <ul>
       <li>The transcript now tells remote speakers apart: on a group call, "Them" splits into "Them 1", "Them 2", … as each person talks</li>
       <li>Click any speaker's label to name them — the whole transcript relabels, and their voice is remembered on your Mac so future meetings greet them by name from the first sentence</li>
@@ -486,19 +451,15 @@
       <li>Tuned to stay light on long calls: less memory for audio, less work per second</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.8.3
-      <span class="date">July 28, 2026</span></h2>
+    <h2>0.8.3 <span class="date">July 28, 2026</span></h2>
     <ul>
       <li>Your Progress now counts real weeks: "this week" starts Monday, compared against all of last week — no more rolling 7-day windows that read like wrong numbers</li>
       <li>Coach suggestion cards now say exactly what Apply will do ("waits 50% longer between nudges", "starts watching for this next call") instead of leaving you guessing</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.8.2
-      <span class="date">July 28, 2026</span></h2>
+    <h2>0.8.2 <span class="date">July 28, 2026</span></h2>
     <ul>
       <li>Coaching Notes now actually learn from anything you paste: feedback from Claude or any AI tool gets read by your local model — known signals tune up, and brand-new patterns ("you keep selling after they've said yes") become proposed signals you approve on the Progress dashboard before the coach starts watching for them</li>
       <li>Installed models are recognized the moment the app opens — no more "Download Model" showing over a model you already downloaded</li>
@@ -508,20 +469,16 @@
       <li>The coach panel can be dragged much wider, and Progress tiles now say what they measure: your last 7 days vs the prior 7</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.8.1
-      <span class="date">July 28, 2026</span></h2>
+    <h2>0.8.1 <span class="date">July 28, 2026</span></h2>
     <ul>
       <li>Your post-meeting review is now about the conversation itself — the summary, key takeaways, and next steps come from what was actually said, decided, and promised on the call; coaching feedback lives only in "Next meeting focus"</li>
       <li>The Questions to Ask checklist is clickable during the call — tick a question off yourself, or untick one it marked by mistake (it stays unticked)</li>
       <li>"Great question" nudges now quote the question you asked and how they opened up — not a random slice from the middle of their answer</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.8.0
-      <span class="date">July 24, 2026</span></h2>
+    <h2>0.8.0 <span class="date">July 24, 2026</span></h2>
     <ul>
       <li>Your post-meeting review is now a proper card — summary, key takeaways, and next steps you can check off (they stay checked). Both the instant review and the AI review use it, and old saved reviews render in the same clean layout</li>
       <li>Sessions name themselves: "Lindsay · radar &amp; group" instead of a date, worked out from who you talked to and what about, with the date shown alongside. Right-click to rename</li>
@@ -534,10 +491,8 @@
       <li>Agent access (MCP) setup moved to Settings → General</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.7.0
-      <span class="date">July 21, 2026</span></h2>
+    <h2>0.7.0 <span class="date">July 21, 2026</span></h2>
     <ul>
       <li>A calmer, simpler MeetMouse: the live transcript is now the main event, with your talk-time split and elapsed time shown as quiet ambient info — not warnings</li>
       <li>Far fewer interruptions: only a handful of high-value nudges fire by default (talk time, one question at a time, action items, locking a real date, one genuine win). Everything else moved to Coaching Style, off by default — re-enable any signal you miss</li>
@@ -547,19 +502,15 @@
       <li>Connect Claude and other AI agents to your meetings: a built-in MCP server lets agents list, search, and read your saved transcripts — fully local, over stdio, nothing leaves your Mac. Setup: open Advanced → Agent access → copy the <code>claude mcp add</code> command (or point your agent at <code>MeetMouse.app/Contents/MacOS/meetmouse-mcp</code>)</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.6.3
-      <span class="date">July 20, 2026</span></h2>
+    <h2>0.6.3 <span class="date">July 20, 2026</span></h2>
     <ul>
       <li>Stopping a session keeps your whole transcript on screen — including the words you were still saying when you hit Stop (they now land in the saved session too)</li>
       <li>Nudges and Transcript panes are back to clean white; the warm tint stays in the sidebar only</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.6.2
-      <span class="date">July 20, 2026</span></h2>
+    <h2>0.6.2 <span class="date">July 20, 2026</span></h2>
     <ul>
       <li>Coaching now reliably stops when your meeting ends — saying goodbye right before hanging up no longer made it miss the ending</li>
       <li>No more "You're still talking" while you wait alone for others to join</li>
@@ -567,19 +518,15 @@
       <li>A calmer, lighter look: warm paper background, serif titles, quieter nudge cards, and human signal names ("Stacked Qs", not "stackedQuestions")</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.6.1
-      <span class="date">July 20, 2026</span></h2>
+    <h2>0.6.1 <span class="date">July 20, 2026</span></h2>
     <ul>
       <li>New recommended AI model: Qwen 3.5 — sharper coaching judgment, faster on Apple Silicon, and a smaller download</li>
       <li>Model catalog refreshed: Qwen 3.5 in three sizes and IBM Granite 4 added, older models retired</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.6.0
-      <span class="date">July 20, 2026</span></h2>
+    <h2>0.6.0 <span class="date">July 20, 2026</span></h2>
     <ul>
       <li>New: auto-start coaching — turn it on and coaching begins by itself when a meeting is detected, after a 10-second cancelable countdown</li>
       <li>Meeting-end detection got smarter: coaching stops within seconds of leaving a Zoom, Meet, or huddle — and never cuts you off mid-sentence</li>
@@ -590,19 +537,15 @@
       <li>Faster and lighter, especially in hour-long sessions</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.5.8
-      <span class="date">July 17, 2026</span></h2>
+    <h2>0.5.8 <span class="date">July 17, 2026</span></h2>
     <ul>
       <li>Everything now lives in one main window — no more separate windows to juggle</li>
       <li>Coaching stops automatically when your meeting ends</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.5.7
-      <span class="date">July 17, 2026</span></h2>
+    <h2>0.5.7 <span class="date">July 17, 2026</span></h2>
     <ul>
       <li>Slack huddles are now detected</li>
       <li>Dictation no longer triggers "meeting detected"</li>
@@ -611,66 +554,52 @@
       <li>Fixed a crash when notification permission was denied</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.5.6
-      <span class="date">July 17, 2026</span></h2>
+    <h2>0.5.6 <span class="date">July 17, 2026</span></h2>
     <ul>
       <li>Meetings are detected on any microphone, not just the default input</li>
       <li>New: launch MeetMouse at login</li>
       <li>Quit straight from the menu bar dropdown</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.5.5
-      <span class="date">July 17, 2026</span></h2>
+    <h2>0.5.5 <span class="date">July 17, 2026</span></h2>
     <ul>
       <li>Meeting auto-detect is now ON by default for fresh installs</li>
       <li>Updates arrive faster — the app checks hourly instead of daily</li>
       <li>The Coaching Style sheet closes itself after a successful save</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.5.4
-      <span class="date">July 17, 2026</span></h2>
+    <h2>0.5.4 <span class="date">July 17, 2026</span></h2>
     <ul>
       <li>Transcript export now uses a Zoom-style format, and speaker turns split cleanly at speaker boundaries</li>
       <li>The local AI engine restarts itself if it ever dies mid-session</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.5.3
-      <span class="date">July 17, 2026</span></h2>
+    <h2>0.5.3 <span class="date">July 17, 2026</span></h2>
     <ul>
       <li>The meeting-detected card gains a hover-to-reveal close button</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.5.2
-      <span class="date">July 17, 2026</span></h2>
+    <h2>0.5.2 <span class="date">July 17, 2026</span></h2>
     <ul>
       <li>A redesigned, more polished meeting-detected card</li>
       <li>Send feedback straight from the menu bar dropdown</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.5.1
-      <span class="date">July 17, 2026</span></h2>
+    <h2>0.5.1 <span class="date">July 17, 2026</span></h2>
     <ul>
       <li>Sessions start instantly — no more waiting on the transcription-model download; the higher-accuracy engine fetches in the background and takes over next session</li>
       <li>Coaching styles work without a local AI model via built-in presets</li>
       <li>Fixed wall-of-text transcripts when running mic-only</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.5.0
-      <span class="date">July 17, 2026</span></h2>
+    <h2>0.5.0 <span class="date">July 17, 2026</span></h2>
     <ul>
       <li>New to MeetMouse? A short demo replays a sample meeting with real nudges on first launch — no mic, no permissions, no downloads</li>
       <li>Live talk meter: a thin You/Them bar in the overlay and transcript shows your share of the conversation as it happens (orange past 65%)</li>
@@ -683,18 +612,14 @@
       <li>Meeting auto-detect (off by default): a menu bar icon offers "Start coaching?" when a meeting app and your mic go live — recording never starts without your click</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.4.8
-      <span class="date">July 16, 2026</span></h2>
+    <h2>0.4.8 <span class="date">July 16, 2026</span></h2>
     <ul>
       <li>Export your transcript: after a session ends, a small download button appears at the top of the transcript panel — click it to save the transcript as a text file</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.4.6
-      <span class="date">July 14, 2026</span></h2>
+    <h2>0.4.6 <span class="date">July 14, 2026</span></h2>
     <ul>
       <li>The coach now praises too: green nudges reinforce your best moves the moment they happen — a great open question that gets them talking, handing someone the decision, refocusing a drifting room, locking commitments, and reflecting their point back</li>
       <li>Much more accurate transcripts — a new on-device engine (Parakeet) replaces Apple's speech recognizer. Still 100% on your Mac; downloads a ~600 MB model on first session (falls back to the old engine if the model can't load)</li>
@@ -703,28 +628,22 @@
       <li>Fixed: large blank spaces between transcript lines, and lines duplicating once speakers were identified</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.4.4
-      <span class="date">July 8, 2026</span></h2>
+    <h2>0.4.4 <span class="date">July 8, 2026</span></h2>
     <ul>
       <li>Fixed: transcripts turning into garbled fragments during calls (a 0.4.3 regression)</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.4.3
-      <span class="date">July 8, 2026</span></h2>
+    <h2>0.4.3 <span class="date">July 8, 2026</span></h2>
     <ul>
       <li>Fixed: starting a session no longer reduces your call or system volume at all</li>
       <li>Smoother transcripts — sentences no longer get chopped into fragments during pauses</li>
       <li>The mic no longer switches into "call mode" when a session starts</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.4.2
-      <span class="date">July 8, 2026</span></h2>
+    <h2>0.4.2 <span class="date">July 8, 2026</span></h2>
     <ul>
       <li>Fixed: starting a session no longer makes the rest of your Mac's audio very quiet</li>
       <li>Transcripts now tell speakers apart — turns are labeled Speaker 1, Speaker 2, … on phone and in-person calls, processed 100% on your Mac</li>
@@ -735,10 +654,8 @@
       <li>Fixed a large blank gap that could appear in the transcript pane</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.4.1
-      <span class="date">July 7, 2026</span></h2>
+    <h2>0.4.1 <span class="date">July 7, 2026</span></h2>
     <ul>
       <li>Fixed: downloading a model on first launch no longer fails with "Could not connect to the server"</li>
       <li>Fixed: the recommended gemma4 models can now actually be downloaded (updated built-in AI engine)</li>
@@ -746,28 +663,22 @@
       <li>The app no longer leaves its AI engine running after you quit</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.4.0
-      <span class="date">July 3, 2026</span></h2>
+    <h2>0.4.0 <span class="date">July 3, 2026</span></h2>
     <ul>
       <li>Simpler pre-call setup: meeting type is inferred, participants suggested as chips</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.3.0
-      <span class="date">July 3, 2026</span></h2>
+    <h2>0.3.0 <span class="date">July 3, 2026</span></h2>
     <ul>
       <li>App version shown in the sidebar footer is now always accurate</li>
       <li>Downloads are now fully signed end-to-end</li>
       <li>First release with automatic updates — the app now updates itself</li>
     </ul>
   </section>
-
   <section class="release">
-    <h2>0.2.0
-      <span class="date">July 2, 2026</span></h2>
+    <h2>0.2.0 <span class="date">July 2, 2026</span></h2>
     <ul>
       <li>New coaching signals from real-meeting testing: parked questions, vague answers</li>
       <li>Turn-based signal engine with meeting types and adaptive thresholds</li>

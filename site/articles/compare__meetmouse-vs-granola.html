@@ -1,79 +1,76 @@
-<!--meta
-{
+{% set meta = {
   "path": "compare/meetmouse-vs-granola",
   "kind": "compare",
-  "title": "MeetMouse vs Granola (2026): Notes After vs Coaching During",
-  "description": "Granola writes great notes after your meeting. MeetMouse coaches you during it — 100% on-device, free for 3 meetings a week or $20 once for unlimited. An honest comparison from MeetMouse's founder.",
-  "h1": "MeetMouse vs Granola: notes after vs coaching during",
-  "dek": "Obvious disclosure: I built MeetMouse, so read everything here knowing that. But I'm not going to trash Granola to sell you my thing — Granola is genuinely good software, and pretending otherwise would just make you trust the rest of this page less.",
-  "answer_label": "The short answer",
-  "answer": "Granola is the best bot-free notetaker on the Mac. MeetMouse writes notes too (transcript, summary, takeaways, next steps), but on your Mac instead of Granola's cloud AI, and it also coaches you <em>while the meeting is happening</em>. If you want the most polished notes and shared team folders, get Granola. If you want notes that never leave your Mac plus help in the moment, get MeetMouse.",
-  "intro": [],
+  "title": _("MeetMouse vs Granola (2026): Notes After vs Coaching During"),
+  "description": _("Granola writes great notes after your meeting. MeetMouse coaches you during it — 100% on-device, free for 3 meetings a week or {price} once for unlimited. An honest comparison from MeetMouse's founder."),
+  "h1": _("MeetMouse vs Granola: notes after vs coaching during"),
+  "dek": _("Obvious disclosure: I built MeetMouse, so read everything here knowing that. But I'm not going to trash Granola to sell you my thing — Granola is genuinely good software, and pretending otherwise would just make you trust the rest of this page less."),
+  "answer_label": _("The short answer"),
+  "answer": _("Granola is the best bot-free notetaker on the Mac. MeetMouse writes notes too (transcript, summary, takeaways, next steps), but on your Mac instead of Granola's cloud AI, and it also coaches you <em>while the meeting is happening</em>. If you want the most polished notes and shared team folders, get Granola. If you want notes that never leave your Mac plus help in the moment, get MeetMouse."),
+  "intro": [
+  ],
   "faq": [
-    [
-      "Does Granola join your call as a bot?",
-      "No — that's Granola's signature feature. It captures system audio on your Mac, so no bot appears in the meeting. MeetMouse works the same way; the difference is what happens next: Granola sends audio-derived data to cloud AI for notes, MeetMouse processes everything on your Mac."
-    ],
-    [
-      "Does Granola work offline?",
-      "No. Granola's notes are generated with cloud AI, so it needs a connection. MeetMouse's transcription and coaching run entirely on-device — it works with WiFi off."
-    ],
-    [
-      "Is Granola free?",
-      "Granola's free plan keeps 30 days of meeting history; Business is $14/user/month. MeetMouse is free for 3 meetings a week, or $20 one time for unlimited, forever."
-    ],
-    [
-      "Can you run Granola and MeetMouse together?",
-      "Yes, and plenty of people should: Granola writes the record of the meeting, MeetMouse changes how you show up in it. They don't conflict — both are bot-free and capture system audio."
-    ]
+    [_("Does Granola join your call as a bot?"), _("No — that's Granola's signature feature. It captures system audio on your Mac, so no bot appears in the meeting. MeetMouse works the same way; the difference is what happens next: Granola sends audio-derived data to cloud AI for notes, MeetMouse processes everything on your Mac.")],
+    [_("Does Granola work offline?"), _("No. Granola's notes are generated with cloud AI, so it needs a connection. MeetMouse's transcription and coaching run entirely on-device — it works with WiFi off.")],
+    [_("Is Granola free?"), _("Granola's free plan keeps 30 days of meeting history; Business is {granola_price}/user/month. MeetMouse is free for 3 meetings a week, or {price} once for unlimited, forever.")],
+    [_("Can you run Granola and MeetMouse together?"), _("Yes, and plenty of people should: Granola writes the record of the meeting, MeetMouse changes how you show up in it. They don't conflict — both are bot-free and capture system audio.")],
   ],
   "date": "2026-07-29",
-  "checked": "July 2026"
-}
--->
+  "checked": _("July 2026"),
+} %}
 <section>
-<h2>What each tool actually does</h2>
-<p><strong>Granola</strong> sits quietly on your Mac (no bot joins the call), captures the audio, and blends your rough typed notes with an AI-written summary after the meeting. The output is a clean document: decisions, action items, context. It's a memory tool.</p>
-    <p><strong>MeetMouse</strong> also sits quietly on your Mac with no bot — but it works in the opposite direction. While you're talking, it applies a coaching rubric to the live conversation and surfaces short cues in a small overlay: you're monologuing, you skipped the ask, that "sounds good" wasn't actually a commitment. The overlay never shows up in screen shares. It's a behavior tool.</p>
-    <p>One tells you what happened. The other changes what happens.</p>
+
+{# trans Section: What each tool actually does #}
+<h2>{% trans %}What each tool actually does{% endtrans %}</h2>
+<p>{% trans %}<strong>Granola</strong> sits quietly on your Mac (no bot joins the call), captures the audio, and blends your rough typed notes with an AI-written summary after the meeting. The output is a clean document: decisions, action items, context. It's a memory tool.{% endtrans %}</p>
+    <p>{% trans %}<strong>MeetMouse</strong> also sits quietly on your Mac with no bot — but it works in the opposite direction. While you're talking, it applies a coaching rubric to the live conversation and surfaces short cues in a small overlay: you're monologuing, you skipped the ask, that "sounds good" wasn't actually a commitment. The overlay never shows up in screen shares. It's a behavior tool.{% endtrans %}</p>
+    <p>{% trans %}One tells you what happened. The other changes what happens.{% endtrans %}</p>
 </section>
 
 <section>
-<h2>Head to head</h2>
+
+{# trans Section: Head to head #}
+<h2>{% trans %}Head to head{% endtrans %}</h2>
 <div class="table-wrap">
       <table>
-        <tr><th></th><th>Granola</th><th>MeetMouse</th></tr>
-        <tr><td>Job</td><td>AI meeting notes, after the call</td><td>Live coaching cues, during the call</td></tr>
-        <tr><td>Price</td><td>Free (30 days of history), Business $14/user/mo</td><td>Free (3 meetings/week); $20 once for unlimited, forever</td></tr>
-        <tr><td>Bot joins your call</td><td>No</td><td>No</td></tr>
-        <tr><td>Where your audio goes</td><td>Notes generated with cloud AI</td><td>Nowhere. 100% on-device — works with WiFi off</td></tr>
-        <tr><td>Account required</td><td>Yes</td><td>No</td></tr>
-        <tr><td>Platforms</td><td>Mac, Windows, iOS</td><td>Mac only (macOS 14.2+)</td></tr>
-        <tr><td>Screen-share safe</td><td>n/a</td><td>Yes, overlay is invisible to viewers</td></tr>
+        <tr><th></th><th>{% trans %}Granola{% endtrans %}</th><th>{% trans %}MeetMouse{% endtrans %}</th></tr>
+        <tr><td>{% trans %}Job{% endtrans %}</td><td>{% trans %}AI meeting notes, after the call{% endtrans %}</td><td>{% trans %}Live coaching cues, during the call{% endtrans %}</td></tr>
+        <tr><td>{% trans %}Price{% endtrans %}</td><td>{{ _("Free (30 days of history), Business {price}/user/mo", price=prices.granola.business) }}</td><td>{{ _("Free (3 meetings/week); {price} once for unlimited, forever", price=price) }}</td></tr>
+        <tr><td>{% trans %}Bot joins your call{% endtrans %}</td><td>{% trans %}No{% endtrans %}</td><td>{% trans %}No{% endtrans %}</td></tr>
+        <tr><td>{% trans %}Where your audio goes{% endtrans %}</td><td>{% trans %}Notes generated with cloud AI{% endtrans %}</td><td>{% trans %}Nowhere. 100% on-device — works with WiFi off{% endtrans %}</td></tr>
+        <tr><td>{% trans %}Account required{% endtrans %}</td><td>{% trans %}Yes{% endtrans %}</td><td>{% trans %}No{% endtrans %}</td></tr>
+        <tr><td>{% trans %}Platforms{% endtrans %}</td><td>{% trans %}Mac, Windows, iOS{% endtrans %}</td><td>{% trans %}Mac only (macOS 14.2+){% endtrans %}</td></tr>
+        <tr><td>{% trans %}Screen-share safe{% endtrans %}</td><td>{% trans %}n/a{% endtrans %}</td><td>{% trans %}Yes, overlay is invisible to viewers{% endtrans %}</td></tr>
       </table>
     </div>
 </section>
 
 <section>
-<h2>Where Granola wins</h2>
+
+{# trans Section: Where Granola wins #}
+<h2>{% trans %}Where Granola wins{% endtrans %}</h2>
 <ul>
-      <li><strong>Notes.</strong> This is the whole category and Granola is excellent at it. MeetMouse writes a summary and next steps too, but on-device, and Granola's notes are more polished.</li>
-      <li><strong>Cross-platform.</strong> Windows, iOS, shared team folders. MeetMouse is Mac-only, on purpose.</li>
-      <li><strong>Free tier for light users.</strong> If 30 days of history is enough, Granola costs you nothing.</li>
+      <li>{% trans %}<strong>Notes.</strong> This is the whole category and Granola is excellent at it. MeetMouse writes a summary and next steps too, but on-device, and Granola's notes are more polished.{% endtrans %}</li>
+      <li>{% trans %}<strong>Cross-platform.</strong> Windows, iOS, shared team folders. MeetMouse is Mac-only, on purpose.{% endtrans %}</li>
+      <li>{% trans %}<strong>Free tier for light users.</strong> If 30 days of history is enough, Granola costs you nothing.{% endtrans %}</li>
     </ul>
 </section>
 
 <section>
-<h2>Where MeetMouse wins</h2>
+
+{# trans Section: Where MeetMouse wins #}
+<h2>{% trans %}Where MeetMouse wins{% endtrans %}</h2>
 <ul>
-      <li><strong>It works during the meeting.</strong> A summary of the meeting where you talked 80% of the time doesn't fix the next one. A nudge at minute two does.</li>
-      <li><strong>Privacy is absolute.</strong> Granola's notes run through cloud AI models. MeetMouse's transcription and AI run entirely on your Mac — turn WiFi off mid-meeting and it keeps coaching. For legal, healthcare, M&amp;A, or anyone under NDA, that's not a feature, it's the requirement.</li>
-      <li><strong>Pricing.</strong> Free to start, then $20 once for unlimited vs $14/user/month forever. Granola Business costs more every seven weeks than MeetMouse costs ever.</li>
+      <li>{% trans %}<strong>It works during the meeting.</strong> A summary of the meeting where you talked 80% of the time doesn't fix the next one. A nudge at minute two does.{% endtrans %}</li>
+      <li>{% trans %}<strong>Privacy is absolute.</strong> Granola's notes run through cloud AI models. MeetMouse's transcription and AI run entirely on your Mac — turn WiFi off mid-meeting and it keeps coaching. For legal, healthcare, M&amp;A, or anyone under NDA, that's not a feature, it's the requirement.{% endtrans %}</li>
+      <li>{{ _("<strong>Pricing.</strong> Free to start, then {price} once for unlimited vs {granola_price}/user/month forever. Granola Business costs more every seven weeks than MeetMouse costs ever.", price=price, granola_price=prices.granola.business) }}</li>
     </ul>
 </section>
 
 <section>
-<h2>My honest verdict</h2>
-<p>If you finish meetings and think "what did we decide?" — buy Granola, or just use their free plan.</p>
-    <p>If you finish meetings and think "why did I talk that whole time?" or "I never actually asked for the sale" — that's the problem I built <a href="/">MeetMouse</a> for. And since neither app puts a bot in your call, they run side by side without conflict: Granola for the record, MeetMouse for the rep.</p>
+
+{# trans Section: My honest verdict #}
+<h2>{% trans %}My honest verdict{% endtrans %}</h2>
+<p>{% trans %}If you finish meetings and think "what did we decide?" — buy Granola, or just use their free plan.{% endtrans %}</p>
+    <p>{% trans %}If you finish meetings and think "why did I talk that whole time?" or "I never actually asked for the sale" — that's the problem I built <a href="/">MeetMouse</a> for. And since neither app puts a bot in your call, they run side by side without conflict: Granola for the record, MeetMouse for the rep.{% endtrans %}</p>
 </section>

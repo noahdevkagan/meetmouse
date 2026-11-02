@@ -6,27 +6,32 @@ no invented anecdotes, competitor prices only where already verified on this
 site (otherwise described without a number), and a `checked` month.
 """
 
-MM_WHERE = "On your Mac. Local AI by default; if you add your own Claude or OpenAI key, meeting text goes to that provider."
-MM_PRICE = "Free for 3 meetings a week; $20 once for unlimited"
-REFUND = "Unlimited your first week, then 3 meetings a week. Invite 2 friends or pay $20 once for unlimited."
+try:
+    from pricing import PRICES
+except ImportError:
+    from site.pricing import PRICES
 
-GRANOLA = dict(name="Granola", price="Free (30 days of history); Business $14/user/mo",
+MM_WHERE = "On your Mac. Local AI by default; if you add your own Claude or OpenAI key, meeting text goes to that provider."
+MM_PRICE = "Free for 3 meetings a week; {price} once for unlimited"
+REFUND = "Unlimited your first week, then 3 meetings a week. Invite 2 friends or pay {price} once for unlimited."
+
+GRANOLA = dict(name="Granola", price="Free (30 days of history); Business {price}/user/mo", price_vals={"price": PRICES.granola.business},
                where="Captured on your computer (no bot); notes made with cloud AI", local="No", url="https://www.granola.ai/")
-FATHOM = dict(name="Fathom", price="Free; Premium $20/mo; Team $19/user/mo (2-seat min)",
+FATHOM = dict(name="Fathom", price="Free; Premium {price}/mo; Team {team}/user/mo (2-seat min)", price_vals={"price": PRICES.fathom.premium, "team": PRICES.fathom.team},
               where="A bot records the call by default (bot-free capture in beta); stored in Fathom's cloud", local="No", url="https://www.fathom.ai/")
-OTTER = dict(name="Otter", price="Free 300 min/mo; Pro $16.99/mo",
+OTTER = dict(name="Otter", price="Free 300 min/mo; Pro {price}/mo", price_vals={"price": PRICES.otter.pro},
              where="A bot records the call by default (its desktop app can record without one); stored in Otter's cloud", local="No", url="https://otter.ai/")
-FIREFLIES = dict(name="Fireflies", price="From $18/user/mo",
+FIREFLIES = dict(name="Fireflies", price="From {price}/user/mo", price_vals={"price": PRICES.fireflies.pro},
                  where="A bot records the call; stored in Fireflies' cloud", local="No", url="https://fireflies.ai/")
-TLDV = dict(name="tl;dv", price="Free (data kept up to 3 months); Pro $29/seat/mo ($18 annual)",
+TLDV = dict(name="tl;dv", price="Free (data kept up to 3 months); Pro {price}/seat/mo ({annual} annual)", price_vals={"price": PRICES.tldv.pro, "annual": PRICES.tldv.pro_annual},
             where="A bot records the call; stored in tl;dv's cloud", local="No", url="https://tldv.io/")
 MACWHISPER = dict(name="MacWhisper", price="Free tier; one-time Pro license",
                   where="On your Mac", local="Yes", url="https://goodsnooze.gumroad.com/l/macwhisper")
 GONG = dict(name="Gong", price="Custom enterprise pricing",
             where="Calls recorded and stored in Gong's cloud", local="No", url="https://www.gong.io/")
-POISED = dict(name="Poised", price="Pro $19/mo ($13/mo billed annually); free trial",
+POISED = dict(name="Poised", price="Pro {price}/mo ({annual}/mo billed annually); free trial", price_vals={"price": PRICES.poised.pro, "annual": PRICES.poised.pro_annual},
               where="Captured on your computer; processed in Poised's cloud", local="No", url="https://www.poised.com/")
-YOODLI = dict(name="Yoodli", price="Free (5 roleplays total); Pro $8/mo, Advanced $20/mo, billed annually",
+YOODLI = dict(name="Yoodli", price="Free (5 roleplays total); Pro {pro}/mo, Advanced {price}/mo, billed annually", price_vals={"price": PRICES.yoodli.advanced, "pro": PRICES.yoodli.pro},
               where="Practice roleplays and uploaded recordings, on Yoodli's servers", local="No", url="https://yoodli.ai/")
 
 
@@ -91,7 +96,7 @@ BEST = [
             "If you want to get better in meetings, try MeetMouse on your next five calls. It's free for 3 meetings a week, so finding out costs nothing.",
         ],
         faq=[
-            ("What's the best AI notetaker for Mac?", "Granola for bot-free team notes. Fathom if you want free and don't mind a bot. MeetMouse if you want everything to stay on your Mac plus live coaching during the call, free for 3 meetings a week ($20 once for unlimited)."),
+            ("What's the best AI notetaker for Mac?", "Granola for bot-free team notes. Fathom if you want free and don't mind a bot. MeetMouse if you want everything to stay on your Mac plus live coaching during the call, free for 3 meetings a week ({price} once for unlimited)."),
             ("Which Mac notetakers work offline?", "MeetMouse (transcription and AI run on your Mac, so it works with Wi-Fi off) and MacWhisper (for recordings). Granola, Fathom and Otter need the internet."),
             ("Why do Mac notetakers ask for Screen Recording permission?", "That's how macOS gates system audio — the other side of the call. Bot-free apps like Granola and MeetMouse need it to hear the meeting. It doesn't mean they record your screen."),
             ("Does MeetMouse work on Intel Macs?", "Yes, on macOS 14.2 or later, but Apple Silicon is recommended. On Intel, the high-accuracy transcription and speaker identification aren't available, so it uses Apple's built-in transcription."),
@@ -350,7 +355,7 @@ BEST = [
                 "After the call: topic-by-topic notes and next steps, and you can open any saved interview and ask what someone said about pricing or their last manager, with the answer pointing to the timestamp. Transcription and the default AI run on your Mac. What it doesn't do: push notes into an ATS or a research repository. It's for the interviewer, not the pipeline.",
             ]),
             pick(GRANOLA, "bot-free notes when cloud AI is fine", [
-                "Captures audio on your computer, so no bot joins, and the notes are excellent. Notes are written with cloud AI, and the free plan's 30 days of history is short for a hiring loop. Business is $14 per user per month.",
+                "Captures audio on your computer, so no bot joins, and the notes are excellent. Notes are written with cloud AI, and the free plan's 30 days of history is short for a hiring loop. Business is {price} per user per month.",
             ]),
             pick(FIREFLIES, "recruiting teams that need notes in their tools", [
                 "Built for teams: transcribe every screen and push the notes into the systems your team already uses. A bot joins each call and the data lives in their cloud, so make sure your candidate privacy notice covers it.",
@@ -430,7 +435,7 @@ BEST = [
             ("Can I use an AI notetaker in a client's Teams or Zoom meeting?", "Bot tools have to join the client's meeting and often get blocked. MeetMouse and Granola capture audio on your computer, so they work in any client-run meeting without joining."),
             ("Does a cloud notetaker break my NDA?", "It can, depending on what your NDA says about third parties. MeetMouse keeps transcription and AI on your Mac by default. Check your actual agreements."),
             ("Can I share meeting notes with a client?", "Yes. MeetMouse makes an encrypted, expiring link with only the curated notes — not the transcript or coaching — and you can revoke it anytime."),
-            ("How much do AI notetakers cost?", "Fathom is free, Granola is free for 30 days of history and $14/user/month after that, Otter Pro is $16.99/month, and MeetMouse is free for 3 meetings a week, or $20 once for unlimited."),
+            ("How much do AI notetakers cost?", "Fathom is free, Granola is free for 30 days of history and {granola_price}/user/month after that, Otter Pro is {otter_price}/month, and MeetMouse is free for 3 meetings a week, or {price} once for unlimited."),
         ],
         cta_body="Free to start. Works in any client's meeting, and client information stays on your Mac. " + REFUND,
         checked="September 2026",
@@ -522,7 +527,7 @@ BEST = [
         faq=[
             ("Is there an AI coach for 1:1 meetings?", "Yes. MeetMouse coaches you live during 1:1s — talk balance, concerns you skipped, vague commitments — in an overlay only you see, processed on your Mac."),
             ("Should managers record 1:1s with a bot?", "A visible bot usually makes people less candid. Bot-free tools capture audio on your computer instead. Either way, tell your team how you take notes."),
-            ("What's the difference between MeetMouse and Poised?", "Both coach live. Poised focuses on delivery — filler words, pace, energy — on a cloud subscription. MeetMouse focuses on the conversation itself, runs on your Mac, and is free to start ($20 once for unlimited)."),
+            ("What's the difference between MeetMouse and Poised?", "Both coach live. Poised focuses on delivery — filler words, pace, energy — on a cloud subscription. MeetMouse focuses on the conversation itself, runs on your Mac, and is free to start ({price} once for unlimited)."),
             ("Can I customize what the coach looks for?", "Yes. MeetMouse's coaching rubric is editable."),
         ],
         cta_body="Free to start. Your team's 1:1s stay on your Mac. " + REFUND,
@@ -586,7 +591,7 @@ BEST = [
         faq=[
             ("What is an AI meeting coach?", "Software that gives you feedback on how you run meetings. Live coaches nudge you during the call; post-call coaches score the recording afterwards; practice coaches let you rehearse with an AI first."),
             ("Is MeetMouse the same as MeetingCoach?", "Yes. MeetingCoach was renamed MeetMouse in September 2026. Same app, same team, and existing installs updated automatically."),
-            ("Is there a free AI meeting coach?", "MeetMouse is free: unlimited your first week, then 3 meetings a week, with notes never locked. Unlimited is $20 once. Yoodli has a free plan for practice roleplays."),
+            ("Is there a free AI meeting coach?", "MeetMouse is free: unlimited your first week, then 3 meetings a week, with notes never locked. Unlimited is {price} once. Yoodli has a free plan for practice roleplays."),
             ("Can other people on the call see the coaching?", "Not with MeetMouse. Cues show in an overlay that's excluded from screen shares and recordings, and no bot joins the call."),
             ("Does an AI meeting coach record my calls?", "Depends on the tool. Bot-based tools record to their cloud. MeetMouse transcribes on your Mac and keeps the meeting there by default; if you add your own Claude or OpenAI key, meeting text goes to that provider."),
             ("Which meetings does MeetMouse work with?", "Zoom, Google Meet, Microsoft Teams and other calls on your Mac, because it listens to your Mac's audio instead of joining the call."),

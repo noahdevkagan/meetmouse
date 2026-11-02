@@ -32,6 +32,7 @@ MeetingCoach/MeetingCoach/Resources/ollama/
 # Xcode user state
 *.xcuserstate
 xcuserdata/
+.context/push-gate-build.log
 
 # macOS / editors
 .DS_Store

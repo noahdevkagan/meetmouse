@@ -1,0 +1,567 @@
+<!doctype html>
+{% set faqs = [
+  (_("Does audio or text ever leave my Mac?"), _("Audio never does. By default transcription and the AI model both run locally, and the only network requests are the one-time model download and signed update checks. If you choose to add a Claude or OpenAI key in Settings, meeting text goes directly to that provider and nowhere else.")),
+  (_("Does a bot join my call?"), _("No. MeetMouse listens to your Mac's audio, so there is no extra participant, no recording notice, and nothing for the other side to see.")),
+  (_("What languages does it work with?"), _("Transcription and notes work in 25 languages, including Portuguese, Spanish, French, German, Japanese, and Mandarin, plus mixed-language calls. The coaching cues and app menus are English for now.")),
+  (_("Can I use it with Zoom, Meet, and Teams?"), _("Yes. It captures the sound coming through your Mac, so it works with any meeting app, browser-based calls, and even phone calls routed through your Mac.")),
+  (_("How does the pricing work?"), _("Unlimited meetings for your first week. After that, 3 meetings a week free forever, with notes and search always unlocked. Pay {price} once (or invite 2 friends) for unlimited meetings forever. No subscriptions.").format(price=price)),
+  (_("How do the coaching cues work?"), _("During your call, subtle visual cues appear when you might want to adjust — like when you've been speaking uninterrupted for too long, or when an action item is mentioned without an owner. They're invisible to others when you share your screen.")),
+] %}
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ _("MeetMouse — free, private meeting notes for Mac") }}</title>
+<meta name="description" content="{{ _("MeetMouse transcribes your meetings and writes the summary, takeaways and next steps on your Mac. No notetaker joins your call as a guest, and your audio stays on your Mac. Live coaching while you talk. Free; invite 2 friends or pay {price} once for unlimited.").format(price=price) }}">
+<link rel="canonical" href="{{ canonical_url }}">
+{{ hreflang_links | safe }}
+<script src="{{ rel_prefix }}lang.js" defer></script>
+<link rel="icon" type="image/png" href="{{ rel_prefix }}icon.png">
+<link rel="apple-touch-icon" href="{{ rel_prefix }}icon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ canonical_url }}">
+<meta property="og:title" content="{{ _("MeetMouse — free, private meeting notes for Mac") }}">
+<meta property="og:description" content="{{ _("Free AI meeting notes that never leave your Mac. No notetaker joins your call as a guest. Summary, takeaways, next steps, and live coaching while you talk.") }}">
+<meta property="og:image" content="https://meetmouse.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{{ _("MeetMouse: free meeting notes, nothing leaves your Mac. Live coaching too.") }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ _("MeetMouse — free, private meeting notes for Mac") }}">
+<meta name="twitter:description" content="{{ _("Free AI meeting notes that never leave your Mac. No notetaker joins your call as a guest. Summary, takeaways, next steps, and live coaching while you talk.") }}">
+<meta name="twitter:image" content="https://meetmouse.com/og.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@500..700&display=swap">
+<style>
+  :root {
+    --ink: #171514;
+    --muted: #69635f;
+    --paper: #fbf8f4;
+    --white: #ffffff;
+    --line: #e5ded8;
+    --green: #2bbd3e;
+    --green-dark: #1f9a31;
+    --green-ink: #0f2e15;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; }
+  .home-page { min-height: 100svh; display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); }
+
+  .skip-link { position: fixed; left: 16px; top: -60px; z-index: 100; padding: 10px 16px; border-radius: 10px; background: var(--ink); color: white; }
+  .skip-link:focus { top: 16px; }
+
+  .site-header {
+    width: min(1180px, calc(100% - 40px));
+    height: 78px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 28px;
+  }
+  .brand { display: inline-flex; align-items: center; gap: 11px; font-size: 22px; font-weight: 760; letter-spacing: -0.04em; }
+  .mark { flex: none; width: 42px; height: 42px; border-radius: 26%; overflow: hidden; display: inline-grid; place-items: center; background: var(--green); }
+  .mark img { width: 100%; height: 100%; display: block; }
+  nav { margin-left: auto; display: flex; align-items: center; gap: 26px; }
+  nav > a, footer a { color: var(--muted); font-size: 14px; font-weight: 600; }
+  nav > a:hover, footer a:hover { color: var(--ink); }
+
+  .buy-form { margin: 0; }
+  .buy-form-compact { display: inline-flex; }
+  .button {
+    min-height: 52px;
+    padding: 0 24px;
+    border: 0;
+    border-radius: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--green);
+    color: var(--green-ink);
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 730;
+    letter-spacing: -0.02em;
+    box-shadow: 0 12px 30px rgba(43, 189, 62, 0.22);
+    transition: transform 0.16s ease, background 0.16s ease;
+  }
+  .button:hover { background: #4bc75b; transform: translateY(-2px); }
+  .button-compact { min-height: 42px; padding: 0 17px; border-radius: 11px; font-size: 14px; box-shadow: none; white-space: nowrap; }
+  .button:focus-visible, a:focus-visible { outline: 3px solid color-mix(in srgb, var(--green) 44%, transparent); outline-offset: 3px; }
+
+  .hero {
+    width: min(1180px, calc(100% - 40px));
+    margin: 0 auto;
+    min-height: calc(100svh - 136px);
+    padding: 42px 0 58px;
+    display: grid;
+    grid-template-columns: 0.92fr 1.08fr;
+    align-items: center;
+    gap: 64px;
+  }
+  .eyebrow {
+    margin: 0 0 21px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #5f5954;
+    font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px rgba(43, 189, 62, 0.16); }
+  .hero h1 { max-width: 620px; margin: 0; font-size: clamp(48px, 5.3vw, 75px); line-height: 0.98; letter-spacing: -0.067em; font-weight: 770; }
+  .hero h1 span { display: block; color: var(--green-dark); }
+  .hero-description { max-width: 560px; margin: 27px 0; color: var(--muted); font-size: 18px; line-height: 1.6; letter-spacing: -0.017em; }
+  .purchase-note { margin: 15px 0 0; color: #7a736e; font-size: 12px; line-height: 1.55; }
+
+  .hero-visual {
+    position: relative;
+    min-width: 0;
+    padding: 48px 26px 70px;
+    border-radius: 29px;
+    background:
+      radial-gradient(circle at 84% 20%, rgba(255, 255, 255, 0.74), transparent 30%),
+      linear-gradient(145deg, #d7f5dc 0%, #8fe09b 45%, #3bbf4f 100%);
+    box-shadow: 0 30px 70px rgba(31, 90, 40, 0.17);
+    overflow: hidden;
+  }
+  .hero-visual::before, .hero-visual::after { content: ""; position: absolute; border: 1px solid rgba(255, 255, 255, 0.56); border-radius: 50%; }
+  .hero-visual::before { width: 350px; height: 350px; right: -190px; top: -170px; }
+  .hero-visual::after { width: 520px; height: 520px; left: -380px; bottom: -400px; }
+
+  .app-window {
+    position: relative;
+    z-index: 1;
+    min-height: 398px;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 28px 56px rgba(24, 66, 30, 0.2);
+    overflow: hidden;
+  }
+  .window-bar {
+    height: 54px;
+    padding: 0 16px;
+    border-bottom: 1px solid #eee9e5;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    color: #89827d;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .traffic-lights { display: flex; gap: 7px; }
+  .traffic-lights span { width: 10px; height: 10px; border-radius: 50%; }
+  .traffic-lights span:first-child { background: #ff6b62; }
+  .traffic-lights span:nth-child(2) { background: #f9bf4f; }
+  .traffic-lights span:last-child { background: #64c466; }
+  .live-pill { justify-self: end; padding: 5px 10px; border-radius: 7px; background: #e9f7ec; color: #1f7a2e; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+  .live-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+  .transcript { padding: 34px 40px 120px; }
+  .stats { display: flex; align-items: center; gap: 16px; margin-bottom: 26px; color: #6d6763; font-size: 12px; font-weight: 600; }
+  .stats strong { color: var(--ink); font-size: 18px; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .talk-bar { flex: 1; height: 6px; border-radius: 99px; background: #d8c6ee; overflow: hidden; }
+  .talk-bar i { display: block; width: 68%; height: 100%; background: #4f7cf0; }
+  .turn { display: grid; grid-template-columns: 52px 1fr; gap: 12px; margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #55504c; }
+  .turn b { font-size: 12px; font-weight: 700; letter-spacing: 0.02em; margin-top: 3px; }
+  .turn.you b { color: #4f7cf0; }
+  .turn.them b { color: #8b5cf6; }
+  .caret { display: inline-block; width: 2px; height: 18px; margin-left: 3px; vertical-align: -3px; background: var(--green-dark); animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .cue-pill {
+    position: absolute;
+    z-index: 3;
+    left: 50%;
+    bottom: 28px;
+    width: min(430px, calc(100% - 48px));
+    min-height: 70px;
+    padding: 12px 18px 12px 12px;
+    border-radius: 18px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 13px;
+    background: rgba(30, 27, 25, 0.95);
+    color: white;
+    box-shadow: 0 20px 48px rgba(15, 40, 20, 0.35);
+    transform: translateX(-50%);
+  }
+  .cue-pill .mark { width: 38px; height: 38px; border-radius: 10px; }
+  .cue-pill p { margin: 0; font-size: 14px; line-height: 1.4; }
+  .cue-pill small { display: block; margin-top: 3px; color: #b9b5b1; font-family: "Geist Mono", monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .local-badge {
+    position: absolute;
+    z-index: 2;
+    top: 22px;
+    right: 18px;
+    padding: 9px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 99px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(255, 255, 255, 0.78);
+    color: #49433f;
+    font-size: 11px;
+    font-weight: 630;
+    backdrop-filter: blur(10px);
+  }
+  .local-badge span { color: var(--green-dark); }
+
+  .below-fold { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+  .band { padding: 74px 0; border-top: 1px solid var(--line); }
+  .band > h2 { margin: 0 0 14px; font-size: clamp(28px, 4vw, 38px); font-weight: 760; letter-spacing: -0.035em; }
+  .band-intro { margin: 0 0 32px; max-width: 70ch; color: var(--muted); font-size: 17px; line-height: 1.65; }
+  .band h3 { margin: 0 0 8px; font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+  .band p { color: var(--muted); line-height: 1.65; }
+
+  .steps { margin: 34px 0 0; padding: 0; list-style: none; counter-reset: step; display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
+  .steps li { counter-increment: step; }
+  .steps li::before { content: counter(step); display: grid; place-items: center; width: 32px; height: 32px; margin-bottom: 15px; border-radius: 50%; background: var(--green); color: var(--green-ink); font-size: 15px; font-weight: 750; }
+  .steps p { margin: 0; font-size: 15px; }
+
+  .feature-grid { margin-top: 34px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+  .feature-grid > div { padding: 26px; border: 1px solid var(--line); border-radius: 16px; background: var(--white); }
+  .feature-grid p { margin: 0; font-size: 15px; }
+
+  .table-wrap { margin: 8px 0 26px; overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--white); }
+  .compare-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 15px; }
+  .compare-table caption { padding: 18px 20px 0; color: var(--muted); font-size: 13px; text-align: left; }
+  .compare-table th, .compare-table td { padding: 14px 20px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  .compare-table thead th { font-size: 13px; font-weight: 750; letter-spacing: 0.02em; text-transform: uppercase; color: var(--muted); }
+  .compare-table thead th:nth-child(2) { color: var(--green-dark); }
+  .compare-table tbody th { font-weight: 640; width: 30%; }
+  .compare-table tbody td { color: var(--muted); }
+  .compare-table tbody td:first-of-type { color: var(--ink); font-weight: 560; }
+  .compare-table tbody tr:last-child th, .compare-table tbody tr:last-child td { border-bottom: 0; }
+  .more-links-inline { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 10px 22px; }
+  .more-links-inline a { color: var(--green-dark); font-weight: 620; text-decoration: underline; text-underline-offset: 3px; }
+
+  .faq { margin: 30px 0 0; display: grid; gap: 24px; max-width: 78ch; }
+  .faq dt { margin-bottom: 7px; font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+  .faq dd { margin: 0; color: var(--muted); line-height: 1.65; }
+
+  .closing-cta { text-align: center; }
+  .closing-cta .button { margin-top: 26px; }
+  .closing-cta .buy-form { justify-content: center; display: flex; margin-top: 14px; }
+  a.button { text-decoration: none; }
+  .link-button { background: none; border: 0; padding: 0; font: inherit; font-size: 14px; color: inherit; text-decoration: underline; cursor: pointer; }
+  .closing-cta .purchase-note { margin-top: 16px; }
+
+  footer {
+    width: min(1180px, calc(100% - 40px));
+    min-height: 62px;
+    margin: 0 auto;
+    border-top: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    color: #8a837e;
+    font-size: 12px;
+  }
+  footer span { color: var(--ink); font-weight: 700; }
+
+  .hero-copy, .hero-visual { min-width: 0; }
+  @media (max-width: 980px) {
+    .hero { grid-template-columns: minmax(0, 1fr); padding-top: 70px; text-align: center; gap: 55px; }
+    .hero-copy { display: flex; flex-direction: column; align-items: center; }
+    .hero-description { max-width: 680px; }
+    footer { margin-top: 40px; }
+  }
+  @media (max-width: 900px) {
+    .steps, .feature-grid { grid-template-columns: 1fr; }
+    .band { padding: 52px 0; }
+    .below-fold { width: calc(100% - 28px); }
+  }
+  @media (max-width: 680px) {
+    .site-header { height: 70px; }
+    nav { gap: 14px; }
+    nav > a { display: none; }
+    .hero { width: calc(100% - 28px); min-height: 0; padding: 58px 0 35px; }
+    .hero h1 { font-size: clamp(34px, 11.5vw, 60px); overflow-wrap: break-word; }
+    .app-window, .cue-pill { max-width: 100%; }
+    .hero-description { font-size: 17px; }
+    .hero-visual { padding: 28px 14px 74px; border-radius: 23px; }
+    .app-window { min-height: 345px; }
+    .transcript { padding: 26px 20px 110px; text-align: left; }
+    .cue-pill { width: calc(100% - 28px); }
+    .local-badge { top: 10px; right: 10px; }
+    footer { width: calc(100% - 28px); padding: 20px 0; }
+  }
+  @media (max-width: 380px) {
+    .brand { font-size: 19px; gap: 8px; }
+    .mark { width: 36px; height: 36px; }
+    .button-compact { padding: 0 13px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+<script type="application/ld+json">
+[
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "MeetMouse",
+    "operatingSystem": "macOS 14.2 or later",
+    "applicationCategory": "BusinessApplication",
+    "description": {{ _("MeetMouse is a free macOS app (with a {price} one-time unlimited upgrade) that transcribes your meetings and coaches you live, locally by default — no bot joins your call and no audio ever leaves your Mac.").format(price=price) | tojson }},
+    "url": "https://meetmouse.com/",
+    "author": {
+      "@type": "Person",
+      "name": "Noah Kagan"
+    },
+    "offers": [
+      {
+        "@type": "Offer",
+        "name": "Free",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      },
+      {
+        "@type": "Offer",
+        "name": "Unlimited",
+        "price": "20.00",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      }
+    ]{% if root %},
+    "inLanguage": "{{ lang }}"{% endif %}
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {% for q, a in faqs %}
+      {
+        "@type": "Question",
+        "name": {{ q | tojson }},
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": {{ a | tojson }}
+        }
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ]{% if root %},
+    "inLanguage": "{{ lang }}"{% endif %}
+  }
+]
+</script>
+</head>
+<body>
+<div class="home-page">
+  <a class="skip-link" href="#main">{{ _("Skip to content") }}</a>
+
+  <header class="site-header">
+    <a class="brand" href="{{ resolve_url('/') }}" aria-label="{{ _("MeetMouse home") }}">
+      <span class="mark"><img src="{{ rel_prefix }}icon.png" alt=""></span>
+      <span>MeetMouse</span>
+    </a>
+    <nav aria-label="Main navigation">
+      <a href="{{ resolve_url('/blog/') }}">{{ _("Blog") }}</a>
+      <a href="{{ resolve_url('/changelog') }}">{{ _("Changelog") }}</a>
+      {{ lang_dropdown | safe }}
+      <a class="button button-compact" href="/get">{{ _("Download free") }}</a>
+    </nav>
+  </header>
+
+  <main class="hero" id="main">
+    <div class="hero-copy">
+      <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span>{{ _("For macOS 14.2+ · Signed & notarized") }}</p>
+      <h1>{{ _("Free meeting notes.") }}<span>{{ _("Nothing leaves your Mac.") }}</span></h1>
+      <p class="hero-description">{{ _("MeetMouse transcribes your calls and writes the summary, key takeaways and next steps, right on your Mac. No notetaker shows up as an extra guest on your call, and your audio never leaves your Mac. Plus live coaching while you talk: talk less, ask better questions, land your point.") }}</p>
+      <a class="button" href="/get">{{ _("Download MeetMouse free") }}</a>
+      <p class="purchase-note">{{ _("Free: unlimited your first week, then 3 meetings a week. Your notes are never locked.<br>Unlimited: invite 2 friends, or <a href='{url}'>pay {price} once</a>. No subscription, no account.").format(price=price, url='#buy') | safe }}</p>
+    </div>
+
+    <div class="hero-visual" aria-label="MeetMouse coaching during a live call">
+      <div class="app-window">
+        <div class="window-bar">
+          <div class="traffic-lights" aria-hidden="true"><span></span><span></span><span></span></div>
+          <span>{{ _("Pricing call · Anna") }}</span>
+          <span class="live-pill">{{ _("Listening") }}</span>
+        </div>
+        <div class="transcript">
+          <div class="stats"><strong>12:04</strong><span>{{ _("You 68%") }}</span><span class="talk-bar"><i></i></span><span>{{ _("Them 32%") }}</span></div>
+          <p class="turn you"><b>{{ _("YOU") }}</b><span>{{ _("So the plan would be the annual tier, and we'd fold onboarding into the first month, and honestly there's a bunch of roadmap stuff I want to walk you through too —") }}</span></p>
+          <p class="turn them"><b>{{ _("THEM") }}</b><span>{{ _("Before that — I still need to get my CFO comfortable with the cost.") }}<span class="caret" aria-hidden="true"></span></span></p>
+        </div>
+      </div>
+      <div class="cue-pill" role="presentation">
+        <span class="mark"><img src="{{ rel_prefix }}icon.png" alt=""></span>
+        <p>{{ _("CFO cost worry just came up. Pause the roadmap and circle back to it.") }}<small>{{ _("Buried signal · 12:04") }}</small></p>
+      </div>
+      <div class="local-badge"><span aria-hidden="true">✓</span>{{ _("Processed on this Mac") }}</div>
+    </div>
+  </main>
+
+  <div class="below-fold">
+    <section class="band">
+      <h2>{{ _("Up and running before your next call") }}</h2>
+      <ol class="steps">
+        <li>
+          <h3>{{ _("Download and drag to Applications") }}</h3>
+          <p>{{ _("Grab the free DMG. On first launch, click Download Model once — everything after that runs offline.") }}</p>
+        </li>
+        <li>
+          <h3>{{ _("Join any meeting") }}</h3>
+          <p>{{ _("Zoom, Meet, Teams, FaceTime, a Slack huddle. MeetMouse hears the call through your Mac, so no bot joins and nobody sees a recording notice.") }}</p>
+        </li>
+        <li>
+          <h3>{{ _("Get nudged in the moment") }}</h3>
+          <p>{{ _("A short cue appears in an overlay that stays out of your screen share: when you've talked too long, stacked three questions at once, said \"I'll try\" with no date, or are about to end without next steps. More cues, like someone getting cut off, are a switch away in Coaching Style.") }}</p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="band">
+      <h2>{{ _("What you get") }}</h2>
+      <div class="feature-grid">
+        <div>
+          <h3>{{ _("Coaching during, not after") }}</h3>
+          <p>{{ _("Most tools tell you what went wrong in the recap. MeetMouse nudges you while the conversation is still happening — when you can actually do something about it.") }}</p>
+        </div>
+        <div>
+          <h3>{{ _("Private by design") }}</h3>
+          <p>{{ _("On-device transcription, zero telemetry, and a local AI model that works with Wi-Fi off. Audio never leaves your Mac, in any mode.") }}</p>
+        </div>
+        <div>
+          <h3>{{ _("Screen-share safe") }}</h3>
+          <p>{{ _("The overlay is excluded from screen shares and recordings. Coach yourself without your teammates ever seeing it.") }}</p>
+        </div>
+        <div>
+          <h3>{{ _("Notes and a chat for every meeting") }}</h3>
+          <p>{{ _("Each call ends with topic-by-topic notes and next steps with owners. Open any saved meeting and ask it questions — answers cite the transcript timestamp.") }}</p>
+        </div>
+        <div>
+          <h3>{{ _("Share notes, not transcripts") }}</h3>
+          <p>{{ _("One click creates an encrypted, expiring link with just the curated notes. Transcripts, coaching, and chats never go out, and you can revoke the link anytime.") }}</p>
+        </div>
+        <div>
+          <h3>{{ _("Your choice of AI") }}</h3>
+          <p>{{ _("Local is the default and needs no account. Prefer a bigger model? Add your own Claude or OpenAI key in Settings; meeting text goes straight to that provider and nowhere else.") }}</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="band">
+      <h2>{{ _("How MeetMouse compares") }}</h2>
+      <p class="band-intro">{{ _("AI notetakers send a bot into your call, upload the recording, and bill you monthly to tell you afterwards what happened. MeetMouse coaches you while it's happening and keeps the meeting on your Mac.") }}</p>
+      <div class="table-wrap">
+        <table class="compare-table">
+          <caption>{{ _("MeetMouse vs cloud AI notetakers (Otter, Fathom, Fireflies) vs Granola") }}</caption>
+          <thead>
+            <tr>
+              <th scope="col">&nbsp;</th>
+              <th scope="col">{{ _("MeetMouse") }}</th>
+              <th scope="col">{{ _("Cloud notetakers") }}</th>
+              <th scope="col">{{ _("Granola") }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">{{ _("Coaching during the call") }}</th>
+              <td>{{ _("Yes") }}</td>
+              <td>{{ _("No") }}</td>
+              <td>{{ _("No") }}</td>
+            </tr>
+            <tr>
+              <th scope="row">{{ _("A bot joins your meeting") }}</th>
+              <td>{{ _("No") }}</td>
+              <td>{{ _("Yes") }}</td>
+              <td>{{ _("No") }}</td>
+            </tr>
+            <tr>
+              <th scope="row">{{ _("Where the meeting is processed") }}</th>
+              <td>{{ _("On your Mac by default") }}</td>
+              <td>{{ _("Their servers") }}</td>
+              <td>{{ _("Their servers") }}</td>
+            </tr>
+            <tr>
+              <th scope="row">{{ _("Works with Wi-Fi off") }}</th>
+              <td>{{ _("Yes") }}</td>
+              <td>{{ _("No") }}</td>
+              <td>{{ _("No") }}</td>
+            </tr>
+            <tr>
+              <th scope="row">{{ _("Cost") }}</th>
+              <td>{{ _("Free for 3 meetings a week, or {price} once for unlimited").format(price=price) }}</td>
+              <td>{{ _("Monthly subscription") }}</td>
+              <td>{{ _("Monthly subscription") }}</td>
+            </tr>
+            <tr>
+              <th scope="row">{{ _("Account required") }}</th>
+              <td>{{ _("No") }}</td>
+              <td>{{ _("Yes") }}</td>
+              <td>{{ _("Yes") }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ul class="more-links-inline">
+        <li><a href="{{ resolve_url('/compare/meetmouse-vs-granola') }}">{{ _("MeetMouse vs Granola") }}</a></li>
+        <li><a href="{{ resolve_url('/compare/meetmouse-vs-otter') }}">{{ _("MeetMouse vs Otter") }}</a></li>
+        <li><a href="{{ resolve_url('/compare/meetmouse-vs-fathom') }}">{{ _("MeetMouse vs Fathom") }}</a></li>
+        <li><a href="{{ resolve_url('/compare/meetmouse-vs-fireflies') }}">{{ _("MeetMouse vs Fireflies") }}</a></li>
+        <li><a href="{{ resolve_url('/compare/meetmouse-vs-poised') }}">{{ _("MeetMouse vs Poised") }}</a></li>
+        <li><a href="{{ resolve_url('/blog/ai-notetaker-without-bot') }}">{{ _("AI notetakers without a bot") }}</a></li>
+        <li><a href="{{ resolve_url('/compare/meetmouse-vs-tldv') }}">{{ _("MeetMouse vs tl;dv") }}</a></li>
+        <li><a href="{{ resolve_url('/compare/meetmouse-vs-gong') }}">{{ _("MeetMouse vs Gong") }}</a></li>
+        <li><a href="{{ resolve_url('/alternatives/') }}">{{ _("All comparisons") }}</a></li>
+        <li><a href="{{ resolve_url('/best/') }}">{{ _("Best meeting tools by use case") }}</a></li>
+      </ul>
+    </section>
+
+    <section class="band">
+      <h2>{{ _("Questions") }}</h2>
+      <dl class="faq">
+        {% for q, a in faqs %}
+        <div>
+          <dt>{{ q }}</dt>
+          <dd>{{ a }}</dd>
+        </div>
+        {% endfor %}
+      </dl>
+    </section>
+
+    <section class="band closing-cta" id="buy">
+      <h2>{{ _("Fix the meeting while you're still in it.") }}</h2>
+      <p>{{ _("Free to start. No subscription, no account, no bot in your call.") }}</p>
+      <a class="button" href="/get">{{ _("Download MeetMouse free") }}</a>
+      {{ buy_form | safe }}
+      <p class="purchase-note">{{ _("{price} unlocks unlimited meetings for good. Already have an AppSumo code? <a href='{url}'>Redeem it here</a>.").format(price=price, url=resolve_url('/appsumo')) | safe }}</p>
+    </section>
+  </div>
+
+  <footer>
+    <span>MeetMouse</span>
+    <a href="mailto:support@meetmouse.com">support@meetmouse.com</a>
+    <a href="{{ resolve_url('/blog/') }}">{{ _("Blog") }}</a>
+    <a href="{{ resolve_url('/changelog') }}">{{ _("Changelog") }}</a>
+    <a href="{{ resolve_url('/compare/meetmouse-vs-granola') }}">{{ _("MeetMouse vs Granola") }}</a>
+    <a href="{{ resolve_url('/alternatives/') }}">{{ _("Comparisons") }}</a>
+    <a href="{{ resolve_url('/best/') }}">{{ _("Best tools") }}</a>
+    <a href="https://github.com/noahdevkagan/meeting-coach-releases/releases">{{ _("Releases on GitHub") }}</a>
+    <a href="https://rhinovoice.app/">{{ _("Also by me: Rhino Voice, private Mac dictation") }}</a>
+  </footer>
+</div>
+</body>
+</html>

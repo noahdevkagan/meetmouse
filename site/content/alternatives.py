@@ -7,6 +7,11 @@ traced to one of them, leave it out. Format: the ranked-comparison house style
 (quick answer, ranked table, one card per tool, trust sections).
 """
 
+try:
+    from pricing import PRICES
+except ImportError:
+    from site.pricing import PRICES
+
 CHECKED = "October 20, 2026"
 MODIFIED = "2026-10-20"
 
@@ -14,8 +19,9 @@ TOOLS = {
     "meetmouse": {
         "name": "MeetMouse",
         "best": "Private live coaching on a Mac",
-        "price": "Free for 3 meetings a week. $20 once for unlimited. No subscription, no account.",
-        "cell": "Free; $20 once for unlimited",
+        "price_vals": {"price": PRICES.meetmouse.price},
+        "price": "Free for 3 meetings a week. {price} once for unlimited. No subscription, no account.",
+        "cell": "Free; {price} once for unlimited",
         "free": "Unlimited first week, then 3 meetings a week; notes never locked",
         "bot": "No",
         "audio": "Stays on your Mac",
@@ -29,7 +35,7 @@ TOOLS = {
         "good": [
             "No bot, no account, works with WiFi off",
             "Coaching cues during the call, hidden from screen shares",
-            "Free to start; unlimited is $20 once, cheaper than two months of most paid plans",
+            "Free to start; unlimited is {price} once, cheaper than two months of most paid plans",
         ],
         "bad": [
             "Mac only (macOS 14.2 or later)",
@@ -42,25 +48,26 @@ TOOLS = {
         "site": "https://www.fathom.ai",
         "vs": "/compare/meetmouse-vs-fathom",
         "best": "Free notes with no minute cap",
-        "price": "Free for individuals. Premium $20/month. Team $19/user/month (2-seat minimum).",
-        "cell": "Free; Premium $20/mo",
+        "price_vals": {"price": PRICES.fathom.premium, "team": PRICES.fathom.team},
+        "price": "Free for individuals. Premium {price}/month. Team {team}/user/month (2-seat minimum).",
+        "cell": "Free; Premium {price}/mo",
         "free": "Unlimited recordings, transcripts and instant summaries",
         "bot": "Yes by default (bot-free in beta)",
         "audio": "Their cloud",
         "review": (
             "The best free notetaker on the market. Recordings, "
             "transcripts and instant AI summaries with no minute cap. Advanced summaries, AI action "
-            "items and Ask Fathom are on Premium at $20 a month. The trade is a bot in your calls by "
+            "items and Ask Fathom are on Premium at {price} a month. The trade is a bot in your calls by "
             "default (bot-free capture is in beta) and every meeting in their cloud. If neither bothers you, get Fathom."
         ),
         "good": [
             "Free individual plan with no minute cap",
             "Recordings, transcripts and AI summaries",
-            "Team features from $19/user/month when you need them",
+            "Team features from {team}/user/month when you need them",
         ],
         "bad": [
             "A Fathom bot joins your calls by default; bot-free capture is still in beta",
-            "Advanced summaries and action items need Premium ($20/month)",
+            "Advanced summaries and action items need Premium ({price}/month)",
             "Your meetings live in their cloud",
         ],
     },
@@ -69,8 +76,9 @@ TOOLS = {
         "site": "https://www.granola.ai",
         "vs": "/compare/meetmouse-vs-granola",
         "best": "Notes with no bot in the call",
-        "price": "Free with 30 days of meeting history. Business $14/user/month.",
-        "cell": "Free, then $14/user/mo",
+        "price_vals": {"price": PRICES.granola.business},
+        "price": "Free with 30 days of meeting history. Business {price}/user/month.",
+        "cell": "Free, then {price}/user/mo",
         "free": "Unlimited meetings, 30 days of history",
         "bot": "No",
         "audio": "Cloud AI for notes",
@@ -94,8 +102,9 @@ TOOLS = {
         "site": "https://otter.ai",
         "vs": "/compare/meetmouse-vs-otter",
         "best": "Searching months of old transcripts",
-        "price": "Free for 300 minutes a month. Pro $16.99/month.",
-        "cell": "Free 300 min, then $16.99/mo",
+        "price_vals": {"price": PRICES.otter.pro},
+        "price": "Free for 300 minutes a month. Pro {price}/month.",
+        "cell": "Free 300 min, then {price}/mo",
         "free": "300 minutes a month, 30 minutes per conversation, your 25 most recent",
         "bot": "Yes by default (desktop app can skip it)",
         "audio": "Their cloud",
@@ -119,8 +128,9 @@ TOOLS = {
         "site": "https://fireflies.ai",
         "vs": "/compare/meetmouse-vs-fireflies",
         "best": "Sales teams that need CRM sync",
-        "price": "Free plan with limited AI summaries. Pro $18/seat/month ($10 billed annually).",
-        "cell": "From $18/user/mo",
+        "price_vals": {"price": PRICES.fireflies.pro, "annual": PRICES.fireflies.pro_annual},
+        "price": "Free plan with limited AI summaries. Pro {price}/seat/month ({annual} billed annually).",
+        "cell": "From {price}/user/mo",
         "free": "Unlimited transcription, limited AI summaries, 400 minutes of storage per team",
         "bot": "Yes",
         "audio": "Their cloud and your CRM",
@@ -146,15 +156,16 @@ TOOLS = {
         "site": "https://tldv.io",
         "vs": "/compare/meetmouse-vs-tldv",
         "best": "Sharing clips with your team",
-        "price": "Free with unlimited recordings and AI notes on 10 meetings. Pro $29/seat/month ($18 billed annually).",
-        "cell": "Free; Pro $29/seat/mo",
+        "price_vals": {"price": PRICES.tldv.pro, "annual": PRICES.tldv.pro_annual},
+        "price": "Free with unlimited recordings and AI notes on 10 meetings. Pro {price}/seat/month ({annual} billed annually).",
+        "cell": "Free; Pro {price}/seat/mo",
         "free": "Unlimited recordings, AI notes on 10 meetings",
         "bot": "Yes",
         "audio": "Their cloud",
         "review": (
             "If what you share with your team is \"watch these 40 seconds,\" tl;dv's clipping "
             "beats everyone's. The free plan records without limits, but AI notes stop after "
-            "10 meetings. Pro is $29 a seat a month, or $18 billed annually."
+            "10 meetings. Pro is {price} a seat a month, or {annual} billed annually."
         ),
         "good": [
             "Best clip-sharing on the list",
@@ -186,7 +197,6 @@ NOT_RANKED = {
 PAGES = [
     {
         "slug": "fathom-alternatives",
-        "alternates": [("es", "/es/alternativas-a-fathom")],
         "incumbent": "Fathom",
         "topic": "Fathom alternatives",
         "title": "The 5 Best Fathom Alternatives in 2026 (Ranked, With Prices)",
@@ -218,9 +228,9 @@ PAGES = [
             ("Is any Fathom alternative as good for free?",
              "For pure free notetaking, no. Granola's free plan keeps 30 days of history, Otter's stops at 300 minutes a month, and tl;dv's free AI notes stop after 10 meetings. People switch over the bot, the cloud, or wanting more than notes."),
             ("What are Fathom's free plan limits?",
-             "Fathom's free plan records and transcribes unlimited calls with instant AI summaries. Advanced summaries, AI action items and Ask Fathom need Premium at $20 a month ($16 billed annually). Team plans are $19 per user per month with a 2-seat minimum, and Business is $34. Prices from fathom.ai on October 20, 2026."),
+             "Fathom's free plan records and transcribes unlimited calls with instant AI summaries. Advanced summaries, AI action items and Ask Fathom need Premium at {premium_price} a month ({annual_price} billed annually). Team plans are {team_price} per user per month with a 2-seat minimum, and Business is {business_price}. Prices from fathom.ai on October 20, 2026."),
             ("My team outgrew Fathom's free plan. What should we switch to?",
-             "First do the math: 25 reps on Fathom Team is about $475 a month, and Business about $850. If you need CRM sync and call scoring, Fireflies Business ($29 a seat monthly) is the usual comparison. If what you actually want is reps getting better on calls, MeetMouse is per person and $20 once for unlimited, but it has no team dashboard or CRM sync, so it sits next to your system of record, not instead of it."),
+             "First do the math: 25 reps on Fathom Team is about {fathom_team_total} a month, and Business about {fathom_biz_total}. If you need CRM sync and call scoring, Fireflies Business ({fireflies_price} a seat monthly) is the usual comparison. If what you actually want is reps getting better on calls, MeetMouse is per person and {price} once for unlimited, but it has no team dashboard or CRM sync, so it sits next to your system of record, not instead of it."),
             ("What's the best Fathom alternative without a bot?",
              "Granola, which captures system audio on your Mac so no participant joins the call. MeetMouse is also bot-free and keeps transcription and AI on your Mac by default. Fathom itself now offers bot-free capture in beta, so check that first if the bot is your only complaint."),
             ("Is there a Fathom alternative that doesn't store meetings in the cloud?",
@@ -239,7 +249,7 @@ PAGES = [
         "order": ["meetmouse", "fathom", "granola", "fireflies", "tldv"],
         "quick": (
             "<strong>MeetMouse</strong> is the best Otter alternative if you want no bot and no "
-            "cloud: free for 3 meetings a week, or $20 once for unlimited, against Otter Pro at $16.99 a month. If the 300-minute free plan is "
+            "cloud: free for 3 meetings a week, or {price} once for unlimited, against Otter Pro at {otter_price} a month. If the 300-minute free plan is "
             "your only problem, pick <strong>Fathom</strong>: free with no minute cap. Pick "
             "<strong>Granola</strong> if the bot is the problem and <strong>Fireflies</strong> if "
             "you run a sales team."
@@ -264,7 +274,7 @@ PAGES = [
             ("Is there an Otter alternative that works offline?",
              "MeetMouse works with WiFi off because transcription and coaching run on your Mac. Every other option on this list, including Otter, processes audio in the cloud."),
             ("Does any Otter alternative avoid a subscription?",
-             "MeetMouse: free for 3 meetings a week, and $20 once for unlimited, with no subscription and no account. Everything else on this list is a free tier plus a monthly plan."),
+             "MeetMouse: free for 3 meetings a week, and {price} once for unlimited, with no subscription and no account. Everything else on this list is a free tier plus a monthly plan."),
         ],
     },
     {
@@ -277,14 +287,14 @@ PAGES = [
         "order": ["meetmouse", "fathom", "otter", "granola", "tldv"],
         "quick": (
             "<strong>MeetMouse</strong> is the best Fireflies alternative for one person who "
-            "wants a private coach instead of a recorded dashboard: free to start, $20 once for unlimited, against Fireflies "
-            "Pro from $18 per user per month. Pick <strong>Fathom</strong> if you need the "
+            "wants a private coach instead of a recorded dashboard: free to start, {price} once for unlimited, against Fireflies "
+            "Pro from {fireflies_price} per user per month. Pick <strong>Fathom</strong> if you need the "
             "individual basics free, <strong>Granola</strong> for notes with no bot, and "
             "<strong>Otter</strong> if transcript search is what you'd miss."
         ),
         "intro": (
             "Fireflies is built for sales orgs: record every call, score it, push it to the CRM. "
-            "People look for alternatives from two directions. You're one person and $18 per user "
+            "People look for alternatives from two directions. You're one person and {fireflies_price} per user "
             "per month for enterprise machinery is absurd, or you're on a team and every "
             "conversation being recorded and reviewable started to itch. I make MeetMouse, "
             "so it's listed first. Each tool below says what it does better than us."
@@ -303,7 +313,7 @@ PAGES = [
             ("Do any Fireflies alternatives coach you during the call?",
              "MeetMouse does, with live cues like talk balance, buried asks and vague commitments in an overlay only you see. Fireflies and most other notetakers analyze calls after they end."),
             ("Is there a cheaper Fireflies alternative for a team?",
-             "Not by much. Billed monthly, Fireflies Pro is $18 per seat, Otter Pro is $16.99 and Fathom Team is $19 (2-seat minimum). For one person, Fathom's free plan beats all of them."),
+             "Not by much. Billed monthly, Fireflies Pro is {fireflies_price} per seat, Otter Pro is {otter_price} and Fathom Team is {fathom_price} (2-seat minimum). For one person, Fathom's free plan beats all of them."),
         ],
     },
     {
@@ -315,18 +325,18 @@ PAGES = [
         "h1": "Free Granola alternatives: the 5 best options in 2026",
         "order": ["fathom", "meetmouse", "tldv", "otter", "fireflies"],
         "badge": "Best free option without a bot",
-        "us_best": "No bot, free for 3 meetings a week; $20 once for unlimited",
+        "us_best": "No bot, free for 3 meetings a week; {price} once for unlimited",
         "quick": (
             "If it has to be free, use <strong>Fathom</strong>: unlimited recordings and summaries "
             "with no monthly cap, but a bot joins your calls. Want no bot? <strong>MeetMouse</strong> "
-            "is free for 3 meetings a week and never locks your notes, and unlimited is $20 once, "
-            "against Granola Business at $14 per user per month. It also coaches you live. Only need the last 30 days? "
+            "is free for 3 meetings a week and never locks your notes, and unlimited is {price} once, "
+            "against Granola Business at {granola_price} per user per month. It also coaches you live. Only need the last 30 days? "
             "Granola's own free plan is enough."
         ),
         "intro": (
             "Granola is genuinely good, and its free plan is genuinely free, but it only keeps 30 "
-            "days of meeting history. Keeping more costs $14 per user per month. I make MeetMouse, "
-            "so judge it with that in mind: it's free for 3 meetings a week, $20 once for unlimited. "
+            "days of meeting history. Keeping more costs {granola_price} per user per month. I make MeetMouse, "
+            "so judge it with that in mind: it's free for 3 meetings a week, {price} once for unlimited. "
             "Each tool below says "
             "what it does better than us."
         ),
@@ -342,9 +352,9 @@ PAGES = [
             ("Is there a free Granola alternative without a bot?",
              "MeetMouse is free for 3 meetings a week with no bot, and its notes never expire (I make it). Granola's own free plan is bot-free too, with 30 days of meeting history. Recording with Voice Memos and pasting into an AI chat is also bot-free and costs nothing."),
             ("Is there a Granola alternative without a subscription?",
-             "MeetMouse: free for 3 meetings a week, or $20 once for unlimited, with no subscription and no account. It writes your notes on your Mac and coaches you live during the call."),
+             "MeetMouse: free for 3 meetings a week, or {price} once for unlimited, with no subscription and no account. It writes your notes on your Mac and coaches you live during the call."),
             ("What are the limits of Granola's free plan?",
-             "Granola's free Basic plan keeps 30 days of meeting history. Unlimited history needs Business at $14 per user per month."),
+             "Granola's free Basic plan keeps 30 days of meeting history. Unlimited history needs Business at {granola_price} per user per month."),
         ],
     },
 ]

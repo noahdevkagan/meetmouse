@@ -1,79 +1,76 @@
-<!--meta
-{
+{% set meta = {
   "path": "compare/meetmouse-vs-fireflies",
   "kind": "compare",
-  "title": "MeetMouse vs Fireflies.ai (2026): Sales Machine vs Personal Coach",
-  "description": "Fireflies is a CRM-connected recording machine for sales teams. MeetMouse is a private, on-device coach for one person: you. Free for 3 meetings a week, or $20 once for unlimited. Honest comparison from MeetMouse's founder.",
-  "h1": "MeetMouse vs Fireflies.ai: sales machine vs personal coach",
-  "dek": "Disclosure: I make MeetMouse. Fireflies is a serious company solving a real problem — it's just usually not <em>your</em> problem, and I'll explain the difference.",
-  "answer_label": "The short answer",
-  "answer": "Fireflies is infrastructure for sales teams — record every call, push it to the CRM, let managers review talk-time and keywords across the org. MeetMouse is the opposite: a private coach for one person, running entirely on your Mac, free for 3 meetings a week or $20 once for unlimited. If you manage a pipeline, look at Fireflies. If you want to get better without your calls living in a company dashboard, that's mine.",
-  "intro": [],
+  "title": _("MeetMouse vs Fireflies.ai (2026): Sales Machine vs Personal Coach"),
+  "description": _("Fireflies is a CRM-connected recording machine for sales teams. MeetMouse is a private, on-device coach for one person: you. Free for 3 meetings a week, or {price} once for unlimited. Honest comparison from MeetMouse's founder."),
+  "h1": _("MeetMouse vs Fireflies.ai: sales machine vs personal coach"),
+  "dek": _("Disclosure: I make MeetMouse. Fireflies is a serious company solving a real problem — it's just usually not <em>your</em> problem, and I'll explain the difference."),
+  "answer_label": _("The short answer"),
+  "answer": _("Fireflies is infrastructure for sales teams — record every call, push it to the CRM, let managers review talk-time and keywords across the org. MeetMouse is the opposite: a private coach for one person, running entirely on your Mac, free for 3 meetings a week or {price} once for unlimited. If you manage a pipeline, look at Fireflies. If you want to get better without your calls living in a company dashboard, that's mine."),
+  "intro": [
+  ],
   "faq": [
-    [
-      "Does Fireflies join meetings as a bot?",
-      "Yes. Fireflies' notetaker bot joins the call as a visible participant and records to Fireflies' cloud, where transcripts flow into dashboards and your CRM. MeetMouse sends no bot and uploads nothing."
-    ],
-    [
-      "How much does Fireflies cost?",
-      "There's a free plan with limited AI credits; Pro starts at $18/user/month and Business at $29/user/month, billed forever. MeetMouse is free for 3 meetings a week, or $20 once for unlimited."
-    ],
-    [
-      "Is there a Fireflies alternative without a bot?",
-      "Granola takes notes without a bot (using cloud AI). MeetMouse goes further: no bot and no cloud — everything runs on your Mac, and you get notes plus live coaching only you can see."
-    ],
-    [
-      "Does Fireflies coach you during the call?",
-      "No. Fireflies analyzes calls after the fact — talk time, keywords, scorecards — often reviewed by a manager. MeetMouse coaches during the meeting, privately, with cues only you see."
-    ]
+    [_("Does Fireflies join meetings as a bot?"), _("Yes. Fireflies' notetaker bot joins the call as a visible participant and records to Fireflies' cloud, where transcripts flow into dashboards and your CRM. MeetMouse sends no bot and uploads nothing.")],
+    [_("How much does Fireflies cost?"), _("There's a free plan with limited AI credits; Pro starts at {pro_price}/user/month and Business at {biz_price}/user/month, billed forever. MeetMouse is free for 3 meetings a week, or {price} once for unlimited.")],
+    [_("Is there a Fireflies alternative without a bot?"), _("Granola takes notes without a bot (using cloud AI). MeetMouse goes further: no bot and no cloud — everything runs on your Mac, and you get notes plus live coaching only you can see.")],
+    [_("Does Fireflies coach you during the call?"), _("No. Fireflies analyzes calls after the fact — talk time, keywords, scorecards — often reviewed by a manager. MeetMouse coaches during the meeting, privately, with cues only you see.")],
   ],
   "date": "2026-07-29",
-  "checked": "October 2026"
-}
--->
+  "checked": _("October 2026"),
+} %}
 <section>
-<h2>What each tool actually does</h2>
-<p><strong>Fireflies</strong> sends its bot into your meetings, records and transcribes them, then does team-scale things with the result: syncs to Salesforce or HubSpot, tracks topics across hundreds of calls, scores reps against talk-time benchmarks, feeds manager dashboards. The buyer is usually a sales leader; the product is visibility into the team's conversations.</p>
-    <p><strong>MeetMouse</strong> has no bot, no dashboard for your boss, and no cloud. It listens to your live meeting on your Mac and gives <em>you</em> — only you — short cues in a screen-share-safe overlay while there's still time to act on them. Nobody else ever sees your calls, your stats, or your bad habits. The whole point is that improvement is easier when it's private.</p>
+
+{# trans Section: What each tool actually does #}
+<h2>{% trans %}What each tool actually does{% endtrans %}</h2>
+<p>{% trans %}<strong>Fireflies</strong> sends its bot into your meetings, records and transcribes them, then does team-scale things with the result: syncs to Salesforce or HubSpot, tracks topics across hundreds of calls, scores reps against talk-time benchmarks, feeds manager dashboards. The buyer is usually a sales leader; the product is visibility into the team's conversations.{% endtrans %}</p>
+    <p>{% trans %}<strong>MeetMouse</strong> has no bot, no dashboard for your boss, and no cloud. It listens to your live meeting on your Mac and gives <em>you</em> — only you — short cues in a screen-share-safe overlay while there's still time to act on them. Nobody else ever sees your calls, your stats, or your bad habits. The whole point is that improvement is easier when it's private.{% endtrans %}</p>
 </section>
 
 <section>
-<h2>Head to head</h2>
+
+{# trans Section: Head to head #}
+<h2>{% trans %}Head to head{% endtrans %}</h2>
 <div class="table-wrap">
       <table>
-        <tr><th></th><th>Fireflies</th><th>MeetMouse</th></tr>
-        <tr><td>Built for</td><td>Teams and managers</td><td>One person: you</td></tr>
-        <tr><td>Price</td><td>Free plan (limited AI credits); Pro from $18/user/mo; Business from $59/user/mo</td><td>Free (3 meetings/week); $20 once for unlimited</td></tr>
-        <tr><td>Bot joins your call</td><td>Yes</td><td>No</td></tr>
-        <tr><td>Where your audio goes</td><td>Fireflies' cloud, then your CRM</td><td>Nowhere. 100% on-device, works with WiFi off</td></tr>
-        <tr><td>Coaching</td><td>After the call, often reviewed by a manager</td><td>During the call, seen only by you</td></tr>
-        <tr><td>CRM integrations</td><td>Deep — that's the product</td><td>None, on purpose</td></tr>
-        <tr><td>Platforms</td><td>Web, all major meeting platforms</td><td>Mac only (macOS 14.2+)</td></tr>
+        <tr><th></th><th>{% trans %}Fireflies{% endtrans %}</th><th>{% trans %}MeetMouse{% endtrans %}</th></tr>
+        <tr><td>{% trans %}Built for{% endtrans %}</td><td>{% trans %}Teams and managers{% endtrans %}</td><td>{% trans %}One person: you{% endtrans %}</td></tr>
+        <tr><td>{% trans %}Price{% endtrans %}</td><td>{{ _("Free plan (limited AI credits); Pro from {pro}/user/mo; Business from {biz}/user/mo", pro=prices.fireflies.pro, biz=prices.fireflies.enterprise) }}</td><td>{{ _("Free (3 meetings/week); {price} once for unlimited", price=price) }}</td></tr>
+        <tr><td>{% trans %}Bot joins your call{% endtrans %}</td><td>{% trans %}Yes{% endtrans %}</td><td>{% trans %}No{% endtrans %}</td></tr>
+        <tr><td>{% trans %}Where your audio goes{% endtrans %}</td><td>{% trans %}Fireflies' cloud, then your CRM{% endtrans %}</td><td>{% trans %}Nowhere. 100% on-device, works with WiFi off{% endtrans %}</td></tr>
+        <tr><td>{% trans %}Coaching{% endtrans %}</td><td>{% trans %}After the call, often reviewed by a manager{% endtrans %}</td><td>{% trans %}During the call, seen only by you{% endtrans %}</td></tr>
+        <tr><td>{% trans %}CRM integrations{% endtrans %}</td><td>{% trans %}Deep — that's the product{% endtrans %}</td><td>{% trans %}None, on purpose{% endtrans %}</td></tr>
+        <tr><td>{% trans %}Platforms{% endtrans %}</td><td>{% trans %}Web, all major meeting platforms{% endtrans %}</td><td>{% trans %}Mac only (macOS 14.2+){% endtrans %}</td></tr>
       </table>
     </div>
 </section>
 
 <section>
-<h2>Where Fireflies wins</h2>
+
+{# trans Section: Where Fireflies wins #}
+<h2>{% trans %}Where Fireflies wins{% endtrans %}</h2>
 <ul>
-      <li><strong>You run a sales team.</strong> Auto-logging calls to the CRM and seeing deal conversations at scale is genuinely valuable, and MeetMouse doesn't do any of it.</li>
-      <li><strong>Compliance and record-keeping.</strong> Some orgs are required to keep call records. Fireflies is built for that world.</li>
-      <li><strong>Everything-platform coverage.</strong> Zoom, Meet, Teams, dial-ins, on any OS.</li>
+      <li>{% trans %}<strong>You run a sales team.</strong> Auto-logging calls to the CRM and seeing deal conversations at scale is genuinely valuable, and MeetMouse doesn't do any of it.{% endtrans %}</li>
+      <li>{% trans %}<strong>Compliance and record-keeping.</strong> Some orgs are required to keep call records. Fireflies is built for that world.{% endtrans %}</li>
+      <li>{% trans %}<strong>Everything-platform coverage.</strong> Zoom, Meet, Teams, dial-ins, on any OS.{% endtrans %}</li>
     </ul>
 </section>
 
 <section>
-<h2>Where MeetMouse wins</h2>
+
+{# trans Section: Where MeetMouse wins #}
+<h2>{% trans %}Where MeetMouse wins{% endtrans %}</h2>
 <ul>
-      <li><strong>The feedback loop is 60 seconds, not 6 days.</strong> Fireflies coaching means a manager reviews your call later, maybe. MeetMouse nudges you mid-sentence, when you can still change the outcome of <em>this</em> call.</li>
-      <li><strong>Your counterpart doesn't see a recorder join.</strong> Nothing chills a candid negotiation like a bot named "Fireflies.ai Notetaker" appearing in the participant list.</li>
-      <li><strong>Privacy by architecture, not by policy.</strong> Fireflies protects your data with promises. MeetMouse protects it by never collecting it — transcription and AI run on your Mac, and it works with WiFi off. There is no server to breach, subpoena, or train on.</li>
-      <li><strong>Cost.</strong> One Fireflies Pro seat is $216 a year billed monthly, or $120 billed annually. MeetMouse is free to start and $20 total for unlimited, and your whole career is on one license.</li>
+      <li>{% trans %}<strong>The feedback loop is 60 seconds, not 6 days.</strong> Fireflies coaching means a manager reviews your call later, maybe. MeetMouse nudges you mid-sentence, when you can still change the outcome of <em>this</em> call.{% endtrans %}</li>
+      <li>{% trans %}<strong>Your counterpart doesn't see a recorder join.</strong> Nothing chills a candid negotiation like a bot named "Fireflies.ai Notetaker" appearing in the participant list.{% endtrans %}</li>
+      <li>{% trans %}<strong>Privacy by architecture, not by policy.</strong> Fireflies protects your data with promises. MeetMouse protects it by never collecting it — transcription and AI run on your Mac, and it works with WiFi off. There is no server to breach, subpoena, or train on.{% endtrans %}</li>
+      <li>{{ _("<strong>Cost.</strong> One Fireflies Pro seat is {monthly_annual} a year billed monthly, or {annual} billed annually. MeetMouse is free to start and {price} total for unlimited, and your whole career is on one license.", monthly_annual=prices.fireflies.pro_monthly_yr, annual=prices.fireflies.pro_annual_yr, price=price) }}</li>
     </ul>
 </section>
 
 <section>
-<h2>My honest verdict</h2>
-<p>This is the easiest verdict of all my comparison pages because the buyers are different people. If you're a sales leader instrumenting a team: Fireflies (or Gong, if budget's no object). I'm not your product.</p>
-    <p>But if you're the person <em>in</em> the meetings — closing deals, running client calls, interviewing — and you want to get sharper without your practice reps being broadcast to a team dashboard, that's exactly who I built <a href="/">MeetMouse</a> for. Free for 3 meetings a week, $20 once for unlimited, private forever.</p>
+
+{# trans Section: My honest verdict #}
+<h2>{% trans %}My honest verdict{% endtrans %}</h2>
+<p>{% trans %}This is the easiest verdict of all my comparison pages because the buyers are different people. If you're a sales leader instrumenting a team: Fireflies (or Gong, if budget's no object). I'm not your product.{% endtrans %}</p>
+    <p>{{ _("But if you're the person <em>in</em> the meetings — closing deals, running client calls, interviewing — and you want to get sharper without your practice reps being broadcast to a team dashboard, that's exactly who I built <a href=\"/\">MeetMouse</a> for. Free for 3 meetings a week, {price} once for unlimited, private forever.", price=price) }}</p>
 </section>

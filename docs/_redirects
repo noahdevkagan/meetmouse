@@ -10,3 +10,10 @@
 # Download free. The web-share Worker owns /get once deployed (Worker routes
 # win over Pages); until then this sends the button straight to the DMG.
 /get  https://github.com/noahdevkagan/meeting-coach-releases/releases/latest  302
+
+# Legacy Spanish path redirect
+/es/alternativas-a-fathom  /es/blog/fathom-alternatives  301
+
+# Dynamic language fallbacks (managed by site/build.py)
+/es    /       302
+/es/   /       302

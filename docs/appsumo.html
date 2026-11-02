@@ -5,7 +5,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Redeem your AppSumo code — MeetMouse</title>
 <meta name="robots" content="noindex">
-<link rel="icon" type="image/png" href="/icon.png">
+<link rel="alternate" hreflang="en" href="https://meetmouse.com/appsumo">
+<link rel="alternate" hreflang="pt-BR" href="https://meetmouse.com/br/appsumo">
+<link rel="alternate" hreflang="x-default" href="https://meetmouse.com/appsumo">
+<style>
+.lang-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 550;
+  color: #1a1a1a;
+  background-color: #ffffff;
+  border: 1px solid #e5ded8;
+  border-radius: 8px;
+  padding: 5px 28px 5px 11px;
+  cursor: pointer;
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23444444' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px 6px;
+  line-height: 1.4;
+  vertical-align: middle;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.lang-select:hover {
+  border-color: #bbbbbb;
+}
+.lang-select:focus {
+  border-color: #2bbd3e;
+  box-shadow: 0 0 0 2px rgba(43, 189, 62, 0.15);
+}
+</style>
+
+<script src="lang.js" defer></script>
+<link rel="icon" type="image/png" href="icon.png">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -31,6 +67,7 @@
     gap: 10px;
     margin-bottom: 30px;
     color: #242321;
+    text-decoration: none;
     font-size: 18px;
     font-weight: 750;
     letter-spacing: -0.02em;
@@ -78,10 +115,17 @@
 </head>
 <body>
 <main>
-  <a class="brand" href="/" aria-label="MeetMouse home">
-    <img src="/icon.png" alt="">
-    <span>MeetMouse</span>
-  </a>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
+    <a class="brand" href="/" aria-label="MeetMouse home" style="margin-bottom:0;">
+      <img src="icon.png" alt="">
+      <span>MeetMouse</span>
+    </a>
+    <select class="lang-select" aria-label="Language">
+        <option value="/appsumo" data-lang="en" selected>English</option>
+        <option value="/br/appsumo" data-lang="pt-BR">Português</option>
+      </select>
+
+  </div>
   <div id="redeem">
     <h1>Redeem your AppSumo code</h1>
     <p>Enter the code from your AppSumo purchase to download MeetMouse for Mac.</p>
@@ -92,16 +136,16 @@
       <button type="submit" class="dl-btn">Redeem</button>
     </form>
     <p class="error" id="error">That code doesn't look right — check for typos and try again.</p>
-    <p class="steps">Trouble redeeming? Email <a href="mailto:support@meetmouse.com">support@meetmouse.com</a></p>
+    <p class="steps">Trouble redeeming? Email <a href='mailto:support@meetmouse.com'>support@meetmouse.com</a></p>
   </div>
 
   <div id="success">
     <h1>You're in 🎉</h1>
     <p>Your download is ready. Open the DMG and drag MeetMouse to Applications.</p>
-    <a class="dl-btn" id="dl" href="https://github.com/noahdevkagan/meeting-coach-releases/releases/latest">Download MeetMouse for Mac</a>
+    <a class="dl-btn" href="/get">Download MeetMouse for Mac</a>
     <p>Then unlock unlimited meetings:</p>
     <a class="dl-btn" id="unlock" href="meetmouse://unlock">Unlock MeetMouse Unlimited</a>
-    <p class="steps">Click once MeetMouse is installed. Or paste your code in MeetMouse → Get MeetMouse Unlimited.<br><br>On first launch, click <strong>Download Model</strong> once (needs WiFi that one time) — everything after runs fully offline.<br><br>Need help? Email <a href="mailto:support@meetmouse.com">support@meetmouse.com</a></p>
+    <p class="steps">Click once MeetMouse is installed. Or paste your code in MeetMouse → Get MeetMouse Unlimited.<br><br>On first launch, click <strong>Download Model</strong> once (needs WiFi that one time) — everything after runs fully offline.<br><br>Need help? Email <a href='mailto:support@meetmouse.com'>support@meetmouse.com</a></p>
   </div>
 </main>
 <script>
@@ -109,15 +153,6 @@
 // with the page. The download itself is the public latest release.
 let hashes = null;
 fetch("appsumo-hashes.json").then(r => r.json()).then(h => { hashes = h; });
-
-// Resolve the newest DMG asset so this page never goes stale.
-fetch("https://api.github.com/repos/noahdevkagan/meeting-coach-releases/releases/latest")
-  .then(r => r.json())
-  .then(rel => {
-    const dmg = (rel.assets || []).find(a => a.name.endsWith(".dmg"));
-    if (dmg) document.getElementById("dl").href = dmg.browser_download_url;
-  })
-  .catch(() => {});  // fallback href already points at the releases page
 
 async function sha256(text) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));

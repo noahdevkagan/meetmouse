@@ -6,7 +6,42 @@
 <title>AI Notetakers That Don&#x27;t Join Your Call as a Bot (2026)</title>
 <meta name="description" content="No more &#x27;X has joined the meeting.&#x27; The tools that capture meetings without a visible bot — how bot-free capture works, and the honest trade-offs of each option.">
 <link rel="canonical" href="https://meetmouse.com/blog/ai-notetaker-without-bot">
-<link rel="icon" type="image/png" href="/icon.png">
+<link rel="alternate" hreflang="en" href="https://meetmouse.com/blog/ai-notetaker-without-bot">
+<link rel="alternate" hreflang="pt-BR" href="https://meetmouse.com/br/blog/ai-notetaker-without-bot">
+<link rel="alternate" hreflang="x-default" href="https://meetmouse.com/blog/ai-notetaker-without-bot">
+<style>
+.lang-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 550;
+  color: #1a1a1a;
+  background-color: #ffffff;
+  border: 1px solid #e5ded8;
+  border-radius: 8px;
+  padding: 5px 28px 5px 11px;
+  cursor: pointer;
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23444444' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px 6px;
+  line-height: 1.4;
+  vertical-align: middle;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.lang-select:hover {
+  border-color: #bbbbbb;
+}
+.lang-select:focus {
+  border-color: #2bbd3e;
+  box-shadow: 0 0 0 2px rgba(43, 189, 62, 0.15);
+}
+</style>
+<script src="../lang.js" defer></script>
+<link rel="icon" type="image/png" href="../icon.png">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://meetmouse.com/blog/ai-notetaker-without-bot">
 <meta property="og:title" content="AI Notetakers That Don&#x27;t Join Your Call as a Bot (2026)">
@@ -19,7 +54,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@500..700&display=swap">
-<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="../site.css">
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "AI Notetakers That Don't Join Your Call as a Bot (2026)", "author": {"@type": "Person", "name": "Noah Kagan", "url": "https://meetmouse.com/"}, "datePublished": "2026-07-29", "publisher": {"@type": "Organization", "name": "MeetMouse"}}</script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "MeetMouse", "item": "https://meetmouse.com/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://meetmouse.com/blog/"}, {"@type": "ListItem", "position": 3, "name": "AI notetakers that don't join your call as a bot", "item": "https://meetmouse.com/blog/ai-notetaker-without-bot"}]}</script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Which AI notetakers don't use a bot?", "acceptedAnswer": {"@type": "Answer", "text": "Granola (notes via cloud AI), Poised (cloud coaching), and MeetMouse (fully on-device coaching) all capture system audio on your computer instead of joining the call. Fireflies and tl;dv send a visible bot. Otter and Fathom do by default, though Otter's desktop app can record without a bot and Fathom lists bot-free capture as a beta."}}, {"@type": "Question", "name": "How do no-bot meeting tools capture the audio?", "acceptedAnswer": {"@type": "Answer", "text": "They record system audio — the sound your computer is already playing — plus your microphone, locally on your machine. Nothing joins the meeting, so participants see nothing."}}, {"@type": "Question", "name": "Is it legal to use a notetaker that doesn't announce itself?", "acceptedAnswer": {"@type": "Answer", "text": "Bot or no bot, recording-consent laws still apply to you. Many teams disclose verbally regardless of tool. For regulated or two-party-consent situations, ask counsel — the bot avatar was never the legally relevant part."}}, {"@type": "Question", "name": "What's the most private no-bot option?", "acceptedAnswer": {"@type": "Answer", "text": "MeetMouse — it's the only one where audio is also processed entirely on-device rather than sent to cloud AI. It works with WiFi off; nothing is uploaded, ever."}}]}</script>
@@ -29,44 +64,57 @@
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
     <a class="brand" href="/" aria-label="MeetMouse home">
-      <span class="mark"><img src="/icon.png" alt=""></span>
+      <span class="mark"><img src="../icon.png" alt=""></span>
       <span>MeetMouse</span>
     </a>
     <nav aria-label="Main navigation">
       <a href="/best/">Guides</a>
       <a href="/alternatives/">Comparisons</a>
       <a href="/blog/">Blog</a>
+      <select class="lang-select" aria-label="Language">
+        <option value="/blog/ai-notetaker-without-bot" data-lang="en" selected>English</option>
+        <option value="/br/blog/ai-notetaker-without-bot" data-lang="pt-BR">Português</option>
+      </select>
+
       <a class="button button-compact" href="/get">Download free</a>
     </nav>
   </header>
   <main class="doc" id="main">
-    <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">MeetMouse</a><span aria-hidden="true">/</span><a href="/blog/">Blog</a><span aria-hidden="true">/</span><span>AI notetakers that don&#x27;t join your call as a bot</span></nav>
+<nav class="breadcrumb" aria-label="Breadcrumb">
+  <a href="/blog/">Blog</a><span aria-hidden="true">/</span>
+  <span>AI notetakers that don't join your call as a bot</span>
+</nav>
 
-    <h1>AI notetakers that don't join your call as a bot</h1>
+<h1>AI notetakers that don't join your call as a bot</h1>
 
-    <div class="byline">
-      <img src="/img/noah.jpg" alt="Noah Kagan" width="44" height="44">
-      <div><strong>Noah Kagan</strong><span>Founder, MeetMouse · Last checked July 29, 2026</span></div>
-    </div>
+<div class="byline">
+  <img src="/img/noah.jpg" alt="Noah Kagan" width="44" height="44">
+  <div><strong>Noah Kagan</strong><span>Founder, MeetMouse · Last checked July 29, 2026</span></div>
+</div>
 
-    <p class="dek">Disclosure: I make MeetMouse, one of the tools below. I'll be straight about the others.</p>
+<p class="dek">Disclosure: I make MeetMouse, one of the tools below. I'll be straight about the others.</p>
 
-    <aside class="answer-box">
-      <h2>Quick answer</h2>
-      <p>Only a few tools do this. <strong>Granola</strong> is the best bot-free <em>notetaker</em> (notes via cloud AI). <strong>Poised</strong> is bot-free but cloud-processed coaching. <a href="/"><strong>MeetMouse</strong></a> is bot-free <em>and</em> fully on-device — nothing leaves your Mac. The DIY option (record locally, paste into AI) also works if you're patient.</p>
-    </aside>
+<aside class="answer-box">
+  <h2>Quick answer</h2>
+  <p>Only a few tools do this. <strong>Granola</strong> is the best bot-free <em>notetaker</em> (notes via cloud AI). <strong>Poised</strong> is bot-free but cloud-processed coaching. <a href="/"><strong>MeetMouse</strong></a> is bot-free <em>and</em> fully on-device — nothing leaves your Mac. The DIY option (record locally, paste into AI) also works if you're patient.</p>
+</aside>
 
-    <p class="top-cta"><a class="button" href="/get">Download MeetMouse free</a><span>Free for 3 meetings a week. No bot, and your meeting stays on your Mac.</span></p>
+<p class="top-cta">
+  <a class="button" href="/get">Download MeetMouse free</a>
+  <span>Free for 3 meetings a week. No bot, and your meeting stays on your Mac.</span>
+</p>
 
-    <p>You know the moment. The call connects, and then: <em>"Fireflies.ai Notetaker has joined the meeting."</em> Your candidate stiffens. Your prospect asks what it is. Your report gets a little more careful. Whatever the tool captures after that is a slightly worse conversation than the one you would have had.</p>
+<p>You know the moment. The call connects, and then: <em>"Fireflies.ai Notetaker has joined the meeting."</em> Your candidate stiffens. Your prospect asks what it is. Your report gets a little more careful. Whatever the tool captures after that is a slightly worse conversation than the one you would have had.</p>
 
 <section>
+
 <h2>How bot-free capture actually works</h2>
 <p>Meeting bots exist because they're easy to build: a headless participant joins the call like any guest and records what it hears. The bot-free approach skips the meeting entirely and captures <strong>system audio on your computer</strong> — the same sound coming out of your speakers — plus your mic. Nothing joins; the other side sees nothing. On a Mac this uses the screen-capture audio permission, which is why bot-free tools ask for it.</p>
     <p>One honest caveat: bot-free means <em>invisible to participants</em>. Recording-consent norms and laws still apply to you regardless of the mechanism — disclosure is about ethics and law, not about whether a bot avatar appears.</p>
 </section>
 
 <section>
+
 <h2>The bot-free lineup</h2>
 <h3>Granola — bot-free notes</h3>
     <p>The category leader for notes. Captures system audio on your Mac, blends the transcript with what you type, and produces polished notes with cloud AI. Free with 30 days of meeting history; $14/user/month for more. Your meeting content does go to their cloud for processing. <a href="/compare/meetmouse-vs-granola">Full comparison</a>.</p>
@@ -79,6 +127,7 @@
 </section>
 
 <section>
+
 <h2>Choosing</h2>
 <ul>
       <li><strong>Notes are the goal:</strong> Granola.</li>
@@ -88,32 +137,66 @@
     </ul>
 </section>
 
-    <section>
-      <h2>Questions</h2>
-      <dl class="faq">
-        <div><dt>Which AI notetakers don't use a bot?</dt><dd>Granola (notes via cloud AI), Poised (cloud coaching), and MeetMouse (fully on-device coaching) all capture system audio on your computer instead of joining the call. Fireflies and tl;dv send a visible bot. Otter and Fathom do by default, though Otter's desktop app can record without a bot and Fathom lists bot-free capture as a beta.</dd></div>
-        <div><dt>How do no-bot meeting tools capture the audio?</dt><dd>They record system audio — the sound your computer is already playing — plus your microphone, locally on your machine. Nothing joins the meeting, so participants see nothing.</dd></div>
-        <div><dt>Is it legal to use a notetaker that doesn't announce itself?</dt><dd>Bot or no bot, recording-consent laws still apply to you. Many teams disclose verbally regardless of tool. For regulated or two-party-consent situations, ask counsel — the bot avatar was never the legally relevant part.</dd></div>
-        <div><dt>What's the most private no-bot option?</dt><dd>MeetMouse — it's the only one where audio is also processed entirely on-device rather than sent to cloud AI. It works with WiFi off; nothing is uploaded, ever.</dd></div>
-      </dl>
-    </section>
+<section>
+  <h2>Questions</h2>
+  <dl class="faq">
+    <div><dt>Which AI notetakers don't use a bot?</dt><dd>Granola (notes via cloud AI), Poised (cloud coaching), and MeetMouse (fully on-device coaching) all capture system audio on your computer instead of joining the call. Fireflies and tl;dv send a visible bot. Otter and Fathom do by default, though Otter's desktop app can record without a bot and Fathom lists bot-free capture as a beta.</dd></div>
+    <div><dt>How do no-bot meeting tools capture the audio?</dt><dd>They record system audio — the sound your computer is already playing — plus your microphone, locally on your machine. Nothing joins the meeting, so participants see nothing.</dd></div>
+    <div><dt>Is it legal to use a notetaker that doesn't announce itself?</dt><dd>Bot or no bot, recording-consent laws still apply to you. Many teams disclose verbally regardless of tool. For regulated or two-party-consent situations, ask counsel — the bot avatar was never the legally relevant part.</dd></div>
+    <div><dt>What's the most private no-bot option?</dt><dd>MeetMouse — it's the only one where audio is also processed entirely on-device rather than sent to cloud AI. It works with WiFi off; nothing is uploaded, ever.</dd></div>
+  </dl>
+</section>
 
-    <section class="doc-cta">
-      <h2>Try MeetMouse</h2>
-      <p>Free to start: unlimited your first week, then 3 meetings a week, and your notes are never locked. Invite 2 friends or pay $20 once for unlimited. No subscription, no account.</p>
-      <a class="button" href="/get">Download MeetMouse free</a>
-    </section>
+<section class="doc-cta">
+  <h2>Try MeetMouse</h2>
+  <p>Free to start: unlimited your first week, then 3 meetings a week, and your notes are never locked. Invite 2 friends or pay $20 once for unlimited. No subscription, no account.</p>
+  <a class="button" href="/get">Download MeetMouse free</a>
+</section>
 
-    <p class="checked-note">I checked prices and features for the tools here in July 2026. This stuff changes constantly, so double-check before you buy.</p>
+<p class="checked-note">I checked prices and features for the tools here in July 2026. This stuff changes constantly, so double-check before you buy.</p>
 
-    <nav class="more-links" aria-label="More">
-      <h2>More guides</h2>
-      <ul><li><a href="/best/ai-notetaker-for-mac">Best AI notetaker for Mac</a></li><li><a href="/best/ai-meeting-assistant-for-sales-calls">Best AI meeting assistant for sales calls</a></li><li><a href="/best/ai-notetaker-for-lawyers">Best AI notetaker for lawyers</a></li><li><a href="/best/ai-meeting-tool-for-founders">Best AI meeting tool for founders</a></li><li><a href="/best/ai-notetaker-for-recruiters">Best AI notetaker for recruiters</a></li><li><a href="/best/ai-note-taker-for-interviews">Best AI note taker for interviews</a></li><li><a href="/best/ai-notetaker-for-consultants">Best AI notetaker for consultants</a></li><li><a href="/best/ai-notetaker-for-coaches">Best AI notetaker for coaches</a></li><li><a href="/best/meeting-coach-for-managers">Best meeting coach for managers</a></li><li><a href="/best/ai-meeting-coach">Best AI meeting coach</a></li><li><a href="/best/ai-notetaker-for-zoom">Best AI notetaker for Zoom</a></li><li><a href="/best/ai-notetaker-for-financial-advisors">Best AI notetaker for financial advisors</a></li></ul>
-      <h2>Comparisons</h2>
-      <ul><li><a href="/compare/meetmouse-vs-granola">MeetMouse vs Granola</a></li><li><a href="/compare/meetmouse-vs-fathom">MeetMouse vs Fathom</a></li><li><a href="/compare/meetmouse-vs-otter">MeetMouse vs Otter.ai</a></li><li><a href="/compare/meetmouse-vs-fireflies">MeetMouse vs Fireflies.ai</a></li><li><a href="/compare/meetmouse-vs-poised">MeetMouse vs Poised</a></li><li><a href="/compare/meetmouse-vs-tldv">MeetMouse vs tl;dv</a></li><li><a href="/compare/meetmouse-vs-gong">MeetMouse vs Gong</a></li><li><a href="/compare/meetmouse-vs-zoom-ai-companion">MeetMouse vs Zoom AI Companion</a></li><li><a href="/compare/meetmouse-vs-macwhisper">MeetMouse vs MacWhisper</a></li></ul>
-      <h2>From the blog</h2>
-      <ul><li><a href="/blog/private-ai-meeting-notes">Private AI meeting notes: the complete guide</a></li><li><a href="/blog/do-ai-notetakers-record-your-calls">Do AI notetakers record your calls?</a></li><li><a href="/blog/free-granola-alternatives">Free Granola alternatives: the 5 best options in 2026</a></li><li><a href="/blog/fathom-alternatives">The 5 best Fathom alternatives in 2026</a></li><li><a href="/blog/otter-alternatives">The 5 best Otter.ai alternatives in 2026</a></li><li><a href="/blog/fireflies-alternatives">The 5 best Fireflies.ai alternatives in 2026</a></li><li><a href="/blog/fathom-pricing">Fathom pricing in 2026</a></li><li><a href="/blog/granola-pricing">Granola pricing in 2026</a></li><li><a href="/blog/otter-pricing">Otter.ai pricing in 2026</a></li></ul>
-    </nav>
+<nav class="more-links" aria-label="More guides">
+  <h2>More guides</h2>
+  <ul>
+    <li><a href="/best/ai-notetaker-for-mac">Best AI notetaker for Mac</a></li>
+    <li><a href="/best/ai-meeting-assistant-for-sales-calls">Best AI meeting assistant for sales calls</a></li>
+    <li><a href="/best/ai-notetaker-for-lawyers">Best AI notetaker for lawyers</a></li>
+    <li><a href="/best/ai-meeting-tool-for-founders">Best AI meeting tool for founders</a></li>
+    <li><a href="/best/ai-notetaker-for-recruiters">Best AI notetaker for recruiters</a></li>
+    <li><a href="/best/ai-note-taker-for-interviews">Best AI note taker for interviews</a></li>
+    <li><a href="/best/ai-notetaker-for-consultants">Best AI notetaker for consultants</a></li>
+    <li><a href="/best/ai-notetaker-for-coaches">Best AI notetaker for coaches</a></li>
+    <li><a href="/best/meeting-coach-for-managers">Best meeting coach for managers</a></li>
+    <li><a href="/best/ai-meeting-coach">Best AI meeting coach</a></li>
+    <li><a href="/best/ai-notetaker-for-zoom">Best AI notetaker for Zoom</a></li>
+    <li><a href="/best/ai-notetaker-for-financial-advisors">Best AI notetaker for financial advisors</a></li>
+  </ul>
+  <h2>Comparisons</h2>
+  <ul>
+    <li><a href="/compare/meetmouse-vs-granola">MeetMouse vs Granola</a></li>
+    <li><a href="/compare/meetmouse-vs-fathom">MeetMouse vs Fathom</a></li>
+    <li><a href="/compare/meetmouse-vs-otter">MeetMouse vs Otter.ai</a></li>
+    <li><a href="/compare/meetmouse-vs-fireflies">MeetMouse vs Fireflies.ai</a></li>
+    <li><a href="/compare/meetmouse-vs-poised">MeetMouse vs Poised</a></li>
+    <li><a href="/compare/meetmouse-vs-tldv">MeetMouse vs tl;dv</a></li>
+    <li><a href="/compare/meetmouse-vs-gong">MeetMouse vs Gong</a></li>
+    <li><a href="/compare/meetmouse-vs-zoom-ai-companion">MeetMouse vs Zoom AI Companion</a></li>
+    <li><a href="/compare/meetmouse-vs-macwhisper">MeetMouse vs MacWhisper</a></li>
+  </ul>
+  <h2>From the blog</h2>
+  <ul>
+    <li><a href="/blog/private-ai-meeting-notes">Private AI meeting notes: the complete guide</a></li>
+    <li><a href="/blog/do-ai-notetakers-record-your-calls">Do AI notetakers record your calls?</a></li>
+    <li><a href="/blog/free-granola-alternatives">Free Granola alternatives: the 5 best options in 2026</a></li>
+    <li><a href="/blog/fathom-alternatives">The 5 best Fathom alternatives in 2026</a></li>
+    <li><a href="/blog/otter-alternatives">The 5 best Otter.ai alternatives in 2026</a></li>
+    <li><a href="/blog/fireflies-alternatives">The 5 best Fireflies.ai alternatives in 2026</a></li>
+    <li><a href="/blog/fathom-pricing">Fathom pricing in 2026</a></li>
+    <li><a href="/blog/granola-pricing">Granola pricing in 2026</a></li>
+    <li><a href="/blog/otter-pricing">Otter.ai pricing in 2026</a></li>
+  </ul>
+</nav>
+
   </main>
   <footer>
     <span>MeetMouse</span>
