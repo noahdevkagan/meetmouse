@@ -41,6 +41,26 @@ struct MeetingLanguageChip: View {
     var highlighted = false
     let onSelect: (MeetingLanguageSelection) -> Void
 
+    init(title: String,
+         current: MeetingLanguageSelection,
+         highlighted: Bool = false,
+         onSelect: @escaping (MeetingLanguageSelection) -> Void) {
+        self.title = title
+        self.current = current
+        self.highlighted = highlighted
+        self.onSelect = onSelect
+    }
+
+    init(language: ResolvedMeetingLanguage,
+         title: String? = nil,
+         highlighted: Bool? = nil,
+         onSelect: @escaping (MeetingLanguageSelection) -> Void) {
+        self.title = title ?? language.quickName
+        self.current = language.language
+        self.highlighted = highlighted ?? language.isAuto
+        self.onSelect = onSelect
+    }
+
     var body: some View {
         Menu {
             MeetingLanguageMenuItems(current: current, onSelect: onSelect)

@@ -133,47 +133,82 @@ enum MeetingLanguageSelection: String, CaseIterable, Codable, Identifiable, Send
     }
 
     var pickerName: String {
+        if self == .system { return resolved().systemOptionTitle }
         if self == .auto { return "Auto-detect (any language)" }
         guard isSpecific, nativeName != englishName else { return englishName }
         return "\(nativeName) — \(englishName)"
     }
 
     /// Short name for chips and subtitles: what a meeting started now would
-    /// listen for ("English" for Mac language on an English Mac).
-    var quickName: String { resolved().language.englishName }
+    /// listen for ("English" for Mac language on an English Mac, "Portuguese"
+    /// on a pt-BR Mac).
+    var quickName: String { resolved().quickName }
 
-    /// Resolve once at meeting start. The locale identifier and the Apple
-    /// Silicon gate are injectable so all supported, fallback, and Intel
-    /// mappings are covered by a Foundation-only test without mutating the
-    /// process locale or needing an Intel machine.
+    /// Resolve once at meeting start. The preferred languages list (or legacy
+    /// locale identifier) and the Apple Silicon gate are injectable so all
+    /// supported, fallback, and Intel mappings are covered by a Foundation-only
+    /// test without mutating the process locale or needing an Intel machine.
+    ///
+    /// The Mac language (.system) resolves from the user's primary system
+    /// language (Locale.preferredLanguages.first), never Locale.current or
+    /// Bundle.main localizations (the app bundle only declares English, which
+    /// would otherwise force Portuguese, Spanish, etc. into English).
     ///
     /// Intel resolves to English whatever is selected: Parakeet v3 cannot run
     /// there at all (see PlatformSupport), so honoring the selection would
     /// only mean refusing to start every meeting. `selection` is preserved so
     /// Settings can say why the meeting is in English.
-    func resolved(localeIdentifier: String = Locale.current.identifier,
+    func resolved(preferredLanguages: [String] = Locale.preferredLanguages,
+                  localeIdentifier: String? = nil,
                   neuralModelsSupported: Bool = PlatformSupport.neuralModelsSupported)
         -> ResolvedMeetingLanguage {
-        let resolved = resolvedIgnoringPlatform(localeIdentifier: localeIdentifier)
+        let languages = localeIdentifier.map { [$0] } ?? preferredLanguages
+        let resolved = resolvedIgnoringPlatform(preferredLanguages: languages)
         guard !neuralModelsSupported, !resolved.isEnglish else { return resolved }
-        return ResolvedMeetingLanguage(selection: resolved.selection, language: .english,
+        return ResolvedMeetingLanguage(selection: resolved.selection,
+                                       language: .english,
                                        usedUnsupportedSystemFallback: false,
-                                       intelFallbackFrom: resolved.language)
+                                       intelFallbackFrom: resolved.language,
+                                       detectedSystemLanguage: resolved.detectedSystemLanguage)
     }
 
-    private func resolvedIgnoringPlatform(localeIdentifier: String) -> ResolvedMeetingLanguage {
+    private func resolvedIgnoringPlatform(preferredLanguages: [String]) -> ResolvedMeetingLanguage {
         if self != .system {
             // `.auto` resolves to itself: the engine detects per window.
-            return ResolvedMeetingLanguage(selection: self, language: self,
-                                             usedUnsupportedSystemFallback: false)
+            return ResolvedMeetingLanguage(selection: self,
+                                           language: self,
+                                           usedUnsupportedSystemFallback: false)
         }
-        let code = Locale(identifier: localeIdentifier).language.languageCode?.identifier
-        if let code, let language = Self(rawValue: code), language.isSpecific {
-            return ResolvedMeetingLanguage(selection: .system, language: language,
-                                             usedUnsupportedSystemFallback: false)
+
+        let primary = preferredLanguages.first?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let identifier = (primary?.isEmpty == false) ? primary! : "en"
+
+        // Normalize BCP-47 and underscore variants (e.g. pt-BR, pt_BR, pt -> pt).
+        let normalized = identifier.replacingOccurrences(of: "_", with: "-")
+        let code: String = {
+            if let c = Locale(identifier: normalized).language.languageCode?.identifier.lowercased(), !c.isEmpty {
+                return c
+            }
+            let prefix = identifier.split(whereSeparator: { $0 == "-" || $0 == "_" }).first.map(String.init) ?? identifier
+            return prefix.lowercased()
+        }()
+
+        if let language = Self(rawValue: code), language.isSpecific {
+            return ResolvedMeetingLanguage(selection: .system,
+                                           language: language,
+                                           usedUnsupportedSystemFallback: false,
+                                           detectedSystemLanguage: language.englishName)
         }
-        return ResolvedMeetingLanguage(selection: .system, language: .english,
-                                         usedUnsupportedSystemFallback: true)
+
+        let enLocale = Locale(identifier: "en_US")
+        let detectedLanguageName = enLocale.localizedString(forLanguageCode: code)
+            ?? enLocale.localizedString(forIdentifier: normalized)
+            ?? code.capitalized
+
+        return ResolvedMeetingLanguage(selection: .system,
+                                       language: .english,
+                                       usedUnsupportedSystemFallback: true,
+                                       detectedSystemLanguage: detectedLanguageName)
     }
 
     /// Replay a saved session's language for review regeneration. Not gated on
@@ -215,7 +250,11 @@ struct ResolvedMeetingLanguage: Codable, Equatable, Sendable {
     let usedUnsupportedSystemFallback: Bool
     /// The language that was actually wanted when an Intel Mac forced English.
     /// Held separately from `selection`, which is "Mac language" for `.system`.
-    var intelFallbackFrom: MeetingLanguageSelection?
+    var intelFallbackFrom: MeetingLanguageSelection? = nil
+    /// The English name of the detected macOS language when `selection == .system`
+    /// (e.g. "Portuguese", "Japanese"), retained even if that language is
+    /// unsupported and falls back to English for transcription.
+    var detectedSystemLanguage: String? = nil
 
     var usedIntelEnglishFallback: Bool { intelFallbackFrom != nil }
     var code: String { language.rawValue }
@@ -228,6 +267,26 @@ struct ResolvedMeetingLanguage: Codable, Equatable, Sendable {
     var preferredEngine: TranscriptionEngine { isEnglish ? .parakeetV2 : .parakeetV3 }
     var shouldFoldVietnameseArtifacts: Bool { preferredEngine == .parakeetV2 }
     var sfSpeechLocaleIdentifier: String { "en-US" }
+
+    /// Short name for chips and subtitles: what a meeting started now would
+    /// listen for ("Portuguese" on a pt-BR Mac, "Auto-detect" for auto,
+    /// or the detected Mac language like "Japanese" even when unsupported).
+    var quickName: String {
+        if isAuto { return "Auto-detect" }
+        if selection == .system { return systemLanguageDisplayName }
+        return englishName
+    }
+
+    /// The display name of the detected Mac language (e.g. "Portuguese", "Japanese"),
+    /// or the effective language's English name.
+    var systemLanguageDisplayName: String {
+        detectedSystemLanguage ?? language.englishName
+    }
+
+    /// Label for the Mac language option in pickers: e.g. "Mac language (Portuguese)".
+    var systemOptionTitle: String {
+        "Mac language (\(systemLanguageDisplayName))"
+    }
 }
 
 /// Which language AI notes are written in. "Same as the meeting" names the
