@@ -132,6 +132,16 @@ func visualSpeakerChecks() async {
                      label("Matt Bean", 0.017, 0.92, 0.013, 0.3), label("Audio", 0.0, 0.982, 0.0103)]
     check(VisualSpeakerOCR.roster(lines: filmstrip, selfName: "Noah Kagan", aspect: 16 / 9) == ["Matt Bean"],
           "visual: filmstrip roster keeps only tiles aligned with the user's label")
+    let variedHeights = [label("Noah Kagan", 0.831, 0.669, 0.0134),
+                         label("Matt Bean", 0.833, 0.525, 0.0182)]
+    check(VisualSpeakerOCR.roster(lines: variedHeights, selfName: "Noah Kagan", aspect: 16 / 9) == ["Matt Bean"]
+          && VisualSpeakerOCR.roster(lines: variedHeights, selfName: "Matt Bean", aspect: 16 / 9) == ["Noah Kagan"],
+          "visual: similar OCR text heights match regardless of which label is the anchor")
+    let mismatchedHeights = [label("Noah Kagan", 0.831, 0.669, 0.013),
+                             label("Matt Bean", 0.833, 0.525, 0.019)]
+    check(VisualSpeakerOCR.roster(lines: mismatchedHeights, selfName: "Noah Kagan", aspect: 16 / 9) == []
+          && VisualSpeakerOCR.roster(lines: mismatchedHeights, selfName: "Matt Bean", aspect: 16 / 9) == [],
+          "visual: dissimilar OCR text heights are rejected for either anchor")
     check(VisualSpeakerOCR.roster(lines: [label("Noah Kagan", 0.55, 0.9), label("Priya Shah", 0.05, 0.902)],
                                   selfName: "Noah Kagan", aspect: 16 / 9) == ["Priya Shah"],
           "visual: two-tile gallery row roster")
@@ -216,7 +226,8 @@ func visualSpeakerChecks() async {
         // small synthetic tile label; macOS 15+ reads it. Skip rather than
         // block releases on the older OCR model.
         if #available(macOS 15, *) {
-            check(roster == ["Matt Bean"], "visual: real Vision OCR reads screen-share filmstrip roster", "\(roster ?? [])")
+            check(roster == ["Matt Bean"], "visual: real Vision OCR reads screen-share filmstrip roster",
+                  "\(String(describing: roster))")
         } else {
             print("session visual: real Vision OCR reads screen-share filmstrip roster: SKIP (macOS 14 OCR)")
         }
