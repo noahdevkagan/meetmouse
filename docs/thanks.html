@@ -5,7 +5,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Thanks! Download MeetMouse</title>
 <meta name="robots" content="noindex">
-<link rel="icon" type="image/png" href="/icon.png">
+<link rel="alternate" hreflang="en" href="https://meetmouse.com/thanks">
+<link rel="alternate" hreflang="pt-BR" href="https://meetmouse.com/br/thanks">
+<link rel="alternate" hreflang="x-default" href="https://meetmouse.com/thanks">
+<style>
+.lang-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 550;
+  color: #1a1a1a;
+  background-color: #ffffff;
+  border: 1px solid #e5ded8;
+  border-radius: 8px;
+  padding: 5px 28px 5px 11px;
+  cursor: pointer;
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23444444' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px 6px;
+  line-height: 1.4;
+  vertical-align: middle;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.lang-select:hover {
+  border-color: #bbbbbb;
+}
+.lang-select:focus {
+  border-color: #2bbd3e;
+  box-shadow: 0 0 0 2px rgba(43, 189, 62, 0.15);
+}
+</style>
+
+<script src="lang.js" defer></script>
+<link rel="icon" type="image/png" href="icon.png">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -15,7 +51,18 @@
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
   }
-  main { max-width: 620px; margin: 0 auto; padding: 96px 24px; text-align: center; }
+  main { max-width: 620px; margin: 0 auto; padding: 64px 24px 96px; text-align: center; }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: #1a1a1a;
+    font-size: 18px;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+  }
+  .brand img { width: 36px; height: 36px; border-radius: 9px; }
   h1 { font-size: 34px; letter-spacing: -0.02em; }
   p { color: #555; margin-top: 16px; }
   .dl-btn {
@@ -36,24 +83,24 @@
 </head>
 <body>
 <main>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
+    <a class="brand" href="/" aria-label="MeetMouse home">
+      <img src="icon.png" alt="">
+      <span>MeetMouse</span>
+    </a>
+    <select class="lang-select" aria-label="Language">
+        <option value="/thanks" data-lang="en" selected>English</option>
+        <option value="/br/thanks" data-lang="pt-BR">Português</option>
+      </select>
+
+  </div>
   <h1>Thanks for buying MeetMouse 🎉</h1>
   <p>Already installed MeetMouse? Skip to the unlock button. Otherwise, open the DMG and drag MeetMouse to Applications.</p>
-  <a class="dl-btn" id="dl" href="https://github.com/noahdevkagan/meeting-coach-releases/releases/latest">Download MeetMouse for Mac</a>
-  <script>
-  // Resolve the newest DMG so this page never goes stale (it was pinned to
-  // v0.4.8 while v0.5.5 was current). Fallback href is the releases page.
-  fetch("https://api.github.com/repos/noahdevkagan/meeting-coach-releases/releases/latest")
-    .then(r => r.json())
-    .then(rel => {
-      const dmg = (rel.assets || []).find(a => a.name.endsWith(".dmg"));
-      if (dmg) document.getElementById("dl").href = dmg.browser_download_url;
-    })
-    .catch(() => {});
-  </script>
+  <a class="dl-btn" href="/get">Download MeetMouse for Mac</a>
   <p style="margin-top:40px">Then unlock unlimited meetings on that Mac:</p>
   <a class="dl-btn" href="meetmouse://unlock?code=MOUSE-5KC5-7EDA">Unlock MeetMouse Unlimited</a>
   <p class="steps">Button not working? In MeetMouse, open <strong>Get MeetMouse Unlimited</strong> from the menu bar and enter <code>MOUSE-5KC5-7EDA</code>.</p>
-  <p class="steps">On first launch, click <strong>Download Model</strong> once (needs WiFi that one time) — everything after runs fully offline.<br><br>Need help? Email <a href="mailto:support@meetmouse.com">support@meetmouse.com</a> · <a href="https://github.com/noahdevkagan/meeting-coach-releases/releases">All releases</a></p>
+  <p class="steps">On first launch, click <strong>Download Model</strong> once (needs WiFi that one time) — everything after runs fully offline.<br><br>Need help? Email <a href='mailto:support@meetmouse.com'>support@meetmouse.com</a> · <a href='https://github.com/noahdevkagan/meeting-coach-releases/releases'>All releases</a></p>
 </main>
 </body>
 </html>

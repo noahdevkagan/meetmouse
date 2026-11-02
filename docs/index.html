@@ -6,8 +6,44 @@
 <title>MeetMouse — free, private meeting notes for Mac</title>
 <meta name="description" content="MeetMouse transcribes your meetings and writes the summary, takeaways and next steps on your Mac. No notetaker joins your call as a guest, and your audio stays on your Mac. Live coaching while you talk. Free; invite 2 friends or pay $20 once for unlimited.">
 <link rel="canonical" href="https://meetmouse.com/">
-<link rel="icon" type="image/png" href="/icon.png">
-<link rel="apple-touch-icon" href="/icon.png">
+<link rel="alternate" hreflang="en" href="https://meetmouse.com/">
+<link rel="alternate" hreflang="pt-BR" href="https://meetmouse.com/br/">
+<link rel="alternate" hreflang="x-default" href="https://meetmouse.com/">
+<style>
+.lang-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 550;
+  color: #1a1a1a;
+  background-color: #ffffff;
+  border: 1px solid #e5ded8;
+  border-radius: 8px;
+  padding: 5px 28px 5px 11px;
+  cursor: pointer;
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23444444' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px 6px;
+  line-height: 1.4;
+  vertical-align: middle;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.lang-select:hover {
+  border-color: #bbbbbb;
+}
+.lang-select:focus {
+  border-color: #2bbd3e;
+  box-shadow: 0 0 0 2px rgba(43, 189, 62, 0.15);
+}
+</style>
+
+<script src="lang.js" defer></script>
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://meetmouse.com/">
 <meta property="og:title" content="MeetMouse — free, private meeting notes for Mac">
@@ -305,28 +341,83 @@
   }
 </style>
 <script type="application/ld+json">
-[{
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "MeetMouse",
-  "operatingSystem": "macOS 14.2 or later",
-  "applicationCategory": "BusinessApplication",
-  "description": "MeetMouse is a free macOS app (with a $20 one-time unlimited upgrade) that transcribes your meetings and coaches you live, locally by default — no bot joins your call and no audio ever leaves your Mac.",
-  "url": "https://meetmouse.com/",
-  "author": { "@type": "Person", "name": "Noah Kagan" },
-  "offers": [{ "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "availability": "https://schema.org/InStock" }, { "@type": "Offer", "name": "Unlimited", "price": "20.00", "priceCurrency": "USD", "availability": "https://schema.org/InStock" }]
-},
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    { "@type": "Question", "name": "Does audio or text ever leave my Mac?", "acceptedAnswer": { "@type": "Answer", "text": "Audio never does. By default transcription and the AI model both run locally, and the only network requests are the one-time model download and signed update checks. If you choose to add a Claude or OpenAI key in Settings, meeting text goes directly to that provider and nowhere else." } },
-    { "@type": "Question", "name": "Does a bot join my call?", "acceptedAnswer": { "@type": "Answer", "text": "No. MeetMouse listens to your Mac's audio, so there is no extra participant, no recording notice, and nothing for the other side to see." } },
-    { "@type": "Question", "name": "What do I need to run it?", "acceptedAnswer": { "@type": "Answer", "text": "A Mac on macOS 14.2 or later — Apple Silicon (M1 or newer) recommended. On Intel Macs the high-accuracy transcription engine and speaker identification aren't available, so sessions run on Apple's built-in transcription with reduced accuracy. The AI runtime is bundled — nothing else to install." } },
-    { "@type": "Question", "name": "Which meeting apps does it work with?", "acceptedAnswer": { "@type": "Answer", "text": "Anything that plays through your Mac — Zoom, Google Meet, Teams, FaceTime, Slack huddles, a browser tab. MeetMouse needs Microphone and Screen Recording (for system audio) permissions." } },
-    { "@type": "Question", "name": "Is MeetMouse free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Your first week is unlimited, then you get 3 meetings a week, and your notes and transcripts are never locked. For unlimited meetings, invite 2 friends or pay $20 once. No subscription." } }
-  ]
-}]
+[
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "MeetMouse",
+    "operatingSystem": "macOS 14.2 or later",
+    "applicationCategory": "BusinessApplication",
+    "description": "MeetMouse is a free macOS app (with a $20 one-time unlimited upgrade) that transcribes your meetings and coaches you live, locally by default \u2014 no bot joins your call and no audio ever leaves your Mac.",
+    "url": "https://meetmouse.com/",
+    "author": {
+      "@type": "Person",
+      "name": "Noah Kagan"
+    },
+    "offers": [
+      {
+        "@type": "Offer",
+        "name": "Free",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      },
+      {
+        "@type": "Offer",
+        "name": "Unlimited",
+        "price": "20.00",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      }
+    ]  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Does audio or text ever leave my Mac?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Audio never does. By default transcription and the AI model both run locally, and the only network requests are the one-time model download and signed update checks. If you choose to add a Claude or OpenAI key in Settings, meeting text goes directly to that provider and nowhere else."
+        }
+      },      {
+        "@type": "Question",
+        "name": "Does a bot join my call?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No. MeetMouse listens to your Mac\u0027s audio, so there is no extra participant, no recording notice, and nothing for the other side to see."
+        }
+      },      {
+        "@type": "Question",
+        "name": "What languages does it work with?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Transcription and notes work in 25 languages, including Portuguese, Spanish, French, German, Japanese, and Mandarin, plus mixed-language calls. The coaching cues and app menus are English for now."
+        }
+      },      {
+        "@type": "Question",
+        "name": "Can I use it with Zoom, Meet, and Teams?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. It captures the sound coming through your Mac, so it works with any meeting app, browser-based calls, and even phone calls routed through your Mac."
+        }
+      },      {
+        "@type": "Question",
+        "name": "How does the pricing work?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Unlimited meetings for your first week. After that, 3 meetings a week free forever, with notes and search always unlocked. Pay $20 once (or invite 2 friends) for unlimited meetings forever. No subscriptions."
+        }
+      },      {
+        "@type": "Question",
+        "name": "How do the coaching cues work?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "During your call, subtle visual cues appear when you might want to adjust \u2014 like when you\u0027ve been speaking uninterrupted for too long, or when an action item is mentioned without an owner. They\u0027re invisible to others when you share your screen."
+        }
+      }    ]  }
+]
 </script>
 </head>
 <body>
@@ -335,23 +426,28 @@
 
   <header class="site-header">
     <a class="brand" href="/" aria-label="MeetMouse home">
-      <span class="mark"><img src="/icon.png" alt=""></span>
+      <span class="mark"><img src="icon.png" alt=""></span>
       <span>MeetMouse</span>
     </a>
     <nav aria-label="Main navigation">
       <a href="/blog/">Blog</a>
       <a href="/changelog">Changelog</a>
+      <select class="lang-select" aria-label="Language">
+        <option value="/" data-lang="en" selected>English</option>
+        <option value="/br/" data-lang="pt-BR">Português</option>
+      </select>
+
       <a class="button button-compact" href="/get">Download free</a>
     </nav>
   </header>
 
   <main class="hero" id="main">
     <div class="hero-copy">
-      <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span>For macOS 14.2+ · Signed &amp; notarized</p>
+      <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span>For macOS 14.2+ · Signed & notarized</p>
       <h1>Free meeting notes.<span>Nothing leaves your Mac.</span></h1>
       <p class="hero-description">MeetMouse transcribes your calls and writes the summary, key takeaways and next steps, right on your Mac. No notetaker shows up as an extra guest on your call, and your audio never leaves your Mac. Plus live coaching while you talk: talk less, ask better questions, land your point.</p>
       <a class="button" href="/get">Download MeetMouse free</a>
-      <p class="purchase-note">Free: unlimited your first week, then 3 meetings a week. Your notes are never locked.<br>Unlimited: invite 2 friends, or <a href="#buy">pay $20 once</a>. No subscription, no account.</p>
+      <p class="purchase-note">Free: unlimited your first week, then 3 meetings a week. Your notes are never locked.<br>Unlimited: invite 2 friends, or <a href='#buy'>pay $20 once</a>. No subscription, no account.</p>
     </div>
 
     <div class="hero-visual" aria-label="MeetMouse coaching during a live call">
@@ -368,7 +464,7 @@
         </div>
       </div>
       <div class="cue-pill" role="presentation">
-        <span class="mark"><img src="/icon.png" alt=""></span>
+        <span class="mark"><img src="icon.png" alt=""></span>
         <p>CFO cost worry just came up. Pause the roadmap and circle back to it.<small>Buried signal · 12:04</small></p>
       </div>
       <div class="local-badge"><span aria-hidden="true">✓</span>Processed on this Mac</div>
@@ -431,15 +527,50 @@
         <table class="compare-table">
           <caption>MeetMouse vs cloud AI notetakers (Otter, Fathom, Fireflies) vs Granola</caption>
           <thead>
-            <tr><th scope="col">&nbsp;</th><th scope="col">MeetMouse</th><th scope="col">Cloud notetakers</th><th scope="col">Granola</th></tr>
+            <tr>
+              <th scope="col">&nbsp;</th>
+              <th scope="col">MeetMouse</th>
+              <th scope="col">Cloud notetakers</th>
+              <th scope="col">Granola</th>
+            </tr>
           </thead>
           <tbody>
-            <tr><th scope="row">Coaching during the call</th><td>Yes</td><td>No</td><td>No</td></tr>
-            <tr><th scope="row">A bot joins your meeting</th><td>No</td><td>Yes</td><td>No</td></tr>
-            <tr><th scope="row">Where the meeting is processed</th><td>On your Mac by default</td><td>Their servers</td><td>Their servers</td></tr>
-            <tr><th scope="row">Works with Wi-Fi off</th><td>Yes</td><td>No</td><td>No</td></tr>
-            <tr><th scope="row">Cost</th><td>Free for 3 meetings a week, or $20 once for unlimited</td><td>Monthly subscription</td><td>Monthly subscription</td></tr>
-            <tr><th scope="row">Account required</th><td>No</td><td>Yes</td><td>Yes</td></tr>
+            <tr>
+              <th scope="row">Coaching during the call</th>
+              <td>Yes</td>
+              <td>No</td>
+              <td>No</td>
+            </tr>
+            <tr>
+              <th scope="row">A bot joins your meeting</th>
+              <td>No</td>
+              <td>Yes</td>
+              <td>No</td>
+            </tr>
+            <tr>
+              <th scope="row">Where the meeting is processed</th>
+              <td>On your Mac by default</td>
+              <td>Their servers</td>
+              <td>Their servers</td>
+            </tr>
+            <tr>
+              <th scope="row">Works with Wi-Fi off</th>
+              <td>Yes</td>
+              <td>No</td>
+              <td>No</td>
+            </tr>
+            <tr>
+              <th scope="row">Cost</th>
+              <td>Free for 3 meetings a week, or $20 once for unlimited</td>
+              <td>Monthly subscription</td>
+              <td>Monthly subscription</td>
+            </tr>
+            <tr>
+              <th scope="row">Account required</th>
+              <td>No</td>
+              <td>Yes</td>
+              <td>Yes</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -469,16 +600,20 @@
           <dd>No. MeetMouse listens to your Mac's audio, so there is no extra participant, no recording notice, and nothing for the other side to see.</dd>
         </div>
         <div>
-          <dt>What do I need to run it?</dt>
-          <dd>A Mac on macOS 14.2 or later — Apple Silicon (M1 or newer) recommended. On Intel Macs the high-accuracy transcription engine and speaker identification aren't available, so sessions run on Apple's built-in transcription with reduced accuracy. The AI runtime is bundled — nothing else to install.</dd>
+          <dt>What languages does it work with?</dt>
+          <dd>Transcription and notes work in 25 languages, including Portuguese, Spanish, French, German, Japanese, and Mandarin, plus mixed-language calls. The coaching cues and app menus are English for now.</dd>
         </div>
         <div>
-          <dt>Which meeting apps does it work with?</dt>
-          <dd>Anything that plays through your Mac — Zoom, Google Meet, Teams, FaceTime, Slack huddles, a browser tab. MeetMouse needs Microphone and Screen Recording (for system audio) permissions.</dd>
+          <dt>Can I use it with Zoom, Meet, and Teams?</dt>
+          <dd>Yes. It captures the sound coming through your Mac, so it works with any meeting app, browser-based calls, and even phone calls routed through your Mac.</dd>
         </div>
         <div>
-          <dt>Is MeetMouse free?</dt>
-          <dd>Yes. Your first week is unlimited, then you get 3 meetings a week, and your notes and transcripts are never locked. For unlimited meetings, invite 2 friends or pay $20 once. No subscription.</dd>
+          <dt>How does the pricing work?</dt>
+          <dd>Unlimited meetings for your first week. After that, 3 meetings a week free forever, with notes and search always unlocked. Pay $20 once (or invite 2 friends) for unlimited meetings forever. No subscriptions.</dd>
+        </div>
+        <div>
+          <dt>How do the coaching cues work?</dt>
+          <dd>During your call, subtle visual cues appear when you might want to adjust — like when you've been speaking uninterrupted for too long, or when an action item is mentioned without an owner. They're invisible to others when you share your screen.</dd>
         </div>
       </dl>
     </section>
@@ -498,7 +633,7 @@
         <input type="hidden" name="cancel_return" value="https://meetmouse.com/">
         <button class="link-button" type="submit">Or buy MeetMouse Unlimited — $20 once</button>
       </form>
-      <p class="purchase-note">$20 unlocks unlimited meetings for good. Already have an AppSumo code? <a href="/appsumo">Redeem it here</a>.</p>
+      <p class="purchase-note">$20 unlocks unlimited meetings for good. Already have an AppSumo code? <a href='/appsumo'>Redeem it here</a>.</p>
     </section>
   </div>
 

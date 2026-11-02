@@ -1,75 +1,72 @@
-<!--meta
-{
+{% set meta = {
   "path": "compare/granola-vs-tldv",
   "kind": "compare",
-  "title": "Granola vs tl;dv (2026): Honest Comparison From a Competitor",
-  "description": "Granola vs tl;dv: bot-free notes vs recorded video clips — pricing, free-plan catches, and who each is for. From a competitor, honestly.",
-  "h1": "Granola vs tl;dv: notes you read vs clips you share",
-  "dek": "Disclosure: I make MeetMouse, which competes with both sideways. Here's the straight comparison.",
-  "answer_label": "TL;DR",
-  "answer": "Granola if the output you want is a written note and you don't want a bot in the room. tl;dv if the output you want is \"watch these 40 seconds\" — it records video and makes clipping moments easy. Different outputs, different bots (as in: one has one).",
-  "intro": [],
+  "title": _("Granola vs tl;dv (2026): Honest Comparison From a Competitor"),
+  "description": _("Granola vs tl;dv: bot-free notes vs recorded video clips — pricing, free-plan catches, and who each is for. From a competitor, honestly."),
+  "h1": _("Granola vs tl;dv: notes you read vs clips you share"),
+  "dek": _("Disclosure: I make MeetMouse, which competes with both sideways. Here's the straight comparison."),
+  "answer_label": _("TL;DR"),
+  "answer": _("Granola if the output you want is a written note and you don't want a bot in the room. tl;dv if the output you want is \"watch these 40 seconds\" — it records video and makes clipping moments easy. Different outputs, different bots (as in: one has one)."),
+  "intro": [
+  ],
   "faq": [
-    [
-      "Is Granola or tl;dv better?",
-      "Granola for bot-free written notes. tl;dv for video recordings and shareable clips."
-    ],
-    [
-      "Does tl;dv join as a bot?",
-      "Yes, tl;dv's recorder joins the meeting. Granola captures your computer's audio instead, so nothing joins."
-    ],
-    [
-      "Does tl;dv delete free recordings?",
-      "Yes — tl;dv's free plan keeps data up to 3 months. Granola's free plan keeps 30 days of meeting history."
-    ],
-    [
-      "Is there an option that doesn't upload anything?",
-      "MeetMouse — bot-free, and transcription and AI run on your Mac by default. Free for 3 meetings a week, or $20 once for unlimited."
-    ]
+    [_("Is Granola or tl;dv better?"), _("Granola for bot-free written notes. tl;dv for video recordings and shareable clips.")],
+    [_("Does tl;dv join as a bot?"), _("Yes, tl;dv's recorder joins the meeting. Granola captures your computer's audio instead, so nothing joins.")],
+    [_("Does tl;dv delete free recordings?"), _("Yes — tl;dv's free plan keeps data up to 3 months. Granola's free plan keeps 30 days of meeting history.")],
+    [_("Is there an option that doesn't upload anything?"), _("MeetMouse — bot-free, and transcription and AI run on your Mac by default. Free for 3 meetings a week, or {price} once for unlimited.")],
   ],
   "date": "2026-09-29",
-  "checked": "October 2026"
-}
--->
+  "checked": _("October 2026"),
+} %}
 <section>
-<h2>What each tool is</h2>
-<p><strong>Granola</strong> hears the call through your computer — nothing joins — and turns it plus your rough typing into polished notes. No recording kept; the note is the product.</p>
-    <p><strong>tl;dv</strong> sends a bot that records the meeting on video, transcribes it, and makes it dead simple to clip and share moments. The recording is the product.</p>
+
+{# trans Section: What each tool is #}
+<h2>{% trans %}What each tool is{% endtrans %}</h2>
+<p>{% trans %}<strong>Granola</strong> hears the call through your computer — nothing joins — and turns it plus your rough typing into polished notes. No recording kept; the note is the product.{% endtrans %}</p>
+    <p>{% trans %}<strong>tl;dv</strong> sends a bot that records the meeting on video, transcribes it, and makes it dead simple to clip and share moments. The recording is the product.{% endtrans %}</p>
 </section>
 
 <section>
-<h2>Head to head</h2>
+
+{# trans Section: Head to head #}
+<h2>{% trans %}Head to head{% endtrans %}</h2>
 <div class="table-wrap">
       <table>
-        <tr><th></th><th>Granola</th><th>tl;dv</th></tr>
-        <tr><td>Bot joins the call</td><td>No</td><td>Yes</td></tr>
-        <tr><td>Main output</td><td>Written notes</td><td>Recordings and clips</td></tr>
-        <tr><td>Free plan</td><td>Unlimited meetings, 30 days of history</td><td>Unlimited recordings, data kept up to 3 months</td></tr>
-        <tr><td>Paid</td><td>Business $14/user/mo</td><td>Pro $29/seat/mo ($18 annual)</td></tr>
-        <tr><td>Where AI runs</td><td>Cloud</td><td>Cloud</td></tr>
+        <tr><th></th><th>{% trans %}Granola{% endtrans %}</th><th>{% trans %}tl;dv{% endtrans %}</th></tr>
+        <tr><td>{% trans %}Bot joins the call{% endtrans %}</td><td>{% trans %}No{% endtrans %}</td><td>{% trans %}Yes{% endtrans %}</td></tr>
+        <tr><td>{% trans %}Main output{% endtrans %}</td><td>{% trans %}Written notes{% endtrans %}</td><td>{% trans %}Recordings and clips{% endtrans %}</td></tr>
+        <tr><td>{% trans %}Free plan{% endtrans %}</td><td>{% trans %}Unlimited meetings, 30 days of history{% endtrans %}</td><td>{% trans %}Unlimited recordings, data kept up to 3 months{% endtrans %}</td></tr>
+        <tr><td>{% trans %}Paid{% endtrans %}</td><td>{{ _("Business {price}/user/mo", price=prices.granola.business) }}</td><td>{{ _("Pro {price}/seat/mo ({annual} annual)", price=prices.tldv.pro, annual=prices.tldv.pro_annual) }}</td></tr>
+        <tr><td>{% trans %}Where AI runs{% endtrans %}</td><td>{% trans %}Cloud{% endtrans %}</td><td>{% trans %}Cloud{% endtrans %}</td></tr>
       </table>
     </div>
 </section>
 
 <section>
-<h2>Where Granola wins</h2>
+
+{# trans Section: Where Granola wins #}
+<h2>{% trans %}Where Granola wins{% endtrans %}</h2>
 <ul>
-      <li><strong>No bot.</strong> Nothing joins, nobody asks what that is.</li>
-      <li><strong>Notes you'll actually read.</strong> Faster to skim than a video.</li>
-      <li><strong>Cheaper paid plan.</strong> $14 vs $29.</li>
+      <li>{% trans %}<strong>No bot.</strong> Nothing joins, nobody asks what that is.{% endtrans %}</li>
+      <li>{% trans %}<strong>Notes you'll actually read.</strong> Faster to skim than a video.{% endtrans %}</li>
+      <li>{{ _("<strong>Cheaper paid plan.</strong> {granola_price} vs {tldv_price}.", granola_price=prices.granola.business, tldv_price=prices.tldv.pro) }}</li>
     </ul>
 </section>
 
 <section>
-<h2>Where tl;dv wins</h2>
+
+{# trans Section: Where tl;dv wins #}
+<h2>{% trans %}Where tl;dv wins{% endtrans %}</h2>
 <ul>
-      <li><strong>Clips.</strong> Hearing the customer say it in their own voice beats any summary. Nobody does this better.</li>
-      <li><strong>Video.</strong> Demos, screen shares, the face they made when you said the price.</li>
-      <li><strong>Free recordings.</strong> Unlimited — with a 3-month shot clock. Respect, that's good business.</li>
+      <li>{% trans %}<strong>Clips.</strong> Hearing the customer say it in their own voice beats any summary. Nobody does this better.{% endtrans %}</li>
+      <li>{% trans %}<strong>Video.</strong> Demos, screen shares, the face they made when you said the price.{% endtrans %}</li>
+      <li>{% trans %}<strong>Free recordings.</strong> Unlimited — with a 3-month shot clock. Respect, that's good business.{% endtrans %}</li>
     </ul>
 </section>
 
 <section>
-<h2>The part neither fixes</h2>
-<p>Both upload your meetings, and both are about what happened, not what's happening. MeetMouse is bot-free like Granola, runs transcription and AI on your Mac so nothing's uploaded, and coaches you during the call — then writes notes after. Free for 3 meetings a week, $20 once for unlimited. <a href="/compare/meetmouse-vs-granola">MeetMouse vs Granola</a> · <a href="/compare/meetmouse-vs-tldv">MeetMouse vs tl;dv</a>.</p>
+
+{# trans Section: The part neither fixes #}
+<h2>{% trans %}The part neither fixes{% endtrans %}</h2>
+<p>{{ _("Both upload your meetings, and both are about what happened, not what's happening. MeetMouse is bot-free like Granola, runs transcription and AI on your Mac so nothing's uploaded, and coaches you during the call — then writes notes after. Free for 3 meetings a week, {price} once for unlimited. <a href=\"/compare/meetmouse-vs-granola\">MeetMouse vs Granola</a> · <a href=\"/compare/meetmouse-vs-tldv\">MeetMouse vs tl;dv</a>.", price=price) }}</p>
 </section>

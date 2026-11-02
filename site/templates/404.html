@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ _("Page not found — MeetMouse") }}</title>
+<meta name="robots" content="noindex">
+{{ hreflang_links | safe }}
+<script src="{{ rel_prefix }}lang.js" defer></script>
+<link rel="icon" type="image/png" href="{{ rel_prefix }}icon.png">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: #fbfaf6;
+    color: #242321;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 660px; margin: 0 auto; padding: 52px 24px 96px; }
+  .brand {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 40px;
+    font-size: 19px; font-weight: 750; letter-spacing: -0.02em;
+    color: inherit; text-decoration: none;
+  }
+  .brand img { width: 46px; height: 46px; border-radius: 12px; }
+  h1 { font-size: 30px; letter-spacing: -0.03em; margin-bottom: 12px; }
+  p { color: #5c5a54; margin-bottom: 28px; }
+  ul { list-style: none; display: grid; gap: 10px; }
+  li a { color: #242321; font-weight: 600; text-decoration: none; border-bottom: 1px solid #d8d5cb; }
+  li a:hover { border-bottom-color: #242321; }
+</style>
+</head>
+<body>
+<main>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:40px;">
+    <a class="brand" href="{{ resolve_url('/') }}" style="margin-bottom:0;"><img src="{{ rel_prefix }}icon.png" alt="">MeetMouse</a>
+    {{ lang_dropdown | safe }}
+  </div>
+  <h1>{{ _("That page moved or never existed.") }}</h1>
+  <p>{{ _("Nothing here. These are the pages people actually want:") }}</p>
+  <ul>
+    <li><a href="{{ resolve_url('/') }}">{{ _("MeetMouse for Mac — what it is, and how to get it") }}</a></li>
+    <li><a href="{{ resolve_url('/blog/') }}">{{ _("Blog — honest writing about meeting tools") }}</a></li>
+    <li><a href="{{ resolve_url('/compare/meetmouse-vs-granola') }}">{{ _("MeetMouse vs Granola") }}</a></li>
+    <li><a href="{{ resolve_url('/compare/meetmouse-vs-otter') }}">{{ _("MeetMouse vs Otter.ai") }}</a></li>
+    <li><a href="{{ resolve_url('/changelog') }}">{{ _("Changelog") }}</a></li>
+  </ul>
+</main>
+</body>
+</html>

@@ -18,7 +18,7 @@ COMPARE = [
         pick_mm="your problem is how the meeting goes, and you want nothing uploaded.",
         rows=[
             ("Job", "Coach you live; notes after", "Record, clip and share moments"),
-            ("Price", "Free (3 meetings/week); $20 once for unlimited", "Free (data kept up to 3 months); Pro $29/seat/mo ($18 annual)"),
+            ("Price", "Free (3 meetings/week); {price} once for unlimited", "Free (data kept up to 3 months); Pro {price}/seat/mo ({annual} annual)"),
             ("Bot joins your call", "No", "Yes"),
             ("Video recording", "No", "Yes"),
             ("Where your meeting goes", "Stays on your Mac by default", "tl;dv's cloud"),
@@ -33,14 +33,14 @@ COMPARE = [
             ("Where MeetMouse wins", [
                 "Timing. A clip of you burying your ask is still a buried ask. MeetMouse taps you while you can fix it.",
                 "No bot, and no recording on anyone's server. Nothing leaves your Mac unless you choose to add your own AI key.",
-                "Free to start, $20 once for unlimited, and notes never expire. No shot clock.",
+                "Free to start, {price} once for unlimited, and notes never expire. No shot clock.",
             ]),
             ("My honest verdict", [
                 "Your team needs to see meetings? Get tl;dv. Your problem is how the meeting goes? That's what I built MeetMouse for, and it runs next to tl;dv with no conflict.",
             ]),
         ],
         faq=[
-            ("Is tl;dv free?", "tl;dv has a free plan with unlimited recordings, AI notes on 10 meetings, and data kept up to 3 months. Pro is $29/seat/month, or $18 billed annually. MeetMouse is free for 3 meetings a week, or $20 once for unlimited."),
+            ("Is tl;dv free?", "tl;dv has a free plan with unlimited recordings, AI notes on 10 meetings, and data kept up to 3 months. Pro is {price}/seat/month, or {annual} billed annually. MeetMouse is free for 3 meetings a week, or {price} once for unlimited."),
             ("Does tl;dv join as a bot?", "Yes, tl;dv's recorder joins the meeting. MeetMouse listens through your Mac, so nothing joins."),
             ("Does MeetMouse record video or make clips?", "No. MeetMouse works from audio, coaches you live and writes notes after. For video clips, tl;dv is the better tool."),
             ("Can I use MeetMouse and tl;dv together?", "Yes. tl;dv records for the team; MeetMouse coaches you during the call."),
@@ -61,7 +61,7 @@ COMPARE = [
         rows=[
             ("Who it's for", "The individual on the call", "Sales leaders, RevOps, the whole org"),
             ("When it helps", "During the call; notes after", "Mostly after: reviews, analytics, forecasting"),
-            ("Price", "Free (3 meetings/week); $20 once for unlimited", "Custom (enterprise)"),
+            ("Price", "Free (3 meetings/week); {price} once for unlimited", "Custom (enterprise)"),
             ("Records calls", "Transcript and notes on your Mac, no cloud archive", "Yes"),
             ("CRM integration", "None", "Deep"),
             ("Where your calls go", "Stays on your Mac by default", "Gong's cloud"),
@@ -84,7 +84,7 @@ COMPARE = [
         faq=[
             ("Is MeetMouse a Gong alternative?", "For a sales org's analytics and forecasting, no. For an individual rep who wants live coaching during calls without an enterprise contract, yes."),
             ("Does Gong coach you in real time?", "Gong is built mainly around recording calls and coaching from them afterward. MeetMouse shows live cues during the call in an overlay only you see."),
-            ("How much does Gong cost?", "Gong uses custom enterprise pricing. MeetMouse is free for 3 meetings a week, or $20 once for unlimited."),
+            ("How much does Gong cost?", "Gong uses custom enterprise pricing. MeetMouse is free for 3 meetings a week, or {price} once for unlimited."),
             ("Can I run MeetMouse and Gong together?", "Yes. Gong records for the org; MeetMouse listens through your Mac and coaches you live."),
         ],
         checked="September 2026",
@@ -102,7 +102,7 @@ COMPARE = [
         pick_mm="you want help during the meeting, in any app or anyone's Zoom, with nothing uploaded.",
         rows=[
             ("Job", "Live coaching; notes after", "Summaries inside Zoom"),
-            ("Price", "Free (3 meetings/week); $20 once for unlimited", "Included with paid Zoom plans"),
+            ("Price", "Free (3 meetings/week); {price} once for unlimited", "Included with paid Zoom plans"),
             ("Works in meetings you don't host", "Yes", "Host decides"),
             ("Works outside Zoom", "Yes — any app on your Mac", "No"),
             ("Where your meeting goes", "Stays on your Mac by default", "Zoom's cloud"),
@@ -141,7 +141,7 @@ COMPARE = [
         pick_mm="your job is meetings and you want to get better at them without uploading anything.",
         rows=[
             ("Job", "Coach live meetings; notes after", "Transcribe audio files"),
-            ("Price", "Free (3 meetings/week); $20 once for unlimited", "Free tier; one-time Pro license"),
+            ("Price", "Free (3 meetings/week); {price} once for unlimited", "Free tier; one-time Pro license"),
             ("Runs on-device", "Yes (local AI by default)", "Yes"),
             ("Live coaching during calls", "Yes", "No"),
             ("Meeting notes with owners", "Yes", "Light"),
@@ -163,7 +163,7 @@ COMPARE = [
             ("Is MeetMouse like MacWhisper?", "Both are private Mac apps that run on-device. MacWhisper transcribes audio files; MeetMouse coaches you live during meetings and writes notes afterward."),
             ("Do MeetMouse and MacWhisper work offline?", "Yes. MeetMouse needs a one-time model download, then works with Wi-Fi off."),
             ("Which is better for meeting notes?", "MeetMouse — it's built for meetings, with notes, owners and live coaching. MacWhisper is better for transcribing recordings."),
-            ("How much do they cost?", "MacWhisper has a free version and a one-time Pro license. MeetMouse is free for 3 meetings a week, or $20 once for unlimited."),
+            ("How much do they cost?", "MacWhisper has a free version and a one-time Pro license. MeetMouse is free for 3 meetings a week, or {price} once for unlimited."),
         ],
         checked="September 2026",
     ),
