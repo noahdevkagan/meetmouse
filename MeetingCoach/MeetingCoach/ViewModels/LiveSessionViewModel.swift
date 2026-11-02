@@ -873,6 +873,10 @@ final class LiveSessionViewModel {
         // isn't a meeting.
         if !utterances.isEmpty {
             FreeTier.shared.recordMeeting()
+            // Opt-in anonymous counts (Settings → General, off by default):
+            // a no-op unless the user turned sharing on.
+            UsageReporter.recordMeeting(seconds: elapsedTime, nudges: nudges.count)
+            Task.detached(priority: .utility) { await UsageReporter.sendIfDue() }
         }
 
         // Questions are per-meeting: coverage was just written into the

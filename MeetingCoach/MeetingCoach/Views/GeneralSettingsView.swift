@@ -83,6 +83,13 @@ struct GeneralSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Help improve MeetMouse") {
+                Toggle("Share anonymous usage counts", isOn: $settings.shareUsageStats)
+                Text("Counts only \u{2014} never audio, transcripts, notes, or who you met with. Once a day MeetMouse sends how many meetings it coached, their total minutes and how many nudges it showed, with the app and macOS version and a random ID that resets when you turn this off. Off by default.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Transcripts") {
                 // Full path on purpose: it's what gets pasted into an AI
                 // tool's folder-access prompt, where "~" doesn't expand.

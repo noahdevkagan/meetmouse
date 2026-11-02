@@ -303,6 +303,16 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }
+
+  /* Live proof strip: real totals from /api/stats (opt-in anonymous counts
+     plus /get downloads). Hidden until a number is big enough to help. */
+  .proof-strip { margin: 8px 0 0; padding: 18px 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--white); }
+  .proof-strip[hidden] { display: none; }
+  .proof-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px 24px; margin: 0; }
+  .proof-stats dt { color: var(--muted); font-size: 13px; font-weight: 600; }
+  .proof-stats dd { margin: 0 0 2px; font-size: 28px; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .proof-stats div { display: flex; flex-direction: column-reverse; }
+  .proof-note { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 </style>
 <script type="application/ld+json">
 [{
@@ -376,6 +386,38 @@
   </main>
 
   <div class="below-fold">
+    <section class="proof-strip" id="proof" hidden aria-label="MeetMouse by the numbers">
+      <dl class="proof-stats"></dl>
+      <p class="proof-note">Live totals: website downloads, plus anonymous counts from people who turned on sharing in Settings. Counts only, never audio, transcripts or notes. Off by default.</p>
+    </section>
+    <script>
+      // Each number appears only once it clears its threshold; any failure
+      // leaves the strip hidden. Aggregates only (meetmouse.com/api/stats).
+      (function () {
+        var rows = [
+          ["downloads", 1000, "downloads"],
+          ["meetings", 1000, "meetings coached"],
+          ["hoursCoached", 100, "hours of meetings coached"],
+          ["activeInstalls30d", 100, "Macs sharing counts this month"]
+        ];
+        fetch("/api/stats").then(function (r) { return r.ok ? r.json() : null; }).then(function (stats) {
+          if (!stats) return;
+          var list = document.querySelector("#proof .proof-stats");
+          rows.forEach(function (row) {
+            var value = Number(stats[row[0]]);
+            if (!(value >= row[1])) return;
+            var item = document.createElement("div");
+            var dd = document.createElement("dd");
+            var dt = document.createElement("dt");
+            dd.textContent = value.toLocaleString("en-US") + "+";
+            dt.textContent = row[2];
+            item.append(dt, dd);
+            list.append(item);
+          });
+          if (list.children.length) document.getElementById("proof").hidden = false;
+        }).catch(function () {});
+      })();
+    </script>
     <section class="band">
       <h2>Up and running before your next call</h2>
       <ol class="steps">
@@ -403,7 +445,7 @@
         </div>
         <div>
           <h3>Private by design</h3>
-          <p>On-device transcription, zero telemetry, and a local AI model that works with Wi-Fi off. Audio never leaves your Mac, in any mode.</p>
+          <p>On-device transcription, no telemetry unless you opt in to anonymous counts, and a local AI model that works with Wi-Fi off. Audio never leaves your Mac, in any mode.</p>
         </div>
         <div>
           <h3>Screen-share safe</h3>

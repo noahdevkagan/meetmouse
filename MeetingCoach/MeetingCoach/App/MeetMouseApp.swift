@@ -45,6 +45,13 @@ struct MeetMouseApp: App {
         // before the free tier (paid-only era) are unlocked for good.
         FreeTier.shared.bootstrap()
 
+        // Opt-in anonymous usage counts: sends yesterday's tally at most once
+        // a day, only if the user turned it on. Delayed so launch stays quiet.
+        Task.detached(priority: .background) {
+            try? await Task.sleep(for: .seconds(60))
+            await UsageReporter.sendIfDue()
+        }
+
         let badge = UpdateBadgeModel()
         _updateBadge = StateObject(wrappedValue: badge)
         updaterController = SPUStandardUpdaterController(

@@ -9,16 +9,18 @@ for (const [name, path] of [['viewerHTML','viewer.html'],['viewerCSS','viewer.cs
 }
 source = source.replaceAll('"./core.js"', JSON.stringify(new URL('../src/core.js', import.meta.url).href));
 source = source.replaceAll('"./referrals.js"', JSON.stringify(new URL('../src/referrals.js', import.meta.url).href));
+source = source.replaceAll('"./usage.js"', JSON.stringify(new URL('../src/usage.js', import.meta.url).href));
 const { default: worker } = await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const id = 'abcdefghijklmnopqrstuv', token = 'owner-token-with-at-least-20-characters';
 const body = {schemaVersion:1,id,nonce:'AAAAAAAAAAAAAAAA',ciphertext:'AAAAAAAAAAAAAAAAAAAAAAAA',revokeHash:await sha256Base64URL(token)};
 function fixture(t) {
   const db = new DatabaseSync(':memory:');
-  for (const m of ['0001_shared_notes.sql','0002_referral_clicks.sql']) db.exec(readFileSync(new URL('../migrations/'+m, import.meta.url),'utf8'));
+  for (const m of ['0001_shared_notes.sql','0002_referral_clicks.sql','0003_usage.sql']) db.exec(readFileSync(new URL('../migrations/'+m, import.meta.url),'utf8'));
   t.after(()=>db.close());
-  const env = { CREATE_RATE_LIMITER: {limit:async()=>({success:true})}, DB: {prepare(sql) {
-    return {bind(...args) {const statement=db.prepare(sql); return {run:async()=>statement.run(...args),first:async()=>statement.get(...args)};}};
-  }}};
+  const env = { CREATE_RATE_LIMITER: {limit:async()=>({success:true})}, USAGE_RATE_LIMITER: {limit:async()=>({success:true})}, DB: {prepare(sql) {
+    return {bind(...args) {const statement=db.prepare(sql); return {run:async()=>statement.run(...args),first:async()=>statement.get(...args)};},
+      first:async()=>db.prepare(sql).get()};
+  }, batch:async(statements)=>Promise.all(statements.map(s=>s.run()))}};
   const req=(path,options={})=>worker.fetch(new Request('https://example.com'+path,options),env);
   return { db, env, req,
     create:()=>req('/api/shared-notes/create',{method:'POST',body:JSON.stringify(body)}),
@@ -99,4 +101,19 @@ test('referral: two distinct friends unlock, repeat clicks count once', async t 
   const done = await (await f.req(`/r/${code}/status`)).text();
   assert.match(done, /meetmouse:\/\/unlock\?code=MOUSE-/);
   assert.equal((await f.req('/r/NOTACODE')).status, 404);
+});
+
+test('usage reports are stored as counts and surface only as aggregates', async t=>{
+  const f=fixture(t);
+  const day=new Date().toISOString().slice(0,10);
+  const report={installId:'3F2504E0-4F89-41D3-9A0C-0305E82C3301',appVersion:'0.34.0',osMajor:15,days:[{day,meetings:2,meetingMinutes:125,nudges:4}]};
+  assert.equal((await f.req('/api/usage',{method:'POST',body:JSON.stringify(report)})).status,204);
+  assert.equal((await f.req('/api/usage',{method:'POST',body:JSON.stringify({...report,notes:'x'})})).status,400);
+  const res=await f.req('/api/stats'); const stats=await res.json();
+  assert.equal(res.headers.get('cache-control'),'public, max-age=3600');
+  assert.equal(res.headers.get('access-control-allow-origin'),'https://meetmouse.com');
+  assert.deepEqual(stats,{meetings:2,hoursCoached:2,nudges:4,activeInstalls30d:1,downloads:0});
+  assert.equal(JSON.stringify(stats).includes('3f2504e0'),false);
+  f.env.USAGE_RATE_LIMITER.limit=async()=>({success:false});
+  assert.equal((await f.req('/api/usage',{method:'POST',body:JSON.stringify(report)})).status,429);
 });

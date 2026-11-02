@@ -5,6 +5,30 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-02): Opt-in anonymous usage stats — built, pushed (CI is the Swift gate)
+
+Noah asked for trust stats on the site (meetings, hours, downloads) and chose an
+OFF-by-default opt-in that sends counts only (decisions.md 2026-11-02). Plan:
+1. App: Settings → General toggle `shareUsageStats` (default off). Opt-in mints
+   a random install UUID; opt-out deletes it and any unsent days. Session end
+   adds meetings / meeting minutes / nudges shown to a local per-day ledger.
+   `Engine/UsageReporter.swift` POSTs unsent days at most once a day to
+   https://meetmouse.com/api/usage. Debug builds never send unless
+   MEETMOUSE_USAGE_DEBUG=1.
+2. web-share Worker: migration 0003_usage.sql (`usage_days` keyed by
+   install_id+day, `download_days` counter fed by /get). POST /api/usage
+   (validated, clamped, rate-limited), GET /api/stats (cached 1 h, CORS).
+3. Site: hero stat strip in docs/index.html that fetches /api/stats and stays
+   hidden below thresholds or on any failure.
+Status: worker tests pass (25, incl. new usage + handler checks); homepage
+strip verified in headless Chromium with mocked /api/stats (shows at real
+thresholds, hidden for small numbers). Swift (UsageReporter, settings toggle,
+session-end hook, tests/usage suite) written on Linux, NOT compiled here —
+CI Build Check is the first compile. Untested live: the real POST round trip.
+Deploy steps (Noah): `cd web-share && npm run db:remote && npm run deploy`
+(the next release workflow also does both). Blog articles still say "no
+telemetry" — true by default; reword if you want them stricter.
+
 ## Current state (2026-10-20): Global open shortcut — implemented
 
 Control–Command–M opens/raises the existing main window from any app while

@@ -2047,3 +2047,18 @@ its audio to another device than the Mac default. Follow-ups to evaluate
 with real recordings: a relative (mic vs system) energy gate, and holding a
 mic commit up to ~2 s while the far side is active so EchoFilter sees the
 far partials. Manual check: tests/calls-manual.md scenario 8.
+
+## 2026-11-02 — Opt-in anonymous usage counts (first non-AI outbound data)
+
+Noah wants real usage numbers on the website (meetings coached, hours,
+downloads) and to learn from aggregate use. Local-first stays the default:
+the toggle in Settings → General is OFF until the user turns it on. When on,
+the app sends only per-day counts — meetings, meeting minutes, nudges shown —
+plus app version, macOS major version and a random install UUID (minted at
+opt-in, deleted at opt-out, so re-opting gives a new identity). Never audio,
+transcripts, notes, titles, participant names or rubric content. Debug builds
+never send (MEETMOUSE_USAGE_DEBUG=1 overrides) so dev sessions don't inflate
+numbers. The website strip reads aggregate totals from /api/stats and hides
+itself below thresholds so a small number never shows. Training on user
+content is deliberately NOT part of this: that would need a separate,
+per-item consent flow.

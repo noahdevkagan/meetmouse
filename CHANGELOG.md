@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- New, off by default: Settings → General → "Share anonymous usage counts". Turn it on to help improve MeetMouse: once a day it sends how many meetings it coached, their total minutes and how many nudges it showed. Never audio, transcripts, notes, or who you met with. Turning it off deletes the random ID and anything not yet sent.
+
 ## 0.33.1 — 2026-10-27
 
 - When a call plays through your Mac's built-in speakers, MeetMouse now shows a one-line tip to use headphones. Without them your mic also hears the other side, so their words can show up as yours or both sides can blend into one block. Dismiss it with the x for that meeting.

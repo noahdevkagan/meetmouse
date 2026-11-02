@@ -136,6 +136,12 @@ final class SettingsViewModel {
         }
     }
 
+    /// Opt-in anonymous usage counts (meetings, minutes, nudges per day).
+    /// Default OFF; see UsageLedger for exactly what is sent.
+    var shareUsageStats: Bool {
+        didSet { UsageLedger(defaults: .standard).setOptedIn(shareUsageStats) }
+    }
+
     // Download state
     var downloadingModel: String?
     var downloadProgress: Double = 0
@@ -155,6 +161,7 @@ final class SettingsViewModel {
         self.defaultMeetingMinutes = UserDefaults.standard.object(forKey: "defaultMeetingMinutes") as? Int ?? 0
         let storedLaunchAtLogin = UserDefaults.standard.object(forKey: "launchAtLogin") as? Bool
         self.launchAtLogin = storedLaunchAtLogin ?? true
+        self.shareUsageStats = UsageLedger(defaults: .standard).isOptedIn
         // Fresh installs default to the RAM-aware recommendation — the old
         // one-size qwen3.5:9b default swapped 8–16 GB Macs into a freeze.
         self.selectedModel = UserDefaults.standard.string(forKey: "selectedModel")

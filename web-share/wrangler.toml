@@ -27,6 +27,15 @@ namespace_id = "684231507"
   limit = 10
   period = 60
 
+# Opt-in usage reports: the app sends at most once a day, so this is generous.
+[[ratelimits]]
+name = "USAGE_RATE_LIMITER"
+namespace_id = "684231508"
+
+  [ratelimits.simple]
+  limit = 20
+  period = 60
+
 [[rules]]
 type = "Text"
 globs = ["**/*.html", "**/*.css", "**/*.js.txt"]
@@ -51,6 +60,16 @@ zone_name = "meetmouse.com"
 
 [[routes]]
 pattern = "meetmouse.com/get"
+zone_name = "meetmouse.com"
+
+# Opt-in anonymous usage counts from the app, and the aggregate totals the
+# homepage stat strip reads (decisions.md 2026-11-02).
+[[routes]]
+pattern = "meetmouse.com/api/usage"
+zone_name = "meetmouse.com"
+
+[[routes]]
+pattern = "meetmouse.com/api/stats"
 zone_name = "meetmouse.com"
 
 # Legacy host: links created before 0.32 (and their revocation tokens) live

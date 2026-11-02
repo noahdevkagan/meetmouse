@@ -5,6 +5,7 @@ import { shareIDFromPath, sha256Base64URL, validateCreateBody } from "./core.js"
 import {
   appSumoUrl, landingHTML, latestDMG, recordReferralClick, referralCount, referralRoute, statusHTML,
 } from "./referrals.js";
+import { MAX_USAGE_BYTES, recordDownload, storeUsage, usageStats, validateUsageReport } from "./usage.js";
 
 export { shareIDFromPath, sha256Base64URL, validateCreateBody } from "./core.js";
 
@@ -158,6 +159,38 @@ async function revokeShare(request, id, env) {
   return response(null, 204, { "Cache-Control": "no-store" });
 }
 
+async function receiveUsage(request, env) {
+  // Same abuse-control approach as sharing: the client IP keys the rate-limit
+  // binding and is never stored. The app sends at most once a day.
+  const clientKey = request.headers.get("cf-connecting-ip") ?? "local-development";
+  const limit = await env.USAGE_RATE_LIMITER.limit({ key: clientKey });
+  if (!limit.success) return error("Too many reports. Try again later.", 429);
+
+  const declaredLength = Number(request.headers.get("content-length") ?? "0");
+  if (declaredLength > MAX_USAGE_BYTES) return error("Report is too large.", 413);
+  const raw = await request.text();
+  if (new TextEncoder().encode(raw).byteLength > MAX_USAGE_BYTES) return error("Report is too large.", 413);
+  let body;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return error("Invalid JSON.", 400);
+  }
+  const { report, error: invalid } = validateUsageReport(body);
+  if (invalid) return error(invalid, 400);
+  await storeUsage(env.DB, report);
+  return response(null, 204, { "Cache-Control": "no-store" });
+}
+
+async function serveStats(env) {
+  // Aggregates only. Public and cached: the website strip reads this.
+  return response(JSON.stringify(await usageStats(env.DB)), 200, {
+    "Access-Control-Allow-Origin": "https://meetmouse.com",
+    "Cache-Control": "public, max-age=3600",
+    "Content-Type": "application/json; charset=utf-8",
+  });
+}
+
 // Referral pages are static HTML with one inline <style> and no script.
 const referralPolicy = [
   "default-src 'none'",
@@ -210,7 +243,7 @@ function serveViewerAsset(pathname) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, context) {
     try {
       const url = new URL(request.url);
       const asset = serveViewerAsset(url.pathname);
@@ -225,7 +258,13 @@ export default {
       }
       // "Download free" buttons go through /get so new installs are
       // countable in Cloudflare analytics (Sparkle updates never hit it).
-      if (request.method === "GET" && url.pathname === "/get") return redirect(await latestDMG());
+      if (request.method === "GET" && url.pathname === "/get") {
+        // Day counter for the site's stat strip; never delays or blocks the download.
+        context?.waitUntil(recordDownload(env.DB).catch(() => {}));
+        return redirect(await latestDMG());
+      }
+      if (request.method === "POST" && url.pathname === "/api/usage") return await receiveUsage(request, env);
+      if (request.method === "GET" && url.pathname === "/api/stats") return await serveStats(env);
       const referral = referralRoute(url.pathname);
       if (referral && request.method === "GET") return await handleReferral(referral, request, env, url);
       if (request.method === "POST" && url.pathname === "/api/shared-notes/create") {
