@@ -5,6 +5,24 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-02): Issue #56 quit with model catalog open — implemented, full-app validation outstanding
+
+On macOS 27.2 an isolated SwiftUI-sheet probe reproduced `NSApp.terminate`
+returning before the delegate; a non-modal window reached normal termination.
+The catalog now uses a singleton non-modal window and retains the shared
+download state and existing engine shutdown. No confirmation was added.
+
+The existing AI suite passed. Accessibility checks on an isolated host using
+the production catalog view and scene with stub settings passed Done, Dock
+Quit and a test menu-bar Quit, with idle and simulated-download state. This
+was not the full app or a real download; the harness was removed. No real-app
+GUI test was added to the test gate because compatibility with GitHub-hosted
+macOS GUI automation has not been verified. Real app quit paths and
+interrupted/completed download behavior remain unverified.
+The installed app and its model store were not touched. Issue-specific design
+artifacts were removed; the PR description should carry the rationale and
+validation limits.
+
 ## Current state (2026-11-04): Speaker prompt at the bubble; four-platform check
 
 User: Zoom suggestion was right on a real guest call but they had to open the app

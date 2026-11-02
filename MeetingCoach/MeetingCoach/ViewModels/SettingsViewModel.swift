@@ -61,7 +61,6 @@ final class SettingsViewModel {
     var ollamaReachable: Bool = false
     var hasCheckedModels: Bool = false
     var useMock: Bool = false
-    var showModelCatalog: Bool = false
 
     /// Global selection, resolved and snapshotted by LiveSessionViewModel at
     /// meeting start. Changing it begins the needed download but never mutates

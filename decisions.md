@@ -2116,6 +2116,21 @@ Do not scan behind an unrelated front browser window, pick between multiple
 calls automatically, or capture previews before Allow. This keeps selection
 easy without widening screenshot consent or the six-snapshot budget.
 
+## 2026-11-02 — Model catalog is a non-modal singleton window
+On macOS 27.2 an attached SwiftUI sheet caused `NSApp.terminate` to return
+before the application delegate was called. The same quit path succeeds with
+a separate window. Present the model catalog as a singleton SwiftUI Window so
+Dock and menu-bar quit can use normal AppKit termination and its existing
+engine cleanup. Keep the shared download state and Done button; do not change
+other sheets or stop a system-owned Ollama.
+
+Evidence: the termination behavior and GUI actions were checked in an isolated
+host using the production catalog view and scene with stub settings, not the
+full app. Real downloads and GitHub-hosted GUI validation remain outstanding.
+No GUI test was added to the test gate because the
+real-app test's compatibility with GitHub-hosted macOS GUI automation has not
+been verified; the isolated mock-based harness did not meet that requirement.
+
 ## 2026-11-04 — Name suggestions go on the talk bubble; platform colors are measured
 On a real Zoom call the suggestion was right but sat in the main window behind
 the call. Show the next suggestion as a Yes/No card beside the bubble, for every
