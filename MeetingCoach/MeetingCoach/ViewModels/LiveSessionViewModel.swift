@@ -731,18 +731,18 @@ final class LiveSessionViewModel {
             return settleDeterministic("free memory unreadable")
         }
         let safeInstalled = settings.availableModels.filter { $0.name != settings.deletingModel }
+        let currentFitting = safeInstalled.filter {
+            $0.size > 0 && ModelMemory.runtimeNeedGB(installedBytes: $0.size) + ModelMemory.postCaptureHeadroomGB <= availableGB
+        }
         let safeChosen: String
         if settings.effectiveModel != settings.deletingModel && safeInstalled.contains(where: { $0.name == settings.effectiveModel }) {
             safeChosen = settings.effectiveModel
+        } else if let recommended = currentFitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
+            safeChosen = recommended.name
+        } else if let smallest = currentFitting.min(by: { $0.size < $1.size }) {
+            safeChosen = smallest.name
         } else {
-            let fitting = safeInstalled.filter { ModelMemory.fits($0) }
-            if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
-                safeChosen = recommended.name
-            } else if let smallest = fitting.min(by: { $0.size < $1.size }) {
-                safeChosen = smallest.name
-            } else {
-                safeChosen = safeInstalled.first?.name ?? ""
-            }
+            safeChosen = safeInstalled.first?.name ?? ""
         }
         let candidates = ModelMemory.candidatesForCurrentMemory(
             chosen: safeChosen,
@@ -1746,16 +1746,32 @@ final class LiveSessionViewModel {
             guard reviewGenerationID == generationID else { return }
             let safeInstalled = settings.availableModels.filter { $0.name != settings.deletingModel }
             let fallbackCandidate: String
-            if settings.effectiveModel != settings.deletingModel && safeInstalled.contains(where: { $0.name == settings.effectiveModel }) {
+            if settings.usesCloudAI || AIConfiguration.cloud(from: settings.effectiveModel) != nil {
+                fallbackCandidate = settings.effectiveModel
+            } else if settings.effectiveModel != settings.deletingModel && safeInstalled.contains(where: { $0.name == settings.effectiveModel }) {
                 fallbackCandidate = settings.effectiveModel
             } else {
-                let fitting = safeInstalled.filter { ModelMemory.fits($0) }
-                if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
+                let currentGB = Self.availableMemoryGB()
+                let currentFitting = safeInstalled.filter {
+                    guard $0.size > 0 else { return false }
+                    if let currentGB {
+                        return ModelMemory.runtimeNeedGB(installedBytes: $0.size) + ModelMemory.currentHeadroomGB <= currentGB
+                    }
+                    return ModelMemory.fits($0)
+                }
+                if let recommended = currentFitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
                     fallbackCandidate = recommended.name
-                } else if let smallest = fitting.min(by: { $0.size < $1.size }) {
+                } else if let smallest = currentFitting.min(by: { $0.size < $1.size }) {
                     fallbackCandidate = smallest.name
                 } else {
-                    fallbackCandidate = safeInstalled.first?.name ?? ""
+                    let fitting = safeInstalled.filter { ModelMemory.fits($0) }
+                    if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
+                        fallbackCandidate = recommended.name
+                    } else if let smallest = fitting.min(by: { $0.size < $1.size }) {
+                        fallbackCandidate = smallest.name
+                    } else {
+                        fallbackCandidate = safeInstalled.first?.name ?? ""
+                    }
                 }
             }
             let reviewModel = pinnedModel ?? fallbackCandidate

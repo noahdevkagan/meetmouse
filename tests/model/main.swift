@@ -19,6 +19,7 @@ enum AppSupport {
 }
 
 func loadRubric(from url: URL) throws -> Rubric { Rubric() }
+func mclog(_ message: String) {}
 
 @MainActor
 final class OllamaManager {
@@ -43,13 +44,16 @@ final class MockOllamaProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var statusCode: Int = 200
     nonisolated(unsafe) static var tagsStatusCode: Int = 200
     nonisolated(unsafe) static var deleteTransportError: Bool = false
+    nonisolated(unsafe) static var deleteCompletesOnTransportError: Bool = true
     nonisolated(unsafe) static var tagsTransportError: Bool = false
     nonisolated(unsafe) static var responseBody: Data = Data()
+    nonisolated(unsafe) static var tagsErrorBody = Data("Internal Server Error".utf8)
+    nonisolated(unsafe) static var tagsSuccessOverride: Data?
     nonisolated(unsafe) static var installedModels: [String] = []
     nonisolated(unsafe) static var lastRequest: URLRequest?
 
     override class func canInit(with request: URLRequest) -> Bool {
-        return request.url?.host == "127.0.0.1"
+        return true
     }
 
     override class func canonicalRequest(for request: URLRequest) -> URLRequest {
@@ -61,7 +65,8 @@ final class MockOllamaProtocol: URLProtocol, @unchecked Sendable {
         let url = request.url!
 
         if url.path == "/api/delete" && Self.deleteTransportError {
-            if let httpBody = request.httpBody ?? request.httpBodyStreamData(),
+            if Self.deleteCompletesOnTransportError,
+               let httpBody = request.httpBody ?? request.httpBodyStreamData(),
                let json = try? JSONSerialization.jsonObject(with: httpBody) as? [String: Any],
                let name = json["name"] as? String {
                 Self.installedModels.removeAll { $0 == name }
@@ -93,19 +98,24 @@ final class MockOllamaProtocol: URLProtocol, @unchecked Sendable {
         } else if url.path == "/api/tags" {
             code = Self.tagsStatusCode
             if code == 200 {
-                let modelsJson = Self.installedModels.map { name -> [String: Any] in
-                    return [
-                        "name": name,
-                        "size": 3_400_000_000,
-                        "details": ["parameter_size": "4B"]
-                    ]
+                if let override = Self.tagsSuccessOverride {
+                    body = override
+                } else {
+                    let modelsJson = Self.installedModels.map { name -> [String: Any] in
+                        return [
+                            "name": name,
+                            "size": 3_400_000_000,
+                            "details": ["parameter_size": "4B"]
+                        ]
+                    }
+                    body = (try? JSONSerialization.data(withJSONObject: ["models": modelsJson])) ?? Data("{}".utf8)
                 }
-                body = (try? JSONSerialization.data(withJSONObject: ["models": modelsJson])) ?? Data("{}".utf8)
             } else {
-                body = Data("Internal Server Error".utf8)
+                body = Self.tagsErrorBody
             }
         } else {
-            body = Self.responseBody
+            client?.urlProtocol(self, didFailWithError: URLError(.unsupportedURL))
+            return
         }
 
         let response = HTTPURLResponse(
@@ -137,19 +147,42 @@ extension URLRequest {
     }
 }
 
-@main struct ModelDeletionTests {
+@MainActor @main struct ModelDeletionTests {
     static func main() async throws {
+        let failed = try await run()
+        if failed > 0 { exit(1) }
+    }
+
+    static func run() async throws -> Int {
         var passed = 0
+        var failed = 0
         func check(_ ok: Bool, _ label: String, _ detail: String = "") {
             guard ok else {
-                fatalError("FAIL: \(label)\(detail.isEmpty ? "" : " — \(detail)")")
+                failed += 1
+                print("FAIL: \(label)\(detail.isEmpty ? "" : " — \(detail)")")
+                return
             }
             passed += 1
             print("PASS: \(label)")
         }
 
-        URLProtocol.registerClass(MockOllamaProtocol.self)
-        defer { URLProtocol.unregisterClass(MockOllamaProtocol.self) }
+        guard URLProtocol.registerClass(MockOllamaProtocol.self) else {
+            print("FAIL: unable to register mock URL protocol")
+            return 1
+        }
+        let defaults = UserDefaults.standard
+        let domain = ProcessInfo.processInfo.processName
+        let savedDefaults = defaults.persistentDomain(forName: domain) ?? [:]
+        defer {
+            URLProtocol.unregisterClass(MockOllamaProtocol.self)
+            for key in ["selectedModel", "rubricPath", "launchAtLogin"] {
+                if let value = savedDefaults[key] {
+                    defaults.set(value, forKey: key)
+                } else {
+                    defaults.removeObject(forKey: key)
+                }
+            }
+        }
 
         // 1. OllamaClient.deleteModel status handling
         do {
@@ -193,6 +226,34 @@ extension URLRequest {
             } catch {
                 check(false, "OllamaClient threw unexpected error: \(error)")
             }
+
+            // 1d. listModels throws on JSON 500 error instead of returning empty array
+            MockOllamaProtocol.tagsStatusCode = 500
+            MockOllamaProtocol.tagsErrorBody = Data(#"{"error": "daemon internal failure"}"#.utf8)
+            do {
+                _ = try await client.listModels()
+                check(false, "listModels must throw on HTTP 500 JSON error")
+            } catch let OllamaError.serverError(msg) {
+                check(msg.contains("daemon internal failure"),
+                      "listModels extracts error message from HTTP 500 response")
+            } catch {
+                check(false, "listModels threw unexpected error on 500: \(error)")
+            }
+
+            // 1e. listModels throws on 200 response with missing 'models' field
+            MockOllamaProtocol.tagsStatusCode = 200
+            MockOllamaProtocol.tagsSuccessOverride = Data(#"{"status": "ok"}"#.utf8)
+            do {
+                _ = try await client.listModels()
+                check(false, "listModels must throw when 'models' field is missing")
+            } catch let OllamaError.serverError(msg) {
+                check(msg.contains("missing 'models' list"),
+                      "listModels rejects malformed 200 response without 'models' field")
+            } catch {
+                check(false, "listModels threw unexpected error on missing models: \(error)")
+            }
+            MockOllamaProtocol.tagsSuccessOverride = nil
+            MockOllamaProtocol.tagsStatusCode = 200
         }
 
         // 2. SettingsViewModel.deleteModel — Engine failure
@@ -348,16 +409,16 @@ extension URLRequest {
 
         // 7. Duplicate deletion prevention
         do {
-            await MainActor.run {
+            let vm = await MainActor.run { () -> SettingsViewModel in
                 let vm = SettingsViewModel()
                 vm.deletingModel = "already-deleting"
-                Task {
-                    await vm.deleteModel("another-model")
-                    check(vm.deletingModel == "already-deleting",
-                          "duplicate deletion call is ignored while another deletion is in flight")
-                }
+                return vm
             }
-            try await Task.sleep(for: .milliseconds(100))
+            await vm.deleteModel("another-model")
+            await MainActor.run {
+                check(vm.deletingModel == "already-deleting",
+                      "duplicate deletion call is ignored while another deletion is in flight")
+            }
         }
 
         // 8. Meeting protection race interlock: canDelete rejects when in use
@@ -449,11 +510,11 @@ extension URLRequest {
             MockOllamaProtocol.tagsTransportError = false
         }
 
-        // 11. Refresh failure after successful deletion reports reconciliation warning without corrupting selection
+        // 11. A stale snapshot cannot identify a fallback in the active server's store.
         do {
             MockOllamaProtocol.statusCode = 200
             MockOllamaProtocol.tagsTransportError = true
-            MockOllamaProtocol.installedModels = ["llama3.2:1b"]
+            MockOllamaProtocol.installedModels = ["qwen3.5:4b", "actual-server:1b"]
 
             let manager = await MainActor.run { OllamaManager() }
             let vm = await MainActor.run { () -> SettingsViewModel in
@@ -472,8 +533,13 @@ extension URLRequest {
             await MainActor.run {
                 check(!vm.availableModels.contains { $0.name == "qwen3.5:4b" },
                       "deleted model removed from memory snapshot")
-                check(vm.selectedModel == "llama3.2:1b",
-                      "selection safely updated to remaining known model")
+                check(MockOllamaProtocol.installedModels == ["actual-server:1b"],
+                      "mock server contains a different remaining model")
+                check(vm.selectedModel != "llama3.2:1b",
+                      "failed refresh does not select an unverified stale model",
+                      "selected: \(vm.selectedModel)")
+                check(UserDefaults.standard.string(forKey: "selectedModel") != "llama3.2:1b",
+                      "failed refresh does not persist an unverified stale model")
                 check(vm.deletionError != nil && vm.deletionError!.contains("could not refresh"),
                       "reconciliation failure surfaced as actionable notice",
                       "got: \(String(describing: vm.deletionError))")
@@ -481,6 +547,90 @@ extension URLRequest {
             MockOllamaProtocol.tagsTransportError = false
         }
 
-        print("\nAll \(passed) model deletion checks passed.")
+        // A valid list can establish that a lost response did not delete the target.
+        do {
+            MockOllamaProtocol.deleteTransportError = true
+            MockOllamaProtocol.deleteCompletesOnTransportError = false
+            MockOllamaProtocol.installedModels = ["qwen3.5:4b"]
+            let manager = await MainActor.run { OllamaManager() }
+            let vm = await MainActor.run { () -> SettingsViewModel in
+                let settings = SettingsViewModel()
+                settings.ollamaManager = manager
+                settings.selectedModel = "qwen3.5:4b"
+                settings.availableModels = [
+                    OllamaModel(name: "qwen3.5:4b", size: 3_400_000_000, parameterSize: "4B")
+                ]
+                return settings
+            }
+            await vm.deleteModel("qwen3.5:4b")
+            await MainActor.run {
+                check(MockOllamaProtocol.installedModels.contains("qwen3.5:4b")
+                      && vm.selectedModel == "qwen3.5:4b"
+                      && vm.deletionError?.contains("Failed to delete") == true,
+                      "valid refresh confirms that a lost deletion response left the model installed")
+            }
+            MockOllamaProtocol.deleteTransportError = false
+            MockOllamaProtocol.deleteCompletesOnTransportError = true
+        }
+
+        // Neither HTTP errors nor malformed successful responses are empty lists.
+        for (tagsStatus, lostResponse) in [(500, true), (500, false), (200, true), (200, false)] {
+            let response = tagsStatus == 500 ? "HTTP 500" : "missing models field"
+            MockOllamaProtocol.statusCode = 200
+            MockOllamaProtocol.tagsStatusCode = tagsStatus
+            MockOllamaProtocol.tagsErrorBody = Data(#"{"error":"server unavailable"}"#.utf8)
+            MockOllamaProtocol.tagsSuccessOverride = tagsStatus == 200
+                ? Data(#"{"error":"server unavailable"}"#.utf8) : nil
+            MockOllamaProtocol.deleteTransportError = lostResponse
+            MockOllamaProtocol.deleteCompletesOnTransportError = false
+            MockOllamaProtocol.installedModels = ["qwen3.5:4b", "actual-server:1b"]
+
+            let manager = await MainActor.run { OllamaManager() }
+            let vm = await MainActor.run { () -> SettingsViewModel in
+                let settings = SettingsViewModel()
+                settings.ollamaManager = manager
+                settings.selectedModel = "qwen3.5:4b"
+                settings.availableModels = [
+                    OllamaModel(name: "qwen3.5:4b", size: 3_400_000_000, parameterSize: "4B"),
+                    OllamaModel(name: "actual-server:1b", size: 1_000_000_000, parameterSize: "1B")
+                ]
+                settings.save()
+                return settings
+            }
+
+            await vm.deleteModel("qwen3.5:4b")
+            await MainActor.run {
+                if lostResponse {
+                    check(MockOllamaProtocol.installedModels.contains("qwen3.5:4b"),
+                          "mock lost response leaves the target installed")
+                    check(vm.selectedModel == "qwen3.5:4b"
+                          && UserDefaults.standard.string(forKey: "selectedModel") == "qwen3.5:4b",
+                          "lost response plus \(response) preserves the selected model",
+                          "selected: \(vm.selectedModel)")
+                    check(vm.deletionError?.contains("Could not confirm") == true,
+                          "lost response plus \(response) reports an uncertain outcome",
+                          "error: \(String(describing: vm.deletionError))")
+                } else {
+                    check(!MockOllamaProtocol.installedModels.contains("qwen3.5:4b"),
+                          "mock successful deletion removes the target")
+                    check(vm.selectedModel == "",
+                          "refresh failure clears selected model to prevent persisting unverified model from wrong store")
+                    check(UserDefaults.standard.string(forKey: "selectedModel") == "",
+                          "empty selection safely persisted to prevent wrong store adoption")
+                    check(vm.deletionError?.contains("could not refresh") == true,
+                          "successful deletion plus \(response) reports refresh failure",
+                          "error: \(String(describing: vm.deletionError))")
+                    check(vm.availableModels.contains { $0.name == "actual-server:1b" },
+                          "\(response) does not silently replace the installed list with empty")
+                }
+            MockOllamaProtocol.deleteTransportError = false
+            MockOllamaProtocol.deleteCompletesOnTransportError = true
+            MockOllamaProtocol.tagsStatusCode = 200
+            MockOllamaProtocol.tagsSuccessOverride = nil
+          }
+        }
+
+        print("\nModel deletion checks: \(passed) passed, \(failed) failed.")
+        return failed
     }
 }

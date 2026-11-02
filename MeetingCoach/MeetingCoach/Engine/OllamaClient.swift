@@ -450,10 +450,20 @@ actor OllamaClient {
     /// GET /api/tags — list locally available models
     func listModels() async throws -> [OllamaModel] {
         let url = baseURL.appendingPathComponent("api/tags")
-        let (data, _) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let errorMsg = json["error"] as? String, !errorMsg.isEmpty {
+                throw OllamaError.serverError(errorMsg)
+            }
+            throw OllamaError.serverError("Server returned status \(http.statusCode)")
+        }
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let models = json["models"] as? [[String: Any]] else {
-            return []
+            throw OllamaError.serverError("Malformed response from Ollama: missing 'models' list")
         }
         return models.compactMap { dict in
             guard let name = dict["name"] as? String else { return nil }

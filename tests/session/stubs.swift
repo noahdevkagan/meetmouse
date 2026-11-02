@@ -1,11 +1,44 @@
 import Foundation
 
+final class BlockNetworkProtocol: URLProtocol, @unchecked Sendable {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var requests: [String] = []
+
+    static var unexpectedRequests: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return requests
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        Self.lock.lock()
+        Self.requests.append(request.url?.absoluteString ?? "<no URL>")
+        Self.lock.unlock()
+        client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+    }
+    override func stopLoading() {}
+}
+
+func mclog(_ message: String) {}
+
+struct SignalExample: Codable, Sendable {
+    let signalId: String
+    let evidence: String
+    let nudge: String
+}
+
+enum TrainingStore {
+    static func examplesByType() -> [String: [SignalExample]] { [:] }
+    static func emphasizedTypes() -> Set<NudgeType> { [] }
+    static let sensitivityBoost = 0.9
+}
+
 // Headless stand-ins for the heavy leaves LiveSessionViewModel touches.
-// Everything else in the harness is the app's REAL code (symlinked in
-// run.sh) — these stubs exist only because the real types need FluidAudio,
-// Yams, or live audio hardware. Keep each surface to exactly what the
-// view model calls; a compile error here means the VM grew a dependency
-// and the stub should grow with it.
+// Everything else in the harness is the app's REAL code. These stubs avoid
+// hardware, dependencies, and reads or writes to the app's shared data.
+// Keep each surface to exactly what the view model calls.
 
 /// One finalized "who spoke when" span (real one lives in SpeakerDiarizer,
 /// which imports FluidAudio).
