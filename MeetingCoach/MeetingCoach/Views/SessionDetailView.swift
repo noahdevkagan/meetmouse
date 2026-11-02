@@ -15,6 +15,7 @@ struct SessionDetailView: View {
     /// model was installed.
     var settings: SettingsViewModel?
     var ollamaManager: OllamaManager?
+    var liveSession: LiveSessionViewModel? = nil
     var reviewRevision: MeetingReview? = nil
     var reviewInProgress = false
     var automaticReviewError: String? = nil
@@ -799,10 +800,15 @@ struct SessionDetailView: View {
 
     private func regenerateReview() async {
         attemptedRegeneration = true
-        defer { regenerating = false }
         guard let settings, let ollamaManager, !lines.isEmpty else {
             reviewError = "AI is unavailable or this meeting has no transcript."
             return
+        }
+        let targetModel = settings.effectiveModel
+        liveSession?.beginSavedMeetingRegeneration(model: targetModel)
+        defer {
+            regenerating = false
+            liveSession?.endSavedMeetingRegeneration(model: targetModel)
         }
         regenerating = true
         guard await settings.prepareAI(ollamaManager: ollamaManager) else {
