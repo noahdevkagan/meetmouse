@@ -27,7 +27,7 @@ Completed the localization pipeline, pricing centralization, placeholder decoupl
    - Excluded language endonyms (`English`, `Português`, `Español`) from gettext extraction and `.po` catalogs.
    - Removed in-content "Read in..." paragraphs and footer toggle links.
    - `site/lang.js` persists `localStorage.preferred_lang` and switches to the reciprocal URL on selection.
-   - Cloudflare Pages `docs/_redirects` provides wildcard 302 fallbacks (`/br/* /:splat 302`) to English canonical pages.
+   - Cloudflare Pages `docs/_redirects` routes unlocalized language roots (`/es` to `/`) while avoiding wildcard catch-alls that shadow static files.
 5. **Template-First Copy Consolidation, URL Decoupling & Download Unification:**
    - Deleted `site/content/home.py` so Jinja2 templates serve as the single source of truth for page copy.
    - Defined `faqs` list directly in `site/templates/home.html` driving both `<dl class="faq">` elements and `<script type="application/ld+json">` schemas (`SoftwareApplication`, `FAQPage`) using `| tojson`. Removed all hardcoded copy strings from `site/build.py`.
