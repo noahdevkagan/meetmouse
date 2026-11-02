@@ -7,13 +7,13 @@ The durable "why" behind choices goes in `decisions.md`, not here.
 
 ## Current state (2026-11-02): Safe local-model deletion (#55) — confirmed & robust
 
-Addressed noahdevkagan/meetmouse#55 and review findings:
+Implemented noahdevkagan/meetmouse#55 and addressed review findings:
 1. Destructive confirmation dialog: `ModelCatalogView` presents an explicit confirmation dialog naming the model and size before deleting, preventing accidental removal.
-2. Meeting protection & race elimination: `SettingsViewModel.deleteModel` synchronously re-checks `canDelete()` on `@MainActor` before marking in-flight deletion, closing any window between dialog appearance and execution.
-3. Engine reconciliation & store isolation: Post-deletion reconciliation queries the engine directly rather than falling back to internal on-disk manifests (which would corrupt selection on adopted system Ollama stores), reporting a sheet-local reconciliation notice if refresh fails.
-4. Lost response recovery & uncertain outcome reporting: Transport errors query the engine to verify if the model was deleted; if verified, deletion succeeds; if indeterminate, it reports an uncertain outcome instead of claiming false failure.
-5. Concurrent deletion AI preservation: When the selected model is deleting, session activation and notes pick the best fitting alternative from remaining models (including custom models), avoiding false basic-mode notices.
-6. CI & Release Gate: `tests/model/run.sh` added to both local `push-gate.sh` and CI `.github/workflows/test-gate.yml`. All 34 model regression checks and neighbor suites pass.
+2. Meeting protection & race elimination: `SettingsViewModel.deleteModel` synchronously re-checks `canDelete()` on `@MainActor` before marking in-flight deletion, closing any window between dialog appearance and execution. Active meetings and recap generation protect in-use models.
+3. Engine reconciliation & store isolation: Post-deletion reconciliation queries the engine directly rather than falling back to internal on-disk manifests (protecting adopted system Ollama stores). If refresh fails, `selectedModel` is cleared and saved as empty, and a sheet-local reconciliation notice is reported.
+4. HTTP validation & lost response recovery: `OllamaClient.listModels` and `deleteModel` validate HTTP status (200..<300) and require valid JSON schemas, throwing `OllamaError.serverError` on 500s or missing `models` arrays rather than misreading them as empty lists. Transport errors query the engine to verify deletion, reporting an uncertain outcome if indeterminate.
+5. Concurrent deletion AI preservation & cloud recaps: When the selected model is deleting, session activation and recap notes pick the best fitting alternative from remaining models based on current free memory (including custom models), avoiding false basic-mode notices. Cloud notes bypass local installed model lists when live coaching is off.
+6. CI & Release Gate: `tests/model/run.sh` added to both local `push-gate.sh` and CI `.github/workflows/test-gate.yml`. All 55 model regression checks pass.
 
 ## Current state (2026-10-20): Global open shortcut — implemented
 

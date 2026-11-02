@@ -574,25 +574,29 @@ final class SettingsViewModel {
         if engineReachableAfterDelete {
             ollamaReachable = true
             availableModels = freshModels.filter { $0.name != name }
+
+            // Reconcile selection only when the installed list was verified from the active engine
+            if selectedModel == name || (selectedModel == previousSelection && previousSelection == name) {
+                let fitting = availableModels.filter { ModelMemory.fits($0) }
+                if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
+                    selectedModel = recommended.name
+                } else if let smallest = fitting.min(by: { $0.size < $1.size }) {
+                    selectedModel = smallest.name
+                } else {
+                    selectedModel = availableModels.first?.name ?? ""
+                }
+                save()
+            }
         } else {
             // Deletion succeeded, but post-delete refresh failed.
-            // Do NOT fall back to installedModelsOnDisk() — that could be an adopted system Ollama
-            // or stale files, which would corrupt selection.
+            // Do NOT pick or persist an unverified replacement from stale in-memory models
+            // (which may have originated from a different on-disk store).
             availableModels.removeAll { $0.name == name }
-            deletionError = "Model '\(name)' was deleted, but MeetMouse could not refresh the model list from the engine."
-        }
-
-        // Reconcile selection if the deleted model was selected
-        if selectedModel == name || (selectedModel == previousSelection && previousSelection == name) {
-            let fitting = availableModels.filter { ModelMemory.fits($0) }
-            if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
-                selectedModel = recommended.name
-            } else if let smallest = fitting.min(by: { $0.size < $1.size }) {
-                selectedModel = smallest.name
-            } else {
-                selectedModel = availableModels.first?.name ?? ""
+            if selectedModel == name {
+                selectedModel = ""
+                save()
             }
-            save()
+            deletionError = "Model '\(name)' was deleted, but MeetMouse could not refresh the model list from the engine."
         }
     }
 

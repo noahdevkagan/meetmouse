@@ -2073,8 +2073,16 @@ Decision:
   if the model was already deleted by Ollama, confirm the deletion rather than reporting
   a false failure. If both queries fail, report the outcome as uncertain.
 - No silent store fallback on refresh: query the engine directly; if list refresh fails,
-  do not fall back to the app's internal manifests directory (which could clobber an
-  adopted system Ollama store or stale files), and surface a reconciliation notice.
+  do not fall back to the app's internal manifests directory or select from stale in-memory
+  lists (which could clobber an adopted system Ollama store or persist unverified models).
+  Instead, clear `selectedModel = ""` and persist `""`, and surface a reconciliation notice.
+- Strict HTTP & schema validation: `OllamaClient.listModels` and `deleteModel` validate HTTP 200..<300
+  and require a valid `models` JSON array; HTTP 500 and malformed responses throw `OllamaError.serverError`
+  rather than returning `[]`, preventing false deletion confirmation and erroneous selection clearing.
+- Custom model fallback under memory pressure: when the selected model is deleting, session activation
+  and recap notes filter against current free memory (`availableGB`), selecting a usable custom model
+  if the recommended catalog model does not fit under memory pressure. Cloud AI models bypass local
+  installed list checks when live coaching is off.
 - Reconcile selection after deleting the active model using the memory-aware
   fallback policy (recommended fitting model -> smallest fitting -> first remaining -> "")
   and persist to UserDefaults via `save()`.
