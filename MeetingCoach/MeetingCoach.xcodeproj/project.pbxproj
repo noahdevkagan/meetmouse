@@ -66,6 +66,7 @@
 		75C0D28E8BF07978D20349B6 /* SpeakerDiarizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB68720A316FEE2207F54E4B /* SpeakerDiarizer.swift */; };
 		77377E23305604276D5C95FA /* WebSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC88F465A3740E50A3D39306 /* WebSharing.swift */; };
 		7738C639EFAA02BEF8DD5765 /* FeedbackFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */; };
+		7EA0A1822D9C0C3BE3D6B590 /* ModelCatalogScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = D904DFA6BAC4CF9F48852956 /* ModelCatalogScene.swift */; };
 		7F992768252A6BB47097CD59 /* NudgeBackoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BBC737499DA851F1E6127E0 /* NudgeBackoff.swift */; };
 		80030FE4FB83C735E3AAE232 /* SharePrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7B3EB53680637D131C17BB7 /* SharePrompt.swift */; };
 		80330BBFB7DC43B0392C9628 /* OnboardingChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34B2E80ECDD1EC3FD9556335 /* OnboardingChecklistView.swift */; };
@@ -83,6 +84,7 @@
 		98104496237EA3D2AEC65205 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 99FF311B3C3C0B29ECF0C296 /* Assets.xcassets */; };
 		98E5BB4209899EF66A7A1B84 /* MicrophoneFormatPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AED495973BB067AF320CFA5 /* MicrophoneFormatPolicy.swift */; };
 		9AC524542146972D8144739E /* VoiceClipSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDFE946C214D3FA7737FF232 /* VoiceClipSelection.swift */; };
+		9CDA1517FCCDE25FA5790842 /* OutputRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B0E9609F9BD454ADFBDDB98 /* OutputRoute.swift */; };
 		9CFEB7F1FAAB9B376743DE9E /* MeetingReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35964E2F9634996C0ACEB39C /* MeetingReview.swift */; };
 		9FC953EE954ED076AF94C4E9 /* GiveMeetMouseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21E0D0FECB8A88B3565D1140 /* GiveMeetMouseView.swift */; };
 		A113E174C9E4738E99D17427 /* Dorado.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98DF6673920BD9AAF4C4B8E0 /* Dorado.swift */; };
@@ -200,6 +202,7 @@
 		78FD64A28567F115FD3944A4 /* PromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptBuilder.swift; sourceTree = "<group>"; };
 		7A2619C7DBDE479D92329B84 /* SessionTrendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTrendsView.swift; sourceTree = "<group>"; };
 		7A5350C0DCB7CE44CA74835F /* AISettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsView.swift; sourceTree = "<group>"; };
+		7B0E9609F9BD454ADFBDDB98 /* OutputRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputRoute.swift; sourceTree = "<group>"; };
 		7BFDDC5E15E6CA9D8E03D659 /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailView.swift; sourceTree = "<group>"; };
 		8143978E87DDB116AC0D3FD8 /* DemoScript.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoScript.swift; sourceTree = "<group>"; };
 		81D33EEE89EF224DC87FCF6E /* Utterance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utterance.swift; sourceTree = "<group>"; };
@@ -241,6 +244,7 @@
 		D42F23C4E546293201AFCA59 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D5560738095EF73A5816E554 /* Mclog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mclog.swift; sourceTree = "<group>"; };
 		D6012F4265B831203CEF29D7 /* PositiveSignals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositiveSignals.swift; sourceTree = "<group>"; };
+		D904DFA6BAC4CF9F48852956 /* ModelCatalogScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelCatalogScene.swift; sourceTree = "<group>"; };
 		DCEAF50FE941968271B365B5 /* VisualSpeakerCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualSpeakerCapture.swift; sourceTree = "<group>"; };
 		DE5F4503D9540E968BE010A2 /* MicSilenceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicSilenceMonitor.swift; sourceTree = "<group>"; };
 		DF9C912979FF9EFB91A45FF1 /* MeetMouseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetMouseApp.swift; sourceTree = "<group>"; };
@@ -303,6 +307,7 @@
 				E03360FE07AA3CD101D27116 /* AppBundleNameMigration.swift */,
 				B601F828AB17A262298DF0AE /* ContentView.swift */,
 				DF9C912979FF9EFB91A45FF1 /* MeetMouseApp.swift */,
+				D904DFA6BAC4CF9F48852956 /* ModelCatalogScene.swift */,
 				BA4521E4BBA1A704FF701BBF /* OpenWindowShortcut.swift */,
 			);
 			path = App;
@@ -358,6 +363,7 @@
 				2BBC737499DA851F1E6127E0 /* NudgeBackoff.swift */,
 				6A1BF8C4DA14D327E81E1832 /* OllamaClient.swift */,
 				9AA712484D677FBBAA951166 /* OllamaManager.swift */,
+				7B0E9609F9BD454ADFBDDB98 /* OutputRoute.swift */,
 				CDAB5DD9D8D87802B15EAF68 /* ParakeetDownloadState.swift */,
 				73E93FA8D25DA2577F2827FF /* ParakeetTranscriber.swift */,
 				A754A24BB56F62D6EE2963EA /* PendingProfileSaves.swift */,
@@ -703,6 +709,7 @@
 				902E9E323378C97D474D0C04 /* MicSilenceMonitor.swift in Sources */,
 				98E5BB4209899EF66A7A1B84 /* MicrophoneFormatPolicy.swift in Sources */,
 				AC2DFEF84296BA4652EA853B /* MissingDiscoverySignal.swift in Sources */,
+				7EA0A1822D9C0C3BE3D6B590 /* ModelCatalogScene.swift in Sources */,
 				46BB0140FA3D0C6D5953EA48 /* NextStepsSignal.swift in Sources */,
 				55D4DD753779ACBE7E35E8D3 /* NoteDistiller.swift in Sources */,
 				8A631782D7199EBCE5560A50 /* Nudge.swift in Sources */,
@@ -711,6 +718,7 @@
 				29B5CC4536FD985F624286F8 /* OllamaManager.swift in Sources */,
 				80330BBFB7DC43B0392C9628 /* OnboardingChecklistView.swift in Sources */,
 				51374A087752B6CB5AD7E944 /* OpenWindowShortcut.swift in Sources */,
+				9CDA1517FCCDE25FA5790842 /* OutputRoute.swift in Sources */,
 				070C44F2395C329D75265ED2 /* OverrunSignal.swift in Sources */,
 				ED6A7299FC6E5DD91524676C /* ParakeetDownloadState.swift in Sources */,
 				4030F7FB23A09D09F296291C /* ParakeetTranscriber.swift in Sources */,

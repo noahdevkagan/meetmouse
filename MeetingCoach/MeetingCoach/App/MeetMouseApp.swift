@@ -169,6 +169,10 @@ struct MeetMouseApp: App {
         }
         .windowResizability(.contentSize)
 
+        ModelCatalogScene {
+            ModelCatalogView(settings: settings)
+        }
+
         // Preferences (⌘,): General (transcript folder, detection behavior)
         // and Stats (session trends + learned sensitivity).
         Settings {

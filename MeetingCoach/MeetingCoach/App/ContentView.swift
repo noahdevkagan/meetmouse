@@ -2081,6 +2081,7 @@ struct HelpDot: View {
 struct ModelSection: View {
     @Bindable var settings: SettingsViewModel
     var liveSession: LiveSessionViewModel
+    @Environment(\.openWindow) private var openWindow
 
     private var hasModels: Bool { !settings.availableModels.isEmpty }
 
@@ -2167,7 +2168,7 @@ struct ModelSection: View {
                             .font(.caption)
 
                         Button("Browse all models...") {
-                            settings.showModelCatalog = true
+                            openWindow(id: ModelCatalogWindow.id)
                         }
                         .font(.caption)
                         .buttonStyle(.plain)
@@ -2254,7 +2255,7 @@ struct ModelSection: View {
                     }
 
                     Button {
-                        settings.showModelCatalog = true
+                        openWindow(id: ModelCatalogWindow.id)
                     } label: {
                         Text("Browse all models")
                     }
@@ -2307,17 +2308,14 @@ struct ModelSection: View {
                 Text(error).font(.caption).foregroundStyle(.red)
             }
         }
-        .sheet(isPresented: $settings.showModelCatalog) {
-            ModelCatalogView(settings: settings)
-        }
     }
 }
 
-// MARK: - Model Catalog Sheet
+// MARK: - Model Catalog Window
 
 struct ModelCatalogView: View {
     @Bindable var settings: SettingsViewModel
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismissWindow) private var dismissWindow
 
     // Models that can't run in this Mac's RAM aren't offered at all —
     // downloading one ends in a mid-meeting freeze, not a quality upgrade.
@@ -2333,7 +2331,7 @@ struct ModelCatalogView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Done") { dismiss() }
+                Button("Done") { dismissWindow(id: ModelCatalogWindow.id) }
                     .keyboardShortcut(.defaultAction)
             }
             .padding()
