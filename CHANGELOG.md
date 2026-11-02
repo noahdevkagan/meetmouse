@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Delete local AI models from the Download Models catalog with confirmation. If a model is currently in use by an active meeting or meeting notes recap, MeetMouse protects it and explains when it can be removed. Deleting the active model automatically selects another installed model that fits your Mac and saves your choice.
+
 ## 0.34.0 — 2026-11-04
 
 - Speaker name suggestions now appear right beside the talk bubble with Yes and No buttons, so you can confirm a name during the call without opening MeetMouse.

@@ -2116,40 +2116,39 @@ Do not scan behind an unrelated front browser window, pick between multiple
 calls automatically, or capture previews before Allow. This keeps selection
 easy without widening screenshot consent or the six-snapshot budget.
 
+## 2026-11-02 — Confirmed model deletion with in-use protection (#55)
+
+User report (#55): unable to delete installed local model in pt-BR environment.
+Root causes: (1) `deleteModel` sent HTTP DELETE without starting Ollama first
+when idle, causing immediate connection failure; (2) deletion errors were stored
+in `downloadError` rendered outside the modal sheet, leaving the user with no
+feedback; (3) replacement selection after deleting the active model was not saved
+to UserDefaults; (4) no protection prevented deleting a model pinned by a meeting
+or post-meeting recap.
+
+Decision:
+- Require explicit confirmation dialog naming the model before deletion: multi-gigabyte
+  models are costly to re-download on slower connections.
+- Block deletion and display an explanatory alert/notice if the model is actively
+  in use by an ongoing meeting or post-meeting recap notes, or while a meeting is
+  preparing.
+- Atomic ownership re-check in `SettingsViewModel.deleteModel` on `@MainActor`
+  prevents race conditions with meeting activation or note recaps.
+- Ensure the engine is running via `ollamaManager.ensureRunning()` before issuing
+  the delete command.
+- Display in-progress spinner and actionable errors directly inside `ModelCatalogView`.
+- Lost-response recovery: if a transport failure occurs, query the engine directly;
+  if the model was already deleted by Ollama, confirm the deletion rather than reporting
+  a false failure. If both queries fail, report the outcome as uncertain.
+- No silent store fallback on refresh: query the engine directly; if list refresh fails,
+  do not fall back to the app's internal manifests directory (which could clobber an
+  adopted system Ollama store or stale files), and surface a reconciliation notice.
+- Reconcile selection after deleting the active model using the memory-aware
+  fallback policy (recommended fitting model -> smallest fitting -> first remaining -> "")
+  and persist to UserDefaults via `save()`.
+- During concurrent deletion of the selected model, session activation and recap notes
+  pick the best alternative from remaining installed models (including custom models),
+  avoiding false degradation to basic mode.
+- Regression suite `tests/model/run.sh` wired into `push-gate.sh` and CI `test-gate.yml`.
+
 ## 2026-11-04 — Name suggestions go on the talk bubble; platform colors are measured
-On a real Zoom call the suggestion was right but sat in the main window behind
-the call. Show the next suggestion as a Yes/No card beside the bubble, for every
-suggestion kind since all share one confirm path. It opens toward the screen so
-the bubble doesn't move, honors a closed overlay, and the transcript bar stays.
-That call also saved the guest's name with a wrong leading l: Vision reads a
-sans-serif capital I as l, and confirming a name also saves it to a voice
-profile. Restore I for a leading lowercase l before a consonant, excepting
-Lloyd/Llewellyn.
-
-While a suggestion card is up, repeat clicks are ignored and don't open the main
-window. The next card lands under the cursor, so a second quick click must not
-answer a suggestion the user hasn't read or cover the call. The first click of
-the sequence decides, because answering the last card leaves none showing.
-
-Participant names from real calls stay out of this public repo: use made-up
-names in tests and "a guest" in docs.
-
-Microsoft and Slack docs don't state active-speaker styling or call-window
-titles. Don't add Teams or Slack adapters from guesses: measure them on real
-calls first. Google Meet refuses an automated guest ("You can't join this video
-call"); that is an anti-automation control, so don't evade it. Live checks need
-a real second participant or a browser the platform allows, and a free desktop.
-
-## 2026-11-04 — Real meeting transcripts and room codes stay out of this public repo
-The repo is public and carried real meeting transcripts naming participants, plus
-Meet room codes from live testing. Deleted the leadership and Zoom samples (no test
-reads them) and replaced the room codes. They remain in git history and in forks
-until that is cleaned separately. Use made-up transcripts and codes in fixtures.
-
-## 2026-11-04 — Scrub real names from the public repo; drop the real-call benchmark
-Removed the last committed real call from `bench/asr-corpus/` and made that folder
-gitignored, so real pairs can still be benchmarked locally. CI's scorecard now has
-no real-call accuracy row until a publishable corpus exists (a staged call); the
-old rows stay under a neutral name. Real names in tests and comments became made-up
-ones, and the review prompt's example was rewritten because it used real-call terms.
-All of this remains in git history and forks until cleaned separately.

@@ -5,6 +5,16 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-02): Safe local-model deletion (#55) — confirmed & robust
+
+Addressed noahdevkagan/meetmouse#55 and review findings:
+1. Destructive confirmation dialog: `ModelCatalogView` presents an explicit confirmation dialog naming the model and size before deleting, preventing accidental removal.
+2. Meeting protection & race elimination: `SettingsViewModel.deleteModel` synchronously re-checks `canDelete()` on `@MainActor` before marking in-flight deletion, closing any window between dialog appearance and execution.
+3. Engine reconciliation & store isolation: Post-deletion reconciliation queries the engine directly rather than falling back to internal on-disk manifests (which would corrupt selection on adopted system Ollama stores), reporting a sheet-local reconciliation notice if refresh fails.
+4. Lost response recovery & uncertain outcome reporting: Transport errors query the engine to verify if the model was deleted; if verified, deletion succeeds; if indeterminate, it reports an uncertain outcome instead of claiming false failure.
+5. Concurrent deletion AI preservation: When the selected model is deleting, session activation and notes pick the best fitting alternative from remaining models (including custom models), avoiding false basic-mode notices.
+6. CI & Release Gate: `tests/model/run.sh` added to both local `push-gate.sh` and CI `.github/workflows/test-gate.yml`. All 34 model regression checks and neighbor suites pass.
+
 ## Current state (2026-11-04): Speaker prompt at the bubble; four-platform check
 
 User: Zoom suggestion was right on a real guest call but they had to open the app
