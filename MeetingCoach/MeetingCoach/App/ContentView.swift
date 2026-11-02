@@ -1761,7 +1761,7 @@ struct SidebarView: View {
                                         settings: settings, ollamaManager: ollamaManager)
                         Divider()
                         ModelSection(settings: settings, liveSession: liveSession)
-                        Text(settings.usesCloudAI ? "Cloud AI is enabled for coaching, reviews and questions. Audio stays on this Mac." : "AI nudges and the meeting summary switch on automatically when a model is installed.")
+                        Text(settings.usesCloudAI ? (settings.aiConfiguration.provider == .ollama && settings.aiConfiguration.isLoopbackOllama ? "Ollama on this Mac is enabled for coaching, reviews and questions. Audio stays on this Mac." : "AI provider is enabled for coaching, reviews and questions. Audio stays on this Mac.") : "AI nudges and the meeting summary switch on automatically when a model is installed.")
                             .font(.caption2).foregroundStyle(.tertiary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -2132,9 +2132,32 @@ struct ModelSection: View {
             }
 
             if settings.usesCloudAI {
-                Label(settings.aiConfiguration.provider.title, systemImage: "cloud")
-                Text("\(AIProvider.modelTitle(settings.aiConfiguration.model)) · Meeting text is sent to this provider. Manage your key in Settings → AI.")
+                let provider = settings.aiConfiguration.provider
+                let icon = provider == .ollama ? (settings.aiConfiguration.isLoopbackOllama ? "desktopcomputer" : "server.rack") : "cloud"
+                Label(provider == .ollama ? "Ollama" : provider.title, systemImage: icon)
+
+                let desc: String = {
+                    if provider == .ollama {
+                        if settings.aiConfiguration.isLoopbackOllama {
+                            return "\(settings.aiConfiguration.model) · Local Ollama instance. Audio and text stay on this Mac. Manage in Settings → AI."
+                        } else {
+                            return "\(settings.aiConfiguration.model) · Remote Ollama at \(settings.aiConfiguration.baseURL). Manage in Settings → AI."
+                        }
+                    } else {
+                        return "\(AIProvider.modelTitle(settings.aiConfiguration.model)) · Meeting text is sent to this provider. Manage your key in Settings → AI."
+                    }
+                }()
+                Text(desc)
                     .font(.caption).foregroundStyle(.secondary)
+
+                if settings.aiConfiguration.provider == .ollama && settings.ollamaSelectedModelMissing {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        Text("Model '\(settings.aiConfiguration.model)' is not found on your Ollama server. MeetMouse is running with built-in coaching and basic notes until a model is selected.")
+                            .font(.caption2).foregroundStyle(.orange)
+                    }
+                    .padding(.vertical, 2)
+                }
             } else if hasModels {
                 DisclosureGroup(isExpanded: $isExpanded) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -2340,13 +2363,14 @@ struct ModelCatalogView: View {
 
             Divider()
 
-            if !settings.availableModels.isEmpty {
+            let installedList = settings.aiConfiguration.provider == .ollama ? settings.ollamaModels : settings.availableModels
+            if !installedList.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Installed").font(.caption.bold()).foregroundStyle(.secondary)
                         .padding(.horizontal)
                         .padding(.top, 8)
 
-                    ForEach(settings.availableModels) { model in
+                    ForEach(installedList) { model in
                         InstalledModelRow(model: model, settings: settings)
                     }
                 }
@@ -2391,6 +2415,9 @@ struct ModelCatalogView: View {
             }
         }
         .frame(width: 520, height: 500)
+        .task {
+            await settings.refreshModelsLive()
+        }
     }
 }
 
@@ -2398,7 +2425,12 @@ struct InstalledModelRow: View {
     let model: OllamaModel
     @Bindable var settings: SettingsViewModel
 
-    var isSelected: Bool { settings.selectedModel == model.name }
+    var isSelected: Bool {
+        if settings.aiConfiguration.provider == .ollama {
+            return OllamaProvider.modelNamesMatch(configured: settings.aiConfiguration.model, installed: model.name)
+        }
+        return settings.selectedModel == model.name
+    }
 
     var body: some View {
         HStack {
@@ -2436,8 +2468,13 @@ struct InstalledModelRow: View {
             Spacer()
             if !isSelected {
                 Button("Use") {
-                    settings.selectedModel = model.name
-                    settings.save()
+                    if settings.aiConfiguration.provider == .ollama {
+                        settings.aiConfiguration.model = model.name
+                        settings.aiConfiguration.save()
+                    } else {
+                        settings.selectedModel = model.name
+                        settings.save()
+                    }
                 }
                 .font(.caption)
                 .buttonStyle(.bordered)

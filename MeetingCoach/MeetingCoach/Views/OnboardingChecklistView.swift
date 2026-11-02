@@ -135,13 +135,28 @@ struct OnboardingChecklistView: View {
     }
 
     @ViewBuilder private var coachModelRow: some View {
-        let hasModel = settings.map { $0.usesCloudAI || !$0.availableModels.isEmpty } ?? false
+        let isMissing = settings?.ollamaSelectedModelMissing == true
+        let hasModel = settings.map { ($0.usesCloudAI && !isMissing) || !$0.availableModels.isEmpty } ?? false
         let downloading = settings?.downloadingModel != nil
+        let caption: String = {
+            guard let s = settings, s.usesCloudAI else {
+                return "Smarter nudges + meeting reviews. Local model (\(recommendedCatalogModel.diskSize)), or choose cloud AI in Settings."
+            }
+            if s.aiConfiguration.provider == .ollama {
+                if s.ollamaSelectedModelMissing {
+                    return "Selected Ollama model is missing. Choose another model in Settings → AI."
+                }
+                return s.aiConfiguration.isLoopbackOllama
+                    ? "Ollama enabled on this Mac. Audio and text stay on your Mac."
+                    : "Remote Ollama enabled. Meeting text goes to \(s.aiConfiguration.baseURL)."
+            }
+            return "Cloud AI enabled. Meeting text goes to your selected provider."
+        }()
         checklistRow(done: hasModel,
                      active: downloading,
                      title: "AI coach model",
                      titleBadge: "optional",
-                     caption: settings?.usesCloudAI == true ? "Cloud AI enabled. Meeting text goes to your selected provider." : "Smarter nudges + meeting reviews. Local model (\(recommendedCatalogModel.diskSize)), or choose cloud AI in Settings.") {
+                     caption: caption) {
             if let settings, !hasModel {
                 if downloading {
                     Button("Cancel") { settings.cancelDownload() }

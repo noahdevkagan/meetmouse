@@ -9,6 +9,10 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Connect to an existing Ollama installation directly: choose "Ollama" in Settings → AI to use models already installed on your Mac or a remote Ollama server.
+- Automatically lists installed models from your Ollama server and checks whether they fit in your Mac's memory.
+- If a chosen Ollama model is removed, MeetMouse alerts you and gracefully continues with built-in coaching until you choose another model.
+
 ## 0.33.1 — 2026-10-27
 
 - When a call plays through your Mac's built-in speakers, MeetMouse now shows a one-line tip to use headphones. Without them your mic also hears the other side, so their words can show up as yours or both sides can blend into one block. Dismiss it with the x for that meeting.

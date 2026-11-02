@@ -138,5 +138,6 @@ final class OllamaManager {
     /// activation must settle deterministic.
     var engineAvailable = true
     func start() { status = .running }
+    func stopEmbeddedIfRunning() { status = .stopped }
     func ensureRunning() async -> Bool { engineAvailable }
 }

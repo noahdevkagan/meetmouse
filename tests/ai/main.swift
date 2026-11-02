@@ -174,6 +174,127 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
         catch is CancellationError { check(true, "cancellation terminates owned subprocess") }
         let early = try await ClaudeAccount.run(executable: URL(fileURLWithPath: "/usr/bin/false"), arguments: [], input: payload, timeout: 3)
         check(early.code != 0, "early stdin closure cannot crash parent with SIGPIPE")
+
+        // MARK: - Ollama Provider tests
+        check(OllamaEndpoint.isLoopback("http://localhost:11434"), "localhost is loopback")
+        check(OllamaEndpoint.isLoopback("http://127.0.0.1:11434"), "127.0.0.1 is loopback")
+        check(OllamaEndpoint.isLoopback("http://[::1]:11434"), "[::1] is loopback")
+        check(!OllamaEndpoint.isLoopback("http://192.168.1.100:11434"), "LAN IP is not loopback")
+        check(!OllamaEndpoint.isLoopback("https://ollama.company.com"), "remote domain is not loopback")
+
+        check((try? OllamaEndpoint.normalize("127.0.0.1:11434"))?.absoluteString == "http://127.0.0.1:11434", "normalize adds http scheme")
+        check((try? OllamaEndpoint.normalize("http://localhost:11434/api/generate"))?.absoluteString == "http://localhost:11434", "normalize strips /api/generate suffix")
+        check((try? OllamaEndpoint.normalize("http://localhost:11434/api/chat"))?.absoluteString == "http://localhost:11434", "normalize strips /api/chat suffix")
+        check((try? OllamaEndpoint.normalize("http://localhost:11434/v1/"))?.absoluteString == "http://localhost:11434", "normalize strips /v1 suffix")
+        check((try? OllamaEndpoint.normalize("ftp://invalid")) == nil, "normalize rejects non-http protocols")
+
+        let ollamaLocal = AIConfiguration(provider: .ollama, model: "llama3:8b", baseURL: "http://127.0.0.1:11434")
+        check(ollamaLocal.isLoopbackOllama, "ollama 127.0.0.1 recognized as loopback")
+        check(!ollamaLocal.sendsTextOffDevice, "loopback ollama does not send text off device")
+
+        let ollamaRemote = AIConfiguration(provider: .ollama, model: "llama3:70b", baseURL: "http://192.168.1.50:11434")
+        check(!ollamaRemote.isLoopbackOllama, "LAN ollama recognized as remote")
+        check(ollamaRemote.sendsTextOffDevice, "remote ollama sends text off device")
+
+        ollamaRemote.save(to: defaults)
+        let restoredRemote = AIConfiguration.read(from: defaults)
+        check(restoredRemote == ollamaRemote, "remote ollama config round trips in defaults")
+        check(restoredRemote.baseURL == "http://192.168.1.50:11434", "baseURL preserved across defaults save")
+
+        let ref = ollamaRemote.modelReference
+        check(ref.hasPrefix("cloud:ollama:"), "model reference has cloud:ollama prefix")
+        let decodedFromRef = AIConfiguration.cloud(from: ref)
+        check(decodedFromRef == ollamaRemote, "model reference preserves baseURL and model")
+
+        check(OllamaProvider.modelNamesMatch(configured: "llama3", installed: "llama3:latest"), "modelNamesMatch handles implicit latest")
+        check(OllamaProvider.modelNamesMatch(configured: "llama3:latest", installed: "llama3"), "modelNamesMatch handles explicit latest")
+        check(OllamaProvider.modelNamesMatch(configured: "llama3:8b", installed: "llama3:8b"), "modelNamesMatch handles exact match")
+        check(!OllamaProvider.modelNamesMatch(configured: "llama3:8b", installed: "llama3:70b"), "modelNamesMatch distinguishes sizes")
+
+        // Ollama HTTP parsing & error handling
+        StubHTTP.status = 200
+        StubHTTP.body = Data(#"{"models":[{"name":"llama3:8b","size":4500000000,"details":{"parameter_size":"8.0B"}}]}"#.utf8)
+        let listed = try await OllamaProvider.listModels(baseURL: URL(string: "http://127.0.0.1:11434")!, session: session)
+        check(listed.count == 1 && listed.first?.name == "llama3:8b", "listModels parses models JSON")
+        check(listed.first?.parameterSize == "8.0B", "listModels parses parameter size")
+
+        StubHTTP.status = 200
+        StubHTTP.body = Data(#"{"message":{"role":"assistant","content":"Ollama response"}}"#.utf8)
+        let chatResp = try await OllamaProvider.complete(
+            baseURL: URL(string: "http://127.0.0.1:11434")!,
+            model: "llama3:8b",
+            system: "sys",
+            user: "usr",
+            session: session
+        )
+        check(chatResp == "Ollama response", "complete parses chat completion")
+
+        // 404 -> modelNotFound
+        StubHTTP.status = 404
+        StubHTTP.body = Data(#"{"error":"model 'ghost' not found"}"#.utf8)
+        do {
+            _ = try await OllamaProvider.complete(
+                baseURL: URL(string: "http://127.0.0.1:11434")!,
+                model: "ghost",
+                system: "sys",
+                user: "usr",
+                session: session
+            )
+            check(false, "404 must throw")
+        } catch let err as OllamaProviderError {
+            if case .modelNotFound(let msg) = err {
+                check(msg.contains("ghost"), "404 maps to OllamaProviderError.modelNotFound")
+            } else {
+                check(false, "expected modelNotFound, got \(err)")
+            }
+        } catch {
+            check(false, "expected OllamaProviderError, got \(error)")
+        }
+
+        // Chat unsupported error
+        StubHTTP.status = 400
+        StubHTTP.body = Data(#"{"error":"does not support chat"}"#.utf8)
+        do {
+            _ = try await OllamaProvider.complete(
+                baseURL: URL(string: "http://127.0.0.1:11434")!,
+                model: "embed-only",
+                system: "sys",
+                user: "usr",
+                session: session
+            )
+            check(false, "unsupported chat must throw")
+        } catch let err as OllamaProviderError {
+            if case .chatUnsupported = err {
+                check(true, "error maps to OllamaProviderError.chatUnsupported")
+            } else {
+                check(false, "expected chatUnsupported, got \(err)")
+            }
+        } catch {
+            check(false, "expected OllamaProviderError, got \(error)")
+        }
+
+        // Ollama delete model parsing
+        StubHTTP.status = 200
+        StubHTTP.body = Data(#"{"status":"success"}"#.utf8)
+        do {
+            try await OllamaProvider.deleteModel(baseURL: URL(string: "http://127.0.0.1:11434")!, name: "old-model", session: session)
+            check(true, "deleteModel succeeds on HTTP 200")
+        } catch {
+            check(false, "deleteModel failed: \(error)")
+        }
+
+        // Notification on missing model
+        final class NoticeBox: @unchecked Sendable { var received = false }
+        let noticeBox = NoticeBox()
+        let observer = NotificationCenter.default.addObserver(forName: OllamaProvider.didDetectMissingModel, object: nil, queue: nil) { note in
+            if note.userInfo?["model"] as? String == "missing-test" {
+                noticeBox.received = true
+            }
+        }
+        NotificationCenter.default.post(name: OllamaProvider.didDetectMissingModel, object: nil, userInfo: ["model": "missing-test"])
+        check(noticeBox.received, "didDetectMissingModel notification posts and delivers model name")
+        NotificationCenter.default.removeObserver(observer)
+
         defaults.removeObject(forKey: AIConfiguration.defaultsKey)
         UserDefaults.standard.removeObject(forKey: AIConfiguration.defaultsKey)
         print("\(count) AI provider checks passed; no live API calls.")

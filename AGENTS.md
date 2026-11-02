@@ -10,7 +10,7 @@ This file is the seed doc — it auto-loads into every session. Three habits kee
 2. **Log the why.** When you make (or reverse) a non-obvious design choice, append one entry to `decisions.md`: what was decided and why. Read it before re-litigating anything.
 3. **Hand off at the end.** When the user wraps up ("done", "that's it for today"), run the `/handoff` skill: it rewrites `HANDOFF.md` (state, outstanding, next-session prompt) and commits. A SessionStart hook in `.claude/settings.json` injects `HANDOFF.md` into every new session automatically.
 
-**What this is:** a local-first, zero-telemetry macOS menu-bar + window app (SwiftUI) that listens to live meetings, applies a coaching rubric, and nudges the user in real time. Transcription is on-device (Parakeet/SFSpeech); the LLM defaults to an embedded Ollama pinned to `127.0.0.1`. Users may explicitly enable Claude account or Claude/OpenAI BYOK in Settings → AI; only that opt-in permits sending AI text/context to the selected provider. Audio/transcription always remain on-device. Local mode must fully work with WiFi off.
+**What this is:** a local-first, zero-telemetry macOS menu-bar + window app (SwiftUI) that listens to live meetings, applies a coaching rubric, and nudges the user in real time. Transcription is on-device (Parakeet/SFSpeech); the LLM defaults to an embedded Ollama pinned to `127.0.0.1`. Users may explicitly enable an existing local or remote Ollama server, Claude account, or Claude/OpenAI BYOK in Settings → AI; only that opt-in permits sending AI text/context to the selected provider. Audio/transcription always remain on-device. Local mode (including local Ollama) must fully work with WiFi off.
 
 ## Setup (one time)
 
@@ -72,7 +72,7 @@ Push a `## X.Y.Z` section in CHANGELOG.md to `main` (commit "Changelog: X.Y.Z"):
 
 ## Conventions
 
-- Local-first is non-negotiable: no telemetry. Network access is limited to explicit model/update downloads and user-enabled Claude account/Claude/OpenAI BYOK text inference. Keep keys in device-only Keychain; never weaken Ollama’s loopback restriction.
+- Local-first is non-negotiable: no telemetry. Network access is limited to explicit model/update downloads and user-enabled Claude account/Claude/OpenAI BYOK / remote Ollama text inference. Keep keys in device-only Keychain; never weaken Ollama’s loopback restriction.
 - Signals reason over coalesced speaker *turns*, not raw ASR fragments (`Engine/TranscriptAnalysis.swift`).
 - Rubrics are YAML (`Resources/default_rubric.yaml`, user copy under Application Support); round-tripping must never drop fields.
 - Marketing pages (`/best`, `/compare`, `/blog`, hubs) are generated: edit `site/`, run `python3 site/build.py`, never hand-edit their `docs/` HTML. Follow `SITE-PLAYBOOK.md` (shared with the Rhino Voice repo) for voice, facts and cross-linking.

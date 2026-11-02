@@ -1,43 +1,5 @@
 import Foundation
 
-struct OllamaModel: Identifiable, Sendable {
-    let name: String
-    let size: Int64
-    let parameterSize: String
-    var id: String { name }
-
-    var sizeLabel: String {
-        let gb = Double(size) / 1_073_741_824
-        if gb >= 1 {
-            return String(format: "%.1f GB", gb)
-        }
-        let mb = Double(size) / 1_048_576
-        return String(format: "%.0f MB", mb)
-    }
-}
-
-/// Progress update from a model pull operation.
-struct PullProgress: Sendable {
-    let status: String
-    let completed: Int64
-    let total: Int64
-
-    var fraction: Double {
-        total > 0 ? Double(completed) / Double(total) : 0
-    }
-
-    var isComplete: Bool {
-        status == "success"
-    }
-
-    var sizeLabel: String {
-        guard total > 0 else { return status }
-        let completedGB = Double(completed) / 1_073_741_824
-        let totalGB = Double(total) / 1_073_741_824
-        return String(format: "%.1f / %.1f GB", completedGB, totalGB)
-    }
-}
-
 /// RAM-fit rules for local models, in one place. A model is "comfortable"
 /// when its weights plus ~1.5 GB (KV cache + runner) stay within ~70% of
 /// unified memory — beyond that macOS swaps mid-meeting, which the user
