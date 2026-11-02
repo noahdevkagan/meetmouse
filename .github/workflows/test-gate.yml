@@ -84,6 +84,7 @@ jobs:
           bash tests/freetier/run.sh
           bash tests/usage/run.sh
           bash tests/feedback/run.sh
+          bash tests/transcripts/run.sh
           bash tests/hygiene/run.sh
           bash tests/micsilence/run.sh
 

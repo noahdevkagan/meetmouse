@@ -50,6 +50,7 @@ tests/nudges/.build/
 tests/echo/.build/
 tests/micsilence/.build/
 tests/hygiene/.build/
+tests/transcripts/.build/
 tests/language/.build/
 .wrangler/
 tests/session/.build

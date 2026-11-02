@@ -1,10 +1,14 @@
-name: Improve coaching (weekly)
+name: Improve coaching + transcripts (weekly)
 
 # The self-improving loop (decisions.md 2026-11-02 "coaching feedback").
 # Reads the aggregate of opted-in users' nudge ratings (ids and numbers only)
 # from the web-share Worker, lets scripts/improve/propose.py nudge each
 # signal's field multiplier by a bounded step, proves the app still builds
 # and the nudge/feedback suites pass, then opens a PR with the evidence.
+# Transcripts (decisions.md 2026-11-02 "transcript fixes"): the same run reads
+# opted-in "Fix a misheard term" pairs taught on 3+ Macs and lets
+# scripts/improve/merge_transcript_fixes.py add qualifying ones to
+# Resources/common_corrections.json; tests/transcripts replays every entry.
 # It NEVER merges: a human (or a reviewer you trust) approves each step.
 #
 # Needs repo secret FEEDBACK_ADMIN_TOKEN (same value as the Worker's
@@ -27,7 +31,9 @@ jobs:
   propose:
     runs-on: ubuntu-latest
     outputs:
-      changed: ${{ steps.propose.outputs.changed }}
+      changed: ${{ steps.any.outputs.changed }}
+      coaching: ${{ steps.propose.outputs.coaching }}
+      transcripts: ${{ steps.transcripts.outputs.transcripts }}
     steps:
       - uses: actions/checkout@v4
 
@@ -41,18 +47,49 @@ jobs:
             --fetch https://meetmouse.com/api/admin/feedback-summary \
             --token-env FEEDBACK_ADMIN_TOKEN \
             --evidence evidence.md | tee propose.log
-          tail -1 propose.log >> "$GITHUB_OUTPUT"
+          tail -1 propose.log | sed 's/^changed=/coaching=/' >> "$GITHUB_OUTPUT"
           if [ -f evidence.md ]; then cat evidence.md >> "$GITHUB_STEP_SUMMARY"; fi
 
+      - name: Propose shared transcript corrections
+        id: transcripts
+        env:
+          FEEDBACK_ADMIN_TOKEN: ${{ secrets.FEEDBACK_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 scripts/improve/merge_transcript_fixes.py \
+            --fetch https://meetmouse.com/api/admin/transcript-fixes-summary \
+            --token-env FEEDBACK_ADMIN_TOKEN \
+            --report evidence-transcripts.md | tee merge.log
+          tail -1 merge.log | sed 's/^changed=/transcripts=/' >> "$GITHUB_OUTPUT"
+          if [ -f evidence-transcripts.md ]; then cat evidence-transcripts.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Anything to propose?
+        id: any
+        run: |
+          if [ "${{ steps.propose.outputs.coaching }}" = "true" ] || [ "${{ steps.transcripts.outputs.transcripts }}" = "true" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pack the proposal
+        if: steps.any.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          files=()
+          for f in MeetingCoach/MeetingCoach/Engine/FieldTuning.swift bench/field-feedback.jsonl \
+                   MeetingCoach/MeetingCoach/Resources/common_corrections.json \
+                   evidence.md evidence-transcripts.md; do
+            [ -f "$f" ] && files+=("$f")
+          done
+          tar czf proposal.tgz "${files[@]}"
+
       - name: Hand the proposal to the verify job
-        if: steps.propose.outputs.changed == 'true'
+        if: steps.any.outputs.changed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: proposal
-          path: |
-            MeetingCoach/MeetingCoach/Engine/FieldTuning.swift
-            bench/field-feedback.jsonl
-            evidence.md
+          path: proposal.tgz
 
   verify-and-open-pr:
     needs: propose
@@ -73,8 +110,12 @@ jobs:
       - name: Apply proposal
         run: |
           set -euo pipefail
-          cp proposal/MeetingCoach/MeetingCoach/Engine/FieldTuning.swift MeetingCoach/MeetingCoach/Engine/FieldTuning.swift
-          cp proposal/bench/field-feedback.jsonl bench/field-feedback.jsonl
+          mkdir -p proposal-files
+          tar xzf proposal/proposal.tgz -C proposal-files
+          for f in MeetingCoach/MeetingCoach/Engine/FieldTuning.swift bench/field-feedback.jsonl \
+                   MeetingCoach/MeetingCoach/Resources/common_corrections.json; do
+            if [ -f "proposal-files/$f" ]; then cp "proposal-files/$f" "$f"; fi
+          done
           git diff --stat
 
       - name: Select Xcode 16
@@ -100,6 +141,7 @@ jobs:
         run: |
           set -euo pipefail
           bash tests/feedback/run.sh
+          bash tests/transcripts/run.sh
           bash tests/nudges/run.sh
           bash tests/rubric/run.sh
 
@@ -112,17 +154,24 @@ jobs:
           git config user.name "meetmouse-improve-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add MeetingCoach/MeetingCoach/Engine/FieldTuning.swift bench/field-feedback.jsonl
-          git commit -m "Field tuning: weekly adjustment from opted-in coaching feedback"
+          for f in MeetingCoach/MeetingCoach/Engine/FieldTuning.swift bench/field-feedback.jsonl \
+                   MeetingCoach/MeetingCoach/Resources/common_corrections.json; do
+            if [ -f "$f" ]; then git add "$f"; fi
+          done
+          git commit -m "Weekly improvements from opted-in coaching feedback and transcript fixes"
           git push -u origin "$branch"
           {
-            cat proposal/evidence.md
-            echo
-            echo "Regression suites passed on macOS (feedback, nudges, rubric) and the app builds."
-            echo "Merging ships these multipliers in the next release. Nothing merges automatically."
+            if [ -f proposal-files/evidence.md ] && [ "${{ needs.propose.outputs.coaching }}" = "true" ]; then
+              cat proposal-files/evidence.md; echo
+            fi
+            if [ -f proposal-files/evidence-transcripts.md ]; then
+              cat proposal-files/evidence-transcripts.md; echo
+            fi
+            echo "Regression suites passed on macOS (feedback, transcripts, nudges, rubric) and the app builds."
+            echo "Merging ships these changes in the next release. Nothing merges automatically."
           } > body.md
           gh pr create --base main --head "$branch" \
-            --title "Field tuning $(date -u +%Y-%m-%d): weekly coaching adjustment" \
+            --title "Weekly improvements $(date -u +%Y-%m-%d): coaching + transcripts" \
             --body-file body.md
           # PRs opened with GITHUB_TOKEN don't trigger push CI; dispatch the gate.
           gh workflow run test-gate.yml --ref "$branch" || true

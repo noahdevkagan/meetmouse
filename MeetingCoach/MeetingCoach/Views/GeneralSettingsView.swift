@@ -106,6 +106,40 @@ struct GeneralSettingsView: View {
                     }
                     .onAppear { settings.refreshPendingCoachingFeedback() }
                 }
+
+                Toggle("Help improve transcripts", isOn: $settings.shareTranscriptFixes)
+                Text("When you fix a misheard term, shares the few words MeetMouse heard and what you changed them to \u{2014} never audio, transcripts, notes, or anyone's name. Fixes taught on several Macs become built-in corrections for everyone; your own vocabulary always wins. Sent weekly, and you can delete anything below first. Turning this off deletes what's waiting and asks our server to delete what was sent. Off by default.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if settings.shareTranscriptFixes {
+                    ForEach(settings.pendingTranscriptFixes) { fix in
+                        HStack {
+                            Text("\(fix.heard) \u{2192} \(fix.corrected)")
+                                .font(.caption)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                            Spacer()
+                            Button {
+                                settings.deletePendingTranscriptFix(fix.fixId)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Don't send this fix")
+                        }
+                    }
+                    HStack {
+                        Text(settings.pendingTranscriptFixes.count == 1
+                             ? "1 fix waiting to send"
+                             : "\(settings.pendingTranscriptFixes.count) fixes waiting to send")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Delete all") { settings.deleteAllPendingTranscriptFixes() }
+                            .disabled(settings.pendingTranscriptFixes.isEmpty)
+                    }
+                    .onAppear { settings.refreshPendingTranscriptFixes() }
+                }
             }
 
             Section("Transcripts") {

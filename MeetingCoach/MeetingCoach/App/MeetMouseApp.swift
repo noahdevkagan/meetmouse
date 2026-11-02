@@ -52,6 +52,8 @@ struct MeetMouseApp: App {
             await UsageReporter.sendIfDue()
             // Separate opt-in: rated nudges for the weekly improve loop.
             await FeedbackReporter.sendIfDue()
+            // Third opt-in: "Fix a misheard term" pairs, at most weekly.
+            await TranscriptFixReporter.sendIfDue()
         }
 
         let badge = UpdateBadgeModel()

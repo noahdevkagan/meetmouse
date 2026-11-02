@@ -5,6 +5,43 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-02, latest): Opt-in transcript fixes + weekly shared-corrections loop — built, pushed (CI is the Swift gate)
+
+Noah: "MeetMouse feels like transcript improvements as well, not just
+coaching." Third opt-in, SEPARATE toggle "Help improve transcripts" (off by
+default). Plan:
+1. Signal: the existing "Fix a misheard term" action
+   (`LiveSessionViewModel.fixMisheardTerm`) — an explicit user correction
+   that already lands in the custom vocabulary. No transcript diffing, no
+   transcript text.
+2. App: `Engine/TranscriptFixReporter.swift` queues heard→corrected pairs
+   (≤5 words / 60 chars a side, engine id, language code). Scrub mirrors
+   Rhino (email/URL/domain/4+ digits/keys) PLUS a names rule: drop the pair
+   when either side contains a speaker/participant name from the meeting, or
+   the corrected side is Title-Case-only (looks like a person's name) unless
+   the user's vocabulary lists it as a bare glossary term. Settings: pending
+   list with per-item delete + Delete all. Weekly POST to
+   https://meetmouse.com/api/transcript-fixes; opt-out wipes queue + ID and
+   DELETEs server rows. Debug gated by MEETMOUSE_USAGE_DEBUG=1.
+3. Apply side: `Engine/CommonCorrections.swift` loads bundled
+   `Resources/common_corrections.json` as extra VocabularyNormalizer terms
+   (English sessions only); the user's own vocabulary wins on any overlap.
+4. Worker: migration 0005, POST/DELETE /api/transcript-fixes, 180-day purge
+   in the daily cron, GET /api/admin/transcript-fixes-summary (Bearer
+   ADMIN_TOKEN, pairs from ≥3 installs only).
+5. Loop: improve-weekly.yml gains a transcripts step
+   (`scripts/improve/merge_transcript_fixes.py`, Rhino's rules + names rule);
+   same verify job + PR. Never merges.
+6. Gate: new `tests/transcripts` (default off, payload shape, scrub parity
+   across app/worker/script via a shared fixture, bundled replay, merge
+   script unittest) wired into push-gate.sh + test-gate.yml.
+Status: worker tests pass (39), merge script unittest (13) + self-test
+pass. Swift (TranscriptFixReporter, CommonCorrections, settings list,
+fixMisheardTerm hook, tests/transcripts main.swift) NOT compiled here — CI
+Build Check / test-gate is the first compile. No new secret: the loop reuses
+FEEDBACK_ADMIN_TOKEN / Worker ADMIN_TOKEN. Deploy: `cd web-share && npm run
+db:remote && npm run deploy` (migration 0005 + two new routes).
+
 ## Current state (2026-11-02, later): Opt-in coaching feedback + weekly improve loop — built, pushed (CI is the Swift gate)
 
 Noah: "do both so apps can keep improving without me". Second, SEPARATE

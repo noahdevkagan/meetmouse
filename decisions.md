@@ -2091,3 +2091,45 @@ never merges and never disables a signal: shipping a behaviour change
 stays a human decision, and a bad week can only move things 10%. The
 golden nudge replay keeps testing stock behaviour because field tuning is
 applied in the view model, not the engine.
+
+## 2026-11-02 — Transcript-fix opt-in + shared corrections ("transcript fixes")
+
+Noah: MeetMouse should improve transcripts from users too, not just
+coaching. Signal: the existing "Fix a misheard term" action — an explicit,
+deliberate correction the user already makes, which already lands in their
+own vocabulary. Nothing diffs transcripts and no transcript line is ever
+sent.
+
+A THIRD, separate toggle ("Help improve transcripts", off by default)
+rather than folding into "Help improve coaching": coaching sends ids and
+numbers only, this sends words. Someone happy to share ratings may not be
+happy to share words, and the coaching payload's "no text, ever" guarantee
+(tests/feedback) stays simple to state and to test.
+
+What leaves the Mac: heard→corrected (each ≤5 words / 60 chars), engine id,
+language code, day, random install id. Dropped whole on the Mac:
+emails/URLs/domains/4+ digits/keys (same patterns as Rhino, re-checked by
+the Worker and the merge script; tests/transcripts/scrub_cases.json holds
+all three to identical cases), and — meetings are full of other people's
+names — any pair mentioning a word of a participant or speaker name, and
+any corrected side that is Title Case words only ("Sarah", "John Smith"),
+unless the user's vocabulary lists it as a bare glossary term. The
+Title-Case rule also drops genuine brand fixes ("Kubernetes"); that is the
+accepted cost of never shipping a stranger's name. The names rules are
+app-only because only the app knows who was in the call. This revisits the
+coaching entry's "training on transcripts rejected": that rejected whole
+transcripts the other side never consented to; a ≤5-word term the user
+typed themselves, minus names, is a different thing.
+
+Server: per install+pair upsert, 180-day purge, opt-out DELETE; the weekly
+summary (Bearer ADMIN_TOKEN) only lists pairs from ≥3 different installs.
+Loop: the same improve-weekly.yml run merges qualifying pairs into
+Resources/common_corrections.json with Rhino's rules (≥3 installs, English
+only, no common words, clear 2× winner, no second-pass growth, no chains,
+no overlap with built-in terms, ≤50 a run, never edits existing entries),
+then the macOS job must pass tests/transcripts (which replays every
+bundled entry) before a PR opens. Never auto-merges. At runtime the bundle
+applies to English meetings only and is skipped wherever the user's own
+vocabulary or the built-in defaults already mention the same words.
+Speaker-rename counts were considered and skipped: a rename is naming, not
+a recognition error, so it can't improve the transcriber.

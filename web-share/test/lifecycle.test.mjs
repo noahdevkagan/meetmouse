@@ -11,12 +11,13 @@ source = source.replaceAll('"./core.js"', JSON.stringify(new URL('../src/core.js
 source = source.replaceAll('"./referrals.js"', JSON.stringify(new URL('../src/referrals.js', import.meta.url).href));
 source = source.replaceAll('"./usage.js"', JSON.stringify(new URL('../src/usage.js', import.meta.url).href));
 source = source.replaceAll('"./feedback.js"', JSON.stringify(new URL('../src/feedback.js', import.meta.url).href));
+source = source.replaceAll('"./transcriptFixes.js"', JSON.stringify(new URL('../src/transcriptFixes.js', import.meta.url).href));
 const { default: worker } = await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const id = 'abcdefghijklmnopqrstuv', token = 'owner-token-with-at-least-20-characters';
 const body = {schemaVersion:1,id,nonce:'AAAAAAAAAAAAAAAA',ciphertext:'AAAAAAAAAAAAAAAAAAAAAAAA',revokeHash:await sha256Base64URL(token)};
 function fixture(t) {
   const db = new DatabaseSync(':memory:');
-  for (const m of ['0001_shared_notes.sql','0002_referral_clicks.sql','0003_usage.sql','0004_feedback.sql']) db.exec(readFileSync(new URL('../migrations/'+m, import.meta.url),'utf8'));
+  for (const m of ['0001_shared_notes.sql','0002_referral_clicks.sql','0003_usage.sql','0004_feedback.sql','0005_transcript_fixes.sql']) db.exec(readFileSync(new URL('../migrations/'+m, import.meta.url),'utf8'));
   t.after(()=>db.close());
   const env = { CREATE_RATE_LIMITER: {limit:async()=>({success:true})}, USAGE_RATE_LIMITER: {limit:async()=>({success:true})}, DB: {prepare(sql) {
     return {bind(...args) {const statement=db.prepare(sql); return {run:async()=>statement.run(...args),first:async()=>statement.get(...args)};},
@@ -136,4 +137,27 @@ test('feedback: accepted, deleted on opt-out, summary only with the admin token'
   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM feedback_events').get().n,0);
   f.env.USAGE_RATE_LIMITER.limit=async()=>({success:false});
   assert.equal((await f.req('/api/feedback',{method:'POST',body:JSON.stringify(report)})).status,429);
+});
+
+test('transcript fixes: scrubbed on arrival, deleted on opt-out, summary only with the admin token', async t=>{
+  const f=fixture(t);
+  const installId='3F2504E0-4F89-41D3-9A0C-0305E82C3301';
+  const day=new Date().toISOString().slice(0,10);
+  const fix=(fixId,heard,corrected)=>({fixId,day,heard,corrected,engine:'parakeetV2',language:'en'});
+  const report={installId,appVersion:'0.34.0',fixes:[
+    fix('6F9619FF-8B86-D011-B42D-00C04FC964FF','cooper net ease','Kubernetes'),
+    fix('6F9619FF-8B86-D011-B42D-00C04FC96500','call me','555 123 4567')]};
+  assert.equal((await f.req('/api/transcript-fixes',{method:'POST',body:JSON.stringify(report)})).status,204);
+  assert.equal((await f.req('/api/transcript-fixes',{method:'POST',body:JSON.stringify(report)})).status,204);
+  assert.equal((await f.req('/api/transcript-fixes',{method:'POST',body:JSON.stringify({...report,transcript:'x'})})).status,400);
+  assert.deepEqual(f.db.prepare('SELECT heard, corrected FROM transcript_fixes').all().map(r=>({...r})),[{heard:'cooper net ease',corrected:'Kubernetes'}]);
+  assert.equal((await f.req('/api/admin/transcript-fixes-summary')).status,404);
+  f.env.ADMIN_TOKEN='a'.repeat(40);
+  assert.equal((await f.req('/api/admin/transcript-fixes-summary',{headers:{Authorization:'Bearer wrong'}})).status,401);
+  const ok=await f.req('/api/admin/transcript-fixes-summary',{headers:{Authorization:'Bearer '+'a'.repeat(40)}});
+  assert.equal(ok.status,200); assert.deepEqual((await ok.json()).pairs,[]);
+  assert.equal((await f.req('/api/transcript-fixes/'+installId,{method:'DELETE'})).status,204);
+  assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM transcript_fixes').get().n,0);
+  f.env.USAGE_RATE_LIMITER.limit=async()=>({success:false});
+  assert.equal((await f.req('/api/transcript-fixes',{method:'POST',body:JSON.stringify(report)})).status,429);
 });

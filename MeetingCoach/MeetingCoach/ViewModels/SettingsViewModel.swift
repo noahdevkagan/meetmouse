@@ -166,6 +166,35 @@ final class SettingsViewModel {
         pendingCoachingFeedback = FeedbackLedger(defaults: .standard).pendingCount
     }
 
+    /// Third opt-in, default OFF: "Fix a misheard term" pairs, scrubbed
+    /// (see TranscriptFixLedger). Off wipes the queue and the random id and
+    /// asks the server to delete what this Mac sent.
+    var shareTranscriptFixes: Bool {
+        didSet {
+            guard oldValue != shareTranscriptFixes else { return }
+            if let removed = TranscriptFixLedger(defaults: .standard).setOptedIn(shareTranscriptFixes) {
+                Task.detached(priority: .utility) { await TranscriptFixReporter.deleteRemote(installId: removed) }
+            }
+            pendingTranscriptFixes = TranscriptFixLedger(defaults: .standard).pending
+        }
+    }
+    /// Fixes waiting to be sent — listed under the toggle, each deletable.
+    var pendingTranscriptFixes: [TranscriptFixLedger.Fix] = []
+
+    func deletePendingTranscriptFix(_ fixId: String) {
+        TranscriptFixLedger(defaults: .standard).delete(fixId)
+        pendingTranscriptFixes = TranscriptFixLedger(defaults: .standard).pending
+    }
+
+    func deleteAllPendingTranscriptFixes() {
+        TranscriptFixLedger(defaults: .standard).deletePending()
+        pendingTranscriptFixes = []
+    }
+
+    func refreshPendingTranscriptFixes() {
+        pendingTranscriptFixes = TranscriptFixLedger(defaults: .standard).pending
+    }
+
     // Download state
     var downloadingModel: String?
     var downloadProgress: Double = 0
@@ -188,6 +217,8 @@ final class SettingsViewModel {
         self.shareUsageStats = UsageLedger(defaults: .standard).isOptedIn
         self.shareCoachingFeedback = FeedbackLedger(defaults: .standard).isOptedIn
         self.pendingCoachingFeedback = FeedbackLedger(defaults: .standard).pendingCount
+        self.shareTranscriptFixes = TranscriptFixLedger(defaults: .standard).isOptedIn
+        self.pendingTranscriptFixes = TranscriptFixLedger(defaults: .standard).pending
         // Fresh installs default to the RAM-aware recommendation — the old
         // one-size qwen3.5:9b default swapped 8–16 GB Macs into a freeze.
         self.selectedModel = UserDefaults.standard.string(forKey: "selectedModel")

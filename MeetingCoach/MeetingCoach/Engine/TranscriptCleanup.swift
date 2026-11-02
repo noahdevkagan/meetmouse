@@ -124,7 +124,7 @@ struct VocabularyNormalizer: @unchecked Sendable {
 
     /// "AppSumo = epsom, apsu" / bare "AppSumo" per line. Bare terms still
     /// normalize casing and feed recognition hints.
-    private static func parse(_ text: String) -> [Term] {
+    static func parse(_ text: String) -> [Term] {
         text.components(separatedBy: .newlines).compactMap { line -> Term? in
             let parts = line.split(separator: "=", maxSplits: 1)
             guard let head = parts.first?.trimmingCharacters(in: .whitespaces),

@@ -9,6 +9,10 @@ import { MAX_USAGE_BYTES, recordDownload, storeUsage, usageStats, validateUsageR
 import {
   MAX_FEEDBACK_BYTES, deleteFeedback, feedbackSummary, purgeOldFeedback, storeFeedback, validateFeedbackReport,
 } from "./feedback.js";
+import {
+  MAX_TRANSCRIPT_FIX_BYTES, deleteTranscriptFixes, purgeOldTranscriptFixes, storeTranscriptFixes,
+  transcriptFixSummary, validateTranscriptFixReport,
+} from "./transcriptFixes.js";
 
 export { shareIDFromPath, sha256Base64URL, validateCreateBody } from "./core.js";
 
@@ -223,15 +227,42 @@ async function removeFeedback(request, env, installId) {
 }
 
 async function serveFeedbackSummary(request, env) {
+  return serveAdminSummary(request, env, feedbackSummary);
+}
+
+async function serveAdminSummary(request, env, summarize) {
   // Read by .github/workflows/improve-weekly.yml. Not configured = not here.
   if (typeof env.ADMIN_TOKEN !== "string" || env.ADMIN_TOKEN.length < 32) return error("Not found.", 404);
   const header = request.headers.get("authorization") ?? "";
   const candidate = header.startsWith("Bearer ") ? header.slice(7) : "";
   if (!constantTimeEqual(candidate, env.ADMIN_TOKEN)) return error("Unauthorized.", 401);
-  return response(JSON.stringify(await feedbackSummary(env.DB)), 200, {
+  return response(JSON.stringify(await summarize(env.DB)), 200, {
     "Cache-Control": "no-store",
     "Content-Type": "application/json; charset=utf-8",
   });
+}
+
+async function receiveTranscriptFixes(request, env) {
+  // Same limiter as usage reports: the IP keys the binding and is never stored.
+  const clientKey = request.headers.get("cf-connecting-ip") ?? "local-development";
+  const limit = await env.USAGE_RATE_LIMITER.limit({ key: clientKey });
+  if (!limit.success) return error("Too many reports. Try again later.", 429);
+  const { body, failure } = await readJSON(request, MAX_TRANSCRIPT_FIX_BYTES);
+  if (failure) return failure;
+  const { report, error: invalid } = validateTranscriptFixReport(body);
+  if (invalid) return error(invalid, 400);
+  await storeTranscriptFixes(env.DB, report);
+  return response(null, 204, { "Cache-Control": "no-store" });
+}
+
+const TRANSCRIPT_FIX_DELETE = /^\/api\/transcript-fixes\/([0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})$/;
+
+async function removeTranscriptFixes(request, env, installId) {
+  const clientKey = request.headers.get("cf-connecting-ip") ?? "local-development";
+  const limit = await env.USAGE_RATE_LIMITER.limit({ key: clientKey });
+  if (!limit.success) return error("Too many requests. Try again later.", 429);
+  await deleteTranscriptFixes(env.DB, installId);
+  return response(null, 204, { "Cache-Control": "no-store" });
 }
 
 async function serveStats(env) {
@@ -323,6 +354,14 @@ export default {
       if (request.method === "GET" && url.pathname === "/api/admin/feedback-summary") {
         return await serveFeedbackSummary(request, env);
       }
+      if (request.method === "POST" && url.pathname === "/api/transcript-fixes") {
+        return await receiveTranscriptFixes(request, env);
+      }
+      const transcriptFixDelete = request.method === "DELETE" && TRANSCRIPT_FIX_DELETE.exec(url.pathname);
+      if (transcriptFixDelete) return await removeTranscriptFixes(request, env, transcriptFixDelete[1]);
+      if (request.method === "GET" && url.pathname === "/api/admin/transcript-fixes-summary") {
+        return await serveAdminSummary(request, env, transcriptFixSummary);
+      }
       const referral = referralRoute(url.pathname);
       if (referral && request.method === "GET") return await handleReferral(referral, request, env, url);
       if (request.method === "POST" && url.pathname === "/api/shared-notes/create") {
@@ -347,5 +386,6 @@ export default {
         .run(),
     );
     context.waitUntil(purgeOldFeedback(env.DB, now));
+    context.waitUntil(purgeOldTranscriptFixes(env.DB, now));
   },
 };

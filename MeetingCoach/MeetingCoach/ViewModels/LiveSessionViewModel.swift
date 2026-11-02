@@ -544,8 +544,11 @@ final class LiveSessionViewModel {
         // SFSpeech recognition; the normalizer repairs the output where the
         // engine takes no hints (Parakeet). Custom terms come from the
         // transcript's "Fix a misheard term" flow and Settings → General.
+        let userVocabulary = UserDefaults.standard.string(forKey: "customVocabularyText") ?? ""
         let vocabulary = VocabularyNormalizer(
-            customText: UserDefaults.standard.string(forKey: "customVocabularyText") ?? "",
+            customText: userVocabulary,
+            extraTerms: CommonCorrections.terms(userVocabulary: userVocabulary,
+                                                isEnglish: resolvedLanguage.isEnglish),
             foldVietnameseArtifacts: resolvedLanguage.shouldFoldVietnameseArtifacts)
         manager.contextualHints = sessionContext.vocabularyHints + vocabulary.canonicals
         // Saved voices are candidates only when the user confirms who is
@@ -885,6 +888,8 @@ final class LiveSessionViewModel {
                                     turns: samples)
             Task.detached(priority: .utility) { await FeedbackReporter.sendIfDue() }
         }
+        // Separate opt-in "Help improve transcripts": weekly, no-op when off.
+        Task.detached(priority: .utility) { await TranscriptFixReporter.sendIfDue() }
 
         saveSession()
 
@@ -1472,9 +1477,24 @@ final class LiveSessionViewModel {
                 signalEngine = engine
             }
         }
+        let updatedVocabulary = UserDefaults.standard.string(forKey: key) ?? ""
         captureManager?.vocabulary = VocabularyNormalizer(
-            customText: UserDefaults.standard.string(forKey: key) ?? "",
+            customText: updatedVocabulary,
+            extraTerms: CommonCorrections.terms(userVocabulary: updatedVocabulary,
+                                                isEnglish: sessionLanguage?.isEnglish ?? true),
             foldVietnameseArtifacts: foldVietnamese)
+
+        // Separate opt-in "Help improve transcripts" (off by default): queue
+        // the scrubbed pair — never transcript lines. Names of anyone in this
+        // meeting, and Title-Case-only fixes that read like a name, are
+        // dropped inside TranscriptFixScrub.
+        let knownNames = preCallContext.participants.map(\.name) + utterances.map(\.speaker)
+        TranscriptFixReporter.record(
+            heard: wrote, corrected: canonical,
+            engine: (captureManager ?? endedCaptureManager)?.transcriptionEngine.rawValue ?? "",
+            language: sessionLanguage?.code ?? "",
+            knownNames: Array(Set(knownNames)),
+            glossary: TranscriptFixScrub.glossaryTerms(fromVocabulary: existing))
         mclog("[VM] Vocabulary fix: \"\(wrote)\" → \"\(canonical)\" (rewrote \(changed ? "transcript" : "nothing"))")
     }
 
@@ -1610,8 +1630,11 @@ final class LiveSessionViewModel {
             engine.restrictToMultilingualSafe()
             signalEngine = engine
         }
+        let userVocabulary = UserDefaults.standard.string(forKey: "customVocabularyText") ?? ""
         captureManager?.vocabulary = VocabularyNormalizer(
-            customText: UserDefaults.standard.string(forKey: "customVocabularyText") ?? "",
+            customText: userVocabulary,
+            extraTerms: CommonCorrections.terms(userVocabulary: userVocabulary,
+                                                isEnglish: target.isEnglish),
             foldVietnameseArtifacts: target.shouldFoldVietnameseArtifacts)
         mclog("[VM] Meeting language now \(target.code) (\(captureManager?.engineLabel ?? "?"))")
     }

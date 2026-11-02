@@ -87,6 +87,16 @@ zone_name = "meetmouse.com"
 pattern = "meetmouse.com/api/admin/*"
 zone_name = "meetmouse.com"
 
+# Opt-in transcript fixes (third toggle) and its opt-out delete. The weekly
+# loop reads /api/admin/transcript-fixes-summary (covered by the route above).
+[[routes]]
+pattern = "meetmouse.com/api/transcript-fixes"
+zone_name = "meetmouse.com"
+
+[[routes]]
+pattern = "meetmouse.com/api/transcript-fixes/*"
+zone_name = "meetmouse.com"
+
 # Legacy host: links created before 0.32 (and their revocation tokens) live
 # here. Keep path-specific so the existing rhinovoice.app Worker continues to
 # own every other page.
