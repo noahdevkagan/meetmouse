@@ -119,6 +119,17 @@
   <p class="sub">What's new in MeetMouse — every release, in plain language. The app updates itself automatically.</p>
 
   <section class="release">
+    <h2>0.34.0 <span class="date">November 4, 2026</span></h2>
+    <ul>
+      <li>Speaker name suggestions now appear right beside the talk bubble with Yes and No buttons, so you can confirm a name during the call without opening MeetMouse.</li>
+      <li>Speaker snapshots no longer misread a capital I as a lowercase L in names (for example, "lvan" instead of "Ivan").</li>
+      <li>Speaker snapshots recognize the standalone Google Meet app. The window chooser shows detected calls first, with an option to select the call you switch to.</li>
+      <li>Speaker snapshots can read Google Meet’s blue speaker outlines as well as Zoom’s green/yellow outlines. Participant names must be visible; matches still need your confirmation.</li>
+      <li>Speaker-name settings now explain Zoom’s name-visibility option. When all snapshots miss the names, MeetMouse explains how to name a speaker manually.</li>
+      <li>Calls now run lighter by default. New installs start with advanced live coaching off, so no large AI model downloads or runs during calls, and built-in nudges still work. A setup checklist on the home screen offers your Claude account or a local model for AI notes after each call. Want AI nudges during calls? Turn on advanced live coaching in Settings → AI, which now shows what it costs in memory on your Mac. Existing installs keep their current setting.</li>
+    </ul>
+  </section>
+  <section class="release">
     <h2>0.33.1 <span class="date">October 27, 2026</span></h2>
     <ul>
       <li>When a call plays through your Mac's built-in speakers, MeetMouse now shows a one-line tip to use headphones. Without them your mic also hears the other side, so their words can show up as yours or both sides can blend into one block. Dismiss it with the x for that meeting.</li>
@@ -266,7 +277,7 @@
       <li>New "AI coaching" toggle in Settings → Model: turn it off and MeetingCoach runs transcript-first — live transcript, speaker names, and built-in nudges keep working, but no AI model is loaded. Flip it off mid-call and the memory (~7 GB for the default model) comes back right away, not next session. "Generate AI review" on saved sessions still works on demand</li>
       <li>If the AI model is slowing your Mac, a 🐢 tip now appears in the main window and floating overlay with a one-click way to turn AI coaching off; the low-memory banner offers the same. Decline it three times and it stays quiet</li>
       <li>Transcripts now live in <code>~/Documents/MeetingCoach/transcripts/</code>, named by date and title (e.g. <code>2026-08-31T14-30_partner-sync_chad-anna.md</code>) so a file listing reads as a timeline, with a small <code>.json</code> file beside each one and a running <code>index.jsonl</code> — point Claude, ChatGPT, or any AI tool at that one folder and it gets transcripts and nothing else. Your existing sessions are copied in (never moved or renamed) the first time you launch</li>
-      <li>Fixed one person showing up as two speakers in a one-on-one when you had saved them under two names (like "anna" and "Anna Notario"): their turns no longer flip between names, and short replies stay attributed. If two labels still look like the same person, a one-tap "sound like the same person" card merges them — transcript, timeline, and saved voice profile included</li>
+      <li>Fixed one person showing up as two speakers in a one-on-one when you had saved them under two names (like "anna" and "Anna Jones"): their turns no longer flip between names, and short replies stay attributed. If two labels still look like the same person, a one-tap "sound like the same person" card merges them — transcript, timeline, and saved voice profile included</li>
       <li>Voice recognition now only looks for the people who are actually on the call (the guests you listed in pre-call setup, or your 4 most recent contacts) instead of everyone you've ever named</li>
       <li>The Coach suggestions card now says what clicking does — "Space it out" shows the real wait it proposes ("about 90s between repeats instead of 60s"), "Turn it off" / "Keep it" replace the vague Apply/Dismiss — and it no longer proposes spacing out a nudge that is already at its limit</li>
       <li>Fixed a fresh install occasionally running without AI coaching: if the first transcription-model download failed and you clicked Retry, the AI model download that was supposed to follow never started until the next launch</li>
@@ -341,7 +352,7 @@
     <ul>
       <li>FaceTime and iPhone calls taken on your Mac are now real meetings: they trigger the "Meeting detected" prompt just like Zoom, and call sessions are titled with the caller's name</li>
       <li>When a call's audio never reaches your Mac (you answered on the iPhone, or it's playing in a headset), the app now says "Can't hear this meeting" with how to fix it — instead of showing "Listening" over an empty transcript and then blaming a quiet room</li>
-      <li>Sessions get real names: the AI review that reads your whole meeting now titles it — "Caitlin · margins &amp; win-back" instead of a word collage. Your own renames always win</li>
+      <li>Sessions get real names: the AI review that reads your whole meeting now titles it — "Dana · pricing &amp; renewal" instead of a word collage. Your own renames always win</li>
       <li>The AI model frees its memory (several GB) whenever you're not in a meeting — it loads the moment a meeting is detected and unloads after your recap is ready</li>
       <li>Lower processor use during calls: coaching skips AI passes when the conversation hasn't moved, and transcription stops re-reading long monologues every second</li>
       <li>Fixed: quiet speech close to the mic could be silently discarded as speaker echo</li>

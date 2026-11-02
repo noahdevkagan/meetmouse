@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: MeetMouse 0.33.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-11-02 13:11-0300\n"
+"POT-Creation-Date: 2026-11-02 15:17-0300\n"
 "PO-Revision-Date: 2026-11-02 10:58-0300\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es\n"
@@ -143,7 +143,7 @@ msgid "More guides"
 msgstr ""
 
 #: site/build.py:254 site/build.py:278 site/build.py:512 site/build.py:666
-#: site/build.py:952 site/build.py:1211 site/build.py:1241
+#: site/build.py:952 site/build.py:1210 site/build.py:1240
 #: site/templates/article.html:74 site/templates/home.html:560
 msgid "Comparisons"
 msgstr ""
@@ -258,7 +258,7 @@ msgid "Skip to content"
 msgstr "Ir al contenido"
 
 #: site/build.py:255 site/build.py:279 site/build.py:717 site/build.py:952
-#: site/build.py:1235 site/build.py:1236 site/templates/home.html:379
+#: site/build.py:1234 site/build.py:1235 site/templates/home.html:379
 #: site/templates/home.html:557
 msgid "Blog"
 msgstr ""
@@ -617,7 +617,7 @@ msgstr ""
 msgid "MeetMouse vs Gong"
 msgstr ""
 
-#: site/build.py:1226 site/templates/home.html:528
+#: site/build.py:1225 site/templates/home.html:528
 msgid "All comparisons"
 msgstr ""
 
@@ -4972,7 +4972,7 @@ msgstr ""
 msgid "How to switch"
 msgstr ""
 
-#: site/build.py:253 site/build.py:559 site/build.py:1195 site/build.py:1240
+#: site/build.py:253 site/build.py:559 site/build.py:1194 site/build.py:1239
 msgid "Guides"
 msgstr ""
 
@@ -5101,15 +5101,15 @@ msgid ""
 "site."
 msgstr ""
 
-#: site/build.py:1224
+#: site/build.py:1223
 msgid "All guides"
 msgstr ""
 
-#: site/build.py:1225
+#: site/build.py:1224
 msgid "Every best-for guide."
 msgstr ""
 
-#: site/build.py:1227
+#: site/build.py:1226
 msgid "Every MeetMouse-vs and head-to-head page."
 msgstr ""
 
@@ -5128,22 +5128,22 @@ msgstr ""
 msgid "Founder, MeetMouse · Last checked {date}"
 msgstr ""
 
-#: site/build.py:1193
+#: site/build.py:1192
 msgid "Best AI Meeting Tools by Use Case (2026) — MeetMouse"
 msgstr ""
 
-#: site/build.py:1194
+#: site/build.py:1193
 msgid ""
 "The best AI notetaker or meeting coach for your job — sales, law, "
 "recruiting, consulting, coaching, founders, managers, financial advisors,"
 " Zoom and Mac. Honest picks, competitors included."
 msgstr ""
 
-#: site/build.py:1196
+#: site/build.py:1195
 msgid "The best meeting tools, by who you are"
 msgstr ""
 
-#: site/build.py:1197
+#: site/build.py:1196
 msgid ""
 "A lawyer protecting privilege, a rep trying to close and a manager "
 "running 1:1s shouldn't buy the same thing. So I wrote a guide for each. "
@@ -5152,39 +5152,39 @@ msgid ""
 "including the free stuff."
 msgstr ""
 
-#: site/build.py:1209
+#: site/build.py:1208
 msgid "MeetMouse vs Granola, Fathom, Otter & More (2026) — Comparisons"
 msgstr ""
 
-#: site/build.py:1210
+#: site/build.py:1209
 msgid ""
 "MeetMouse compared to Granola, Fathom, Otter, Fireflies, Poised, tl;dv, "
 "Gong, Zoom AI Companion and MacWhisper — plus honest head-to-heads "
 "between the notetakers themselves."
 msgstr ""
 
-#: site/build.py:1212
+#: site/build.py:1211
 msgid "MeetMouse vs everything else"
 msgstr ""
 
-#: site/build.py:1213
+#: site/build.py:1212
 msgid ""
 "Every comparison I've written. The MeetMouse ones say when the other tool"
 " is the better pick. The head-to-heads between other tools are for when "
 "you've already decided you want a notetaker and just need to pick one."
 msgstr ""
 
-#: site/build.py:1233
+#: site/build.py:1232
 msgid "Blog — MeetMouse"
 msgstr ""
 
-#: site/build.py:1234
+#: site/build.py:1233
 msgid ""
 "Honest writing about meeting tools by Noah Kagan, the guy who makes "
 "MeetMouse. Including the parts where competitors win."
 msgstr ""
 
-#: site/build.py:1237
+#: site/build.py:1236
 msgid ""
 "Honest writing about meeting tools, by me, Noah — the guy who makes "
 "MeetMouse. Including the parts where competitors win."
@@ -5195,31 +5195,31 @@ msgstr ""
 msgid "Visit {name}"
 msgstr "Visitar {name}"
 
-#: site/build.py:1199
+#: site/build.py:1198
 msgid "By job"
 msgstr ""
 
-#: site/build.py:1200
+#: site/build.py:1199
 msgid "Looking for dictation instead?"
 msgstr ""
 
-#: site/build.py:1215
+#: site/build.py:1214
 msgid "MeetMouse vs"
 msgstr ""
 
-#: site/build.py:1216
+#: site/build.py:1215
 msgid "Head-to-heads"
 msgstr ""
 
-#: site/build.py:1217
+#: site/build.py:1216
 msgid "Alternatives"
 msgstr ""
 
-#: site/build.py:1239
+#: site/build.py:1238
 msgid "Posts"
 msgstr ""
 
-#: site/build.py:1200
+#: site/build.py:1199
 msgid "Same rules, for Mac dictation apps. Rhino Voice is mine too."
 msgstr ""
 

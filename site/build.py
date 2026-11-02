@@ -1113,7 +1113,6 @@ def update_redirects():
             if not is_page_available("", loc_key):
                 lines.append(f"/{root}    /       302")
                 lines.append(f"/{root}/   /       302")
-            lines.append(f"/{root}/*  /:splat 302")
 
     content = "\n".join(lines) + "\n"
     redirects_path.write_text(content, encoding="utf-8")
@@ -1275,6 +1274,8 @@ def check_links(files):
                 json.loads(m)
             except Exception as e:
                 bad.append(f"{f.relative_to(REPO)} invalid ld+json: {e}")
+        if re.search(r"<(strong|em|b|i)\s*/>|(?<!<)/(strong|em|b|i)>", text):
+            bad.append(f"{f.relative_to(REPO)} has malformed inline HTML tags")
 
     # 2. Every best page must disclose the maker's own pick
     for p in BEST:

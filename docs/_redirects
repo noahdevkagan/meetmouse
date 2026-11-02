@@ -15,7 +15,5 @@
 /es/alternativas-a-fathom  /es/blog/fathom-alternatives  301
 
 # Dynamic language fallbacks (managed by site/build.py)
-/br/*  /:splat 302
 /es    /       302
 /es/   /       302
-/es/*  /:splat 302

@@ -119,6 +119,17 @@
   <p class="sub">Novidades no MeetMouse — cada versão, em linguagem simples. O app se atualiza automaticamente.</p>
 
   <section class="release">
+    <h2>0.34.0 <span class="date">4 de Novembro de 2026</span></h2>
+    <ul>
+      <li>Speaker name suggestions now appear right beside the talk bubble with Yes and No buttons, so you can confirm a name during the call without opening MeetMouse.</li>
+      <li>Speaker snapshots no longer misread a capital I as a lowercase L in names (for example, "lvan" instead of "Ivan").</li>
+      <li>Speaker snapshots recognize the standalone Google Meet app. The window chooser shows detected calls first, with an option to select the call you switch to.</li>
+      <li>Speaker snapshots can read Google Meet’s blue speaker outlines as well as Zoom’s green/yellow outlines. Participant names must be visible; matches still need your confirmation.</li>
+      <li>Speaker-name settings now explain Zoom’s name-visibility option. When all snapshots miss the names, MeetMouse explains how to name a speaker manually.</li>
+      <li>Calls now run lighter by default. New installs start with advanced live coaching off, so no large AI model downloads or runs during calls, and built-in nudges still work. A setup checklist on the home screen offers your Claude account or a local model for AI notes after each call. Want AI nudges during calls? Turn on advanced live coaching in Settings → AI, which now shows what it costs in memory on your Mac. Existing installs keep their current setting.</li>
+    </ul>
+  </section>
+  <section class="release">
     <h2>0.33.1 <span class="date">27 de Outubro de 2026</span></h2>
     <ul>
       <li>Quando uma chamada toca nos alto-falantes embutidos do seu Mac, o MeetMouse agora mostra uma dica de uma linha para usar fones de ouvido. Sem eles, seu microfone também ouve a outra pessoa, para que suas palavras possam aparecer como as deles ou ambos os lados possam se fundir em um bloco. Descarte-o com o x para essa reunião.</li>
@@ -266,7 +277,7 @@
       <li>Novo "coaching de IA" em Configurações → Modelo: desligue-o e o MeetingCoach executa a transcrição primeiro — transcrição ao vivo, nomes dos falantes e incentivos integrados continuam funcionando, mas nenhum modelo de IA é carregado. Desligue-o no meio da chamada e a memória (~7 GB para o modelo padrão) retorna imediatamente, e não na próxima sessão. "Gerar revisão com IA" em sessões salvas ainda funciona sob demanda</li>
       <li>Se o modelo de IA estiver lentificando seu Mac, um 🐢 dica aparece na janela principal e na sobreposição flutuante com uma maneira de um clique para desativar o coaching da IA; o banner de baixo uso oferece a mesma opção. Recuse-o três vezes e ele fica quieto</li>
       <li>Os transcrições agora estão disponíveis em <code>~/Documents/MeetingCoach/transcripts/</code>, nomeados por data e título (por exemplo, <code>2026-08-31T14-30_sincronização-parceiro_chad-anna.md</code>) para que uma lista de arquivos leia como uma linha do tempo, com um pequeno arquivo <code>.json</code> ao lado de cada um e um arquivo <code>index.jsonl</code> em execução — direcione Claude, ChatGPT ou qualquer ferramenta de IA para essa pasta e ela obtém transcrições e nada mais. Suas sessões existentes são copiadas (nunca movidas ou renomeadas) na primeira vez que você lança o Mac/macOS com Apple Silicon.&lt;/p&gt;</li>
-      <li>Corrigido um usuário aparecendo como dois falantes em uma reunião individual quando havia salvo-o sob dois nomes (como "anna" e "Anna Notario"): suas falas não trocam mais de nome, e respostas curtas permanecem atribuídas. Se duas etiquetas ainda parecerem a mesma pessoa, um toque único no cartão "parecer o mesmo pessoa" mescla-as — transcrição, linha do tempo e perfil de voz salvo incluído</li>
+      <li>Fixed one person showing up as two speakers in a one-on-one when you had saved them under two names (like "anna" and "Anna Jones"): their turns no longer flip between names, and short replies stay attributed. If two labels still look like the same person, a one-tap "sound like the same person" card merges them — transcript, timeline, and saved voice profile included</li>
       <li>O reconhecimento de voz agora procura apenas as pessoas que estão realmente na chamada (os convidados que você listou na configuração prévia ou seus 4 contatos mais recentes) em vez de todas as pessoas que você já nomeou</li>
       <li>A sugestão do Coach agora diz o que clicar faz — "Espalhe os intervalos" mostra a espera real que ela propõe ("cerca de 90s entre repetições em vez de 60s"), "Desligue-a" / "Mantenha-a" substituem o vago Aplicar/Rejeitar — e ela não propõe mais espaçar um empurrão que já está no seu limite</li>
       <li>Corrigido um problema em que a instalação fresca ocasionalmente rodava sem o acompanhamento de IA: se o primeiro download do modelo de transcrição falhasse e você clicasse em 'Tentar Novamente', o download do modelo de IA que deveria seguir nunca começava até o próximo lançamento.</li>
@@ -341,7 +352,7 @@
     <ul>
       <li>Chamadas FaceTime e do iPhone feitas no seu Mac agora são reuniões reais: elas acionam a solicitação "Reunião detectada" como Zoom, e as sessões de chamada são intituladas com o nome do chamador</li>
       <li>Quando o áudio de uma chamada nunca chega ao seu Mac (você respondeu no iPhone ou está ouvindo em um fone de ouvido), o aplicativo agora diz "Não está ouvindo esta reunião" com como corrigir — em vez de mostrar "Conectado" sobre uma transcrição vazia e depois culpar um quarto silencioso</li>
-      <li>Sessões recebem nomes reais: a revisão de IA que lê sua reunião inteira agora a titulariza — "Caitlin · margens e recuperação" em vez de um mosaico de palavras. Seus próprios nomes sempre vencem</li>
+      <li>Sessions get real names: the AI review that reads your whole meeting now titles it — "Dana · pricing &amp; renewal" instead of a word collage. Your own renames always win</li>
       <li>O modelo de IA libera sua memória (vários GB) sempre que você não estiver em uma reunião — ele carrega no momento em que uma reunião é detectada e descarrega após sua recapitulação estar pronta</li>
       <li>Uso do processador reduzido durante as chamadas: o acompanhamento ignora os passes de IA quando a conversa não avançou e a transcrição para de reler monólogos longos a cada segundo.</li>
       <li>Corrigido: fala silenciosa perto do microfone pode ser descartada silenciosamente como eco do falante</li>
@@ -444,7 +455,7 @@
     <h2>0.9.0 <span class="date">28 de Julho de 2026</span></h2>
     <ul>
       <li>A transcrição agora distingue os palestrantes remotos: em uma chamada em grupo, "Eles" se divide em "Eles 1", "Eles 2", … enquanto cada pessoa fala</li>
-      <li>Clique em qualquer etiqueta de palestrante para nomeá-los — toda o transcrição é relabelada, e sua voz é lembrada no seu Mac para que futuras reuniões os cumprimentem pelo nome a partir da primeira frase&lt;/a&gt;</li>
+      <li>Clique em qualquer etiqueta de palestrante para nomeá-los — toda a transcrição é renomeada, e sua voz é lembrada no seu Mac para que futuras reuniões os cumprimentem pelo nome a partir da primeira frase</li>
       <li>O coach identifica nomes sozinho ("Eles 1 soam como Sarah") e oferece confirmação com um clique — ele nunca aplica um nome sem você</li>
       <li>As pessoas que você lista no formulário de objetivo da chamada são reconhecidas primeiro</li>
       <li>O reconhecimento de voz funciona totalmente no dispositivo, como tudo mais — nenhum dado de áudio ou voz deixa seu Mac</li>
@@ -462,7 +473,7 @@
     <h2>0.8.2 <span class="date">28 de Julho de 2026</span></h2>
     <ul>
       <li>As notas de coaching agora aprendem com qualquer coisa que você cola: o feedback do Claude ou de qualquer ferramenta de IA é lido pelo seu modelo local — sinais conhecidos ajustam, e novos padrões ("você continua vendendo depois que eles disseram sim") se tornam sinais propostos que você aprova no painel de controle do Progress antes que o coach comece a observá-los</li>
-      <li>Os modelos instalados são reconhecidos no momento em que o aplicativo abre — não mais exibindo "Baixar Modelo" sobre um modelo que você já baixou</li>
+      <li>Os modelos instalados são reconhecidos no momento em que o aplicativo abre — não mais exibindo "Download Models" sobre um modelo que você já baixou</li>
       <li>Nudges baseados em tempo ("1min restante", verificação de tempo, estouro") agora só funcionam quando você define o tamanho da chamada — configure-o no formulário de objetivo ou escolha uma opção padrão para cada chamada em Configurações → Geral</li>
       <li>As Perguntas a Fazer eliminam-se quando a chamada termina, prontas para a próxima lista de reuniões — e ainda marcam automaticamente enquanto as pergunta, com um toque para alterar qualquer uma delas</li>
       <li>"O que foi dito" aparece apenas em nudges que têm um momento real para citar</li>
