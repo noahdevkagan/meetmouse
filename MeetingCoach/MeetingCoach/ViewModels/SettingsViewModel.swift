@@ -48,7 +48,7 @@ final class SettingsViewModel {
         if usesCloudAI { return true }
         guard await ollamaManager.ensureRunning() else { return false }
         await refreshModels()
-        return !availableModels.isEmpty
+        return !availableModels.isEmpty && !effectiveModel.isEmpty
     }
 
     var selectedModel: String
@@ -60,6 +60,31 @@ final class SettingsViewModel {
     var showModelCatalog: Bool = false
     var deletingModel: String?
     var deletionError: String?
+    /// Set when a deleted selection has no verified replacement. The
+    /// in-memory/on-disk list may belong to a different store, so local
+    /// resolution waits for a successful engine refresh. Persisted so a
+    /// relaunch can't adopt a stale model either.
+    private(set) var selectionNeedsReconciliation: Bool =
+        UserDefaults.standard.bool(forKey: "modelSelectionNeedsReconciliation")
+
+    private func setSelectionNeedsReconciliation(_ value: Bool) {
+        selectionNeedsReconciliation = value
+        UserDefaults.standard.set(value, forKey: "modelSelectionNeedsReconciliation")
+    }
+
+    /// Replacement policy shared by deletion and post-failure recovery:
+    /// the RAM-tiered recommendation if it fits, else the smallest fitting
+    /// install, else the first install, else nothing.
+    private func preferredReplacement(from models: [OllamaModel]) -> String {
+        let fitting = models.filter { ModelMemory.fits($0) }
+        if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
+            return recommended.name
+        }
+        if let smallest = fitting.min(by: { $0.size < $1.size }) {
+            return smallest.name
+        }
+        return models.first?.name ?? ""
+    }
 
     /// Global selection, resolved and snapshotted by LiveSessionViewModel at
     /// meeting start. Changing it begins the needed download but never mutates
@@ -231,7 +256,8 @@ final class SettingsViewModel {
     /// qwen, costing ~6 GB of a meeting's headroom for marginal quality.
     var effectiveModel: String {
         if usesCloudAI { return aiConfiguration.modelReference }
-        guard !selectedModel.isEmpty else { return "" }
+        // A user choice cannot verify the engine's installed model list.
+        if selectionNeedsReconciliation { return "" }
         guard !availableModels.isEmpty else { return selectedModel }
         let fitting = availableModels.filter { ModelMemory.fits($0) }
         if let selected = availableModels.first(where: { $0.name == selectedModel }),
@@ -248,7 +274,7 @@ final class SettingsViewModel {
     /// User-facing one-liner when the selected model can't run comfortably
     /// on this Mac. nil when everything is fine.
     var modelFitNote: String? {
-        guard !usesCloudAI else { return nil }
+        guard !usesCloudAI, !selectionNeedsReconciliation else { return nil }
         guard let selected = availableModels.first(where: { $0.name == selectedModel }),
               !ModelMemory.fits(selected) else { return nil }
         let ram = ModelMemory.physicalRAMGB
@@ -263,6 +289,7 @@ final class SettingsViewModel {
         do {
             availableModels = try await client.listModels()
             ollamaReachable = true
+            reconcileSelectionAfterVerifiedRefresh()
         } catch {
             ollamaReachable = false
             // Engine not running ≠ no models. The engine starts lazily, so
@@ -273,6 +300,21 @@ final class SettingsViewModel {
             availableModels = Self.installedModelsOnDisk()
         }
         hasCheckedModels = true
+    }
+
+    /// Called only with a list read from the running engine. Finishes a
+    /// reconciliation left pending by a failed post-deletion refresh: if the
+    /// user hasn't picked a model since, select and persist a verified
+    /// replacement.
+    private func reconcileSelectionAfterVerifiedRefresh() {
+        guard selectionNeedsReconciliation else { return }
+        if selectedModel.isEmpty || !availableModels.contains(where: { $0.name == selectedModel }) {
+            selectedModel = preferredReplacement(from: availableModels)
+            save()
+        }
+        if !availableModels.isEmpty {
+            setSelectionNeedsReconciliation(false)
+        }
     }
 
     /// Models present in the app's own store, straight from the manifests
@@ -446,6 +488,7 @@ final class SettingsViewModel {
     /// list makes the ladder step down to something that isn't there.
     func modelForCurrentMemory() -> String? {
         if usesCloudAI { return effectiveModel }
+        guard !selectionNeedsReconciliation else { return nil }
         guard !useMock else { return effectiveModel }
         // Memory unreadable — don't second-guess the user's choice.
         guard let availableGB = ModelMemory.availableGB else { return effectiveModel }
@@ -578,16 +621,13 @@ final class SettingsViewModel {
 
             // Reconcile selection only when the installed list was verified from the active engine
             if selectedModel == name || (selectedModel == previousSelection && previousSelection == name) {
-                let fitting = availableModels.filter { ModelMemory.fits($0) }
-                if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
-                    selectedModel = recommended.name
-                } else if let smallest = fitting.min(by: { $0.size < $1.size }) {
-                    selectedModel = smallest.name
-                } else {
-                    selectedModel = availableModels.first?.name ?? ""
-                }
+                selectedModel = preferredReplacement(from: availableModels)
                 save()
+                if selectedModel.isEmpty {
+                    setSelectionNeedsReconciliation(true)
+                }
             }
+            reconcileSelectionAfterVerifiedRefresh()
         } else {
             // Deletion succeeded, but post-delete refresh failed.
             // Do NOT pick or persist an unverified replacement from stale in-memory models
@@ -596,6 +636,7 @@ final class SettingsViewModel {
             if selectedModel == name {
                 selectedModel = ""
                 save()
+                setSelectionNeedsReconciliation(true)
             }
             deletionError = "Model '\(name)' was deleted, but MeetMouse could not refresh the model list from the engine."
         }

@@ -127,7 +127,10 @@ final class SettingsViewModel {
     var usesCloudAI = false
     var selectedModel = "stub-model"
     var effectiveModelOverride: String?
-    var effectiveModel: String { effectiveModelOverride ?? selectedModel }
+    var selectionNeedsReconciliation = false
+    var effectiveModel: String {
+        effectiveModelOverride ?? (!usesCloudAI && selectionNeedsReconciliation ? "" : selectedModel)
+    }
     var deletingModel: String?
     var semanticCoachEnabled = false
     var useMock = true
