@@ -2047,3 +2047,18 @@ its audio to another device than the Mac default. Follow-ups to evaluate
 with real recordings: a relative (mic vs system) energy gate, and holding a
 mic commit up to ~2 s while the far side is active so EchoFilter sees the
 far partials. Manual check: tests/calls-manual.md scenario 8.
+
+## 2026-11-02 — Model catalog is a non-modal singleton window
+On macOS 27.2 an attached SwiftUI sheet caused `NSApp.terminate` to return
+before the application delegate was called. The same quit path succeeds with
+a separate window. Present the model catalog as a singleton SwiftUI Window so
+Dock and menu-bar quit can use normal AppKit termination and its existing
+engine cleanup. Keep the shared download state and Done button; do not change
+other sheets or stop a system-owned Ollama.
+
+Evidence: the termination behavior and GUI actions were checked in an isolated
+host using the production catalog view and scene with stub settings, not the
+full app. Real downloads and GitHub-hosted GUI validation remain outstanding.
+No GUI test was added to the test gate because the
+real-app test's compatibility with GitHub-hosted macOS GUI automation has not
+been verified; the isolated mock-based harness did not meet that requirement.
