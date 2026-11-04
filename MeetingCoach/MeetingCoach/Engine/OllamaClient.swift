@@ -395,6 +395,8 @@ actor OllamaClient {
     /// Returns nil on success, or a user-showable error — Ollama's OOM
     /// message ("model requires more system memory … than is available")
     /// is exactly the clear error we want instead of a freeze.
+    /// keepAlive must be non-zero: no prompt plus keep_alive 0 is Ollama's
+    /// unload request, which returns success without loading anything.
     func preload(keepAlive: String = "30m") async -> String? {
         let url = baseURL.appendingPathComponent("api/generate")
         var request = URLRequest(url: url)
@@ -430,10 +432,8 @@ actor OllamaClient {
     }
 
     /// Evict this client's model from engine memory if (and only if) it is
-    /// actually resident — a bare keep_alive:0 on an unloaded model would
-    /// load gigabytes just to free them. Multi-GB of RAM come back the
-    /// moment there is no more work; warm-on-detect reloads before the
-    /// next meeting.
+    /// actually resident. Multi-GB of RAM come back the moment there is no
+    /// more work; warm-on-detect reloads before the next meeting.
     func unloadIfLoaded() async {
         guard await runningModels().contains(model) else { return }
         var request = URLRequest(url: baseURL.appendingPathComponent("api/generate"))
