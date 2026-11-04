@@ -39,7 +39,7 @@ end, and a muted participant listening via speakers→mic would be cut off.
 existed.
 
 ## 2026-07-30 — Transcripts save as coalesced turns, not raw utterances
-The far side commits in 1-3 word fragments (Owen corpus: median 4
+The far side commits in 1-3 word fragments (real-call corpus: median 4
 words, 40% of Them lines ≤3 words), so saved files were unreadable next
 to Granola's export even though the PANE coalesces. saveSession and the
 LLM-review prompt now run TurnBuilder over the utterance record (fixed
@@ -272,7 +272,7 @@ Granola CSV". Any future character-wise text scanning needs an explicit
 "\r\n" case (see GranolaImporter.parseCSV). Locked by tests/granola.
 
 ## 2026-08-05 — Meeting reviews are chief-of-staff notes, not recaps
-Noah compared the review card to Dana's hand-written Slack notes and
+Noah compared the review card to a colleague's hand-written Slack notes and
 called it useless. Root causes and the calls made: (1) selectedModel can
 point at a model that never finished downloading — every LLM feature
 silently degraded; LLM calls now go through settings.effectiveModel
@@ -1888,7 +1888,7 @@ this user; do not restart their active meeting.
 
 
 ## 2026-10-08 — Share links mint on meetmouse.com; rhinovoice.app stays as a legacy route
-A recipient (a recipient) read a rhinovoice.app share link as a different product
+A recipient read a rhinovoice.app share link as a different product
 and asked whether he should buy Rhino Voice. The app now defaults both the viewer
 and API base to meetmouse.com; the same Worker and D1 database serve both hosts,
 with the rhinovoice.app routes kept so pre-change links and their revocation
@@ -2145,3 +2145,11 @@ The repo is public and carried real meeting transcripts naming participants, plu
 Meet room codes from live testing. Deleted the leadership and Zoom samples (no test
 reads them) and replaced the room codes. They remain in git history and in forks
 until that is cleaned separately. Use made-up transcripts and codes in fixtures.
+
+## 2026-11-04 — Scrub real names from the public repo; drop the real-call benchmark
+Removed the last committed real call from `bench/asr-corpus/` and made that folder
+gitignored, so real pairs can still be benchmarked locally. CI's scorecard now has
+no real-call accuracy row until a publishable corpus exists (a staged call); the
+old rows stay under a neutral name. Real names in tests and comments became made-up
+ones, and the review prompt's example was rewritten because it used real-call terms.
+All of this remains in git history and forks until cleaned separately.

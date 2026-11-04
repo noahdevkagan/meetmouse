@@ -44,7 +44,7 @@ if let firedAt, firedAt <= 70 {
     fail = true
 }
 
-// Two-way gate (2026-07-20 Owen meeting regression): the same monologue
+// Two-way gate (2026-07-20 meeting regression): the same monologue
 // with NO other speaker yet — waiting alone on the call — must never fire
 // talkTime. "You're still talking" to an empty room was marked wrong.
 var soloBuilder = TurnBuilder()

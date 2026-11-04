@@ -423,7 +423,7 @@ func runTests() async {
     do {
         let vm = LiveSessionViewModel()
         var ctx = PreCallContext()
-        ctx.participants = [.init(name: "Rosa", role: "")]
+        ctx.participants = [.init(name: "Jamie", role: "")]
         vm.startLive(context: ctx, participantsConfirmed: true)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else {
@@ -437,8 +437,8 @@ func runTests() async {
         ])
         try? await Task.sleep(for: .milliseconds(50))
 
-        vm.renameSpeaker("Them 1", to: "Rosa")
-        check(vm.displaySpeaker("Them") == "Rosa",
+        vm.renameSpeaker("Them 1", to: "Jamie")
+        check(vm.displaySpeaker("Them") == "Jamie",
               "sole remote name aliases raw Them",
               "got \(vm.displaySpeaker("Them"))")
 
@@ -453,7 +453,7 @@ func runTests() async {
         // Even without committed words, another diarized voice may be a
         // guest joining the call. Suspend broad aliases until resolved.
         capture.onSpeakerSegments?(.system, [
-            SpeakerSegment(speaker: "Rosa", start: 0.9, end: 3.1),
+            SpeakerSegment(speaker: "Jamie", start: 0.9, end: 3.1),
             SpeakerSegment(speaker: "Them 2", start: 8.0, end: 8.2),
         ])
         try? await Task.sleep(for: .milliseconds(50))
@@ -474,7 +474,7 @@ func runTests() async {
                 if content.contains("hear me alright") { body = content }
             }
         }
-        check(body.contains("Rosa: Hi there, can you hear me alright today?")
+        check(body.contains("Jamie: Hi there, can you hear me alright today?")
               && body.contains("Them: Great, let us get going then. Yeah."),
               "saved group-call speech keeps unassigned words separate",
               "transcript: \(body.components(separatedBy: "## Transcript").last?.prefix(200) ?? "")")
@@ -489,7 +489,7 @@ func runTests() async {
     do {
         let vm = LiveSessionViewModel()
         var ctx = PreCallContext()
-        ctx.participants = [.init(name: "Rosa", role: "")]
+        ctx.participants = [.init(name: "Jamie", role: "")]
         vm.startLive(context: ctx, participantsConfirmed: true)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else {
@@ -502,12 +502,12 @@ func runTests() async {
             SpeakerSegment(speaker: "Them 1", start: 0.9, end: 3.1),
         ])
         try? await Task.sleep(for: .milliseconds(50))
-        vm.renameSpeaker("Them 1", to: "Rosa")
+        vm.renameSpeaker("Them 1", to: "Jamie")
 
         capture.onUtterance?(Utterance(t: 5, speaker: "Them",
             text: "And a totally different second voice.", endT: 7))
         try? await Task.sleep(for: .milliseconds(50))
-        check(vm.displaySpeaker("Them") == "Rosa", "alias active before second voice")
+        check(vm.displaySpeaker("Them") == "Jamie", "alias active before second voice")
 
         // Diarizer now separates two people (stale "Them 1" label rides in).
         capture.onSpeakerSegments?(.system, [
@@ -517,13 +517,13 @@ func runTests() async {
         try? await Task.sleep(for: .milliseconds(50))
         check(vm.displaySpeaker("Them") == "Them",
               "second remote voice retires the alias")
-        check(vm.utterances.map(\.speaker) == ["Rosa", "Them 2"],
+        check(vm.utterances.map(\.speaker) == ["Jamie", "Them 2"],
               "named speaker keeps her turns; second voice gets its own label",
               "got \(vm.utterances.map(\.speaker))")
 
         // Chained rename stays stable alongside the alias machinery.
-        vm.renameSpeaker("Rosa", to: "Rosa K")
-        check(vm.utterances.map(\.speaker) == ["Rosa K", "Them 2"],
+        vm.renameSpeaker("Jamie", to: "Jamie K")
+        check(vm.utterances.map(\.speaker) == ["Jamie K", "Them 2"],
               "chained rename relabels cleanly",
               "got \(vm.utterances.map(\.speaker))")
         vm.stopLive()
@@ -631,8 +631,8 @@ func runTests() async {
     //     typeahead ranks prefix matches before substring matches.
     do {
         UserDefaults.standard.removeObject(forKey: "savedParticipants")
-        ParticipantStore.save([.init(name: "Rosa", role: "founder")])
-        ParticipantStore.remember(name: "  lyndsay ")
+        ParticipantStore.save([.init(name: "Jamie", role: "founder")])
+        ParticipantStore.remember(name: "  jamie ")
         var people = ParticipantStore.load()
         check(people.count == 1, "remember dedupes case-insensitively",
               "got \(people.map(\.name))")
@@ -640,7 +640,7 @@ func runTests() async {
 
         ParticipantStore.remember(name: "Sam")
         people = ParticipantStore.load()
-        check(people.map(\.name) == ["Rosa", "Sam"], "new name appended",
+        check(people.map(\.name) == ["Jamie", "Sam"], "new name appended",
               "got \(people.map(\.name))")
 
         // A real rename reaches the store the moment it happens.
@@ -657,8 +657,8 @@ func runTests() async {
         vm.deleteSession()
 
         let ranked = ParticipantStore.typeaheadMatches(
-            "ly", in: ["Molly", "Rosa", "Waly", "Lyle"])
-        check(ranked == ["Rosa", "Lyle", "Molly", "Waly"],
+            "ly", in: ["Molly", "Lydia", "Waly", "Lyle"])
+        check(ranked == ["Lydia", "Lyle", "Molly", "Waly"],
               "typeahead ranks prefix before substring, stable within groups",
               "got \(ranked)")
         check(ParticipantStore.typeaheadMatches("", in: ["A", "B", "C", "D", "E", "F"])

@@ -68,7 +68,7 @@ enum PromptBuilder {
         - Dana pushed back on delaying the pricing page — agreed to ship it on time and add the checklist first.
         ### Help center review
         - Status: 9 articles current / 4 outdated; current ones stay live, outdated ones stay hidden until rewritten.
-        - Lee's concern: the help center has no owner once Rosa rotates off in October — unresolved.
+        - Lee's concern: the help center has no owner once Rosa moves teams in May — unresolved.
         NEXT STEPS:
         - Draft the setup checklist and one-page rollout plan (Dana) — it sets the ticket target every new customer should meet [critical]
         - Finish the help center review (Lee and Rosa) — rewrite the 4 outdated articles or retire them

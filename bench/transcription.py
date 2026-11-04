@@ -3,7 +3,7 @@
 
 Zoom's cloud transcript is the best reference we have for the same meeting,
 so the headline number is per-channel WORD DISAGREEMENT vs Zoom (a proxy for
-WER — Zoom itself mishears, e.g. "Owen" -> "Liam", so treat trends, not
+WER — Zoom itself mishears, e.g. one name for a similar one, so treat trends, not
 absolutes). Channels are scored separately because they are different ASR
 paths: You = mic (Parakeet), Them = system audio (SFSpeech).
 
