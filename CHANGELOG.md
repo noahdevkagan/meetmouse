@@ -7,6 +7,14 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Speaker name suggestions now appear right beside the talk bubble with Yes and No buttons, so you can confirm a name during the call without opening MeetMouse.
+- Speaker snapshots no longer misread a capital I as a lowercase L in names (for example, "lvan" instead of "Ivan").
+- Speaker snapshots recognize the standalone Google Meet app. The window chooser shows detected calls first, with an option to select the call you switch to.
+- Speaker snapshots can read Google Meet’s blue speaker outlines as well as Zoom’s green/yellow outlines. Participant names must be visible; matches still need your confirmation.
+- Speaker-name settings now explain Zoom’s name-visibility option. When all snapshots miss the names, MeetMouse explains how to name a speaker manually.
+
 ## 0.32.1 — 2026-10-19
 
 - When your free week of unlimited meetings ends, MeetMouse tells you once (3 free meetings a week from here, notes never locked) instead of waiting until a meeting won't start.

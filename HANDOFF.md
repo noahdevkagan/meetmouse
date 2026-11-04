@@ -5,6 +5,134 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-04): Speaker prompt at the bubble; four-platform check
+
+User: Zoom suggestion was right on a real guest call but they had to open the app
+to accept it. Plan: (1) one-tap Yes/No card beside the talk bubble; (2) fix OCR
+I/l misread (log: guest's name and voice profile saved with a leading l);
+(3) measure real Teams/Slack/Meet/Zoom windows and outlines (docs don't state
+them) with a scripted guest in no-invite test rooms; add what Teams lacks.
+Report per platform what was live-verified vs fixture-only.
+
+Done, uncommitted: (1) and (2), session checks and Debug build pass. Not done:
+(3). Meet refused the Playwright guest; don't evade it. Stopped driving the GUI
+because the user was actively using the Mac. Test room `abc-defg-hij` may still
+be open: confirm the user hung up. No platform had a live card/accept test.
+Next, when the desktop is free and a real second participant is available:
+record Teams/Slack window owner, title and outline; add the Teams adapter; test
+the Yes click in the non-key panel; check Meet 1:1, which may have no outline.
+User chose 80/20: no live session now, so (3) is deferred; Zoom is the supported
+path and Meet is fixture-only. Teams/Slack stay unclaimed. Typo fixed with user
+approval: the guest's Nov 3 transcript was renamed and voice profiles merged.
+Originals are in the 2026-11-04 fix folder under Application Support
+`MeetingCoach/backups/`; delete once the user is happy.
+Guest script: `/tmp/mm-probe/pw/guest.mjs`.
+
+## Earlier state (2026-10-20): Speaker snapshots — Zoom setting fixed; Meet adapter built
+
+Implemented easier selection: recognized calls are direct choices; all windows
+are behind a disclosure. "Find the call I switch to…" offers five seconds to
+activate a recognized call, selects that exact foreground window and returns to
+consent. No capture before Allow. Fixed observed standalone Google Meet owner
+and `Google Meet - Meet - <code>` title recognition, including correct blue OCR
+adapter selection. Its home screen stays excluded. Debug build, all 352 session
+checks and 45 detector checks pass. Logs: `.context/window-picker-{build,session,detector}.log`.
+Changelog generator and `git diff --check` pass; sitemap date churn discarded.
+Native preview using the production view and fixture window data verified
+selection enables Allow, countdown disables it, and cancellation returns safely.
+Preview: `.context/window-picker-preview.png`. Dev app was restarted while idle.
+
+Live permission recovery in progress: user approved re-enabling access and
+completed Touch ID. Added the exact dev app through System Settings and clicked
+Quit & Reopen. It still fails SCK with "The user declined TCCs" even after an
+explicit dev restart. Existing Settings entry is named "MeetingCoach" and on;
+installed bundle is Developer ID signed, dev is Apple Development signed under
+the same bundle identifier. No app bundle or TCC database was altered.
+Clicked the existing permission toggle to refresh it; macOS now requires another
+authentication. Prompt open; async question asks user to authenticate again.
+Permission has not yet changed (auth pending). Both MeetMouse copies are idle;
+never kill the installed process. Dev process was last relaunched for a short
+empty session, stopped without creating a saved meeting.
+
+Original calls had closed. Opened the Google Meet PWA and created an authorized
+solo instant test room, `abc-defg-hij`, for live selection verification. It is
+open; close this agent-created room after testing. Next: finish permission
+refresh, restart exact dev, verify real discovery + switch-to-call selection,
+save screenshot under `.context/`, and stop the test recording. Do not claim
+permission or live selection works until the app actually reads windows.
+
+Google Meet currently has the user's solo call. CUA/visual screenshot confirms
+`noah kagan`; closed the "Your meeting's ready" tip covering the label. Saved
+`.context/verify-meet-self.png`. Full-image Vision recognizes the exact name at
+original resolution but not at 1600px; this is a diagnostic, not the production
+Meet path, which requires a highlighted tile and uses a cropped OCR region.
+No blue outline in this solo frame; production activeName returns nil at both
+resolutions. Do not claim live name-to-voice success. Keep diagnostic files local.
+
+Focused self-name verification completed: CUA saw Zoom's `Zoom Meeting` window
+with `noah kagan` visible. The real `VisualSpeakerOCR.remoteRoster` recognized
+the self anchor both in the original screenshot (2218×2440) and at capture
+resolution (1454×1599); returned zero remote names and rejected the wrong self
+name. Actual observed Zoom owner/title pass the window heuristic. This tests
+OCR on a real image, not a live ScreenCaptureKit-to-suggestion cycle.
+Local evidence: `.context/verify-zoom-self.png`, `.context/live-self-check.log`.
+At that earlier check Meet was at `https://meet.google.com/home`, title `Google Meet`, correctly
+not recognized as an active call. Earlier active-call observation below is
+historical. Meet own-name OCR remains unverified; its adapter has no self-roster
+fallback and ignores a literal `You` label. No remote voice matching verified.
+
+Earlier Google Meet live check requested: browser had an active Meet call with one
+participant (the user). Quit idle installed MeetMouse normally and launched the
+workspace Debug build; verified dev footer. It remains idle, waiting for another
+participant before capture. Asked whether another speaker is joining. Do not
+consume the six snapshots on an empty call or claim live name-to-voice verification
+without remote speech. The Meet tab is a separate Chrome surface from the front
+TidyCal window; verify the actual Meet window is selected when capture starts.
+
+Live verification deferred: user joined Zoom, but only their tile was present.
+Saved the three-minute test (one "Uh" utterance; snapshots already exhausted),
+quit installed MeetMouse normally and launched this workspace's Debug app.
+Verified dev footer and executable path, automatic snapshots=true, self name
+"Noah Kagan". Zoom remained connected. User cannot add another speaker now.
+Quit the idle Debug app normally and reopened /Applications/MeetMouse.app;
+verified v0.32.1 and Start meeting (idle). Installed bundle was not replaced.
+No live name suggestion was verified. Next attempt: launch Debug while idle,
+wait for a second speaker, then start fresh capture so the six attempts are useful.
+
+Verification follow-up (user: "verify"): added and ran integrated checks from
+real Vision OCR through automatic discovery/capture, late voice segments,
+suggestion, overlap withdrawal, confirmation and saved transcript on both
+platforms. All 344 session checks pass (16 new integration assertions).
+Images/timing/audio are fixtures; the OCR, capture coordinator, live VM, evidence,
+rename and persistence code are real. Log: `.context/speaker-pipeline-verification.log`.
+A separate synthetic-label probe reads three real participant names at confidence
+1.0; Priya Shah remains below the 0.8 floor. This is not a live-image
+accuracy result. Neither Zoom nor Chrome currently has an active call. Asked
+user which platform they can join; live verification still requires a participant.
+
+Live Zoom inspection confirmed snapshots exhausted with no readable names; both
+tiles hid their labels. With user approval, enabled Zoom Settings → Meetings &
+webinars → Keep participant names visible and visually verified both labels.
+This verifies the setting only, not an end-to-end name suggestion. Installed
+MeetMouse 0.32.1 was not restarted or replaced.
+
+Implemented the plan: Meet blue-outline OCR is selected only for recognized Meet
+windows; Zoom's existing reader and roster fallback are preserved. Meet requires
+an outline (no roster fallback yet). Instructions and exhausted-attempt feedback,
+manual call matrix and Unreleased notes updated. Six-attempt cap unchanged.
+
+Validation: all 328 session checks and Debug build passed, including real Vision
+on synthetic Meet tiles, self/multiple highlights, missing labels and wrong-platform
+rejection. First run rejected synthetic "Priya Shah" at Vision confidence 0.5; the
+color-comparison fixture now uses the same "Sarah" glyphs as Zoom. Confidence floor
+stays 0.8. Logs: `.context/speaker-platform-{session-final,build}.log`.
+Changelog generator/diff check passed; unrelated sitemap churn discarded.
+
+Not installed, pushed or released. Real-call suggestion/confirmation on both
+platforms remains required before calling the feature verified. Next: use the
+Debug build in a Zoom and a Google Meet call and run scenario 7 of
+`tests/calls-manual.md`; do not interrupt an active installed-app meeting.
+
 ## Current state (2026-10-09): Speaker names in Zoom screen-share layout — built, pushed (PR #38)
 
 PR #38 branch. Roster evidence for 1:1 calls without an active-speaker outline
