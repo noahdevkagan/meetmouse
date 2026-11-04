@@ -112,8 +112,9 @@ its Actions page):
   lines — the fragmentation axis from the 2026-07-29 field report). Each
   number sits next to the previous record from `bench/asr-history.jsonl`
   with a delta; `--record` (the push-gate default) appends fresh scores
-  so the trend accrues per push. To benchmark a new real meeting, drop
-  its pair into `bench/asr-corpus/<name>/{zoom.txt,capture.md}`.
+  so the trend accrues per push. To benchmark a real meeting locally, drop
+  its pair into `bench/asr-corpus/<name>/{zoom.txt,capture.md}` (gitignored:
+  real meetings never go in this public repo).
 - **Nudge quality** — the latest `bench/run.sh` record vs the previous
   same-session-corpus record: nudges/10min, useful/nag agreement. The
   push gate refreshes the record first when this machine has saved

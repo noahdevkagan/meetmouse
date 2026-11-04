@@ -19,6 +19,7 @@ fi
 commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
 date=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 for dir in bench/asr-corpus/*/; do
+    [ -d "$dir" ] || continue
     name=$(basename "$dir")
     capture=$(ls "$dir"/capture.* 2>/dev/null | head -1)
     [ -f "$dir/zoom.txt" ] && [ -n "$capture" ] || continue

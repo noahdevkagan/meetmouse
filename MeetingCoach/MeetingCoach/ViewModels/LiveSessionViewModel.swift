@@ -158,7 +158,7 @@ final class LiveSessionViewModel {
     /// Renames of undiarized base labels. Remote renames are provisional
     /// display aliases only in a confirmed one-on-one.
     private var baseLabelRenames: [String: String] = [:]
-    /// Every rename ever applied ("Them 2" → "William"). Incoming segments
+    /// Every rename ever applied ("Them 2" → "Owen"). Incoming segments
     /// are remapped through this: a publish already in flight when the user
     /// renamed still carries the old label and would revert the transcript.
     private var segmentRenames: [String: String] = [:]
@@ -1188,7 +1188,7 @@ final class LiveSessionViewModel {
         }
         recomputeRemoteAlias()
         // A rename can itself surface the pair ("Them 1" → "anna" while
-        // "Anna Notario" owns other turns).
+        // "Anna Jones" owns other turns).
         maybeSuggestMerge()
         // Renaming from the post-session view: the file on disk still says
         // the old label — rewrite it or the name is gone on reopen.
@@ -1287,7 +1287,7 @@ final class LiveSessionViewModel {
 
     /// Offer a one-tap merge when exactly two remote labels are probably
     /// one person: their names read as the same person ("anna" /
-    /// "Anna Notario"), or the pre-call form said this call is a 1:1.
+    /// "Anna Jones"), or the pre-call form said this call is a 1:1.
     /// Suggestion only, never auto-applied — confirming routes through
     /// renameSpeaker, so the transcript, live timeline, and voice profile
     /// all merge, and the one-on-one alias comes back on its own.
@@ -1337,7 +1337,7 @@ final class LiveSessionViewModel {
                let match = labels.first(where: { VoiceProfileStore.samePerson($0, expected) }) {
                 survivor = match
             } else if samePair {
-                // The longer name carries more information ("Anna Notario"
+                // The longer name carries more information ("Anna Jones"
                 // over "anna").
                 survivor = labels[0].count >= labels[1].count ? labels[0] : labels[1]
             } else {

@@ -187,7 +187,7 @@ enum TranscriptSearch {
     ]
 
     /// Best guess at who the meeting was with: capitalized mid-utterance
-    /// tokens scored across the transcript, vocatives ("Hey Caitlin",
+    /// tokens scored across the transcript, vocatives ("Hey Dana",
     /// "…, Sean?") weighted 3×. Nil below a small floor — no name beats a
     /// wrong name. Heuristic by design; rename always overrides.
     static func chattedWithName(in content: String) -> String? {
@@ -226,7 +226,7 @@ enum TranscriptSearch {
 
     /// Deterministic title suggestion for a session that has no header
     /// title: the person the meeting was with (when one is detectable) plus
-    /// the most-discussed topic words, e.g. "Caitlin · pricing & renewal".
+    /// the most-discussed topic words, e.g. "Dana · pricing & renewal".
     /// Nil when the transcript is too thin to name honestly (the date is
     /// better than a made-up title).
     static func suggestedTitle(in content: String) -> String? {

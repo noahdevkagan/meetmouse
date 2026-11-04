@@ -11,7 +11,7 @@ struct SpeakerNameSuggestion: Identifiable, Sendable {
         /// Repeated window-only OCR evidence aligned with remote audio.
         case visualName
         /// Two labels that are probably one person — confirming merges the
-        /// label into the name ("anna and Anna Notario sound like the same
+        /// label into the name ("anna and Anna Jones sound like the same
         /// person").
         case samePerson
     }
@@ -25,7 +25,7 @@ struct SpeakerNameSuggestion: Identifiable, Sendable {
 }
 
 /// Infers speakers' real names from transcript evidence — people say each
-/// other's names constantly ("thanks Sarah", "this is William from finance").
+/// other's names constantly ("thanks Sarah", "this is Owen from finance").
 /// A low-frequency local-LLM pass over the intro window plus recent talk;
 /// runs only while unnamed labels exist. Suggestions are never auto-applied:
 /// a wrong name silently attached to a voice would poison future sessions,
@@ -85,7 +85,7 @@ final class SpeakerNameInference {
 
         // Names already in use (renamed/enrolled speakers) must not be
         // proposed again for someone else — including same-person variants:
-        // "anna" on the call blocks an "Anna Notario" suggestion, whose
+        // "anna" on the call blocks an "Anna Jones" suggestion, whose
         // confirm would save a second profile of the same voice and split
         // that person across two diarizer slots in every future session.
         let takenNames = Array(Set(utterances.map(\.speaker)

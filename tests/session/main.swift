@@ -132,7 +132,7 @@ func runTests() async {
         let rosterCapture = VisualSpeakerCapture(snapshot: { _ in
             shot += 1
             let at = Date().addingTimeInterval(Double(shot) * 15)
-            return .init(name: nil, start: at, end: at, roster: ["Matt Bean"])
+            return .init(name: nil, start: at, end: at, roster: ["Sam Rivera"])
         }, pause: { _ in })
         let vm = LiveSessionViewModel(visualSpeakerCapture: rosterCapture)
         vm.startLive(context: PreCallContext())
@@ -147,7 +147,7 @@ func runTests() async {
         vm.startVisualSpeakerAssistance(window: .init(id: 0, pid: 0, app: "Zoom", title: "Zoom Meeting"))
         for _ in 0..<200 where rosterCapture.isRunning { await Task.yield() }
         let suggestion = vm.speakerNameSuggestions.first { $0.kind == .visualName }
-        check(suggestion?.label == "Them 1" && suggestion?.name == "Matt Bean",
+        check(suggestion?.label == "Them 1" && suggestion?.name == "Sam Rivera",
               "visual: one-on-one roster suggests the remote voice's name",
               "\(vm.speakerNameSuggestions.map(\.key))")
         check(vm.utterances.map(\.speaker).contains("Them 1"), "visual: roster suggestion never renames on its own")
@@ -304,30 +304,30 @@ func runTests() async {
         check(labels == ["You", "Them 1", "Them 2"],
               "system channel splits Them into speakers", "got \(labels)")
 
-        vm.renameSpeaker("Them 2", to: "William")
-        check(vm.utterances.map(\.speaker) == ["You", "Them 1", "William"],
+        vm.renameSpeaker("Them 2", to: "Owen")
+        check(vm.utterances.map(\.speaker) == ["You", "Them 1", "Owen"],
               "rename relabels the transcript",
               "got \(vm.utterances.map(\.speaker))")
-        check(vm.turns.contains { $0.speaker == "William" },
+        check(vm.turns.contains { $0.speaker == "Owen" },
               "rename rebuilds the visible turns")
-        check(capture.renames.contains { $0 == ("Them 2", "William") },
+        check(capture.renames.contains { $0 == ("Them 2", "Owen") },
               "rename routed to capture (voice profile path)")
 
         // A publish that raced the rename still says "Them 2" — it must
-        // not revert William.
+        // not revert Owen.
         capture.onSpeakerSegments?(.system, [
             SpeakerSegment(speaker: "Them 1", start: 5.8, end: 9.2),
             SpeakerSegment(speaker: "Them 2", start: 11.8, end: 15.4),
         ])
         try? await Task.sleep(for: .milliseconds(50))
-        check(vm.utterances.map(\.speaker) == ["You", "Them 1", "William"],
+        check(vm.utterances.map(\.speaker) == ["You", "Them 1", "Owen"],
               "stale segment labels don't revert a rename",
               "got \(vm.utterances.map(\.speaker))")
 
         // Renames still work from the post-session view.
         vm.stopLive()
         vm.renameSpeaker("Them 1", to: "Priya")
-        check(vm.utterances.map(\.speaker) == ["You", "Priya", "William"],
+        check(vm.utterances.map(\.speaker) == ["You", "Priya", "Owen"],
               "rename works after Stop",
               "got \(vm.utterances.map(\.speaker))")
         vm.deleteSession()
@@ -423,7 +423,7 @@ func runTests() async {
     do {
         let vm = LiveSessionViewModel()
         var ctx = PreCallContext()
-        ctx.participants = [.init(name: "Lyndsay", role: "")]
+        ctx.participants = [.init(name: "Jamie", role: "")]
         vm.startLive(context: ctx, participantsConfirmed: true)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else {
@@ -437,8 +437,8 @@ func runTests() async {
         ])
         try? await Task.sleep(for: .milliseconds(50))
 
-        vm.renameSpeaker("Them 1", to: "Lyndsay")
-        check(vm.displaySpeaker("Them") == "Lyndsay",
+        vm.renameSpeaker("Them 1", to: "Jamie")
+        check(vm.displaySpeaker("Them") == "Jamie",
               "sole remote name aliases raw Them",
               "got \(vm.displaySpeaker("Them"))")
 
@@ -453,7 +453,7 @@ func runTests() async {
         // Even without committed words, another diarized voice may be a
         // guest joining the call. Suspend broad aliases until resolved.
         capture.onSpeakerSegments?(.system, [
-            SpeakerSegment(speaker: "Lyndsay", start: 0.9, end: 3.1),
+            SpeakerSegment(speaker: "Jamie", start: 0.9, end: 3.1),
             SpeakerSegment(speaker: "Them 2", start: 8.0, end: 8.2),
         ])
         try? await Task.sleep(for: .milliseconds(50))
@@ -474,7 +474,7 @@ func runTests() async {
                 if content.contains("hear me alright") { body = content }
             }
         }
-        check(body.contains("Lyndsay: Hi there, can you hear me alright today?")
+        check(body.contains("Jamie: Hi there, can you hear me alright today?")
               && body.contains("Them: Great, let us get going then. Yeah."),
               "saved group-call speech keeps unassigned words separate",
               "transcript: \(body.components(separatedBy: "## Transcript").last?.prefix(200) ?? "")")
@@ -489,7 +489,7 @@ func runTests() async {
     do {
         let vm = LiveSessionViewModel()
         var ctx = PreCallContext()
-        ctx.participants = [.init(name: "Lyndsay", role: "")]
+        ctx.participants = [.init(name: "Jamie", role: "")]
         vm.startLive(context: ctx, participantsConfirmed: true)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else {
@@ -502,12 +502,12 @@ func runTests() async {
             SpeakerSegment(speaker: "Them 1", start: 0.9, end: 3.1),
         ])
         try? await Task.sleep(for: .milliseconds(50))
-        vm.renameSpeaker("Them 1", to: "Lyndsay")
+        vm.renameSpeaker("Them 1", to: "Jamie")
 
         capture.onUtterance?(Utterance(t: 5, speaker: "Them",
             text: "And a totally different second voice.", endT: 7))
         try? await Task.sleep(for: .milliseconds(50))
-        check(vm.displaySpeaker("Them") == "Lyndsay", "alias active before second voice")
+        check(vm.displaySpeaker("Them") == "Jamie", "alias active before second voice")
 
         // Diarizer now separates two people (stale "Them 1" label rides in).
         capture.onSpeakerSegments?(.system, [
@@ -517,13 +517,13 @@ func runTests() async {
         try? await Task.sleep(for: .milliseconds(50))
         check(vm.displaySpeaker("Them") == "Them",
               "second remote voice retires the alias")
-        check(vm.utterances.map(\.speaker) == ["Lyndsay", "Them 2"],
+        check(vm.utterances.map(\.speaker) == ["Jamie", "Them 2"],
               "named speaker keeps her turns; second voice gets its own label",
               "got \(vm.utterances.map(\.speaker))")
 
         // Chained rename stays stable alongside the alias machinery.
-        vm.renameSpeaker("Lyndsay", to: "Lyndsay K")
-        check(vm.utterances.map(\.speaker) == ["Lyndsay K", "Them 2"],
+        vm.renameSpeaker("Jamie", to: "Jamie K")
+        check(vm.utterances.map(\.speaker) == ["Jamie K", "Them 2"],
               "chained rename relabels cleanly",
               "got \(vm.utterances.map(\.speaker))")
         vm.stopLive()
@@ -548,10 +548,10 @@ func runTests() async {
 
         // A diarized voice carrying a real (enrolled) name outranks the seed.
         capture.onSpeakerSegments?(.system, [
-            SpeakerSegment(speaker: "Caitlin", start: 1, end: 4),
+            SpeakerSegment(speaker: "Dana", start: 1, end: 4),
         ])
         try? await Task.sleep(for: .milliseconds(50))
-        check(vm.displaySpeaker("Them") == "Caitlin",
+        check(vm.displaySpeaker("Them") == "Dana",
               "enrolled real name beats the pre-call seed",
               "got \(vm.displaySpeaker("Them"))")
 
@@ -631,16 +631,16 @@ func runTests() async {
     //     typeahead ranks prefix matches before substring matches.
     do {
         UserDefaults.standard.removeObject(forKey: "savedParticipants")
-        ParticipantStore.save([.init(name: "Lyndsay", role: "founder")])
-        ParticipantStore.remember(name: "  lyndsay ")
+        ParticipantStore.save([.init(name: "Jamie", role: "founder")])
+        ParticipantStore.remember(name: "  jamie ")
         var people = ParticipantStore.load()
         check(people.count == 1, "remember dedupes case-insensitively",
               "got \(people.map(\.name))")
         check(people.first?.role == "founder", "existing role preserved")
 
-        ParticipantStore.remember(name: "Matt")
+        ParticipantStore.remember(name: "Sam")
         people = ParticipantStore.load()
-        check(people.map(\.name) == ["Lyndsay", "Matt"], "new name appended",
+        check(people.map(\.name) == ["Jamie", "Sam"], "new name appended",
               "got \(people.map(\.name))")
 
         // A real rename reaches the store the moment it happens.
@@ -650,15 +650,15 @@ func runTests() async {
         AudioCaptureManager.last?.onUtterance?(Utterance(
             t: 1, speaker: "Them", text: "Hello over there.", endT: 2))
         try? await Task.sleep(for: .milliseconds(50))
-        vm.renameSpeaker("Them", to: "Caitlin")
-        check(ParticipantStore.load().contains { $0.name == "Caitlin" },
+        vm.renameSpeaker("Them", to: "Dana")
+        check(ParticipantStore.load().contains { $0.name == "Dana" },
               "rename persists the name into participant memory immediately")
         vm.stopLive()
         vm.deleteSession()
 
         let ranked = ParticipantStore.typeaheadMatches(
-            "ly", in: ["Molly", "Lyndsay", "Waly", "Lyle"])
-        check(ranked == ["Lyndsay", "Lyle", "Molly", "Waly"],
+            "ly", in: ["Molly", "Lydia", "Waly", "Lyle"])
+        check(ranked == ["Lydia", "Lyle", "Molly", "Waly"],
               "typeahead ranks prefix before substring, stable within groups",
               "got \(ranked)")
         check(ParticipantStore.typeaheadMatches("", in: ["A", "B", "C", "D", "E", "F"])
@@ -674,17 +674,17 @@ func runTests() async {
     //     only when the clip actually grew.
     do {
         var p = PendingProfileSaves()
-        p.name(slot: 0, as: "Caitlin")
+        p.name(slot: 0, as: "Dana")
         check(p.due(clipSeconds: [0: 1.2], minSeconds: 3, final: false).isEmpty,
               "no save before the clip is viable")
         let first = p.due(clipSeconds: [0: 3.4], minSeconds: 3, final: false)
-        check(first.map(\.name) == ["Caitlin"], "first viable save fires",
+        check(first.map(\.name) == ["Dana"], "first viable save fires",
               "got \(first)")
         check(p.due(clipSeconds: [0: 3.4], minSeconds: 3, final: false).isEmpty,
               "no rewrite on every publish")
         check(p.due(clipSeconds: [0: 6.0], minSeconds: 3, final: false).isEmpty,
               "mid-session growth alone doesn't rewrite")
-        check(p.due(clipSeconds: [0: 11.8], minSeconds: 3, final: true).map(\.name) == ["Caitlin"],
+        check(p.due(clipSeconds: [0: 11.8], minSeconds: 3, final: true).map(\.name) == ["Dana"],
               "session end refreshes with the fuller clip")
         check(p.due(clipSeconds: [0: 11.8], minSeconds: 3, final: true).isEmpty,
               "final refresh is a no-op unless the clip grew")
@@ -1525,16 +1525,16 @@ func runTests() async {
         try? await Task.sleep(for: .milliseconds(50))
         capture.onSpeakerSegments?(.system, [
             SpeakerSegment(speaker: "anna", start: 0.9, end: 4.1),
-            SpeakerSegment(speaker: "Anna Notario", start: 5.8, end: 9.2),
+            SpeakerSegment(speaker: "Anna Jones", start: 5.8, end: 9.2),
         ])
         try? await Task.sleep(for: .milliseconds(50))
         let merge = vm.speakerNameSuggestions.first { $0.kind == .samePerson }
-        check(merge?.label == "anna" && merge?.name == "Anna Notario",
+        check(merge?.label == "anna" && merge?.name == "Anna Jones",
               "same-person labels surface a merge card (longer name survives)",
               "got \(String(describing: merge))")
 
         if let merge { vm.confirmNameSuggestion(merge) }
-        check(vm.utterances.map(\.speaker) == ["Anna Notario", "Anna Notario"],
+        check(vm.utterances.map(\.speaker) == ["Anna Jones", "Anna Jones"],
               "confirming the merge relabels the transcript",
               "got \(vm.utterances.map(\.speaker))")
         check(vm.displaySpeaker("Them") == "Them",
@@ -1548,14 +1548,14 @@ func runTests() async {
     //     whose speech overlaps in time are two real people, never merged.
     do {
         var ctx = PreCallContext()
-        ctx.participants = [.init(name: "Anna Notario", role: "")]
+        ctx.participants = [.init(name: "Anna Jones", role: "")]
         let vm = LiveSessionViewModel()
         vm.startLive(context: ctx, participantsConfirmed: true)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else {
             check(false, "capture manager wired (11)"); return
         }
-        check(capture.expectedParticipants == ["Anna Notario"],
+        check(capture.expectedParticipants == ["Anna Jones"],
               "pre-call participants reach the capture manager (enrollment scoping)")
         capture.onUtterance?(Utterance(t: 1, speaker: "Them",
             text: "Thanks for making the time again today.", endT: 4))
@@ -1565,8 +1565,8 @@ func runTests() async {
 
         // Overlapping speech: a real second guest talking over Anna.
         capture.onSpeakerSegments?(.system, [
-            SpeakerSegment(speaker: "Anna Notario", start: 0.9, end: 4.1),
-            SpeakerSegment(speaker: "Anna Notario", start: 5.8, end: 6.5),
+            SpeakerSegment(speaker: "Anna Jones", start: 0.9, end: 4.1),
+            SpeakerSegment(speaker: "Anna Jones", start: 5.8, end: 6.5),
             SpeakerSegment(speaker: "Them 2", start: 5.8, end: 9.2),
         ])
         try? await Task.sleep(for: .milliseconds(50))
@@ -1577,12 +1577,12 @@ func runTests() async {
         // Refined publish: no overlap after all → phantom slot merges into
         // the expected guest.
         capture.onSpeakerSegments?(.system, [
-            SpeakerSegment(speaker: "Anna Notario", start: 0.9, end: 4.1),
+            SpeakerSegment(speaker: "Anna Jones", start: 0.9, end: 4.1),
             SpeakerSegment(speaker: "Them 2", start: 5.8, end: 9.2),
         ])
         try? await Task.sleep(for: .milliseconds(50))
         let merge = vm.speakerNameSuggestions.first { $0.kind == .samePerson }
-        check(merge?.label == "Them 2" && merge?.name == "Anna Notario",
+        check(merge?.label == "Them 2" && merge?.name == "Anna Jones",
               "expected 1:1 pairs the stray slot with the named guest",
               "got \(String(describing: merge))")
         vm.stopLive()
@@ -1593,7 +1593,7 @@ func runTests() async {
     //     attendance metadata for a new call without confirmation.
     do {
         var ctx = PreCallContext()
-        ctx.participants = [.init(name: "Anna Notario", role: "")]
+        ctx.participants = [.init(name: "Anna Jones", role: "")]
         let vm = LiveSessionViewModel()
         vm.startLive(context: ctx)   // "Go live" / menu bar — no form
         try? await Task.sleep(for: .milliseconds(300))
@@ -1611,17 +1611,17 @@ func runTests() async {
         capture.onUtterance?(Utterance(t: 6, speaker: "Them",
             text: "Let us discuss those numbers together.", endT: 9))
         capture.onSpeakerSegments?(.system, [
-            SpeakerSegment(speaker: "Anna Notario", start: 0.9, end: 4.1),
+            SpeakerSegment(speaker: "Anna Jones", start: 0.9, end: 4.1),
             SpeakerSegment(speaker: "Them 2", start: 5.9, end: 9.1),
         ])
         check(!vm.speakerNameSuggestions.contains { $0.kind == .samePerson },
               "stale one-on-one context never proposes merging different guests")
-        vm.renameSpeaker("Anna Notario", to: "Tadeáš")
+        vm.renameSpeaker("Anna Jones", to: "Tadeáš")
         vm.renameSpeaker("Them 2", to: "Jarrett")
         vm.stopLive()
         if let path = vm.savedPath {
             let body = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
-            check(!path.lowercased().contains("anna") && !body.contains("Anna Notario"),
+            check(!path.lowercased().contains("anna") && !body.contains("Anna Jones"),
                   "stale guest never leaks into saved title, filename, or transcript")
             let sidecar = URL(fileURLWithPath: path).deletingPathExtension().appendingPathExtension("json")
             let data = (try? Data(contentsOf: sidecar)) ?? Data()
@@ -1629,7 +1629,7 @@ func runTests() async {
             check(json?["participants"] as? [String] == ["Tadeáš", "Jarrett"],
                   "saved metadata uses speakers from this call")
         } else { check(false, "stale-context meeting saved") }
-        check(vm.preCallContext.participants.first?.name == "Anna Notario",
+        check(vm.preCallContext.participants.first?.name == "Anna Jones",
               "last-used form remains available without becoming attendance evidence")
         vm.deleteSession()
     }
@@ -1640,7 +1640,7 @@ func runTests() async {
     //     the second guest's voice clip under the first one's profile.
     do {
         var ctx = PreCallContext()
-        ctx.participants = [.init(name: "Anna Notario", role: "")]
+        ctx.participants = [.init(name: "Anna Jones", role: "")]
         let vm = LiveSessionViewModel()
         vm.startLive(context: ctx, participantsConfirmed: true)
         try? await Task.sleep(for: .milliseconds(300))
@@ -1716,13 +1716,13 @@ func runTests() async {
     }
 
     // One person saved under two names must enroll ONCE (2026-09-01 field
-    // report: "anna" + "Anna Notario" both enrolled → her turns flipped
+    // report: "anna" + "Anna Jones" both enrolled → her turns flipped
     // between the two names and short replies fell back to raw "Them").
     do {
-        check(VoiceProfileStore.samePerson("anna", "Anna Notario")
-              && VoiceProfileStore.samePerson("Anna Notario", "anna")
+        check(VoiceProfileStore.samePerson("anna", "Anna Jones")
+              && VoiceProfileStore.samePerson("Anna Jones", "anna")
               && VoiceProfileStore.samePerson("Nick C", "nick")
-              && !VoiceProfileStore.samePerson("Anna Smith", "Anna Notario")
+              && !VoiceProfileStore.samePerson("Anna Smith", "Anna Jones")
               && !VoiceProfileStore.samePerson("anna", "Ayman"),
               "same-person name matching")
 
@@ -1731,7 +1731,7 @@ func runTests() async {
                          createdAt: Date(), lastUsedAt: Date())
         }
         let collapsed = VoiceProfileStore.collapseSamePerson(
-            [profile("anna"), profile("Ayman"), profile("Anna Notario")])
+            [profile("anna"), profile("Ayman"), profile("Anna Jones")])
         check(collapsed.map(\.name) == ["anna", "Ayman"],
               "duplicate profiles collapse for enrollment, first in order wins",
               "got \(collapsed.map(\.name))")
@@ -1739,9 +1739,9 @@ func runTests() async {
         // Enrollment scoping: named pre-call participants enroll ONLY
         // matching profiles; nobody named means nobody enrolled.
         let scoped = VoiceProfileStore.selectForEnrollment(
-            [profile("Anna Notario"), profile("Ayman"), profile("Chad Boyda")],
+            [profile("Anna Jones"), profile("Ayman"), profile("Chad Boyda")],
             expecting: ["anna"])
-        check(scoped.map(\.name) == ["Anna Notario"],
+        check(scoped.map(\.name) == ["Anna Jones"],
               "pre-call participants scope enrollment to matching profiles",
               "got \(scoped.map(\.name))")
         check(VoiceProfileStore.selectForEnrollment([profile("anna")], expecting: []).isEmpty,

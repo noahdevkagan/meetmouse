@@ -20,7 +20,7 @@ struct ReviewSection: Equatable {
 /// deterministic (no-LLM) builder directly, the LLM path via `parse` — so
 /// the UI never renders a raw text blob and internal signal ids never leak.
 struct MeetingReview: Equatable {
-    /// LLM-proposed session title ("Caitlin · margins & win-back") — the
+    /// LLM-proposed session title ("Dana · pricing & renewal") — the
     /// model has read the whole meeting, so it names it far better than
     /// the word-frequency heuristic. nil on the deterministic path.
     var title: String?

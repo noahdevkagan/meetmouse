@@ -159,9 +159,9 @@ app launch, push, or release. Actual cross-app/closed-window UI check remains ma
 PR #38 branch. Roster evidence for 1:1 calls without an active-speaker outline
 (see decisions.md 2026-10-09). New "Your name on calls" setting (key
 speakerSelfName); set to "Noah Kagan" for this user because NSFullUserName is
-"Casa Rundell". Merged main (#39 bundle-id matching superseded this branch's Zoom-only
+"Home Mac". Merged main (#39 bundle-id matching superseded this branch's Zoom-only
 name swap). Verified: 317 session checks, Debug build, and the engine run
-locally on the user's real screenshot reads ["Matt Bean"] at the app's 1600 px
+locally on the user's real screenshot reads the guest's name at the app's 1600 px
 capture size (nil with a wrong self name; nil on the MeetMouse window). Screenshot
 is not committed (faces + work doc). Settings field not visually confirmed (AX
 lost the dev window). Outstanding: real-call check via
@@ -195,7 +195,7 @@ installed-app replacement.
 
 ## Current state (2026-10-08): meetmouse.com share links + system-audio recovery
 
-From James Dellar's 2026-10-08 email: (1) share links minted on rhinovoice.app —
+From a recipient's 2026-10-08 email: (1) share links minted on rhinovoice.app —
 now default to meetmouse.com (app, Worker routes, tests, README); legacy routes
 kept. Needs the release's Worker deploy to go live; CI token must have Workers
 Routes on the meetmouse.com zone (both zones are in the same account — verified).
@@ -498,7 +498,7 @@ No installed app replacement, live call validation, merge, or release.
 ## Current state (2026-09-23): Live Claude validation — mixed results
 
 User authorized testing notes/coaching with the connected account. Dev UI confirms
-Claude account / Haiku enabled. Regenerated the saved 58-minute Matt meeting twice:
+Claude account / Haiku enabled. Regenerated the saved 58-minute Sam meeting twice:
 first result had only action items + next focus; second had only next focus (also
 in summary fallback). The UI persisted these incomplete results over the earlier
 review; transcript is unchanged. Long-meeting notes therefore FAIL completeness.
@@ -835,7 +835,7 @@ Release plist/signature verify.
 ## Prior state: Support email, downloads, and redirects complete
 
 Cloudflare Email Routing is ready: `support@meetmouse.com` forwards to the
-already-verified `noahkagan@gmail.com`, and the required MX, SPF, and DKIM
+already-verified owner address, and the required MX, SPF, and DKIM
 records are live. Customer-facing site and app support links use the branded
 address. All 51 historical GitHub DMGs are now named `MeetMouse-*.dmg`; the live
 Sparkle appcast points at the renamed latest asset, and future packaging already
@@ -936,7 +936,7 @@ verified only); consider surfacing Ask on Enter in the sidebar box.
 
 - **In progress (branch `crxnamja/fix-speaker-labeling-1on1`): speaker
   labeling accuracy.** Shipped on-branch: same-person voice-profile dedupe
-  at enrollment (field report: "anna" + "Anna Notario" both enrolled →
+  at enrollment (field report: "anna" + "Anna Jones" both enrolled →
   split identity in a 1:1). Plan, approved by Noah ("just do 1 + 2"):
   1. Scoped enrollment — pre-call participants confirmed *for this call*
      (the form was actually submitted) ⇒ enroll only matching profiles;
@@ -983,7 +983,7 @@ verified only); consider surfacing Ask on Enter in the sidebar box.
   checks — the release reworked engine selection in
   `AudioCaptureManager.start()` and the matrix was not run.
 - Fix the swallowed-`onReady` retry regression (above).
-- Reply to Ned Donovan (neddonovan@gmail.com) — the call-truth behavior
+- Reply to the user who reported this — the call-truth behavior
   shipped in 0.17.1 (2026-08-10); check whether the reply ever went out.
 - Conductor clones don't inherit `core.hooksPath` → pushes silently skip
   the gate (`git config core.hooksPath scripts/githooks` per clone). Also:
@@ -991,7 +991,7 @@ verified only); consider surfacing Ask on Enter in the sidebar box.
   code makes it false-skip — unset upstream to force a full run.
 - Deferred: Core Audio process-tap experiment; streaming Parakeet decoder
   + other CPU/memory items (decisions.md).
-- Carried: speaker identity on a real group call; Matt follow-up;
+- Carried: speaker identity on a real group call; Sam follow-up;
   coachfree AppSumo code verify; SEO distribution (newsletter/YouTube/PH,
   AlternativeTo, GSC sitemap); green-win placement + MCP packaging;
   Settings window polish; calendar/EventKit batch B (Noah-deferred);

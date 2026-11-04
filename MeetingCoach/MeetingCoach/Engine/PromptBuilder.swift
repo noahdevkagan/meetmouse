@@ -58,20 +58,20 @@ enum PromptBuilder {
 
         Example of the exact shape (invented content — never copy its content or language):
         TITLE:
-        Launch margins with Caitlin
+        Onboarding costs with Dana
         SUMMARY:
-        Launches are pacing, but the headline is margin — targets are being hit at roughly zero profit, so margin is now the #1 priority.
+        Signups are on plan, but support costs per new customer doubled, so reducing setup tickets is now the #1 priority.
         NOTES:
-        ### Margin over volume
-        - August hit the launch target for the first time this year, but at roughly zero profit; margin is now priority #1.
-        - Lead tier is the strongest predictor of performance; Tier 1 beats Tier 2 by ~2.4-3x, so Launchpad becomes the default.
-        - Caitlin pushed back on cutting spend mid-quarter — agreed to hold spend and gate launches on a margin floor instead.
-        ### Retro QA of live tools
-        - Status: 7 pass / 6 fail; passing tools are cleared to ship, failing ones stay dark until fixed.
-        - Kim's concern: QA has no owner once Abe rotates off in October — unresolved.
+        ### Setup costs
+        - March hit the signup goal for the first time this year, but each new customer opened about four tickets during setup.
+        - The guided checklist is the strongest predictor of success; customers who finish it open half as many tickets, so it becomes the default.
+        - Dana pushed back on delaying the pricing page — agreed to ship it on time and add the checklist first.
+        ### Help center review
+        - Status: 9 articles current / 4 outdated; current ones stay live, outdated ones stay hidden until rewritten.
+        - Lee's concern: the help center has no owner once Rosa moves teams in May — unresolved.
         NEXT STEPS:
-        - Build the rev-share margin model and operating-principles one-pager (Caitlin) — it states the margin floor every launch must clear [critical]
-        - Finish retro QA on the live Radar tools (Kim and Abe) — clear the 6 failing tools or mark them end-of-life
+        - Draft the setup checklist and one-page rollout plan (Dana) — it sets the ticket target every new customer should meet [critical]
+        - Finish the help center review (Lee and Rosa) — rewrite the 4 outdated articles or retire them
         NEXT MEETING FOCUS:
         Watch talk time — hand the floor back with a question one sentence earlier.
 

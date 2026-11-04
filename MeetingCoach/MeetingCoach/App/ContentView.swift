@@ -1245,7 +1245,7 @@ private struct TranscriptTurnRow: View, Equatable {
 }
 
 /// One-tap confirmation for an LLM-inferred speaker name ("Them 1 sounds
-/// like Sarah") or a probable same-person merge ("anna and Anna Notario
+/// like Sarah") or a probable same-person merge ("anna and Anna Jones
 /// sound like the same person"). Never auto-applied — a wrong name (or a
 /// wrong merge) would be saved with the voice and poison future sessions.
 private struct NameSuggestionBar: View {
