@@ -133,6 +133,13 @@ platforms remains required before calling the feature verified. Next: use the
 Debug build in a Zoom and a Google Meet call and run scenario 7 of
 `tests/calls-manual.md`; do not interrupt an active installed-app meeting.
 
+## Current state (2026-11-04): Advanced live coaching off by default for new installs — implemented, in PR
+
+Plan: new installs default `semanticCoachEnabled` off (existing installs keep
+theirs), no automatic model pull, checklist row becomes "AI notes after each
+call" with Connect Claude or a local download, and the checklist shows on the
+empty home screen. No engine launch when no model is installed. Why: decisions.md 2026-11-04.
+
 ## Current state (2026-10-20): Global open shortcut — implemented
 
 Control–Command–M opens/raises the existing main window from any app while

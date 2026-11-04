@@ -46,6 +46,10 @@ final class SettingsViewModel {
     /// Cloud requests need no local model, engine or memory checks.
     func prepareAI(ollamaManager: OllamaManager) async -> Bool {
         if usesCloudAI { return true }
+        // Nothing installed means nothing to run: don't start the engine just
+        // to find that out at the end of every notes-free meeting.
+        await refreshModels()
+        guard !availableModels.isEmpty else { return false }
         guard await ollamaManager.ensureRunning() else { return false }
         await refreshModels()
         return !availableModels.isEmpty
@@ -86,12 +90,12 @@ final class SettingsViewModel {
     @ObservationIgnored weak var ollamaManager: OllamaManager?
 
     /// Tier-2 semantic coaching: local-LLM heartbeat during live sessions.
-    /// Surfaced in Settings as "AI coaching". Off = transcript-first mode:
+    /// Surfaced in Settings as "Advanced live coaching". Off = transcript-first mode:
     /// no model preload or engine launch at session start; AI notes
-    /// still generate automatically after the call.
+    /// still generate automatically after the call. Off for new installs.
     var semanticCoachEnabled: Bool {
         didSet {
-            UserDefaults.standard.set(semanticCoachEnabled, forKey: "semanticCoachEnabled")
+            UserDefaults.standard.set(semanticCoachEnabled, forKey: LiveCoachingDefault.key)
             // Re-enabling restores the zero-click setup that disabling
             // deferred — otherwise the pull only happens on the next launch.
             // The method's own guards make this a no-op when a model is
@@ -100,6 +104,23 @@ final class SettingsViewModel {
                 Task { await self.autoDownloadRecommendedIfNeeded() }
             }
         }
+    }
+
+    /// What advanced live coaching costs on this Mac, said wherever it can be
+    /// turned on. Weights plus the same runtime overhead the fit rules use.
+    var liveCoachingCostNote: String {
+        if usesCloudAI {
+            return "Sends meeting text to \(aiConfiguration.provider.title) throughout each call and uses your plan or API allowance."
+        }
+        let recommended = recommendedCatalogModel
+        let installedSize = availableModels.first { $0.name == effectiveModel }?.size ?? 0
+        let weightBytes = installedSize > 0 ? installedSize
+            : Int64((Double(recommended.diskSize.filter { "0123456789.".contains($0) }) ?? 0) * 1_000_000_000)
+        let gb = Int((Double(weightBytes + ModelMemory.runtimeOverheadBytes) / 1_000_000_000).rounded())
+        let cost = "uses about \(gb) GB of memory during calls and can slow your Mac."
+        let willDownload = availableModels.isEmpty
+            && !UserDefaults.standard.bool(forKey: Self.autoModelPullAttemptedKey)
+        return willDownload ? "Downloads a model (\(recommended.diskSize)), then \(cost)" : cost.prefix(1).uppercased() + cost.dropFirst()
     }
 
     /// Master switch for the floating coaching overlay. Off = nudges only
@@ -147,7 +168,12 @@ final class SettingsViewModel {
     init() {
         self.meetingLanguage = MeetingLanguageSelection.current
         self.notesLanguage = NotesLanguagePreference.current
-        self.semanticCoachEnabled = UserDefaults.standard.object(forKey: "semanticCoachEnabled") as? Bool ?? true
+        self.semanticCoachEnabled = LiveCoachingDefault.resolve(
+            in: .standard,
+            isExistingInstall: UserDefaults.standard.bool(forKey: "hasSeenDemo")
+                || UserDefaults.standard.bool(forKey: Self.autoModelPullAttemptedKey)
+                || !TranscriptSearch.sessionFiles().isEmpty
+                || !Self.installedModelsOnDisk().isEmpty)
         self.showCoachOverlay = UserDefaults.standard.object(forKey: "showCoachOverlay") as? Bool ?? true
         self.showOverlayClock = UserDefaults.standard.object(forKey: "showOverlayClock") as? Bool ?? true
         self.talkBubblePlacement = TalkBubblePlacement(rawValue: UserDefaults.standard.string(forKey: "talkBubblePlacement") ?? "") ?? .rightEdge
@@ -401,8 +427,10 @@ final class SettingsViewModel {
                     // now, not mid-meeting) without pinning RAM for hours.
                     // Skipped for the fallback pull — the user is mid-meeting
                     // on a machine that just proved it has none to spare.
+                    // Notes-only users have no call to warm for: check, then free it.
+                    // Not "0s": see OllamaClient.preload.
                     if !forSessionFallback {
-                        await self.verifyDownloadedModelLoads()
+                        await self.verifyDownloadedModelLoads(keepAlive: self.semanticCoachEnabled ? "10m" : "1s")
                     }
                     return
                 }

@@ -1729,7 +1729,9 @@ final class LiveSessionViewModel {
                     mclog("[Review] AI unavailable; using instant review")
                 }
             } else {
-                reviewAIError = "AI is unavailable. A basic recap is shown; check Settings → AI, then retry from the saved meeting."
+                reviewAIError = settings.availableModels.isEmpty
+                    ? "A basic recap is shown. For AI notes, connect Claude or choose a model in Settings → AI."
+                    : "AI is unavailable. A basic recap is shown; check Settings → AI, then retry from the saved meeting."
             }
             guard reviewGenerationID == generationID else { return }
             if let summary, !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
