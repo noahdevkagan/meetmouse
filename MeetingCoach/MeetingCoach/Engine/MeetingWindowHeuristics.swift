@@ -99,10 +99,17 @@ enum MeetingWindowHeuristics {
     }
 
     static func isMeetTabWindow(_ w: WindowInfo) -> Bool {
-        guard browserOwners.contains(w.ownerName) else { return false }
+        // Chrome's installed Meet app has its own owner and prefixes the
+        // normal tab title. Its home screen alone is not a call.
+        let meetApp = w.ownerName == "Google Meet"
+            && (w.ownerBundleID == nil || w.ownerBundleID?.hasPrefix("com.google.Chrome.app.") == true)
+        guard browserOwners.contains(w.ownerName) || meetApp else { return false }
         // Meet tab titles: "Meet – xyz-abcd-ef" (en dash) or hyphen variant.
         // Case-insensitive — browsers/extensions sometimes re-case titles.
-        let title = w.title.lowercased()
+        var title = w.title.lowercased()
+        for prefix in ["google meet - ", "google meet – "] where title.hasPrefix(prefix) {
+            title = String(title.dropFirst(prefix.count))
+        }
         return title.hasPrefix("meet – ") || title.hasPrefix("meet - ")
             || title.contains("meet.google.com")
     }
@@ -151,6 +158,9 @@ enum MeetingWindowHeuristics {
     /// "Meet – Weekly Sync - Google Chrome" → "Weekly Sync".
     static func cleanedBrowserMeetingTitle(_ raw: String) -> String? {
         var t = raw
+        for prefix in ["google meet - ", "google meet – "] where t.lowercased().hasPrefix(prefix) {
+            t = String(t.dropFirst(prefix.count))
+        }
         // Strip a trailing " - <Browser>" (any known browser, hyphen or
         // dash variants — Chrome uses " - ", Firefox " — ").
         for browser in browserOwners {

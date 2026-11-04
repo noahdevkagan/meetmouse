@@ -100,14 +100,19 @@ continuously while alive, so the new watchdog treats a quiet stream as dead.
       saved voice clip contains solo speech (or no profile saves when less
       than three seconds of solo speech is available)
 
-### 7. Opt-in speaker snapshots (Zoom-style green/yellow outlines)
+### 7. Opt-in speaker snapshots (Zoom green/yellow and Google Meet blue outlines)
 - [ ] With automatic speaker snapshots off (default), start a real meeting:
       no screenshot assistance runs until explicitly
       allowed. Open the consent sheet, cancel, and verify it remains off
 - [ ] With one recognized meeting window, consent automatically names the app
-      and window without requiring a picker. With two calls or no recognized
-      window, select manually; unrelated windows are never auto-selected
-- [ ] Allow the detected meeting window (or use Choose another window). Observe no focus changes, sounds,
+      and window. With two calls, choose from the detected calls; unrelated
+      windows appear only under "Choose from all windows"
+- [ ] "Find the call I switch to…" gives five seconds to activate the desired
+      call, then returns with it selected. An unrelated foreground browser
+      window must not select a Meet call behind it. Cancel/dismiss stops discovery
+- [ ] The standalone Google Meet app is recognized with a live `Google Meet -
+      Meet - <code>` window; its home window is not offered as a call
+- [ ] Allow the detected meeting window (or choose another call). Observe no focus changes, sounds,
       or window movement; macOS capture indicators remain available
 - [ ] Two remote guests take sustained turns with visible name labels and
       active-speaker outlines. Up to six snapshots produce tentative matches;
@@ -127,6 +132,23 @@ continuously while alive, so the new watchdog treats a quiet stream as dead.
 - [ ] Stop while “Finding your meeting window” is visible: delayed discovery must
       not start capture. New meetings and mic-only fallback also cancel discovery
 - [ ] Restarting assistance in the same meeting never exceeds six total requests
+- [ ] When a name suggestion appears, a Yes/No card shows beside the talk bubble
+      with the call in front. One click on Yes names the speaker without
+      activating MeetMouse or moving the call; No dismisses it. Check floating
+      and docked bubbles. A closed overlay stays closed. With two suggestions
+      queued, double-clicking Yes or No answers only the first and doesn't open
+      MeetMouse; double-clicking the bubble with no card up still opens it
+- [ ] Zoom Settings → Meetings & webinars → Keep participant names visible is
+      enabled before starting snapshots. Verify visible labels are actually read
+      and yield a correct suggestion; the setting alone is not a passing test
+- [ ] Google Meet in a supported browser, with the meeting tab active and visible:
+      two remote guests take sustained turns. Blue outlined tiles with visible
+      names produce correct suggestions after repeated voice-aligned samples.
+      A highlighted "You" tile, multiple outlines (including paired interpreter
+      tiles), missing names, and a blue frame outside a tile produce no match
+- [ ] No names after all six attempts: feedback explains that visible names are
+      needed next meeting and that the user can name a transcript speaker now.
+      It does not imply that changing visibility will restart snapshots
 - [ ] One-on-one Zoom call, remote guest shares their screen (filmstrip, no
       outline). With "Your name on calls" set in General settings, the live
       transcript offers "Them 1 may be <guest>" after two snapshots; with the

@@ -1,7 +1,7 @@
 import AppKit
 
 @MainActor
-func visualSpeakerChecks() async {
+func visualSpeakerChecks(scratch: URL) async {
     // ScreenCaptureKit names Zoom "Zoom", not its process name "zoom.us".
     let zoom = SpeakerWindowChoice(id: 1, pid: 1, app: "Zoom", title: "Zoom Meeting", bundleID: "us.zoom.xos")
     let idle = SpeakerWindowChoice(id: 2, pid: 1, app: "Zoom", title: "Zoom Workplace", bundleID: "us.zoom.xos")
@@ -25,6 +25,41 @@ func visualSpeakerChecks() async {
     let zoom7Home = SpeakerWindowChoice(id: 8, pid: 4, app: "Zoom", title: "Zoom Workplace", bundleID: "us.zoom.xos")
     check(VisualSpeakerCapture.suggestedWindow(in: [zoom7Home, browser, zoom7]) == zoom7,
           "visual: auto-select Zoom 7 meeting window by bundle id")
+    check(meet.highlightStyle == .googleMeet && zoom.highlightStyle == .zoom
+          && browser.highlightStyle == .zoom && fake.highlightStyle == .zoom,
+          "visual: blue-outline adapter is scoped to a recognized Google Meet window")
+    let meetApp = SpeakerWindowChoice(id: 9, pid: 5, app: "Google Meet",
+                                     title: "Google Meet - Meet - ukk-jmzq-qjn",
+                                     bundleID: "com.google.Chrome.app.kjgfgldnnfoeklkmfkjfagphfepbbdan")
+    check(VisualSpeakerCapture.suggestedWindow(in: [idle, browser, meetApp]) == meetApp
+          && meetApp.highlightStyle == .googleMeet && meetApp.platformName == "Google Meet",
+          "visual: observed standalone Meet app is detected and uses Meet OCR")
+    check(VisualSpeakerCapture.meetingWindows(in: [idle, zoom, browser, meetApp, fake]) == [zoom, meetApp],
+          "visual: quick choices contain calls only")
+    check(!MeetingWindowHeuristics.isMeetTabWindow(.init(ownerName: "Google Meet", title: "Google Meet",
+                                                       ownerBundleID: meetApp.bundleID))
+          && !MeetingWindowHeuristics.isMeetTabWindow(.init(ownerName: "Google Meet", title: meetApp.title,
+                                                          ownerBundleID: "com.apple.Notes")),
+          "visual: standalone Meet home and unrelated bundle are not calls")
+    check(MeetingWindowHeuristics.meetingTitle(from: [.init(ownerName: meetApp.app, title: meetApp.title,
+                                                          ownerBundleID: meetApp.bundleID)]) == nil,
+          "visual: standalone Meet room code is not a human meeting title")
+    check(VisualSpeakerCapture.foregroundMeetingWindow(in: [zoom, meetApp], frontmostPID: 5,
+                                                      orderedWindowIDs: [9]) == meetApp,
+          "visual: explicit switch picks foreground Meet even with Zoom open")
+    check(VisualSpeakerCapture.foregroundMeetingWindow(in: [browser, meet], frontmostPID: 2,
+                                                      orderedWindowIDs: [3, 4]) == nil,
+          "visual: unrelated browser front window cannot select a hidden call")
+    check(VisualSpeakerCapture.foregroundMeetingWindow(in: [browser, meet], frontmostPID: 2,
+                                                      orderedWindowIDs: [4, 3]) == meet,
+          "visual: explicit switch uses window order rather than browser PID alone")
+    check(VisualSpeakerCapture.foregroundMeetingWindow(in: [meet], frontmostPID: 2,
+                                                      orderedWindowIDs: [99, 4]) == nil
+          && VisualSpeakerCapture.foregroundMeetingWindow(in: [meet], frontmostPID: nil,
+                                                         orderedWindowIDs: [4]) == nil
+          && VisualSpeakerCapture.foregroundMeetingWindow(in: [meet], frontmostPID: 77,
+                                                         orderedWindowIDs: [4]) == nil,
+          "visual: missing or changed foreground windows do not fall back")
 
     let observations = [VisualSpeakerObservation(name: "Sarah", start: 10, end: 10.1),
                         VisualSpeakerObservation(name: "Sarah", start: 25, end: 25.1)]
@@ -70,8 +105,18 @@ func visualSpeakerChecks() async {
     check(VisualSpeakerOCR.cleanName("Sarah (You)") == nil && VisualSpeakerOCR.cleanName("Share Screen") == nil,
           "visual: self labels and controls rejected")
     check(VisualSpeakerOCR.cleanName("María O’Neill") == "María O’Neill", "visual: international names retained")
+    check(VisualSpeakerOCR.cleanName("llya Novak") == "Ilya Novak"
+          && VisualSpeakerOCR.cleanName("lvan Petrov") == "Ivan Petrov"
+          && VisualSpeakerOCR.cleanName("lan Smith") == "Ian Smith",
+          "visual: OCR capital I misread as lowercase l is restored")
+    check(VisualSpeakerOCR.cleanName("lisa wong") == "lisa wong"
+          && VisualSpeakerOCR.cleanName("léa Roy") == "léa Roy"
+          && VisualSpeakerOCR.cleanName("lloyd banks") == "lloyd banks"
+          && VisualSpeakerOCR.cleanName("Llya Novak") == "Llya Novak",
+          "visual: real lowercase-l names are left alone")
 
-    func fixture(_ rects: [CGRect], names: Bool = true, yellow: Bool = false, radius: CGFloat = 0) -> CGImage {
+    func fixture(_ rects: [CGRect], names: Bool = true, yellow: Bool = false, radius: CGFloat = 0,
+                 border: NSColor? = nil, label: String = "Sarah") -> CGImage {
         let context = CGContext(data: nil, width: 800, height: 500, bitsPerComponent: 8,
                                 bytesPerRow: 3200, space: CGColorSpaceCreateDeviceRGB(),
                                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
@@ -80,12 +125,12 @@ func visualSpeakerChecks() async {
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
         for rect in rects {
-            context.setStrokeColor(NSColor(calibratedRed: yellow ? 0.95 : 0.2, green: 0.9, blue: 0.15, alpha: 1).cgColor)
+            context.setStrokeColor((border ?? NSColor(calibratedRed: yellow ? 0.95 : 0.2, green: 0.9, blue: 0.15, alpha: 1)).cgColor)
             context.setLineWidth(3)
             context.addPath(CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil))
             context.strokePath()
             if names {
-                ("Sarah" as NSString).draw(at: CGPoint(x: rect.minX + 12, y: rect.minY + 10),
+                (label as NSString).draw(at: CGPoint(x: rect.minX + 12, y: rect.minY + 10),
                                            withAttributes: [.font: NSFont.systemFont(ofSize: 20),
                                                             .foregroundColor: NSColor.white])
             }
@@ -120,6 +165,39 @@ func visualSpeakerChecks() async {
         check(try VisualSpeakerOCR.activeName(in: fixture([CGRect(x: 4, y: 4, width: 792, height: 492)])) == nil,
               "visual: screen-sharing perimeter rejected")
     } catch { check(false, "visual: OCR fixture", String(describing: error)) }
+
+    // Use the same "Sarah" glyphs as the Zoom fixture to isolate the adapter:
+    // Vision rates some synthetic names below our unchanged confidence floor.
+    // Real Vision against Meet-style outlines. Paired tiles both light up
+    // even when only one person speaks; multiple outlines must remain a veto.
+    let meetBlue = NSColor(calibratedRed: 138 / 255, green: 180 / 255, blue: 248 / 255, alpha: 1)
+    let meetLightBlue = NSColor(calibratedRed: 168 / 255, green: 199 / 255, blue: 250 / 255, alpha: 1)
+    do {
+        for blue in [meetBlue, meetLightBlue] {
+            let image = fixture([rect], radius: 16, border: blue)
+            check(try VisualSpeakerOCR.activeName(in: image, style: .googleMeet) == "Sarah",
+                  "visual: real Vision reads rounded Google Meet blue tile")
+            check(try VisualSpeakerOCR.activeName(in: image) == nil,
+                  "visual: Zoom adapter rejects a blue frame")
+        }
+        check(try VisualSpeakerOCR.activeName(in: fixture([rect]), style: .googleMeet) == nil,
+              "visual: Meet adapter rejects a green sharing frame")
+        check(try VisualSpeakerOCR.activeName(in: fixture([rect], names: false, border: meetBlue),
+                                              style: .googleMeet) == nil,
+              "visual: Meet without a visible name offers nothing")
+        check(try VisualSpeakerOCR.activeName(in: fixture([rect], border: meetBlue, label: "You"),
+                                              style: .googleMeet) == nil,
+              "visual: Meet self tile never names a remote voice")
+        check(try VisualSpeakerOCR.activeName(in: fixture([rect, rect.offsetBy(dx: 380, dy: 0)],
+                                                         radius: 16, border: meetBlue),
+                                              style: .googleMeet) == nil,
+              "visual: Meet paired or simultaneous highlighted tiles are ambiguous")
+        check(try VisualSpeakerOCR.activeName(in: fixture([CGRect(x: 4, y: 4, width: 792, height: 492)],
+                                                         border: meetBlue), style: .googleMeet) == nil,
+              "visual: Meet whole-window frame is not a speaker")
+        check(VisualSpeakerOCR.name(in: tile, lines: [.init(text: "You", confidence: 1, rect: line.rect)]) == nil,
+              "visual: self label rejected independently of OCR")
+    } catch { check(false, "visual: Meet OCR fixture", String(describing: error)) }
 
     // One-on-one roster: Zoom's screen-share filmstrip has no active-speaker
     // outline. Names come from tiles aligned with the user's own label.
@@ -264,7 +342,7 @@ func visualSpeakerChecks() async {
     }, pause: { _ in })
     ambiguous.startAutomatically(sessionStart: Date(), canStart: { true }) {}
     for _ in 0..<100 where ambiguous.isDiscovering { await Task.yield() }
-    check(ambiguous.count == 0 && ambiguous.status.contains("Choose a window"),
+    check(ambiguous.count == 0 && ambiguous.status.contains("Choose your call"),
           "visual: ambiguous automatic discovery asks for manual selection")
 
     var foundWindows: CheckedContinuation<[SpeakerWindowChoice], Never>?
@@ -308,4 +386,70 @@ func visualSpeakerChecks() async {
     check(delayed.observations.isEmpty && delayed.status.isEmpty && delayed.count == 0,
           "visual: late completion cannot leak into next meeting")
 
+    // Integrate real Vision, automatic discovery/capture, the real live VM,
+    // late diarization, confirmation and saved output. Only the screenshot
+    // source, elapsed time and audio hardware are fixtures.
+    UserDefaults.standard.set(true, forKey: VisualSpeakerCapture.automaticDefaultsKey)
+    defer { UserDefaults.standard.removeObject(forKey: VisualSpeakerCapture.automaticDefaultsKey) }
+    for choice in [zoom, meet] {
+        let platform = choice.highlightStyle == .googleMeet ? "Meet" : "Zoom"
+        let image = fixture([rect], radius: 16,
+                            border: choice.highlightStyle == .googleMeet ? meetBlue : nil)
+        var shots = 0
+        let screenshots = VisualSpeakerCapture(findWindows: { [choice] }, snapshot: { selected in
+            let at = (AudioCaptureManager.last?.startTime ?? Date())
+                .addingTimeInterval(10 + Double(shots) * 15)
+            shots += 1
+            let name = try VisualSpeakerOCR.activeName(in: image, style: selected.highlightStyle)
+            return .init(name: name, start: at, end: at.addingTimeInterval(0.1))
+        }, pause: { _ in })
+        let vm = LiveSessionViewModel(visualSpeakerCapture: screenshots)
+        vm.startLive(context: PreCallContext())
+        for _ in 0..<300 where screenshots.count < 6 || screenshots.isRunning {
+            await Task.yield()
+        }
+        guard let audio = AudioCaptureManager.last else {
+            check(false, "visual pipeline \(platform): audio callbacks wired")
+            vm.stopLive()
+            continue
+        }
+        check(shots == 6 && screenshots.observations.count == 6,
+              "visual pipeline \(platform): automatic snapshots reach real OCR")
+        check(!vm.speakerNameSuggestions.contains { $0.kind == .visualName },
+              "visual pipeline \(platform): readable names wait for voice evidence")
+
+        let words = "The \(platform) verification checks the speaker name from image to saved transcript."
+        audio.onUtterance?(Utterance(t: 6, speaker: "Them", text: words, endT: 100))
+        try? await Task.sleep(for: .milliseconds(50))
+        let solo = [SpeakerSegment(speaker: "Them 1", start: 5, end: 105)]
+        audio.onSpeakerSegments?(.system, solo)
+        var suggestion = vm.speakerNameSuggestions.first { $0.kind == .visualName }
+        check(suggestion?.label == "Them 1" && suggestion?.name == "Sarah",
+              "visual pipeline \(platform): late voice evidence produces correct suggestion")
+        check(vm.utterances.first?.speaker == "Them 1",
+              "visual pipeline \(platform): suggestion awaits confirmation")
+
+        audio.onSpeakerSegments?(.system, solo + [.init(speaker: "Them 2", start: 5, end: 105)])
+        check(!vm.speakerNameSuggestions.contains { $0.kind == .visualName },
+              "visual pipeline \(platform): revised overlapping voices withdraw suggestion")
+        audio.onSpeakerSegments?(.system, solo)
+        suggestion = vm.speakerNameSuggestions.first { $0.kind == .visualName }
+        if let suggestion { vm.confirmNameSuggestion(suggestion) }
+        check(vm.turns.contains { $0.speaker == "Sarah" }
+              && audio.renames.contains { $0 == ("Them 1", "Sarah") },
+              "visual pipeline \(platform): confirmation updates transcript and capture")
+        audio.onSpeakerSegments?(.system, solo)
+        check(vm.utterances.first?.speaker == "Sarah",
+              "visual pipeline \(platform): late segments preserve confirmed name")
+
+        vm.stopLive()
+        let files = (try? FileManager.default.contentsOfDirectory(at: scratch,
+                                                                  includingPropertiesForKeys: nil)) ?? []
+        let saved = files.filter { $0.pathExtension == "md" }.compactMap {
+            try? String(contentsOf: $0, encoding: .utf8)
+        }.first { $0.contains(words) }
+        check(saved?.contains("Sarah: \(words)") == true,
+              "visual pipeline \(platform): confirmed name persists after Stop")
+        vm.deleteSession()
+    }
 }

@@ -10,10 +10,23 @@ final class CoachingOverlayPanel: NSPanel {
     /// isMovableByWindowBackground from dragging the bubble.
     var onDoubleClick: (() -> Void)?
 
+    /// The next suggestion card lands under the cursor, so a quick second click
+    /// must neither answer one the user hasn't read nor open the app over the
+    /// call. The sequence's first click decides: answering the last card leaves
+    /// none showing by the time the second arrives.
+    var isShowingSuggestion: (() -> Bool)?
+    private var clicksBeganOnSuggestion = false
+
     override func sendEvent(_ event: NSEvent) {
-        if event.type == .leftMouseDown, event.clickCount == 2, let onDoubleClick {
-            onDoubleClick()
-            return
+        if event.type == .leftMouseDown {
+            if event.clickCount == 1 {
+                clicksBeganOnSuggestion = isShowingSuggestion?() ?? false
+            } else if clicksBeganOnSuggestion {
+                return
+            } else if event.clickCount == 2, let onDoubleClick {
+                onDoubleClick()
+                return
+            }
         }
         super.sendEvent(event)
     }
@@ -245,7 +258,15 @@ struct CoachingOverlayView: View {
     private var activeNudge: Nudge? { liveSession.activeNudge }
 
     var body: some View {
-        Group {
+        // The card opens toward the screen and leaves the bubble where it is:
+        // the panel stays centered when docked and top-right anchored otherwise.
+        HStack(alignment: settings.talkBubblePlacement == .rightEdge ? .center : .top, spacing: 6) {
+            if let suggestion = liveSession.speakerNameSuggestions.first {
+                SpeakerSuggestionCard(suggestion: suggestion,
+                                      onConfirm: { liveSession.confirmNameSuggestion(suggestion) },
+                                      onDismiss: { liveSession.dismissNameSuggestion(suggestion) })
+                    .id(suggestion.key)
+            }
             if expanded {
                 expandedContent
             } else {
@@ -489,6 +510,68 @@ struct CoachingOverlayView: View {
         case .low: return .gray
         case .med: return .blue
         case .high: return .orange
+        }
+    }
+}
+
+/// One-tap name confirmation where the user is looking during a call. The
+/// transcript's suggestion bar stays the full list; this shows the next one.
+struct SpeakerSuggestionCard: View {
+    let suggestion: SpeakerNameSuggestion
+    let onConfirm: () -> Void
+    let onDismiss: () -> Void
+
+    private var title: String {
+        suggestion.kind == .samePerson ? "Same person?" : "Is this \(suggestion.name)?"
+    }
+
+    private var detail: String {
+        switch suggestion.kind {
+        case .samePerson: return "\(suggestion.label) and \(suggestion.name)"
+        case .visualName: return "\(suggestion.label) · name from your call"
+        case .inferredName: return "\(suggestion.label) · from the conversation"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.callout.weight(.semibold))
+                    .lineLimit(1)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: 210, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            // Drawn by hand: this panel is rarely key, and macOS strips the
+            // tint from .borderedProminent in an inactive window.
+            Button(action: onConfirm) {
+                Text("Yes")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 3)
+                    .background(Dorado.dollar, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+                .buttonStyle(.plain)
+                .help(suggestion.kind == .samePerson
+                      ? "Merge \(suggestion.label) into \(suggestion.name)"
+                      : "Label \(suggestion.label) as \(suggestion.name)")
+            Button("No", action: onDismiss)
+                .buttonStyle(.bordered)
+                .help("Dismiss this suggestion")
+        }
+        .controlSize(.small)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Dorado.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Dorado.dollar.opacity(0.55), lineWidth: 1.5)
         }
     }
 }

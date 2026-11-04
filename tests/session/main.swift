@@ -16,7 +16,6 @@ func check(_ ok: Bool, _ label: String, _ detail: String = "") {
 
 @MainActor
 func runTests() async {
-    await visualSpeakerChecks()
     // Session saves land in a scratch dir, never ~/Documents.
     let scratch = FileManager.default.temporaryDirectory
         .appendingPathComponent("mc-session-tests-\(ProcessInfo.processInfo.processIdentifier)")
@@ -25,6 +24,7 @@ func runTests() async {
         try? FileManager.default.removeItem(at: scratch)
         UserDefaults.standard.removePersistentDomain(forName: ProcessInfo.processInfo.processName)
     }
+    await visualSpeakerChecks(scratch: scratch)
 
     do {
         let vm = LiveSessionViewModel()

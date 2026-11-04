@@ -5,11 +5,8 @@ struct VisualSpeakerAssistView: View {
     var liveSession: LiveSessionViewModel
     @State private var showConsent = false
     @State private var rememberAutomatic = false
-    @State private var windows: [SpeakerWindowChoice] = []
     @State private var selected: SpeakerWindowChoice?
-    @State private var chooseManually = false
     @State private var loading = false
-    @State private var loadError: String?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -36,36 +33,15 @@ struct VisualSpeakerAssistView: View {
         .sheet(isPresented: $showConsent) {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Help match names to voices").font(.title2.bold())
-                Text("For this meeting, take up to six silent screenshots of one window over about 90 seconds. MeetMouse reads the highlighted speaker’s name on this Mac and offers matches for you to confirm.")
-                Text("Images are discarded after reading. No screenshots or window text are saved or sent to AI. Confirmed names become part of your transcript and saved voice profiles.")
-                    .foregroundStyle(.secondary)
-                Text("Works best with Zoom’s green or yellow speaker outline and visible names. Keep the meeting window visible. Ambiguous layouts, chat messages, and unhighlighted tiles won’t produce matches.")
-                    .font(.callout).foregroundStyle(.secondary)
-                if loading {
-                    ProgressView("Finding your meeting window…")
-                } else {
-                    if !chooseManually, let selected {
-                        LabeledContent("Detected meeting") {
-                            Text("\(selected.app) — \(selected.title)")
-                                .lineLimit(2)
-                                .help("\(selected.app) — \(selected.title)")
-                        }
-                        Button("Choose another window…") { chooseManually = true }
-                    } else {
-                        if selected == nil {
-                            Text("Couldn’t identify one meeting window. Choose the window to use.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        Picker("Meeting window", selection: $selected) {
-                            Text("Choose a window").tag(nil as SpeakerWindowChoice?)
-                            ForEach(windows) { window in
-                                Text("\(window.app) — \(window.title)")
-                                    .tag(Optional(window))
-                            }
-                        }
+                Text("Choose your call. MeetMouse reads up to six snapshots on this Mac and suggests names for you to confirm.")
+                SpeakerWindowPicker(selected: $selected, loading: $loading)
+                DisclosureGroup("How speaker snapshots work") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Images are discarded after reading. No screenshots or window text are saved or sent to AI. Confirmed names become part of your transcript and saved voice profiles.")
+                        Text("Keep participant names visible. MeetMouse reads Zoom’s green/yellow speaker outline or Google Meet’s blue outline. One-on-one Zoom calls can also use your name from Settings to find the other tile.")
+                        Text("Keep the call window visible. Ambiguous layouts and chat messages won’t produce matches. Six snapshots run over about 90 seconds.")
                     }
-                    if let loadError { Text(loadError).font(.caption).foregroundStyle(.secondary) }
-                    Button("Refresh windows") { Task { await loadWindows() } }
+                    .font(.callout).foregroundStyle(.secondary).padding(.top, 8)
                 }
                 Toggle("Start automatically in future meetings", isOn: $rememberAutomatic)
                 Text("When enabled, MeetMouse detects one meeting window and takes up to six snapshots each meeting. Change this in Settings → General → Speaker names.")
@@ -90,7 +66,6 @@ struct VisualSpeakerAssistView: View {
             .padding(24).frame(width: 510)
             .task {
                 rememberAutomatic = UserDefaults.standard.bool(forKey: VisualSpeakerCapture.automaticDefaultsKey)
-                await loadWindows()
             }
         }
         .onChange(of: liveSession.isLive) { _, live in
@@ -98,19 +73,144 @@ struct VisualSpeakerAssistView: View {
         }
     }
 
+}
+
+/// Window metadata only: selecting a call never captures pixels before Allow.
+struct SpeakerWindowPicker: View {
+    @Binding var selected: SpeakerWindowChoice?
+    @Binding var loading: Bool
+    @State private var windows: [SpeakerWindowChoice] = []
+    @State private var chooseManually = false
+    @State private var loadError: String?
+    @State private var countdown = 0
+    @State private var switchTask: Task<Void, Never>?
+
+    private var calls: [SpeakerWindowChoice] { VisualSpeakerCapture.meetingWindows(in: windows) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if countdown > 0 {
+                Label("Switch to your call now · \(countdown)", systemImage: "macwindow")
+                    .font(.headline)
+                    .accessibilityLabel("Switch to your call now. \(countdown) seconds remaining.")
+                Text("Click your Zoom or Meet window. MeetMouse will select it, then bring you back here.")
+                    .font(.callout).foregroundStyle(.secondary)
+                Button("Cancel") { cancelSwitch() }
+            } else if loading {
+                ProgressView("Finding your meeting window…")
+            } else {
+                Text(calls.count == 1 ? "Detected call" : "Choose your call").font(.headline)
+                if !calls.isEmpty {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(calls) { window in
+                                Button {
+                                    selected = window
+                                    chooseManually = false
+                                    loadError = nil
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: selected == window ? "largecircle.fill.circle" : "circle")
+                                            .foregroundStyle(selected == window ? Color.accentColor : .secondary)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(window.platformName).fontWeight(.medium)
+                                            Text(window.title).font(.caption).foregroundStyle(.secondary)
+                                                .lineLimit(2)
+                                        }
+                                        Spacer(minLength: 0)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.vertical, 4)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("\(window.platformName), \(window.title)")
+                                .accessibilityAddTraits(selected == window ? [.isSelected] : [])
+                            }
+                        }
+                        .padding(4)
+                    }
+                    .frame(height: min(CGFloat(calls.count) * 62, 186))
+                } else {
+                    Text("Bring your call to the front so MeetMouse can find it.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                Button("Find the call I switch to…", systemImage: "macwindow") { startSwitch() }
+                if let loadError { Text(loadError).font(.caption).foregroundStyle(.secondary) }
+                DisclosureGroup("Choose from all windows", isExpanded: $chooseManually) {
+                    Picker("Window", selection: $selected) {
+                        Text("Choose a window").tag(nil as SpeakerWindowChoice?)
+                        ForEach(windows) { window in
+                            Text("\(window.app) — \(window.title)").tag(Optional(window))
+                        }
+                    }.padding(.top, 8)
+                }
+                Button("Refresh", systemImage: "arrow.clockwise") { Task { await loadWindows() } }
+                    .font(.caption)
+            }
+        }
+        .task { await loadWindows() }
+        .onDisappear { cancelSwitch() }
+    }
+
+    private func cancelSwitch() {
+        switchTask?.cancel()
+        switchTask = nil
+        countdown = 0
+        loading = false
+    }
+
+    private func startSwitch() {
+        cancelSwitch()
+        selected = nil
+        loadError = nil
+        countdown = 5
+        loading = true
+        switchTask = Task { @MainActor in
+            do {
+                for remaining in (1...5).reversed() {
+                    countdown = remaining
+                    try await Task.sleep(for: .seconds(1))
+                }
+                let freshWindows = try await VisualSpeakerCapture.windows()
+                try Task.checkCancellation()
+                windows = freshWindows
+                selected = VisualSpeakerCapture.foregroundMeetingWindow(in: freshWindows)
+                chooseManually = false
+                if selected == nil {
+                    loadError = "No call found in front. Try again with the call visible, or choose it above."
+                }
+                NSApp.activate(ignoringOtherApps: true)
+            } catch is CancellationError {
+                return
+            } catch {
+                loadError = "Couldn’t find the call. Check Screen Recording permission, then try again."
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            countdown = 0
+            loading = false
+            switchTask = nil
+        }
+    }
+
     private func loadWindows() async {
         loading = true
-        selected = nil
-        chooseManually = false
         loadError = nil
         do {
-            windows = try await VisualSpeakerCapture.windows()
-            selected = VisualSpeakerCapture.suggestedWindow(in: windows)
-            chooseManually = selected == nil
+            let freshWindows = try await VisualSpeakerCapture.windows()
+            try Task.checkCancellation()
+            windows = freshWindows
+            // Keep an explicit selection only while that exact window remains.
+            if selected == nil || !windows.contains(selected!) {
+                selected = VisualSpeakerCapture.suggestedWindow(in: windows)
+            }
             if windows.isEmpty { loadError = "Open your meeting window, then refresh." }
+        } catch is CancellationError {
+            return
         } catch {
             windows = []
-            loadError = "Allow Screen Recording for MeetMouse in System Settings, then try again."
+            selected = nil
+            loadError = "Allow Screen Recording for MeetMouse in System Settings, then refresh."
         }
         loading = false
     }
