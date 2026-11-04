@@ -177,7 +177,7 @@ enum MeetingWindowHeuristics {
             }
         }
         t = t.trimmingCharacters(in: .whitespaces)
-        // A bare Meet room code ("kgx-vrbo-abc") names nothing.
+        // A bare Meet room code ("abc-defg-hij") names nothing.
         if t.range(of: #"^[a-z]{3}-[a-z]{4}-[a-z]{3}$"#, options: .regularExpression) != nil {
             return nil
         }

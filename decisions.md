@@ -2139,3 +2139,9 @@ titles. Don't add Teams or Slack adapters from guesses: measure them on real
 calls first. Google Meet refuses an automated guest ("You can't join this video
 call"); that is an anti-automation control, so don't evade it. Live checks need
 a real second participant or a browser the platform allows, and a free desktop.
+
+## 2026-11-04 — Real meeting transcripts and room codes stay out of this public repo
+The repo is public and carried real meeting transcripts naming participants, plus
+Meet room codes from live testing. Deleted the leadership and Zoom samples (no test
+reads them) and replaced the room codes. They remain in git history and in forks
+until that is cleaned separately. Use made-up transcripts and codes in fixtures.

@@ -29,7 +29,7 @@ func visualSpeakerChecks(scratch: URL) async {
           && browser.highlightStyle == .zoom && fake.highlightStyle == .zoom,
           "visual: blue-outline adapter is scoped to a recognized Google Meet window")
     let meetApp = SpeakerWindowChoice(id: 9, pid: 5, app: "Google Meet",
-                                     title: "Google Meet - Meet - ukk-jmzq-qjn",
+                                     title: "Google Meet - Meet - abc-defg-hij",
                                      bundleID: "com.google.Chrome.app.kjgfgldnnfoeklkmfkjfagphfepbbdan")
     check(VisualSpeakerCapture.suggestedWindow(in: [idle, browser, meetApp]) == meetApp
           && meetApp.highlightStyle == .googleMeet && meetApp.platformName == "Google Meet",
