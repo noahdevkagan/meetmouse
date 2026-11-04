@@ -2,10 +2,13 @@ import SwiftUI
 
 /// Meeting history is the front door; coaching progress remains a secondary destination.
 struct MeetingsHomeView: View {
+    var liveSession: LiveSessionViewModel
+    var settings: SettingsViewModel
     var refreshKey: String?
     var onOpen: (URL) -> Void
     var onSearch: (String) -> Void
     @State private var meetings: [URL] = []
+    @State private var meetingsLoaded = false
     @State private var question = ""
     @State private var showingSharedLinks = false
 
@@ -32,16 +35,13 @@ struct MeetingsHomeView: View {
                 .padding(16).cardStyle(cornerRadius: 12)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Recent meetings").font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.secondary).padding(.bottom, 10)
-                    if meetings.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Start with your next conversation")
-                                .font(.system(size: 20, weight: .medium))
-                            Text("Start a meeting from the sidebar. Your transcript saves here, ready to chat with afterward.")
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(24).frame(maxWidth: .infinity, alignment: .leading).cardStyle()
+                    // No meetings yet: this is a new person's first screen, so
+                    // setup lives here rather than behind Coaching progress.
+                    if meetingsLoaded && meetings.isEmpty {
+                        OnboardingChecklistView(liveSession: liveSession, settings: settings)
+                    } else if !meetings.isEmpty {
+                        Text("Recent meetings").font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.secondary).padding(.bottom, 10)
                     }
                     ForEach(meetings, id: \.self) { url in
                         Button { onOpen(url) } label: {
@@ -69,14 +69,19 @@ struct MeetingsHomeView: View {
                 }
                 .buttonStyle(DoradoOutlineButtonStyle())
                 .sheet(isPresented: $showingSharedLinks) { SharedLinksManagerView() }
-                Label("Your transcripts and AI conversations stay on this Mac", systemImage: "lock")
+                Label(settings.usesCloudAI
+                      ? "Your transcripts stay on this Mac. AI features send meeting text to \(settings.aiConfiguration.provider.title)."
+                      : "Your transcripts and AI conversations stay on this Mac", systemImage: "lock")
                     .font(.caption).foregroundStyle(.secondary)
             }
             .frame(maxWidth: 800, alignment: .leading).frame(maxWidth: .infinity)
             .padding(36)
         }
         .background(Dorado.surface)
-        .task(id: refreshKey) { meetings = Array(TranscriptSearch.sessionFiles().prefix(30)) }
+        .task(id: refreshKey) {
+            meetings = Array(TranscriptSearch.sessionFiles().prefix(30))
+            meetingsLoaded = true
+        }
     }
 
     private func search() {
