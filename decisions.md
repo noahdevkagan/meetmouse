@@ -2047,3 +2047,37 @@ its audio to another device than the Mac default. Follow-ups to evaluate
 with real recordings: a relative (mic vs system) energy gate, and holding a
 mic commit up to ~2 s while the far side is active so EchoFilter sees the
 far partials. Manual check: tests/calls-manual.md scenario 8.
+
+## 2026-11-04 — Advanced live coaching defaults off for new installs
+
+Noah: the product story is smooth, low-RAM calls for most people, with AI for
+notes afterward. So the toggle is named "Advanced live coaching" and states its
+cost wherever it can be turned on, using the model's size plus the fit rules'
+runtime overhead (an estimate, not a measurement). In onboarding it is a switch,
+not a checklist row, so leaving it off doesn't read as unfinished setup.
+
+Noah: most in-call coaching doesn't need an LLM; a connected Claude account after
+the meeting is the better experience. The evidence agrees: the model is the app's
+largest measured memory cost (7.19 GB resident on a 32 GB Mac), and one 72-minute
+call made 62 LLM passes with zero nudges. Reverses the default in the 2026-08-18
+entry, which kept default-on for everyone.
+
+New installs get coaching off and no automatic model pull. Installs with any sign
+of prior use (hasSeenDemo, the pull flag, saved sessions, installed models) keep
+coaching on unless they turned it off: silently removing a feature someone relies
+on is a worse surprise than a heavier default. The value is stored on first read
+because those signals turn true during onboarding.
+
+The checklist had been stranded behind Coaching progress since the chat-first home
+became the front door, so a new person never saw it. It now also fills the home
+screen's empty state, or the new Claude row would go unseen.
+
+Claude account stays an explicit two-step opt-in (sign in, then a separate Turn on
+with the data disclosure) because connecting must not by itself permit sending
+meeting text. Local download stays alongside it because Claude account needs the
+Claude Code CLI, which most non-developers don't have; local notes load after the
+call and unload when done. Without the CLI the local download is the main action
+and Claude is a quiet link, so nobody hits a dead-end error on the main path. Known costs of coaching off: speaker names inferred
+from conversation stop (SpeakerNameInference only runs with a pinned coach), custom
+semantic rubric signals don't fire, and non-English calls drop to Talk Time, Voice
+Share and Overrun.

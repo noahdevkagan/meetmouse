@@ -5,6 +5,13 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-04): Advanced live coaching off by default for new installs — implemented, in PR
+
+Plan: new installs default `semanticCoachEnabled` off (existing installs keep
+theirs), no automatic model pull, checklist row becomes "AI notes after each
+call" with Connect Claude or a local download, and the checklist shows on the
+empty home screen. No engine launch when no model is installed. Why: decisions.md 2026-11-04.
+
 ## Current state (2026-10-20): Global open shortcut — implemented
 
 Control–Command–M opens/raises the existing main window from any app while

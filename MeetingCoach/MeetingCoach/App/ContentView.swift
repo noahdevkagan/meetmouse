@@ -136,7 +136,9 @@ struct ContentView: View {
                     ProgressDashboardView(liveSession: liveSession, settings: settings)
                         .frame(minWidth: 400)
                 } else {
-                    MeetingsHomeView(refreshKey: liveSession.savedPath,
+                    MeetingsHomeView(liveSession: liveSession,
+                                     settings: settings,
+                                     refreshKey: liveSession.savedPath,
                                      onOpen: { selectedSessionURL = $0 },
                                      onSearch: { searchQuery = $0 })
                         .frame(minWidth: 400)
@@ -703,10 +705,10 @@ struct LiveTimelineView: View {
                         // degradation a choice. Persisting the setting means
                         // future sessions are transcript-first and silent.
                         if notice.lowMemory {
-                            Text("Or turn off AI coaching — sessions start faster and use far less memory. AI notes generate automatically after each call.")
+                            Text("Or turn off advanced live coaching — sessions start faster and use far less memory. AI notes generate automatically after each call.")
                                 .font(.caption2).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
-                            Button("Turn off AI coaching") {
+                            Button("Turn off advanced live coaching") {
                                 settings.semanticCoachEnabled = false
                                 liveSession.dismissBasicModeNotice()
                             }
@@ -738,13 +740,13 @@ struct LiveTimelineView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Your Mac is under memory pressure")
                             .font(.caption.bold())
-                        Text("Turning off AI coaching frees several GB right now — the transcript and built-in nudges keep going, and AI notes generate automatically after the call.")
+                        Text("Turning off advanced live coaching frees several GB right now — the transcript and built-in nudges keep going, and AI notes generate automatically after the call.")
                             .font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 4) {
-                        Button("Turn off AI coaching") {
+                        Button("Turn off advanced live coaching") {
                             liveSession.shedSessionModel(settings: settings)
                         }
                         .font(.caption)
@@ -1761,7 +1763,11 @@ struct SidebarView: View {
                                         settings: settings, ollamaManager: ollamaManager)
                         Divider()
                         ModelSection(settings: settings, liveSession: liveSession)
-                        Text(settings.usesCloudAI ? "Cloud AI is enabled for coaching, reviews and questions. Audio stays on this Mac." : "AI nudges and the meeting summary switch on automatically when a model is installed.")
+                        Text(settings.usesCloudAI
+                             ? "Cloud AI is enabled for \(settings.semanticCoachEnabled ? "coaching, reviews" : "reviews") and questions. Audio stays on this Mac."
+                             : settings.semanticCoachEnabled
+                                 ? "AI nudges and the meeting summary switch on automatically when a model is installed."
+                                 : "AI notes switch on automatically when a model is installed.")
                             .font(.caption2).foregroundStyle(.tertiary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -2114,9 +2120,9 @@ struct ModelSection: View {
             // (no preload, no engine launch) — transcript, speaker labels and
             // built-in nudges keep working, and AI notes generate after the call.
             HStack(spacing: 6) {
-                Label("AI coaching", systemImage: "sparkles")
+                Label("Advanced live coaching", systemImage: "sparkles")
                     .font(.subheadline.weight(.semibold))
-                HelpDot(text: "Turning this off makes your Mac faster during calls — the live transcript, speaker labels, and built-in nudges keep working. AI notes generate automatically after each meeting in the Notes tab.")
+                HelpDot(text: "Off keeps your calls smooth: the live transcript, speaker labels, and built-in nudges keep working, and AI notes generate automatically after each meeting in the Notes tab. On adds AI nudges and speaker names picked up from the conversation. \(settings.liveCoachingCostNote)")
                 Spacer(minLength: 0)
                 Toggle("", isOn: $settings.semanticCoachEnabled)
                     .labelsHidden()
@@ -2130,6 +2136,9 @@ struct ModelSection: View {
                         if !enabled { liveSession.shedSessionModel(settings: nil) }
                     }
             }
+            Text(settings.liveCoachingCostNote)
+                .font(.caption2).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             if settings.usesCloudAI {
                 Label(settings.aiConfiguration.provider.title, systemImage: "cloud")
@@ -2206,9 +2215,9 @@ struct ModelSection: View {
                         Image(systemName: "checkmark.circle")
                             .font(.system(size: 28))
                             .foregroundStyle(Dorado.dollar)
-                        Text("Instant coaching is already on")
+                        Text("Built-in coaching is already on")
                             .font(.callout.bold())
-                        Text("Add a local model for smarter AI nudges and reviews — optional. Models run 100% on your Mac; nothing leaves this computer.")
+                        Text("Add a local model for AI notes after each call — optional. It only loads after calls unless you turn on advanced live coaching, and nothing leaves this computer.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -2943,7 +2952,7 @@ struct WelcomeSheet: View {
                 .frame(width: 72, height: 72)
             Text("Welcome to MeetMouse")
                 .font(.title2.bold())
-            Text("A live transcript and recap for every meeting — zero setup. The coach stays quiet unless something's genuinely worth saying. Transcription runs on your Mac. AI is local by default, with optional Claude or OpenAI in Settings.")
+            Text("A live transcript and recap for every meeting — zero setup. The coach stays quiet unless something's genuinely worth saying. Transcription runs on your Mac. For AI notes, connect Claude or download a local model.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: 400)
