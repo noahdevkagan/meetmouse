@@ -16,7 +16,7 @@ Report per platform what was live-verified vs fixture-only.
 
 Done, on this branch: (1) and (2), session checks and Debug build pass. Not done:
 (3). Meet refused the Playwright guest; don't evade it. Stopped driving the GUI
-because the user was actively using the Mac. Test room `abc-defg-hij` may still
+because the user was actively using the Mac. A test room may still
 be open: confirm the user hung up. No platform had a live card/accept test.
 Next, when the desktop is free and a real second participant is available:
 record Teams/Slack window owner, title and outline; add the Teams adapter; test
@@ -55,7 +55,7 @@ never kill the installed process. Dev process was last relaunched for a short
 empty session, stopped without creating a saved meeting.
 
 Original calls had closed. Opened the Google Meet PWA and created an authorized
-solo instant test room, `abc-defg-hij`, for live selection verification. It is
+solo instant test room for live selection verification. It is
 open; close this agent-created room after testing. Next: finish permission
 refresh, restart exact dev, verify real discovery + switch-to-call selection,
 save screenshot under `.context/`, and stop the test recording. Do not claim
