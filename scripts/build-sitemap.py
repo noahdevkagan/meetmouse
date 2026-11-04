@@ -19,6 +19,7 @@ OUT = DOCS / "sitemap.xml"
 BASE = "https://meetmouse.com"
 
 NOINDEX = re.compile(r'<meta[^>]+robots[^>]+noindex', re.IGNORECASE)
+HREFLANG = re.compile(r'<link rel="alternate" hreflang="([^"]+)" href="([^"]+)">')
 
 # Ownership-verification stubs Google and Bing ask you to host. They are not
 # pages, they carry no content, and listing them invites a thin-content crawl.
@@ -48,13 +49,16 @@ def main() -> None:
             continue
         if NOINDEX.search(path.read_text(errors="ignore")):
             continue
+        text = path.read_text(errors="ignore")
         mod = lastmod(path)
         mod_tag = f"<lastmod>{mod}</lastmod>" if mod else ""
-        entries.append(f"  <url><loc>{url_for(path)}</loc>{mod_tag}</url>")
+        # Language versions (hreflang) declared in the page head, repeated here for crawlers.
+        alts = "".join(f'<xhtml:link rel="alternate" hreflang="{l}" href="{h}"/>' for l, h in HREFLANG.findall(text))
+        entries.append(f"  <url><loc>{url_for(path)}</loc>{mod_tag}{alts}</url>")
 
     page = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n'
         + "\n".join(entries)
         + "\n</urlset>\n"
     )

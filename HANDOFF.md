@@ -14,7 +14,7 @@ I/l misread (log: guest's name and voice profile saved with a leading l);
 them) with a scripted guest in no-invite test rooms; add what Teams lacks.
 Report per platform what was live-verified vs fixture-only.
 
-Done, uncommitted: (1) and (2), session checks and Debug build pass. Not done:
+Done, on this branch: (1) and (2), session checks and Debug build pass. Not done:
 (3). Meet refused the Playwright guest; don't evade it. Stopped driving the GUI
 because the user was actively using the Mac. Test room `abc-defg-hij` may still
 be open: confirm the user hung up. No platform had a live card/accept test.
@@ -132,6 +132,20 @@ Not installed, pushed or released. Real-call suggestion/confirmation on both
 platforms remains required before calling the feature verified. Next: use the
 Debug build in a Zoom and a Google Meet call and run scenario 7 of
 `tests/calls-manual.md`; do not interrupt an active installed-app meeting.
+
+## Current state (2026-10-20): Global open shortcut — implemented
+
+Control–Command–M opens/raises the existing main window from any app while
+MeetMouse runs in the menu bar. Default-on toggle and conflict feedback live in
+Settings → General; menu item shows the key. Carbon registration is owned at
+app lifetime via the menu-bar label, and does not need Accessibility permission.
+No recording side effects; cannot launch a fully quit process.
+
+Focused native harness passed registration, repeated configuration, event
+routing, disable/unregister, conflict reporting, and recovery after conflict.
+Debug build passed; final incremental verification in `.context/shortcut-build-final.log`.
+Changelog under Unreleased; decisions recorded. No installed-app replacement,
+app launch, push, or release. Actual cross-app/closed-window UI check remains manual.
 
 ## Current state (2026-10-09): Speaker names in Zoom screen-share layout — built, pushed (PR #38)
 
