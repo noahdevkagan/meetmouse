@@ -275,7 +275,7 @@ struct GeneralSettingsView: View {
                 Text("For future meetings, detect the meeting window and take up to six silent snapshots. Names are read on this Mac; images are discarded, never saved or sent to AI. Suggested names still need your confirmation. You can stop snapshots in the live transcript.")
                     .font(.caption).foregroundStyle(.secondary)
                 TextField("Your name on calls", text: $speakerSelfName, prompt: Text(NSFullUserName()))
-                Text("Requires visible participant names. In Zoom’s gallery, the active-speaker outline names whoever is talking. In one-on-one calls without an outline, such as screen sharing, MeetMouse finds your tile by this name and suggests the other one. If several meeting windows are open, choose one in the live transcript.")
+                Text("Requires visible participant names. In Zoom, enable “Keep participant names visible” under Meetings & webinars. Zoom’s green/yellow outline or Google Meet’s blue outline helps match the speaker. In one-on-one Zoom calls without an outline, MeetMouse finds your tile by this name and suggests the other one. If several meeting windows are open, choose one in the live transcript.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 

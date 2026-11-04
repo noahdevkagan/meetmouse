@@ -234,6 +234,10 @@ struct ContentView: View {
             // session; nudges still land in the coach rail.
             if id != nil, liveSession.isLive, !overlayDismissed { showOverlay() }
         }
+        .onChange(of: liveSession.speakerNameSuggestions.first?.key) { _, key in
+            // Same rule as nudges: the card lives on the bubble.
+            if key != nil, liveSession.isLive, !overlayDismissed { showOverlay() }
+        }
         .onAppear {
             // The window can open into an already-live session (started from
             // the menu bar with no window) — onChange never fires for that.
@@ -274,6 +278,7 @@ struct ContentView: View {
             }, onOpenApp: openMainWindow)
             panel.contentView = NSHostingView(rootView: view)
             panel.onDoubleClick = openMainWindow
+            panel.isShowingSuggestion = { !liveSession.speakerNameSuggestions.isEmpty }
         }
         // Follow the user's attention: position on the screen holding the
         // frontmost app's window (the call) — unless the user has dragged

@@ -11,6 +11,20 @@ struct SpeakerWindowChoice: Identifiable, Sendable, Hashable {
     /// Owning app's bundle id (nil when unknown) — the window heuristics
     /// match on it ahead of the drifting display name.
     var bundleID: String? = nil
+
+    var platformName: String {
+        let info = WindowInfo(ownerName: app, title: title, ownerBundleID: bundleID)
+        if MeetingWindowHeuristics.isMeetTabWindow(info) { return "Google Meet" }
+        if MeetingWindowHeuristics.isZoomMeetingWindow(info) { return "Zoom" }
+        if MeetingWindowHeuristics.isSlackHuddleWindow(info) { return "Slack" }
+        if MeetingWindowHeuristics.isFaceTimeCallWindow(info) { return "FaceTime" }
+        return app
+    }
+
+    var highlightStyle: VisualSpeakerOCR.HighlightStyle {
+        let info = WindowInfo(ownerName: app, title: title, ownerBundleID: bundleID)
+        return MeetingWindowHeuristics.isMeetTabWindow(info) ? .googleMeet : .zoom
+    }
 }
 
 /// Deliberately separate from AIClient: screenshots and OCR never enter prompts.
@@ -60,10 +74,8 @@ final class VisualSpeakerCapture {
         }.sorted { ($0.app, $0.title) < ($1.app, $1.title) }
     }
 
-    /// Only a unique recognized call window is safe to preselect. Window
-    /// enumeration order or the frontmost browser is not evidence of a call.
-    static func suggestedWindow(in windows: [SpeakerWindowChoice]) -> SpeakerWindowChoice? {
-        let candidates = windows.filter { window in
+    static func meetingWindows(in windows: [SpeakerWindowChoice]) -> [SpeakerWindowChoice] {
+        windows.filter { window in
             let info = WindowInfo(ownerName: window.app, title: window.title,
                                   ownerBundleID: window.bundleID)
             return MeetingWindowHeuristics.isZoomMeetingWindow(info)
@@ -72,7 +84,36 @@ final class VisualSpeakerCapture {
                 || MeetingWindowHeuristics.isHangoutsTabWindow(info)
                 || MeetingWindowHeuristics.isFaceTimeCallWindow(info)
         }
+    }
+
+    /// Only a unique recognized call window is safe to preselect.
+    static func suggestedWindow(in windows: [SpeakerWindowChoice]) -> SpeakerWindowChoice? {
+        let candidates = meetingWindows(in: windows)
         return candidates.count == 1 ? candidates.first : nil
+    }
+
+    /// Used only after the user explicitly asks to switch to their call.
+    /// Do not skip an unrelated front browser window to pick a call behind it.
+    static func foregroundMeetingWindow(in windows: [SpeakerWindowChoice],
+                                        frontmostPID: pid_t?,
+                                        orderedWindowIDs: [CGWindowID]) -> SpeakerWindowChoice? {
+        guard let frontmostPID,
+              let frontID = orderedWindowIDs.first,
+              let front = windows.first(where: { $0.id == frontID && $0.pid == frontmostPID }),
+              meetingWindows(in: [front]).count == 1 else { return nil }
+        return front
+    }
+
+    static func foregroundMeetingWindow(in windows: [SpeakerWindowChoice]) -> SpeakerWindowChoice? {
+        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return nil }
+        let rows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
+                                             kCGNullWindowID) as? [[String: Any]] ?? []
+        let ids = rows.compactMap { row -> CGWindowID? in
+            guard (row[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == pid,
+                  (row[kCGWindowLayer as String] as? NSNumber)?.intValue == 0 else { return nil }
+            return (row[kCGWindowNumber as String] as? NSNumber)?.uint32Value
+        }
+        return foregroundMeetingWindow(in: windows, frontmostPID: pid, orderedWindowIDs: ids)
     }
 
     /// Remembered opt-in authorizes discovery; ambiguity never starts capture.
@@ -96,7 +137,7 @@ final class VisualSpeakerCapture {
                     return
                 }
                 guard let window = Self.suggestedWindow(in: windows) else {
-                    self.status = "No unique meeting window found. Choose a window to name speakers."
+                    self.status = "Choose your call to help name speakers."
                     return
                 }
                 self.start(window: window, sessionStart: sessionStart, onObservation: onObservation)
@@ -149,7 +190,7 @@ final class VisualSpeakerCapture {
             }
             guard let self, self.generation == run, !Task.isCancelled else { return }
             self.finish(self.observations.isEmpty && !self.rosters.contains(where: { !$0.names.isEmpty })
-                ? "No speaker names read. Show participant names, and Zoom’s active-speaker outline or your name in Settings."
+                ? "No speaker names read. Show participant names for the next meeting, or click a speaker label to name them now."
                 : "Snapshots finished. Names were read; only reliable voice matches become suggestions.")
         }
     }
@@ -196,26 +237,34 @@ final class VisualSpeakerCapture {
         // The image stays only in this scope + the local OCR task. No file,
         // pasteboard, telemetry, logs, or AI provider gets a copy.
         let selfName = VisualSpeakerOCR.selfName()
+        let style = window.highlightStyle
         let (name, roster) = try await Task.detached(priority: .utility) {
-            (try VisualSpeakerOCR.activeName(in: image),
-             try VisualSpeakerOCR.remoteRoster(in: image, selfName: selfName))
+            // Meet's "You" tile and dynamic layouts need a separate roster
+            // adapter. Until then, require its active-speaker outline.
+            (try VisualSpeakerOCR.activeName(in: image, style: style),
+             style == .zoom ? try VisualSpeakerOCR.remoteRoster(in: image, selfName: selfName) : nil)
         }.value
         return Snapshot(name: name, start: start, end: end, roster: roster)
     }
 }
 
-/// Conservative first adapter: a complete green/yellow active-speaker tile
-/// with exactly one readable name along its bottom edge (Zoom-style gallery).
+/// Require a complete active-speaker outline and exactly one readable name
+/// along its bottom edge: green/yellow for Zoom, blue for Google Meet.
 /// No face recognition, largest-tile guesses, chat authors, or participant lists.
 enum VisualSpeakerOCR {
+    enum HighlightStyle: Sendable {
+        case zoom
+        case googleMeet
+    }
+
     struct Line {
         let text: String
         let confidence: Float
         let rect: CGRect // normalized, top-left origin
     }
 
-    static func activeName(in image: CGImage) throws -> String? {
-        let tiles = highlightedTiles(in: image)
+    static func activeName(in image: CGImage, style: HighlightStyle = .zoom) throws -> String? {
+        let tiles = highlightedTiles(in: image, style: style)
         guard tiles.count == 1, let tile = tiles.first else { return nil }
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
@@ -344,8 +393,19 @@ enum VisualSpeakerOCR {
         name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
     }
 
+    /// Sans-serif labels draw capital I and lowercase l alike: a real Zoom call
+    /// misread a guest's name this way. A leading l before a consonant is not a
+    /// name beyond Lloyd and Llewellyn; "lan" is the one vowel case common enough.
+    static func restoringCapitalI(_ word: Substring) -> String {
+        guard word.first == "l", let next = word.dropFirst().first, next.isASCII, next.isLowercase,
+              !"aeiouy".contains(next) || word == "lan",
+              !word.hasPrefix("lloyd"), !word.hasPrefix("llew") else { return String(word) }
+        return "I" + word.dropFirst()
+    }
+
     static func cleanName(_ raw: String) -> String? {
-        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = trimmed.split(separator: " ").map(restoringCapitalI).joined(separator: " ")
         guard (2...40).contains(name.count) else { return nil }
         let words = name.split(separator: " ")
         guard (1...4).contains(words.count), words.allSatisfy({ word in
@@ -360,7 +420,7 @@ enum VisualSpeakerOCR {
     /// Find long colored horizontal edges, then require matching bottom AND
     /// both side edges (square or rounded corners). Reject whole-window
     /// sharing borders and multiple tiles.
-    static func highlightedTiles(in image: CGImage) -> [CGRect] {
+    static func highlightedTiles(in image: CGImage, style: HighlightStyle = .zoom) -> [CGRect] {
         let w = image.width, h = image.height
         guard w >= 240, h >= 160 else { return [] }
         var pixels = [UInt8](repeating: 0, count: w * h * 4)
@@ -376,7 +436,14 @@ enum VisualSpeakerOCR {
         func colored(_ x: Int, _ y: Int) -> Bool {
             let i = (y * w + x) * 4
             let r = Int(pixels[i]), g = Int(pixels[i + 1]), b = Int(pixels[i + 2])
-            return g > 130 && g > b + 65 && (g > r + 35 || (r > 170 && abs(r - g) < 85))
+            switch style {
+            case .zoom:
+                return g > 130 && g > b + 65 && (g > r + 35 || (r > 170 && abs(r - g) < 85))
+            case .googleMeet:
+                // Meet's light/dark blue outlines. Keep this scoped to Meet:
+                // blue UI frames in other apps are not speaker evidence.
+                return b > 150 && g > 70 && b > r + 35 && b > g + 15
+            }
         }
         var result: [CGRect] = []
         for y in 2..<(h - 80) {

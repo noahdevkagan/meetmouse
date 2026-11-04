@@ -9,6 +9,11 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Speaker name suggestions now appear right beside the talk bubble with Yes and No buttons, so you can confirm a name during the call without opening MeetMouse.
+- Speaker snapshots no longer misread a capital I as a lowercase L in names (for example, "lvan" instead of "Ivan").
+- Speaker snapshots recognize the standalone Google Meet app. The window chooser shows detected calls first, with an option to select the call you switch to.
+- Speaker snapshots can read Google Meet’s blue speaker outlines as well as Zoom’s green/yellow outlines. Participant names must be visible; matches still need your confirmation.
+- Speaker-name settings now explain Zoom’s name-visibility option. When all snapshots miss the names, MeetMouse explains how to name a speaker manually.
 - Calls now run lighter by default. New installs start with advanced live coaching off, so no large AI model downloads or runs during calls, and built-in nudges still work. A setup checklist on the home screen offers your Claude account or a local model for AI notes after each call. Want AI nudges during calls? Turn on advanced live coaching in Settings → AI, which now shows what it costs in memory on your Mac. Existing installs keep their current setting.
 
 ## 0.33.1 — 2026-10-27
