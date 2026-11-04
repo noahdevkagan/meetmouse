@@ -9,6 +9,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Calls now run lighter by default. New installs start with advanced live coaching off, so no large AI model downloads or runs during calls, and built-in nudges still work. A setup checklist on the home screen offers your Claude account or a local model for AI notes after each call. Want AI nudges during calls? Turn on advanced live coaching in Settings → AI, which now shows what it costs in memory on your Mac. Existing installs keep their current setting.
+
 ## 0.33.1 — 2026-10-27
 
 - When a call plays through your Mac's built-in speakers, MeetMouse now shows a one-line tip to use headphones. Without them your mic also hears the other side, so their words can show up as yours or both sides can blend into one block. Dismiss it with the x for that meeting.

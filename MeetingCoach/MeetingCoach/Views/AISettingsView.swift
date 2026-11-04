@@ -16,7 +16,9 @@ struct AISettingsView: View {
 
     var body: some View {
         Form {
-            Section("AI provider") {
+            Section("AI for meeting notes") {
+                Text("Writes your notes after each call and answers questions about your meetings. Nothing here slows your calls unless you turn on advanced live coaching below.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Label(settings.usesCloudAI ? "Active: \(settings.aiConfiguration.provider.title)" : "Active: Local (on this Mac)",
                       systemImage: settings.usesCloudAI ? "cloud" : "desktopcomputer")
                     .font(.headline)
@@ -55,7 +57,7 @@ struct AISettingsView: View {
                         if ClaudeAccount.executable == nil {
                             Link("Install Claude Code ↗", destination: URL(string: "https://code.claude.com/docs/en/setup")!)
                         }
-                        Text("Uses Claude Code 2.1.280 or later and its official sign-in. Your Claude plan’s usage limits and any enabled extra usage apply. Live coaching uses your allowance throughout a meeting. MeetMouse does not store your Claude login.")
+                        Text("Uses Claude Code 2.1.280 or later and its official sign-in. Your Claude plan’s usage limits and any enabled extra usage apply. AI notes use a little after each call; advanced live coaching, if you turn it on, uses your allowance throughout a meeting. MeetMouse does not store your Claude login.")
                             .font(.caption).foregroundStyle(.secondary)
                     } else {
                         SecureField(hasSavedKey ? "Saved key — enter to replace" : "Paste API key", text: $key)
@@ -93,8 +95,10 @@ struct AISettingsView: View {
                 }
             }
             Section("During meetings") {
-                Toggle("AI coaching", isOn: $settings.semanticCoachEnabled)
-                Text("AI meeting notes generate automatically after each call, even with live AI coaching turned off.")
+                Toggle("Advanced live coaching", isOn: $settings.semanticCoachEnabled)
+                Text("Off keeps your calls smooth, and is what most people want. Built-in nudges still run, and AI notes generate after each call.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("On adds AI nudges during calls. \(settings.liveCoachingCostNote)")
                     .font(.caption).foregroundStyle(.secondary)
                 Text("Provider changes apply to the next meeting and the next on-demand AI request. Switching away from a cloud provider stops future requests to it, including in the current meeting. Requests already sent cannot be recalled. Transcription and built-in coaching continue if cloud AI is unavailable.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -135,7 +139,7 @@ struct AISettingsView: View {
                     try await ClaudeAccount.checkConnection()
                     try Task.checkCancellation()
                     try settings.enableCloudAI(configuration, key: "")
-                    isError = false; status = "Claude account enabled for coaching, reviews and chat."
+                    isError = false; status = settings.semanticCoachEnabled ? "Claude account enabled for coaching, reviews and chat." : "Claude account enabled for reviews and chat."
                 } catch is CancellationError { status = "Cancelled." }
                 catch { fail(error) }
             }
