@@ -7,7 +7,7 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
-## Unreleased
+## 0.34.0 — 2026-11-04
 
 - Speaker name suggestions now appear right beside the talk bubble with Yes and No buttons, so you can confirm a name during the call without opening MeetMouse.
 - Speaker snapshots no longer misread a capital I as a lowercase L in names (for example, "lvan" instead of "Ivan").
