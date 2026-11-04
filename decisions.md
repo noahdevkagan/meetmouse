@@ -2081,3 +2081,67 @@ and Claude is a quiet link, so nobody hits a dead-end error on the main path. Kn
 from conversation stop (SpeakerNameInference only runs with a pinned coach), custom
 semantic rubric signals don't fire, and non-English calls drop to Talk Time, Voice
 Share and Overrun.
+
+## 2026-10-20 — Google Meet speaker outlines are a separate OCR adapter
+
+The user's Zoom snapshots ran with hidden tile names. Enabled Zoom's persistent
+name display with explicit approval and visually verified both labels; this is
+not proof of a name suggestion. Window discovery already recognized Google Meet,
+but OCR only accepted Zoom green/yellow borders. Add blue-outline recognition
+only for recognized Meet browser windows, retaining full-border geometry, one
+highlight, repeated samples, voice alignment and confirmation. Google's docs
+describe outlined speaking tiles and blue outlines on both paired interpreter
+tiles (https://support.google.com/a/users/answer/9850339 and
+https://support.google.com/meet/answer/14074665); multiple outlines remain a veto.
+
+Do not reuse Zoom's roster fallback for Meet: Meet's self label and dynamic
+layouts need their own validated adapter. A Meet "You" label cannot name remote
+audio. Keep the six-request meeting cap and local-only image handling; exhausted
+feedback offers manual naming rather than implying a visibility change retries.
+Synthetic Vision checks establish supported geometry, not live-call accuracy.
+
+## 2026-10-20 — Find a call by switching to it; support the Meet PWA
+
+Live inspection found the user's Chrome-installed Google Meet window has owner
+`Google Meet` and title `Google Meet - Meet - <code>`, which the browser-only
+heuristic rejected. Recognize that app/title combination, retaining rejection
+of its home screen and unrelated resolved bundle IDs. It uses the Meet OCR
+adapter and shared meeting detection, rather than silently falling back to Zoom.
+
+The user finds the all-window dropdown difficult. Show recognized call windows
+as direct choices and put the full list behind a disclosure. Also offer an
+explicit five-second switch-to-call action: read the front app's first normal
+window, require it to be a recognized call, then return to the consent sheet.
+Do not scan behind an unrelated front browser window, pick between multiple
+calls automatically, or capture previews before Allow. This keeps selection
+easy without widening screenshot consent or the six-snapshot budget.
+
+## 2026-11-04 — Name suggestions go on the talk bubble; platform colors are measured
+On a real Zoom call the suggestion was right but sat in the main window behind
+the call. Show the next suggestion as a Yes/No card beside the bubble, for every
+suggestion kind since all share one confirm path. It opens toward the screen so
+the bubble doesn't move, honors a closed overlay, and the transcript bar stays.
+That call also saved the guest's name with a wrong leading l: Vision reads a
+sans-serif capital I as l, and confirming a name also saves it to a voice
+profile. Restore I for a leading lowercase l before a consonant, excepting
+Lloyd/Llewellyn.
+
+While a suggestion card is up, repeat clicks are ignored and don't open the main
+window. The next card lands under the cursor, so a second quick click must not
+answer a suggestion the user hasn't read or cover the call. The first click of
+the sequence decides, because answering the last card leaves none showing.
+
+Participant names from real calls stay out of this public repo: use made-up
+names in tests and "a guest" in docs.
+
+Microsoft and Slack docs don't state active-speaker styling or call-window
+titles. Don't add Teams or Slack adapters from guesses: measure them on real
+calls first. Google Meet refuses an automated guest ("You can't join this video
+call"); that is an anti-automation control, so don't evade it. Live checks need
+a real second participant or a browser the platform allows, and a free desktop.
+
+## 2026-11-04 — Real meeting transcripts and room codes stay out of this public repo
+The repo is public and carried real meeting transcripts naming participants, plus
+Meet room codes from live testing. Deleted the leadership and Zoom samples (no test
+reads them) and replaced the room codes. They remain in git history and in forks
+until that is cleaned separately. Use made-up transcripts and codes in fixtures.
