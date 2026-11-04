@@ -130,7 +130,7 @@ d12.sessionEnded()   // what the service does once the session stops
 let p12 = run([(300, app)], detector: &d12, from: 250, to: 330)
 check(p12 == [305], "prompts again for the next meeting", "got \(p12)")
 
-// 12b. Regression (2026-07-20 Owen meeting): the service vetoes the
+// 12b. Regression (2026-07-20 meeting): the service vetoes the
 //      first .ended reports because goodbyes were <20s ago — the detector
 //      must KEEP reporting the end so a later re-check can stop the
 //      session. And if the meeting resumes (mic evidence back), the

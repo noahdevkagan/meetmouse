@@ -234,7 +234,7 @@ func visualSpeakerChecks(scratch: URL) async {
 
     let one: Set<String> = ["Them 1"]
     let seen = [VisualRosterObservation(names: ["Sam Rivera"], time: 5),
-                VisualRosterObservation(names: ["matt bean"], time: 20)]
+                VisualRosterObservation(names: ["sam rivera"], time: 20)]
     check(VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: one).map { "\($0.label)=\($0.name)" } == "Them 1=Sam Rivera",
           "visual: repeated one-on-one roster names the only remote voice")
     check(VisualSpeakerEvidence.rosterMatch([seen[0]], remoteLabels: one) == nil,

@@ -73,6 +73,7 @@ Push a `## X.Y.Z` section in CHANGELOG.md to `main` (commit "Changelog: X.Y.Z"):
 ## Conventions
 
 - Local-first is non-negotiable: no telemetry. Network access is limited to explicit model/update downloads and user-enabled Claude account/Claude/OpenAI BYOK text inference. Keep keys in device-only Keychain; never weaken Ollama’s loopback restriction.
+- This repo is public: no real meeting content, participant names, personal emails or room codes in code, tests, fixtures or docs. Use made-up ones.
 - Signals reason over coalesced speaker *turns*, not raw ASR fragments (`Engine/TranscriptAnalysis.swift`).
 - Rubrics are YAML (`Resources/default_rubric.yaml`, user copy under Application Support); round-tripping must never drop fields.
 - Marketing pages (`/best`, `/compare`, `/blog`, hubs) are generated: edit `site/`, run `python3 site/build.py`, never hand-edit their `docs/` HTML. Follow `SITE-PLAYBOOK.md` (shared with the Rhino Voice repo) for voice, facts and cross-linking.

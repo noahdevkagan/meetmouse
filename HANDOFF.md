@@ -161,7 +161,7 @@ PR #38 branch. Roster evidence for 1:1 calls without an active-speaker outline
 speakerSelfName); set to "Noah Kagan" for this user because NSFullUserName is
 "Home Mac". Merged main (#39 bundle-id matching superseded this branch's Zoom-only
 name swap). Verified: 317 session checks, Debug build, and the engine run
-locally on the user's real screenshot reads ["Sam Rivera"] at the app's 1600 px
+locally on the user's real screenshot reads the guest's name at the app's 1600 px
 capture size (nil with a wrong self name; nil on the MeetMouse window). Screenshot
 is not committed (faces + work doc). Settings field not visually confirmed (AX
 lost the dev window). Outstanding: real-call check via
@@ -835,7 +835,7 @@ Release plist/signature verify.
 ## Prior state: Support email, downloads, and redirects complete
 
 Cloudflare Email Routing is ready: `support@meetmouse.com` forwards to the
-already-verified `owner@example.com`, and the required MX, SPF, and DKIM
+already-verified owner address, and the required MX, SPF, and DKIM
 records are live. Customer-facing site and app support links use the branded
 address. All 51 historical GitHub DMGs are now named `MeetMouse-*.dmg`; the live
 Sparkle appcast points at the renamed latest asset, and future packaging already
@@ -983,7 +983,7 @@ verified only); consider surfacing Ask on Enter in the sidebar box.
   checks — the release reworked engine selection in
   `AudioCaptureManager.start()` and the matrix was not run.
 - Fix the swallowed-`onReady` retry regression (above).
-- Reply to a user (neddonovan@gmail.com) — the call-truth behavior
+- Reply to the user who reported this — the call-truth behavior
   shipped in 0.17.1 (2026-08-10); check whether the reply ever went out.
 - Conductor clones don't inherit `core.hooksPath` → pushes silently skip
   the gate (`git config core.hooksPath scripts/githooks` per clone). Also:
