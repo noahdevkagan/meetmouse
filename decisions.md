@@ -39,7 +39,7 @@ end, and a muted participant listening via speakers→mic would be cut off.
 existed.
 
 ## 2026-07-30 — Transcripts save as coalesced turns, not raw utterances
-The far side commits in 1-3 word fragments (William corpus: median 4
+The far side commits in 1-3 word fragments (real-call corpus: median 4
 words, 40% of Them lines ≤3 words), so saved files were unreadable next
 to Granola's export even though the PANE coalesces. saveSession and the
 LLM-review prompt now run TurnBuilder over the utterance record (fixed
@@ -272,7 +272,7 @@ Granola CSV". Any future character-wise text scanning needs an explicit
 "\r\n" case (see GranolaImporter.parseCSV). Locked by tests/granola.
 
 ## 2026-08-05 — Meeting reviews are chief-of-staff notes, not recaps
-Noah compared the review card to Caitlin's hand-written Slack notes and
+Noah compared the review card to a colleague's hand-written Slack notes and
 called it useless. Root causes and the calls made: (1) selectedModel can
 point at a model that never finished downloading — every LLM feature
 silently degraded; LLM calls now go through settings.effectiveModel
@@ -544,7 +544,7 @@ sessions that can't push tags. Nothing to fix in the workflow.
 
 ## 2026-08-09 — Apple calls: SCK cannot hear call audio → mic-only
 
-Field reports twice in two days (Noah's FaceTime; Ned Donovan's email:
+Field reports twice in two days (Noah's FaceTime; a user's email:
 "it said I talked 100% of the time, but I talked the least"): on a
 FaceTime call taken on the Mac, the far side never transcribes. Root
 cause: macOS renders FaceTime/Phone audio through the privacy-protected
@@ -682,7 +682,7 @@ Naming a speaker before 3s of clip exists keeps the name pending
 (`PendingProfileSaves`, pure state in the diarizer); the save fires from
 publish() when the clip crosses the minimum, with one refresh at stop
 using the fullest clip (≤12s cap). Why: the early, most natural rename
-("Them" → Caitlin in the first minute) used to silently save no profile.
+("Them" → Dana in the first minute) used to silently save no profile.
 Scope is ONLY slots the user named this session — enrolled profiles are
 never auto-refreshed from session audio, because one misattributed
 session (speaker bleed) would silently poison a good profile.
@@ -1032,7 +1032,7 @@ Foundation-only so test rigs compile it standalone.
 ## 2026-09-01 — One voice, one enrollment: same-person profile dedupe
 
 Field report (1:1 with Anna): her turns flipped between "anna" and
-"Anna Notario" all call, with short replies falling back to raw "Them".
+"Anna Jones" all call, with short replies falling back to raw "Them".
 The store held BOTH profiles (saved in different sessions), and both
 enrolled. FluidAudio's `enrollSpeaker` deliberately prefers assigning an
 unnamed slot, so two clips of the same voice always pin two slots to that
@@ -1042,7 +1042,7 @@ labels), leaking bare "Them" on undiarized fragments.
 
 Fix is non-destructive and name-based: `VoiceProfileStore.samePerson`
 (equal names, or a bare first name matching the other's first word —
-"anna" ~ "Anna Notario", but "Anna Smith" ≠ "Anna Notario") collapses
+"anna" ~ "Anna Jones", but "Anna Smith" ≠ "Anna Jones") collapses
 duplicates at enrollment only (`loadForEnrollment`; first in
 hint-then-recency order wins). Files are never merged or deleted: the
 heuristic can be wrong (two people genuinely named just "anna"), and a
@@ -1052,7 +1052,7 @@ principle. Worst case of a wrong collapse: the second Anna shows as
 failure. SpeakerNameInference applies the same matcher to taken names so
 a confirmed LLM suggestion can't mint the duplicate in the first place
 (that's the likely origin: "anna" enrolled + unnamed ghost slot → model
-suggests "Anna Notario" from intro evidence → confirm saved profile #2).
+suggests "Anna Jones" from intro evidence → confirm saved profile #2).
 Embedding-distance dedupe was considered and rejected: LS-EEND exposes no
 enrollment embeddings (attractors are internal).
 
@@ -1888,7 +1888,7 @@ this user; do not restart their active meeting.
 
 
 ## 2026-10-08 — Share links mint on meetmouse.com; rhinovoice.app stays as a legacy route
-A recipient (James Dellar) read a rhinovoice.app share link as a different product
+A recipient read a rhinovoice.app share link as a different product
 and asked whether he should buy Rhino Voice. The app now defaults both the viewer
 and API base to meetmouse.com; the same Worker and D1 database serve both hosts,
 with the rhinovoice.app routes kept so pre-change links and their revocation
@@ -1941,7 +1941,7 @@ A real 1:1 Zoom call in screen-share layout showed two filmstrip tiles with name
 labels but no active-speaker outline, so the outline adapter read nothing. Add a
 second, weaker evidence type: who is present, not who is talking. Anchor on the
 user's own tile label (new "Your name on calls" setting; NSFullUserName is only a
-fallback — on the maintainer's Mac it is "Casa Rundell"). Keep only white-on-dark
+fallback — on the maintainer's Mac it is "Home Mac"). Keep only white-on-dark
 labels in the anchor's column (filmstrip) or, when the column is empty, its row
 (two-tile gallery), at a similar text size. The column preference and the colour
 test exist because the real screenshot's shared doc had a dark-mode bookmarks bar
@@ -2145,3 +2145,11 @@ The repo is public and carried real meeting transcripts naming participants, plu
 Meet room codes from live testing. Deleted the leadership and Zoom samples (no test
 reads them) and replaced the room codes. They remain in git history and in forks
 until that is cleaned separately. Use made-up transcripts and codes in fixtures.
+
+## 2026-11-04 — Scrub real names from the public repo; drop the real-call benchmark
+Removed the last committed real call from `bench/asr-corpus/` and made that folder
+gitignored, so real pairs can still be benchmarked locally. CI's scorecard now has
+no real-call accuracy row until a publishable corpus exists (a staged call); the
+old rows stay under a neutral name. Real names in tests and comments became made-up
+ones, and the review prompt's example was rewritten because it used real-call terms.
+All of this remains in git history and forks until cleaned separately.

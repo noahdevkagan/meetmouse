@@ -419,7 +419,7 @@ final class SpeakerDiarizer: @unchecked Sendable {
     /// The BARE channel label ("Them" — what the transcript shows before
     /// the diarizer's first publish) is slot 0: renaming it used to vanish
     /// silently, so the user's first, most natural tag saved no profile
-    /// (seen live 2026-08-04 — "Them" → Caitlin was a no-op and she had to
+    /// (seen live 2026-08-04 — "Them" → Dana was a no-op and she had to
     /// be named again as "Them 1").
     private func slotFromLabel(_ label: String) -> Int? {
         if label == labelPrefix { return 0 }

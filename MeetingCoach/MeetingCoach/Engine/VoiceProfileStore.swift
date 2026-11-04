@@ -85,8 +85,8 @@ enum VoiceProfileStore {
 
     /// Whether two profile names plausibly refer to the same person: equal
     /// names, or a bare first name matching the other name's first word
-    /// ("anna" ~ "Anna Notario"). Case-insensitive. Distinct full names
-    /// sharing a first name ("Anna Smith" / "Anna Notario") stay separate.
+    /// ("anna" ~ "Anna Jones"). Case-insensitive. Distinct full names
+    /// sharing a first name ("Anna Smith" / "Anna Jones") stay separate.
     static func samePerson(_ a: String, _ b: String) -> Bool {
         let aWords = a.lowercased().split(separator: " ")
         let bWords = b.lowercased().split(separator: " ")
@@ -96,7 +96,7 @@ enum VoiceProfileStore {
 
     /// Enrollment candidates: `loadAll` with same-person duplicates
     /// collapsed, scoped to who is expected on the call. One person saved
-    /// under two names ("anna" in one session, "Anna Notario" in another)
+    /// under two names ("anna" in one session, "Anna Jones" in another)
     /// otherwise enrolls twice, and the diarizer pins BOTH slots to that
     /// voice — their turns then flip between the two names for the whole
     /// call, and the phantom second "distinct" remote speaker keeps the
