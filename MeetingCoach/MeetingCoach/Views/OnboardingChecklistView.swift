@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// First-run empty state for the main pane: a live checklist that gets a
-/// new person to their first coached meeting — permissions, the two model
-/// downloads (already running, with real progress), then "join a meeting".
+/// new person to their first coached meeting — permissions, the transcription
+/// download (already running, with real progress), an optional source for AI
+/// notes, then "join a meeting".
 /// Replaces the old demo-centric card; the demo survives as a footer link.
 struct OnboardingChecklistView: View {
     var liveSession: LiveSessionViewModel?
@@ -14,6 +15,11 @@ struct OnboardingChecklistView: View {
     // TCC has no change notifications — poll while visible so rows flip
     // moments after the user grants in the system dialog / System Settings.
     private let permissionPoll = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
+    @State private var claudeCodeInstalled = ClaudeAccount.executable != nil
+    @State private var claudeConnected = false
+    @State private var claudeTask: Task<Void, Never>?
+    @State private var claudeBusy = false
+    @State private var claudeError: String?
 
     private var download: ParakeetDownloadState { .shared }
     private var resolvedLanguage: ResolvedMeetingLanguage {
@@ -27,7 +33,7 @@ struct OnboardingChecklistView: View {
                     .font(Dorado.barlowXBold(22))
                     .foregroundStyle(Dorado.midnight)
                     .frame(maxWidth: .infinity)
-                Text("Two permissions, two downloads — then it's automatic.")
+                Text("Two permissions, one download — then it's automatic.")
                     .font(Dorado.roboto(13))
                     .foregroundStyle(Dorado.grey500)
                     .frame(maxWidth: .infinity)
@@ -36,14 +42,18 @@ struct OnboardingChecklistView: View {
             microphoneRow
             screenRecordingRow
             transcriptionRow
-            coachModelRow
+            aiNotesRow
             joinMeetingRow
 
             Divider()
 
+            if let settings { advancedCoachingOption(settings) }
+
             VStack(alignment: .leading, spacing: 6) {
                 Label {
-                    Text("Audio is never stored. Transcripts, models, coaching — everything stays on this Mac.")
+                    Text(settings?.usesCloudAI == true
+                         ? "Audio is never stored and never leaves this Mac. Meeting text goes to \(settings?.aiConfiguration.provider.title ?? "your AI provider") for AI features."
+                         : "Audio is never stored. Transcripts, models, coaching — everything stays on this Mac.")
                         .font(Dorado.roboto(12))
                         .foregroundStyle(Dorado.grey600)
                         .fixedSize(horizontal: false, vertical: true)
@@ -76,11 +86,14 @@ struct OnboardingChecklistView: View {
         .padding(.vertical, 32)
         .onAppear(perform: refreshPermissions)
         .onReceive(permissionPoll) { _ in refreshPermissions() }
+        .onDisappear { claudeTask?.cancel() }
     }
 
     private func refreshPermissions() {
         micState = PermissionStatus.microphone
         screenState = PermissionStatus.screenRecording
+        // Polled here too, so Connect appears once someone finishes installing.
+        claudeCodeInstalled = ClaudeAccount.executable != nil
     }
 
     // MARK: - Rows
@@ -134,25 +147,30 @@ struct OnboardingChecklistView: View {
         }
     }
 
-    @ViewBuilder private var coachModelRow: some View {
-        let hasModel = settings.map { $0.usesCloudAI || !$0.availableModels.isEmpty } ?? false
+    @ViewBuilder private var aiNotesRow: some View {
+        let usesCloud = settings?.usesCloudAI == true
+        let hasLocalModel = settings.map { !$0.availableModels.isEmpty } ?? false
         let downloading = settings?.downloadingModel != nil
-        checklistRow(done: hasModel,
-                     active: downloading,
-                     title: "AI coach model",
+        checklistRow(done: usesCloud || hasLocalModel,
+                     active: downloading || claudeBusy,
+                     title: "AI notes after each call",
                      titleBadge: "optional",
-                     caption: settings?.usesCloudAI == true ? "Cloud AI enabled. Meeting text goes to your selected provider." : "Smarter nudges + meeting reviews. Local model (\(recommendedCatalogModel.diskSize)), or choose cloud AI in Settings.") {
-            if let settings, !hasModel {
-                if downloading {
-                    Button("Cancel") { settings.cancelDownload() }
-                        .font(.caption)
-                } else if UserDefaults.standard.bool(forKey: SettingsViewModel.autoModelPullAttemptedKey) {
-                    Button("Download") { settings.downloadModel(recommendedCatalogModel) }
-                        .font(.caption)
-                }
+                     caption: usesCloud
+                         ? "\(settings?.aiConfiguration.provider.title ?? "Cloud AI") writes your notes after each call."
+                         : hasLocalModel
+                             ? "A local model writes your notes on this Mac after each call."
+                             : claudeCodeInstalled
+                                 ? "Your Claude account is the lightest way to get them, and nothing slows your Mac during calls. Without AI you still get a basic recap."
+                                 : "A local model writes them on this Mac and only loads after a call, so calls stay fast. Without AI you still get a basic recap.") {
+            if let settings, downloading {
+                Button("Cancel") { settings.cancelDownload() }
+                    .font(.caption)
+            } else if claudeBusy {
+                Button("Cancel") { claudeTask?.cancel() }
+                    .font(.caption)
             }
         } detail: {
-            if let settings, !hasModel {
+            if let settings, !usesCloud, !hasLocalModel {
                 if downloading {
                     VStack(alignment: .leading, spacing: 2) {
                         ProgressView(value: settings.downloadProgress)
@@ -160,16 +178,119 @@ struct OnboardingChecklistView: View {
                         Text(settings.downloadStatus)
                             .font(.caption2).foregroundStyle(.tertiary)
                     }
-                } else if let error = settings.downloadError {
-                    Text(error)
-                        .font(.caption2).foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else if !download.isReady(for: resolvedLanguage.preferredEngine)
-                            && PlatformSupport.neuralModelsSupported {
+                } else if autoPullPending(settings) {
                     Text("Queued — starts after the transcription engine.")
                         .font(.caption2).foregroundStyle(.tertiary)
+                } else {
+                    notesSetupControls(settings)
                 }
             }
+        }
+    }
+
+    /// A switch, not a checklist row: most people should leave this off, so it
+    /// must not read as an unfinished setup step.
+    private func advancedCoachingOption(_ settings: SettingsViewModel) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Advanced live coaching").font(Dorado.barlowBold(15)).foregroundStyle(Dorado.midnight)
+                Text("Off keeps your calls smooth. On adds AI nudges during calls. \(settings.liveCoachingCostNote)")
+                    .font(Dorado.roboto(13))
+                    .foregroundStyle(Dorado.grey600)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            Toggle("Advanced live coaching", isOn: Binding(
+                get: { settings.semanticCoachEnabled },
+                set: { enabled in
+                    settings.semanticCoachEnabled = enabled
+                    if !enabled { liveSession?.shedSessionModel(settings: nil) }
+                }))
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+        }
+    }
+
+    /// True only while the one-time pull is really waiting on transcription. The
+    /// pull can also skip itself (low disk, no engine) without setting its flag,
+    /// and those people still need the setup controls.
+    private func autoPullPending(_ settings: SettingsViewModel) -> Bool {
+        let engine = resolvedLanguage.preferredEngine
+        return settings.semanticCoachEnabled
+            && !UserDefaults.standard.bool(forKey: SettingsViewModel.autoModelPullAttemptedKey)
+            && (download.isActive(for: engine) || download.isPending(for: engine))
+    }
+
+    @ViewBuilder private func notesSetupControls(_ settings: SettingsViewModel) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if claudeConnected {
+                Text(settings.semanticCoachEnabled
+                     ? "Signed in. Turning this on sends meeting text, never audio, to Claude for notes and questions, and throughout each call for advanced live coaching, which uses your plan allowance."
+                     : "Signed in. Turning this on sends meeting text, never audio, to Claude for notes and questions.")
+                    .font(.caption).foregroundStyle(Dorado.grey600)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Turn on Claude notes") { enableClaude(settings) }
+                    .font(.caption)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(claudeBusy)
+            } else if claudeCodeInstalled {
+                HStack(spacing: 8) {
+                    Button("Connect Claude") { connectClaude() }
+                        .font(.caption)
+                        .buttonStyle(.borderedProminent)
+                        .disabled(claudeBusy)
+                    Button("Download local model (\(recommendedCatalogModel.diskSize))") {
+                        settings.downloadModel(recommendedCatalogModel)
+                    }
+                    .font(.caption)
+                    .disabled(claudeBusy)
+                }
+            } else {
+                Button("Download local model (\(recommendedCatalogModel.diskSize))") {
+                    settings.downloadModel(recommendedCatalogModel)
+                }
+                .font(.caption)
+                .buttonStyle(.borderedProminent)
+                Link("Have Claude? Set up Claude Code ↗", destination: URL(string: "https://code.claude.com/docs/en/setup")!)
+                    .font(.caption)
+            }
+            if let error = claudeError ?? settings.downloadError {
+                Text(error)
+                    .font(.caption2).foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    /// Skips the browser when Claude Code is already signed in. Connecting sends
+    /// no meeting text: that takes the separate Turn on step.
+    private func connectClaude() {
+        claudeBusy = true
+        claudeError = nil
+        claudeTask = Task {
+            defer { claudeBusy = false }
+            do {
+                do { try await ClaudeAccount.checkConnection() }
+                catch is CancellationError { return }
+                catch { try await ClaudeAccount.login() }
+                try Task.checkCancellation()
+                claudeConnected = true
+            } catch is CancellationError {
+            } catch {
+                claudeError = error.localizedDescription
+            }
+        }
+    }
+
+    private func enableClaude(_ settings: SettingsViewModel) {
+        guard let model = AIProvider.claudeAccount.models.first else { return }
+        do {
+            try settings.enableCloudAI(.init(provider: .claudeAccount, model: model), key: "")
+            claudeError = nil
+        } catch {
+            claudeError = error.localizedDescription
         }
     }
 

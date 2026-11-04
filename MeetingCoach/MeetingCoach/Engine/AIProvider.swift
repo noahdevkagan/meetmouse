@@ -60,6 +60,21 @@ struct AIConfiguration: Codable, Equatable, Sendable {
     }
 }
 
+/// Advanced live coaching is off for new installs: the model is the app's largest
+/// memory cost, and AI notes run after the call either way. Installs from before
+/// this default keep AI coaching on until they turn it off themselves. The
+/// answer is stored on first read, because the "is this install new?" signals
+/// stop being true once onboarding has run.
+enum LiveCoachingDefault {
+    static let key = "semanticCoachEnabled"
+    static func resolve(in defaults: UserDefaults, isExistingInstall: @autoclosure () -> Bool) -> Bool {
+        if let stored = defaults.object(forKey: key) as? Bool { return stored }
+        let enabled = isExistingInstall()
+        defaults.set(enabled, forKey: key)
+        return enabled
+    }
+}
+
 enum AIError: LocalizedError {
     case message(String)
     var errorDescription: String? { if case .message(let text) = self { return text }; return nil }

@@ -42,6 +42,17 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
         check(AIConfiguration.cloud(from: "qwen3.5:4b") == nil, "local names are never cloud references")
         defaults.removeObject(forKey: AIConfiguration.defaultsKey)
 
+        check(!LiveCoachingDefault.resolve(in: defaults, isExistingInstall: false), "new install starts with advanced live coaching off")
+        check(!LiveCoachingDefault.resolve(in: defaults, isExistingInstall: true), "new-install default survives onboarding marking the install as used")
+        defaults.removeObject(forKey: LiveCoachingDefault.key)
+        check(LiveCoachingDefault.resolve(in: defaults, isExistingInstall: true), "existing install keeps advanced live coaching on")
+        check(LiveCoachingDefault.resolve(in: defaults, isExistingInstall: false), "existing install's default is remembered")
+        defaults.set(false, forKey: LiveCoachingDefault.key)
+        check(!LiveCoachingDefault.resolve(in: defaults, isExistingInstall: true), "explicit off is never overridden")
+        defaults.set(true, forKey: LiveCoachingDefault.key)
+        check(LiveCoachingDefault.resolve(in: defaults, isExistingInstall: false), "explicit on is never overridden")
+        defaults.removeObject(forKey: LiveCoachingDefault.key)
+
         // A disposable service isolates these checks from every real app key.
         let keyService = "com.meetmouse.byok-tests.\(UUID())"
         defer { try? AIKeychain.delete(.openai, serviceName: keyService) }
