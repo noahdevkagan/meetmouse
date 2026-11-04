@@ -1968,6 +1968,86 @@ Site CTAs go to /get (Worker: counts, then 302s to the newest DMG); this overrid
 "keep 'Buy — $20'" note because Noah asked for free. 30-day refund pitch dropped from copy: the free
 tier is the try-first.
 
+## 2026-10-20 — SEO pages from Search Console + download CTA in the top third
+
+- Pages picked from GSC (Jul 21–Oct 19): Fireflies vs Otter (~55 impressions across variants, pos ~80), Fathom alternatives/pricing (~45, pos 66–91), financial advisors (~35), interview note takers (~30, new page), lawyers long-tail (pos 7–9, FAQ answers). Pricing pages for Fathom, Granola, Otter target buyers comparing plans.
+- Competitor prices re-read from each vendor's own pricing page on Oct 20 (fathom.ai, granola.ai, otter.ai, fireflies.ai). tl;dv's page didn't render its prices to a plain fetch, so tl;dv paid prices are now described without a number until someone checks it in a browser.
+- Fathom now lists bot-free capture (beta) on its free plan, and Otter lists "call objectives + live coaching". Edited pages say so; older pages still say "Fathom joins as a bot" and imply only MeetMouse coaches live. Fix those when touched.
+- Every generated page now has a "Download MeetMouse free" button right under the TL;DR (Noah's rule: CTA in the top third, desktop and mobile). The mobile header was hiding its own Download button (`nav > a` matched it); it now stays visible.
+
+## 2026-10-20 — AI meeting coach head page, first Spanish page, Otter/Poised facts
+- New /best/ai-meeting-coach targets "meeting coach" / "meetingcoach" searches (GSC: pos 5–7, the old brand name). It's the broad page; /best/meeting-coach-for-managers stays the 1:1 page and is linked from it. It names the five default cues from DefaultBuiltins.cut and says the rest are off by default. The homepage still mentions "someone got cut off" and "a buried worry", which are off by default; flagged, not changed here.
+- First Spanish page, /es/alternativas-a-fathom (GSC: "alternativa a fathom"). Rendered by render_es from site/content/es.py with minimal Spanish chrome, not a translated site. hreflang en/es/x-default sits in both heads and in the sitemap (build-sitemap.py reads it from the page head). It says plainly that the menus are English and that live coaching in non-English meetings is limited to language-neutral cues (CHANGELOG 0.19.0).
+- Otter now advertises a bot-free desktop app (otter.ai, Oct 20). Every "Otter always joins as a bot" claim now says "by default". Poised's coach is a free trial then Pro $19/mo ($13 annual), so its "free tier" claims were replaced. tl;dv prices are back ($29/seat, $18 annual) now that they've been verified in a browser.
+
+## 2026-10-20 — Ask to share at the recap, never post for the user
+
+Sharing was ~5 notes/week (33 total since Sep 21). Noah: "ask at the right moment for meetmouse
+share" and he dislikes tools that go viral by posting into Slack or the meeting chat. So: one quiet
+inline card on the Notes tab ("Send these notes to the people in the meeting?" + Copy share link),
+only for a meeting from the last 24h that has real AI notes and no link yet. Shown until the user
+shares or dismisses it for that meeting; 3 dismissals in a row turn it off for good (any share resets
+the streak). The button runs the normal Share notes flow; nothing is ever sent or posted
+automatically. Rules live in Models/SharePrompt.swift (tests/sharing/share_prompt.swift). The shared
+note viewer now says "Notes by MeetMouse · Free meeting notes for Mac, no bot joins the call" and links
+to meetmouse.com/?src=shared-note.
+
+## 2026-10-20 — Global shortcut opens the existing main window
+Use Control–Command–M, enabled by default with an opt-out in General settings.
+Not Control–Option–M: Control–Option is VoiceOver's modifier and VO-M is its
+"move to menu bar" command, which a default-on global hotkey would steal. Also
+avoided Option–Command–M (Minimize All) and Command–Shift–M (Chrome profiles,
+Mail mailbox list); ⌃⌘M is not a macOS system shortcut.
+Register a Carbon hotkey from the always-alive menu-bar label so it works while
+another app is active and after the main window closes, without Accessibility
+permission or a keyboard monitor. Reuse SwiftUI's existing main-window action;
+never start recording as a side effect. A fully quit app cannot receive hotkeys;
+the existing launch-at-login option keeps the menu-bar app available. Surface
+registration conflicts in settings and release the key/handler before toggling
+or reconfiguring, so retries and disabling work without restarting the app.
+
+## 2026-10-27: Built-in speakers: suggest headphones, don't guess a software fix yet
+
+Field reports Oct 15 to 21 (3 users, v0.31 to v0.33, MacBook speakers, no
+headphones): the far side's words labeled "You" (even while muted), and both
+sides blended into one block. Read the capture path for a code-level cause:
+
+- Voice processing is off on purpose (2026-08 decision: it ducks the call and
+  forces call-mode formats), so on open speakers the mic hears the far side
+  at speech level. The file header still claimed it was on; corrected.
+- The bleed gate keys on absolute mic energy: it drops a mic chunk only when
+  the mic has been below 0.005 RMS for 3 s at delivery. The mic pipeline only
+  transcribes audio above 0.006, so any bleed loud enough to transcribe also
+  keeps the mic "loud": the gate cannot fire during active bleed. It catches
+  only chunks that commit late.
+- EchoFilter is a text match against far-side partials (25% edit budget,
+  exact match for 3 to 4 word sentences). Speaker-to-mic echo transcribes
+  worse than the clean system stream, and the mic (0.9 s commit gap) can
+  commit before the far pipeline (2.0 s gap, partial refresh every 2 to 3
+  ticks on long windows) has published the matching words. Mixed sentences
+  (user + echo with no punctuation between) fail the match and stay "You".
+
+No change here is small AND verifiable without real hardware: an energy
+gate that needs "near-only" mic energy would drop real double-talk and
+backchannels; delaying mic delivery to let far partials catch up changes
+transcript timing for every session. So this change is the mitigation:
+detect built-in speakers (default output transport 'bltn' and data source
+not 'hdpn', checked at start, on default-device change and every 3 s via the
+system-audio watchdog, since a jack plug changes only the data source) and
+show a one-line, per-meeting dismissible "use headphones" tip in the live
+view. Only in dual-channel sessions: in mic-only and Apple-call sessions
+speakers are the supported setup. External/USB/HDMI speakers are not
+flagged (could be headphones; no reliable signal). Known undetected setups:
+aggregate and multi-output devices (transport is not built-in even when they
+play through the Mac's speakers) and Studio Display speakers (USB/DisplayPort
+transport). Apple Silicon wired headphones are a separate built-in device,
+excluded by UID ("BuiltInHeadphoneOutputDevice"). The tip copy is hedged
+("On a call through your Mac's speakers?") because a meeting app can route
+its audio to another device than the Mac default. Follow-ups to evaluate
+with real recordings: a relative (mic vs system) energy gate, and holding a
+mic commit up to ~2 s while the far side is active so EchoFilter sees the
+far partials. Manual check: tests/calls-manual.md scenario 8.
+
 ## 2026-10-20 — Google Meet speaker outlines are a separate OCR adapter
 
 The user's Zoom snapshots ran with hidden tile names. Enabled Zoom's persistent

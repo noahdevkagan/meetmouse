@@ -64,6 +64,7 @@ struct SessionDetailView: View {
     @State private var confirmingStopShare = false
     @State private var revokingShare = false
     @State private var shareError: String?
+    @State private var showingSharePrompt = false
     @FocusState private var askFocused: Bool
 
     var body: some View {
@@ -76,6 +77,7 @@ struct SessionDetailView: View {
         .task(id: url) {
             tab = highlightQuery.isEmpty ? .summary : .transcript
             askThread = []; askInput = ""; askBusy = nil; pendingAsk = nil
+            showingSharePrompt = false
             load()
             do {
                 askThread = try MeetingChatStore.load(for: url)
@@ -88,6 +90,7 @@ struct SessionDetailView: View {
                 let record = try await SharedLinksStore.shared.record(for: url)
                 guard !Task.isCancelled else { return }
                 sharedLink = record
+                refreshSharePrompt()
             } catch {
                 guard !Task.isCancelled else { return }
                 shareError = "Saved sharing controls couldn't be read: \(error.localizedDescription)"
@@ -111,6 +114,8 @@ struct SessionDetailView: View {
                     payload: payload
                 ) { record in
                     sharedLink = record
+                    SharePrompt(defaults: .standard).recordShared(meeting: url.lastPathComponent)
+                    showingSharePrompt = false
                 }
             }
         }
@@ -161,9 +166,10 @@ struct SessionDetailView: View {
             title = TranscriptSearch.displayTitle(for: url)
             if let content = try? String(contentsOf: url, encoding: .utf8) { rawContent = content }
         }
-        .onChange(of: reviewRevision) { _, _ in load() }
+        .onChange(of: reviewRevision) { _, _ in load(); refreshSharePrompt() }
         .onChange(of: reviewInProgress) { _, inProgress in
             load()
+            refreshSharePrompt()
             if preparingShare && !inProgress && !regenerating { prepareShare() }
         }
         .task(id: regenTick) {
@@ -440,6 +446,7 @@ struct SessionDetailView: View {
     private var summaryTab: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
+                if showingSharePrompt { sharePromptCard }
                 if review?.hasShareableMeetingNotes != true {
                     Text("Click Share notes to generate meeting notes and create your private link. Your transcript and coaching stay private.")
                         .font(.callout).foregroundStyle(.secondary)
@@ -726,6 +733,48 @@ struct SessionDetailView: View {
     /// Re-run the LLM review over this saved session's transcript and
     /// persist it into the file's "## Review" section.
     @State private var reviewError: String?
+
+    /// Quiet one-time ask on a just-finished meeting. Never posts anywhere:
+    /// the button is the same Share notes action as the tab bar.
+    private var sharePromptCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "paperplane")
+                .font(.system(size: 14)).foregroundStyle(Dorado.grey500)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Send these notes to the people in the meeting?")
+                    .font(Dorado.barlowBold(15)).foregroundStyle(Dorado.midnight)
+                Text("Only the summary and next steps go in the link. Your transcript stays on this Mac.")
+                    .font(Dorado.roboto(12)).foregroundStyle(Dorado.grey600)
+            }
+            Spacer(minLength: 8)
+            Button("Copy share link") { prepareShare() }
+                .buttonStyle(.borderedProminent)
+                .tint(Dorado.dollar)
+                .disabled(preparingShare)
+            Button {
+                SharePrompt(defaults: .standard).recordDismissed(meeting: url.lastPathComponent)
+                showingSharePrompt = false
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Dorado.grey500)
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+            .help("Don't ask for this meeting")
+        }
+        .padding(12)
+        .cardStyle()
+    }
+
+    private func refreshSharePrompt() {
+        showingSharePrompt = SharePrompt(defaults: .standard).shouldShow(
+            meeting: url.lastPathComponent,
+            meetingDate: TranscriptSearch.sessionDate(for: url),
+            hasShareableNotes: review?.hasShareableMeetingNotes == true,
+            alreadyShared: sharedLink != nil
+        )
+    }
 
     /// The explicit Share notes action prepares missing notes, then opens link creation.
     private func prepareShare() {
