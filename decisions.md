@@ -2116,6 +2116,19 @@ Do not scan behind an unrelated front browser window, pick between multiple
 calls automatically, or capture previews before Allow. This keeps selection
 easy without widening screenshot consent or the six-snapshot budget.
 
+## 2026-11-02 — Mac language resolution queries Locale.preferredLanguages.first
+Resolving `.system` for meeting language queries `Locale.preferredLanguages.first`
+(normalized for BCP-47 and underscore variants like `pt-BR`, `pt_BR`, `pt`) rather
+than `Locale.current.identifier`.
+Why: MeetMouse's app bundle declares English localization, which causes `Locale.current`
+in Cocoa/SwiftUI runtime to fall back to English regardless of the user's primary
+macOS language in System Settings. Querying `Locale.preferredLanguages.first` directly
+reads the user's OS-level primary language, correctly resolving Portuguese (Brazil)
+to Parakeet v3 and preventing mislabeling as English. Additionally,
+`ResolvedMeetingLanguage` retains `detectedSystemLanguage` separately from the effective
+transcription fallback so unsupported OS languages (e.g. Japanese) are accurately
+reflected in UI copy while explicitly noting the fallback to English.
+
 ## 2026-11-04 — Name suggestions go on the talk bubble; platform colors are measured
 On a real Zoom call the suggestion was right but sat in the main window behind
 the call. Show the next suggestion as a Yes/No card beside the bubble, for every

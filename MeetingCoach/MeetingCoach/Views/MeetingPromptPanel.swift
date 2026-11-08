@@ -104,7 +104,7 @@ struct MeetingPromptView: View {
                         Image(systemName: "globe")
                             .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(.secondary)
-                        Text(settings.meetingLanguage.quickName)
+                        Text(settings.resolvedMeetingLanguage.quickName)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -154,7 +154,7 @@ struct MeetingPromptView: View {
                         Divider()
                         Menu("Language") {
                             MeetingLanguageMenuItems(
-                                current: settings.meetingLanguage.resolved().language) {
+                                current: settings.resolvedMeetingLanguage.language) {
                                 settings.meetingLanguage = $0
                             }
                         }

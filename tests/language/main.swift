@@ -36,6 +36,48 @@ check(spanishMac.code == "es" && spanishMac.preferredEngine == .parakeetV3,
 check(spanishMac.selection == .system && !spanishMac.usedUnsupportedSystemFallback,
       "Mac-language provenance retained")
 
+// Portuguese macOS detection (pt-BR, pt_BR, pt) and preferredLanguages handling.
+let ptBR = MeetingLanguageSelection.system.resolved(
+    preferredLanguages: ["pt-BR"], neuralModelsSupported: true)
+check(ptBR.language == .portuguese && ptBR.selection == .system
+      && !ptBR.usedUnsupportedSystemFallback && ptBR.preferredEngine == .parakeetV3
+      && ptBR.detectedSystemLanguage == "Portuguese"
+      && ptBR.systemLanguageDisplayName == "Portuguese"
+      && ptBR.systemOptionTitle == "Mac language (Portuguese)"
+      && ptBR.quickName == "Portuguese",
+      "pt-BR resolves to Portuguese, preserves .system provenance, and chooses Parakeet v3 on Apple Silicon")
+
+let ptUnderscore = MeetingLanguageSelection.system.resolved(
+    preferredLanguages: ["pt_BR"], neuralModelsSupported: true)
+let ptLanguageOnly = MeetingLanguageSelection.system.resolved(
+    preferredLanguages: ["pt"], neuralModelsSupported: true)
+check(ptUnderscore == ptBR && ptLanguageOnly == ptBR,
+      "underscore and language-only Portuguese variants resolve identically")
+
+let ptWithSecondaryEnglish = MeetingLanguageSelection.system.resolved(
+    preferredLanguages: ["pt-BR", "en-US"], neuralModelsSupported: true)
+check(ptWithSecondaryEnglish == ptBR,
+      "a secondary English preference must not override a primary supported Portuguese preference")
+
+let unsupportedDetected = MeetingLanguageSelection.system.resolved(
+    preferredLanguages: ["ja-JP"], neuralModelsSupported: true)
+check(unsupportedDetected.language == .english
+      && unsupportedDetected.selection == .system
+      && unsupportedDetected.usedUnsupportedSystemFallback
+      && unsupportedDetected.detectedSystemLanguage == "Japanese"
+      && unsupportedDetected.systemLanguageDisplayName == "Japanese"
+      && unsupportedDetected.systemOptionTitle == "Mac language (Japanese)"
+      && unsupportedDetected.quickName == "Japanese",
+      "an unsupported primary language is shown as detected but uses an explicit English fallback")
+
+check(MeetingLanguageSelection.system.resolved(preferredLanguages: ["ja-JP"]).quickName == "Japanese",
+      "unsupported Mac language retains detected name for chip and subtitle quickName")
+
+let unsupportedWithSecondaryEnglish = MeetingLanguageSelection.system.resolved(
+    preferredLanguages: ["ja-JP", "en-US"], neuralModelsSupported: true)
+check(unsupportedWithSecondaryEnglish == unsupportedDetected,
+      "unsupported primary language retains detected name even with secondary English")
+
 let unsupportedMac = MeetingLanguageSelection.system.resolved(localeIdentifier: "ja_JP")
 check(unsupportedMac.code == "en" && unsupportedMac.usedUnsupportedSystemFallback,
       "unsupported Mac language explains English fallback")

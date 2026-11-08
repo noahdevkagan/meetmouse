@@ -347,8 +347,8 @@ struct LiveTimelineView: View {
                        PlatformSupport.neuralModelsSupported,
                        let language = liveSession.sessionLanguage {
                         Text("·")
-                        MeetingLanguageChip(title: liveLanguageTitle(language),
-                                            current: language.language,
+                        MeetingLanguageChip(language: language,
+                                            title: liveLanguageTitle(language),
                                             highlighted: language.isAuto) {
                             liveSession.switchLanguage(to: $0, settings: settings)
                         }
@@ -2646,8 +2646,7 @@ struct LiveSection: View {
                 // user never detours through Settings. Intel is English-only.
                 if PlatformSupport.neuralModelsSupported {
                     HStack(spacing: 8) {
-                        MeetingLanguageChip(title: settings.meetingLanguage.quickName,
-                                            current: settings.meetingLanguage.resolved().language,
+                        MeetingLanguageChip(language: settings.resolvedMeetingLanguage,
                                             highlighted: settings.meetingLanguage == .auto) {
                             settings.meetingLanguage = $0
                         }

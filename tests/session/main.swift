@@ -224,7 +224,10 @@ func runTests() async {
     //    Stop must not lose them (or the final pending tail on top).
     do {
         let vm = LiveSessionViewModel()
-        vm.startLive(context: PreCallContext())
+        let settings = SettingsViewModel()
+        settings.meetingLanguage = .system
+        let expectedLanguage = MeetingLanguageSelection.system.resolved()
+        vm.startLive(context: PreCallContext(), settings: settings)
         try? await Task.sleep(for: .milliseconds(300))
         guard let capture = AudioCaptureManager.last else {
             check(false, "capture manager wired (2)"); return
@@ -262,8 +265,10 @@ func runTests() async {
         }
         check(!savedFile.isEmpty, "session file written to the scratch folder")
         check(body.contains("still pending"), "saved session includes the pending tail")
-        check(body.contains("**Language:** en"),
-              "saved session persists resolved ISO language")
+        check(vm.sessionLanguage == expectedLanguage
+              && body.contains("**Language:** \(expectedLanguage.code)"),
+              "saved session persists resolved ISO language",
+              "expected: \(expectedLanguage.code), captured: \(String(describing: vm.sessionLanguage?.code))")
         check(savedFile.first?.isNumber == true && savedFile.contains("T"),
               "date-led AI-toolable filename", "got \(savedFile)")
         let sidecarPath = scratch
