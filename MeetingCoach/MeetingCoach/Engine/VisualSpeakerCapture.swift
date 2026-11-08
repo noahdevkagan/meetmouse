@@ -366,7 +366,8 @@ enum VisualSpeakerOCR {
         // Half a text height in each axis (rects are normalized per axis).
         let dy = anchor.height * 0.5, dx = dy / aspect
         let others = labels.filter {
-            !isSelf($0.name, selfName) && abs($0.rect.height - anchor.height) <= anchor.height * 0.3
+            !isSelf($0.name, selfName)
+                && abs($0.rect.height - anchor.height) <= max($0.rect.height, anchor.height) * 0.3
         }
         // A filmstrip column wins; only without one can a gallery row count,
         // so shared text level with the user's tile never joins a filmstrip.

@@ -2116,6 +2116,12 @@ Do not scan behind an unrelated front browser window, pick between multiple
 calls automatically, or capture previews before Allow. This keeps selection
 easy without widening screenshot consent or the six-snapshot budget.
 
+## 2026-11-02 — Compare roster OCR heights symmetrically
+Vision can assign different text-box heights to equally sized labels. Compare
+their difference to 30% of the larger height, rather than only the self-label
+height, so swapping the anchor does not change whether two labels match. Keep
+the size, alignment, confidence and white-on-dark filters to limit false matches.
+
 ## 2026-11-04 — Name suggestions go on the talk bubble; platform colors are measured
 On a real Zoom call the suggestion was right but sat in the main window behind
 the call. Show the next suggestion as a Yes/No card beside the bubble, for every
