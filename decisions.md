@@ -2205,3 +2205,24 @@ on the maintainer's real archive they were most of the 119 "follow-ups" a 30-day
 window listed, so they're excluded (14 days without them: 35). Captures with fewer
 than 6 transcript lines don't get a "Generate notes" row. No statuses, projects or
 calendar: everything is derived from what the files already say.
+
+## 2026-11-08 — Notes are editable; one section can be redone; edits are never silently replaced
+The review asked to "correct mistakes, refine summaries and regenerate specific
+sections"; the only option was regenerating everything. Choices:
+- Edit is a markdown editor over the saved `## Review` text (the same shape the file
+  stores and MeetingReview.parse reads back), not per-bullet inline editing: one
+  code path, nothing the parser can't round-trip, and every field survives.
+- A hand edit writes `**Notes edited:** yes` into the file's header block (not into
+  the notes, which are copied and shared). While it's there, Regenerate with AI asks
+  "Replace your edited notes?" and the Share notes path refuses to regenerate. A
+  confirmed regenerate removes the marker.
+- Redo section rewrites only the summary, one topic, or the next steps, using the
+  same provider, ReviewBudget, saved context and parser as Regenerate, plus a short
+  section prompt (PromptBuilder.buildSectionRewritePrompt). It replaces just that
+  section and keeps ticks on next steps whose text didn't change. If the notes
+  changed while the model worked (a tick, an edit, another meeting opened), the late
+  reply is discarded. Redo doesn't set the edited marker; it's AI text the user
+  asked for, and the rest of their edits are untouched.
+Live check on qwen3.5:9b: a next-steps redo parsed and left every other section
+identical. The model still kept a deadline it had invented, so redo is not a fix
+for model quality; item 1's whole-transcript budget is.

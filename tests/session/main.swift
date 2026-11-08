@@ -1267,6 +1267,65 @@ func runTests() async {
     check(PreCallContext.saved(in: "## Transcript\n[00:01] You: hi").meetingGoal.isEmpty,
           "files without pre-call context give an empty context")
 
+    // Edit notes + redo one section.
+    do {
+        var notes = MeetingReview.parse(llmText: """
+            TITLE:
+            Pricing with Ana
+            SUMMARY:
+            Price agreed.
+            NOTES:
+            ### Pricing
+            - $14 per seat
+            ### Hiring
+            - Two finalists
+            NEXT STEPS:
+            - Chase legal (You) — retention answer
+            - Book review (Them) — after launch
+            """)
+        notes.actionItems[1].isDone = true
+        // A hand edit round-trips through the saved markdown shape.
+        var edited = MeetingReview.parse(llmText: notes.recapMarkdown)
+        check(edited.sections.map(\.heading) == ["Pricing", "Hiring"]
+              && edited.actionItems.map(\.isDone) == [false, true],
+              "edited notes markdown round-trips sections and ticks")
+        edited.sections[0].bullets.append("Five-seat minimum")
+        let reparsed = MeetingReview.parse(llmText: edited.recapMarkdown)
+        check(reparsed.sections[0].bullets == ["$14 per seat", "Five-seat minimum"],
+              "a hand-added bullet survives save and reload")
+
+        let topic = notes.replacing(.topic(1), withRewrite: "- Two finalists; decide by start date\n- Backend role still open")
+        check(topic?.sections[1].bullets == ["Two finalists; decide by start date", "Backend role still open"]
+              && topic?.sections[0] == notes.sections[0] && topic?.summary == notes.summary
+              && topic?.actionItems.map(\.text) == notes.actionItems.map(\.text),
+              "redo replaces only the chosen topic")
+        let echoed = notes.replacing(.topic(0), withRewrite: "### Pricing\n- $14 per seat, five-seat minimum")
+        check(echoed?.sections[0].bullets == ["$14 per seat, five-seat minimum"]
+              && echoed?.sections.count == 2,
+              "a rewrite that repeats its heading still lands in that topic")
+        let steps = notes.replacing(.nextSteps, withRewrite: "- Chase legal (You) — retention answer\n- Book review (Them) — after launch\n- Send summary (You) — tomorrow morning")
+        check(steps?.actionItems.map(\.isDone) == [false, true, false],
+              "redo of next steps keeps ticks on unchanged steps")
+        check(notes.replacing(.summary, withRewrite: "Teams launches at $14 per seat.")?.summary
+              == "Teams launches at $14 per seat.", "redo replaces the summary")
+        check(notes.replacing(.nextSteps, withRewrite: "") == nil
+              && notes.replacing(.topic(9), withRewrite: "- x") == nil,
+              "an empty or misaddressed rewrite leaves notes unchanged")
+
+        let longMeeting = String(repeating: "Them: filler words here.\n", count: 2_000)
+            + "Them: MIDDLE-DECISION.\n" + String(repeating: "You: more filler.\n", count: 2_000)
+        let redoPrompt = PromptBuilder.buildSectionRewritePrompt(
+            section: .topic(1), review: notes, request: .custom("Use first names"),
+            transcript: longMeeting, context: PreCallContext.saved(in: "## Pre-Call Context\n**Goal:** Agree pricing\n"),
+            languageName: "English", budget: ReviewBudget.forModel("cloud:openai:gpt-4.1"))
+        check(redoPrompt.user.contains("Section: Hiring") && redoPrompt.user.contains("- Two finalists")
+              && redoPrompt.user.contains("Use first names") && redoPrompt.user.contains("Meeting goal: Agree pricing")
+              && redoPrompt.user.contains("MIDDLE-DECISION")
+              && redoPrompt.user.contains("do not repeat their content): Pricing")
+              && redoPrompt.system.contains("Never invent facts"),
+              "section rewrite prompt carries the section, request, context and whole transcript")
+    }
+
     // Home "needs attention": follow-ups from current and legacy notes,
     // statuses, ticking writes the file, and the edited marker round-trips.
     do {

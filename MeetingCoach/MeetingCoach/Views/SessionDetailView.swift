@@ -66,6 +66,17 @@ struct SessionDetailView: View {
     @State private var shareError: String?
     @State private var showingSharePrompt = false
     @FocusState private var askFocused: Bool
+    // Notes editing: a hand edit marks the file (MeetingNotesFile.editedLabel)
+    // so Regenerate asks before replacing it; Redo rewrites one section.
+    @State private var editingNotes = false
+    @State private var notesDraft = ""
+    @State private var notesEdited = false
+    @State private var confirmReplaceEdits = false
+    @State private var replaceEditsConfirmed = false
+    @State private var redoingSection: ReviewSectionRef?
+    @State private var redoTask: Task<Void, Never>?
+    @State private var customRedoTarget: ReviewSectionRef?
+    @State private var customRedoText = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -77,6 +88,8 @@ struct SessionDetailView: View {
         .task(id: url) {
             tab = highlightQuery.isEmpty ? .summary : .transcript
             askThread = []; askInput = ""; askBusy = nil; pendingAsk = nil
+            redoTask?.cancel(); redoTask = nil; redoingSection = nil
+            editingNotes = false; replaceEditsConfirmed = false
             showingSharePrompt = false
             load()
             do {
@@ -191,6 +204,7 @@ struct SessionDetailView: View {
 
     private var meetingIsBusy: Bool {
         reviewInProgress || regenerating || preparingShare || askBusy != nil || pendingAsk != nil
+            || redoingSection != nil
     }
 
     private func deleteMeeting() {
@@ -447,14 +461,18 @@ struct SessionDetailView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 if showingSharePrompt { sharePromptCard }
-                if review?.hasShareableMeetingNotes != true {
+                if review?.hasShareableMeetingNotes != true && !editingNotes {
                     Text("Click Share notes to generate meeting notes and create your private link. Your transcript and coaching stay private.")
                         .font(.callout).foregroundStyle(.secondary)
                 }
-                if let review {
-                    MeetingReviewView(review: review) { id in
-                        toggleActionItem(id)
-                    }
+                if editingNotes {
+                    notesEditor
+                } else if let review {
+                    notesToolbar
+                    MeetingReviewView(review: review,
+                                      onToggleActionItem: { toggleActionItem($0) },
+                                      onRedo: canRedo ? { ref, request in startRedo(ref, request) } : nil,
+                                      redoingSection: redoingSection)
                 } else if !regenerating {
                     Text("No summary yet.")
                         .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey400)
@@ -465,7 +483,7 @@ struct SessionDetailView: View {
                 } else if !attemptedRegeneration, let automaticReviewError {
                     Text(automaticReviewError).font(.caption).foregroundStyle(.orange)
                 }
-                if settings != nil, !lines.isEmpty {
+                if settings != nil, !lines.isEmpty, !editingNotes {
                     HStack(spacing: 8) {
                         if regenerating || reviewInProgress {
                             ProgressView().controlSize(.small)
@@ -473,8 +491,12 @@ struct SessionDetailView: View {
                                 .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey600)
                         } else {
                             Button {
-                                regenerating = true
-                                regenTick += 1
+                                if notesEdited && review != nil {
+                                    confirmReplaceEdits = true
+                                } else {
+                                    regenerating = true
+                                    regenTick += 1
+                                }
                             } label: {
                                 HStack(spacing: 7) {
                                     Image(systemName: "sparkles")
@@ -483,6 +505,7 @@ struct SessionDetailView: View {
                                 }
                             }
                             .buttonStyle(DoradoOutlineButtonStyle())
+                            .disabled(redoingSection != nil)
                             .help("Uses your selected AI provider. Cloud AI sends meeting text to that provider.")
                         }
                     }
@@ -490,6 +513,171 @@ struct SessionDetailView: View {
             }
             .padding(.init(top: 20, leading: 44, bottom: 20, trailing: 44))
         }
+        .confirmationDialog("Replace your edited notes?", isPresented: $confirmReplaceEdits,
+                            titleVisibility: .visible) {
+            Button("Replace with new AI notes", role: .destructive) {
+                replaceEditsConfirmed = true
+                regenerating = true
+                regenTick += 1
+            }
+            Button("Keep my notes", role: .cancel) {}
+        } message: {
+            Text("Regenerating writes every section again from the transcript, so your changes would be lost. To change one part, use Redo on that section instead.")
+        }
+        .alert("Redo “\(customRedoTarget.flatMap { review?.heading(of: $0) } ?? "section")”",
+               isPresented: Binding(get: { customRedoTarget != nil },
+                                    set: { if !$0 { customRedoTarget = nil } })) {
+            TextField("e.g. Use the customer's name instead of Them", text: $customRedoText)
+            Button("Rewrite") {
+                let text = customRedoText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let target = customRedoTarget, !text.isEmpty { startRedo(target, .custom(text)) }
+                customRedoTarget = nil
+            }
+            Button("Cancel", role: .cancel) { customRedoTarget = nil }
+        } message: {
+            Text("AI rewrites only this section from the transcript. The rest of your notes stay as they are.")
+        }
+    }
+
+    private var canRedo: Bool {
+        settings != nil && !lines.isEmpty && !regenerating && !reviewInProgress
+            && review?.isDeterministic != true
+    }
+
+    private var notesToolbar: some View {
+        HStack(spacing: 10) {
+            if notesEdited {
+                Label("Edited by you", systemImage: "pencil")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button { beginEditingNotes() } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "pencil").font(.system(size: 12)).foregroundStyle(Dorado.grey500)
+                    Text("Edit notes")
+                }
+            }
+            .buttonStyle(DoradoOutlineButtonStyle())
+            .disabled(meetingIsBusy)
+            .help("Fix or add to these notes by hand")
+        }
+    }
+
+    private var notesEditor: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Edit notes").font(.system(size: 15, weight: .semibold))
+            Text("Keep the shape: **Summary**, a \"### Topic\" line per section with \"- \" bullets, and \"- [ ]\" lines under **Suggested Next Steps**.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            TextEditor(text: $notesDraft)
+                .font(.system(size: 13, design: .monospaced))
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 380)
+                .padding(10)
+                .cardStyle(cornerRadius: 10)
+            HStack(spacing: 10) {
+                Spacer()
+                Button("Cancel") { editingNotes = false }
+                    .buttonStyle(DoradoOutlineButtonStyle())
+                Button("Save notes") { saveEditedNotes() }
+                    .buttonStyle(.borderedProminent).tint(Dorado.dollar)
+                    .keyboardShortcut("s", modifiers: .command)
+            }
+        }
+    }
+
+    private func beginEditingNotes() {
+        guard var copy = review else { return }
+        // The talk split line is derived from the header, not editable text.
+        copy.talkShare = nil
+        notesDraft = copy.recapMarkdown
+        reviewError = nil
+        editingNotes = true
+    }
+
+    private func saveEditedNotes() {
+        let parsed = MeetingReview.parse(llmText: notesDraft, talkShare: talkShareValue)
+        guard !parsed.isEmpty else {
+            reviewError = "Notes can't be empty. Cancel to keep the saved version."
+            return
+        }
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
+            reviewError = "Couldn't read this meeting's file; your edit isn't saved."
+            return
+        }
+        let updated = MeetingNotesFile.settingEdited(true, in: MeetingNotesFile.replacingReview(in: content, with: parsed))
+        do {
+            try updated.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            reviewError = "Couldn't save your edit: \(error.localizedDescription)"
+            return
+        }
+        rawContent = updated
+        review = parsed
+        notesEdited = true
+        editingNotes = false
+        reviewError = nil
+        NotificationCenter.default.post(name: MeetingNotesFile.didChange, object: url)
+    }
+
+    private func startRedo(_ ref: ReviewSectionRef, _ request: NotesRewrite?) {
+        guard let request else {
+            customRedoText = ""
+            customRedoTarget = ref
+            return
+        }
+        redoTask?.cancel()
+        redoTask = Task { await redoSection(ref, request) }
+    }
+
+    /// Rewrites one section with the same provider, budget and saved context
+    /// as Regenerate. Notes that changed while the model worked (a tick, an
+    /// edit, another meeting opened) win: the late reply is discarded.
+    private func redoSection(_ ref: ReviewSectionRef, _ request: NotesRewrite) async {
+        guard let settings, let ollamaManager, let current = review, !lines.isEmpty else { return }
+        let meeting = url
+        redoingSection = ref
+        reviewError = nil
+        defer { if url == meeting { redoingSection = nil } }
+        guard await settings.prepareAI(ollamaManager: ollamaManager) else {
+            reviewError = "AI is unavailable — check Settings → AI or install a local model."
+            return
+        }
+        guard !Task.isCancelled, url == meeting else { return }
+        let model = settings.effectiveModel
+        let budget = ReviewBudget.forModel(model)
+        let (system, user) = PromptBuilder.buildSectionRewritePrompt(
+            section: ref, review: current, request: request,
+            transcript: lines.map { "\($0.speaker): \($0.text)" }.joined(separator: "\n"),
+            context: PreCallContext.saved(in: rawContent),
+            languageName: notesLanguageName(settings), budget: budget)
+        let reply: String
+        do {
+            reply = try await AIClient(model: model, timeout: budget.timeout,
+                                       numCtx: budget.numCtx, numPredict: 800)
+                .complete(system: system, user: user)
+        } catch {
+            if url == meeting { reviewError = error.localizedDescription }
+            return
+        }
+        guard !Task.isCancelled, url == meeting, let latest = review, latest == current else { return }
+        guard let updated = latest.replacing(ref, withRewrite: reply) else {
+            reviewError = "AI didn't return a usable section. Your notes are unchanged."
+            return
+        }
+        review = updated
+        persistReview(updated)
+        NotificationCenter.default.post(name: MeetingNotesFile.didChange, object: url)
+    }
+
+    private func notesLanguageName(_ settings: SettingsViewModel) -> String? {
+        let savedLanguage = languageCode.flatMap {
+            MeetingLanguageSelection.resolvedPersistedCode($0)?.language
+        }
+        return settings.notesLanguage.notesLanguageName(
+            meetingLanguage: savedLanguage,
+            detected: savedLanguage == nil && settings.notesLanguage == .meeting
+                ? TranscriptLanguageDetector.tally(lines.map(\.text)).dominant : nil)
     }
 
     // MARK: in-session ask
@@ -799,7 +987,13 @@ struct SessionDetailView: View {
 
     private func regenerateReview() async {
         attemptedRegeneration = true
-        defer { regenerating = false }
+        defer { regenerating = false; replaceEditsConfirmed = false }
+        // Hand-edited notes are only replaced after the user confirmed it
+        // (the Regenerate button asks; Share notes never replaces them).
+        if notesEdited && review != nil && !replaceEditsConfirmed {
+            reviewError = "These notes have your edits, so they weren't regenerated. Use Regenerate with AI to replace them, or Redo on one section."
+            return
+        }
         guard let settings, let ollamaManager, !lines.isEmpty else {
             reviewError = "AI is unavailable or this meeting has no transcript."
             return
@@ -844,6 +1038,13 @@ struct SessionDetailView: View {
         let parsed = MeetingReview.parse(llmText: text, talkShare: talkShareValue)
         review = parsed
         persistReview(parsed)
+        if notesEdited, let content = try? String(contentsOf: url, encoding: .utf8) {
+            // Replaced on purpose: the notes are the AI's again.
+            let cleared = MeetingNotesFile.settingEdited(false, in: content)
+            try? cleared.write(to: url, atomically: true, encoding: .utf8)
+            rawContent = cleared
+            notesEdited = false
+        }
         if let title = parsed.title {
             TranscriptSearch.adoptGeneratedTitle(title, for: url)
         }
@@ -975,6 +1176,7 @@ struct SessionDetailView: View {
             return
         }
         rawContent = content
+        notesEdited = MeetingNotesFile.isEdited(content)
         title = TranscriptSearch.headerTitle(in: content) ?? TranscriptSearch.title(for: url)
 
         var duration = ""
