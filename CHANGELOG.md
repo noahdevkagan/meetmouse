@@ -11,6 +11,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 - AI notes for long meetings now include what was decided in the middle of the call. With Claude or OpenAI the whole meeting is used; on Macs with 32 GB of memory or more, local AI reads meetings up to about 90 minutes in full (was about 40).
 - Regenerating a meeting's notes now uses the goal and participants you saved for that meeting, so owners and names come out right.
+- Prepare a call before it starts: click "Add goal / questions" under Start meeting to set a goal, who's on the call and questions to cover, then Save for later or start right away. Start meeting is still one click, and your questions tick off live as you ask them. Questions to Ask moved here from Advanced.
+- A meeting's goal now applies only to that meeting instead of carrying over to the next one.
 
 ## 0.34.0 — 2026-11-04
 

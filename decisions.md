@@ -2173,3 +2173,21 @@ at that moment, so the prompt and the window it runs in can never disagree.
 Regenerate now reads the goal, participants and tendencies back from the file's
 `## Pre-Call Context`; that section is now also written when guests were confirmed
 without a goal. The bench is informational (`bench/notes/run.sh`), never in the gate.
+
+## 2026-11-08 — Prep lives beside Start; goal is per-meeting
+The review said prep was a missed opportunity, but the goal/guests/questions form
+already existed and opened only from the meeting-detected pill, while Questions to
+Ask sat under Advanced. Now an optional "Add goal / questions" link under Start opens
+the same PreCallFormView, which gained "Save for later". Saved prep shows as a small
+"Next call" card (Edit / clear). Start stays one click and passes the prepared guests
+as confirmed for that call only (`nextCallPrepared`, cleared at Stop). The Advanced
+box is gone; anything still pasted there is adopted as prepared questions when the
+sidebar appears, so nothing joins a meeting unseen.
+The goal is now cleared at Stop like questions. Before, it silently carried into
+every later one-click meeting's coaching and notes with nothing on screen showing
+it; guests already had this rule (2026-09-02). The ended call's context is kept in
+`endedSessionContext` so its own notes still see the goal after Stop clears it.
+Verification note: pressing sheet buttons by AX index is unsafe (SwiftUI exposes no
+titles there). An index press on the prep sheet started a real capture once; it was
+killed within seconds, before anything was saved or sent. Identify buttons by AXHelp,
+or avoid sheets that contain Start.
