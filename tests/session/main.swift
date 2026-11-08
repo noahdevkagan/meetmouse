@@ -1267,6 +1267,64 @@ func runTests() async {
     check(PreCallContext.saved(in: "## Transcript\n[00:01] You: hi").meetingGoal.isEmpty,
           "files without pre-call context give an empty context")
 
+    // Home "needs attention": follow-ups from current and legacy notes,
+    // statuses, ticking writes the file, and the edited marker round-trips.
+    do {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("notes-attention-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let now = Date()
+        func stamp(_ daysAgo: Double) -> String {
+            let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "yyyy-MM-dd'T'HH-mm"
+            return f.string(from: now.addingTimeInterval(-daysAgo * 86_400))
+        }
+        let current = dir.appendingPathComponent("\(stamp(1))_pricing.md")
+        let legacy = dir.appendingPathComponent("\(stamp(3))_legacy.md")
+        let bare = dir.appendingPathComponent("\(stamp(2))_bare.md")
+        let old = dir.appendingPathComponent("\(stamp(45))_old.md")
+        let header = "# Meeting\n**Talk ratio:** 40% you\n\n## Transcript\n- [00:01] You: hi\n"
+            + (2...6).map { "- [00:0\($0)] Them: line \($0)\n" }.joined()
+        try? (header + "\n## Review\n\n**Summary**\nPrice agreed.\n\n### Pricing\n- $14 per seat\n\n**Suggested Next Steps**\n- [ ] Chase legal on retention (You)\n- [x] Book the review (Them)\n")
+            .write(to: current, atomically: true, encoding: .utf8)
+        try? (header + "\n## Review\n\n**Key Takeaways**\n- Old flat notes\n\n**Suggested Next Steps**\n- Send the deck (You)\n- “I'll send it over” — Them, 01:23\n")
+            .write(to: legacy, atomically: true, encoding: .utf8)
+        try? header.write(to: bare, atomically: true, encoding: .utf8)
+        let tiny = dir.appendingPathComponent("\(stamp(2))_tiny.md")
+        try? "# Test\n\n## Transcript\n- [00:01] You: Uh\n".write(to: tiny, atomically: true, encoding: .utf8)
+        try? (header + "\n## Review\n\n**Suggested Next Steps**\n- [ ] Too old (You)\n")
+            .write(to: old, atomically: true, encoding: .utf8)
+        let files = [current, bare, tiny, legacy, old]
+        let found = MeetingNotesFile.attention(files: files, opened: [], now: now) { url, _ in url.lastPathComponent }
+        check(found.followUps.map(\.text) == ["Chase legal on retention (You)", "Send the deck (You)"],
+              "follow-ups: unticked steps from current and legacy notes, last 14 days, no recap quotes",
+              "\(found.followUps.map(\.text))")
+        check(found.statuses.map(\.kind) == [.notesReady, .noNotes, .noNotes],
+              "statuses: notes ready, no notes, legacy flat notes count as no AI notes",
+              "\(found.statuses.map(\.kind))")
+        let seen = MeetingNotesFile.attention(files: files, opened: [current.lastPathComponent], now: now) { u, _ in u.lastPathComponent }
+        check(!seen.statuses.contains { $0.url == current }, "opened notes leave notes-to-review")
+        if let first = found.followUps.first {
+            check(MeetingNotesFile.setDone(first, true), "ticking a follow-up writes the file")
+            let after = (try? String(contentsOf: current, encoding: .utf8)) ?? ""
+            check(after.contains("- [x] Chase legal on retention (You)")
+                  && after.contains("Talk split (whole meeting): you 40%")
+                  && after.contains("## Transcript\n- [00:01] You: hi\n- [00:02] Them: line 2"),
+                  "ticked follow-up persists; transcript and talk split kept", after)
+            var moved = first
+            moved = .init(url: first.url, index: first.index, text: "Changed text",
+                          meetingTitle: first.meetingTitle, date: first.date)
+            check(!MeetingNotesFile.setDone(moved, false), "a follow-up whose line changed is not written")
+        }
+        let marked = MeetingNotesFile.settingEdited(true, in: header)
+        check(MeetingNotesFile.isEdited(marked) && !MeetingNotesFile.isEdited(header)
+              && marked.contains("**Talk ratio:** 40% you\n**Notes edited:** yes\n\n## Transcript"),
+              "edited marker goes at the end of the header block", marked)
+        check(MeetingNotesFile.settingEdited(false, in: marked) == header,
+              "edited marker removes cleanly")
+        try? FileManager.default.removeItem(at: dir)
+    }
+
     let parsedSpanish = MeetingReview.parse(llmText: """
         TITLE:
         Presupuesto aprobado

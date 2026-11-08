@@ -13,6 +13,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 - Regenerating a meeting's notes now uses the goal and participants you saved for that meeting, so owners and names come out right.
 - Prepare a call before it starts: click "Add goal / questions" under Start meeting to set a goal, who's on the call and questions to cover, then Save for later or start right away. Start meeting is still one click, and your questions tick off live as you ask them. Questions to Ask moved here from Advanced.
 - A meeting's goal now applies only to that meeting instead of carrying over to the next one.
+- The home screen now shows what needs your attention: open follow-ups from your meeting notes from the last two weeks (tick one off right there), meetings whose notes you haven't looked at, and recent meetings with no AI notes yet. The meeting list stays in the sidebar.
 
 ## 0.34.0 — 2026-11-04
 

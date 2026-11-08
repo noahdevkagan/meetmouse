@@ -2191,3 +2191,17 @@ Verification note: pressing sheet buttons by AX index is unsafe (SwiftUI exposes
 titles there). An index press on the prep sheet started a real capture once; it was
 killed within seconds, before anything was saved or sent. Identify buttons by AXHelp,
 or avoid sheets that contain Start.
+
+## 2026-11-08 — Home shows what needs attention, read from the files
+The review asked for "what needs attention, what comes next and what's completed";
+home repeated the sidebar's meeting list. Home now shows (MeetingNotesFile):
+- Open follow-ups: unticked next steps from the last 14 days of notes. Ticking one
+  rewrites that meeting's `## Review` exactly like the checkbox in its Notes tab.
+  Lines are re-identified by index + text, so a changed file is never mis-ticked.
+- Recent meetings to look at (7 days): notes not yet opened (opened file names in
+  UserDefaults `openedMeetingNotes`), or no AI notes (no topic sections).
+The basic recap's "next steps" are quoted transcript lines (`“…” — Speaker, 01:23`);
+on the maintainer's real archive they were most of the 119 "follow-ups" a 30-day
+window listed, so they're excluded (14 days without them: 35). Captures with fewer
+than 6 transcript lines don't get a "Generate notes" row. No statuses, projects or
+calendar: everything is derived from what the files already say.

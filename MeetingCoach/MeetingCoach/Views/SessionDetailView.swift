@@ -1052,6 +1052,8 @@ struct SessionDetailView: View {
         let reviewText = reviewLines.joined(separator: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         review = reviewText.isEmpty ? nil : MeetingReview.parse(llmText: reviewText, talkShare: share)
+        // Seen on Notes = no longer "Notes to review" on the home screen.
+        if tab == .summary, review != nil { MeetingNotesFile.markOpened(url) }
 
     }
 
