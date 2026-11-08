@@ -61,7 +61,7 @@ def buy_form(compact=False):
     return f"""<form class="{cls}" action="https://www.paypal.com/cgi-bin/webscr" method="post">
       <input type="hidden" name="cmd" value="_xclick">
       <input type="hidden" name="business" value="paypal@okdork.com">
-      <input type="hidden" name="item_name" value="MeetMouse for Mac">
+      <input type="hidden" name="item_name" value="MeetMouse Unlimited for Mac - get your unlock code at meetmouse.com/thanks.html">
       <input type="hidden" name="amount" value="20.00">
       <input type="hidden" name="currency_code" value="USD">
       <input type="hidden" name="no_shipping" value="1">
