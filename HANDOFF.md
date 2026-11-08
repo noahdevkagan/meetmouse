@@ -21,6 +21,16 @@ commit per item, Debug build + `/verify` before each, no push:
    notes, notes-to-review / no-notes rows; home drops its duplicate recent list.
 4. Edit notes in place + redo one section; regenerate-all after an edit asks first.
 
+Done, 4 commits on this branch (22d4893, d6220ab, afddeea, 7c8654e), not pushed.
+Debug build and all session checks pass after each; tests/nudges pass. Bench
+(`bench/notes/run.sh`, qwen3.5:9b): before 1/7 facts + 1 invented deadline,
+roomy 7/7 + 0. GUI captures in `.context/before-after/after-real/` (they show the
+user's real meetings; local only). Not GUI-verified: item 4's Notes tab (AX lost the
+window when the desktop changed Space; covered by session checks and a live redo
+parse). Incident: an AX press by index on the prep sheet started a real capture
+once; killed within seconds, nothing saved or sent (decisions.md). Next: user tries
+items 2-4 in the Debug build; then decide on starter questions/templates (item 5).
+
 ## Earlier state (2026-11-04): Speaker prompt at the bubble; four-platform check
 
 User: Zoom suggestion was right on a real guest call but they had to open the app
