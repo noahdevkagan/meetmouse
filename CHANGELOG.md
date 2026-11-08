@@ -7,6 +7,11 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- AI notes for long meetings now include what was decided in the middle of the call. With Claude or OpenAI the whole meeting is used; on Macs with 32 GB of memory or more, local AI reads meetings up to about 90 minutes in full (was about 40).
+- Regenerating a meeting's notes now uses the goal and participants you saved for that meeting, so owners and names come out right.
+
 ## 0.34.0 — 2026-11-04
 
 - Speaker name suggestions now appear right beside the talk bubble with Yes and No buttons, so you can confirm a name during the call without opening MeetMouse.

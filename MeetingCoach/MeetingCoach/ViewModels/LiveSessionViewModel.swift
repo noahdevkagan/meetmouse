@@ -348,11 +348,12 @@ final class LiveSessionViewModel {
     nonisolated static func liveCompleteReview(_ model: String,
                                                _ system: String,
                                                _ user: String) async throws -> String {
-        // 12288/1500 (not the 8192/512 defaults): the topic-sectioned
-        // review is the one long reply — sized with PromptBuilder's 32K
-        // transcript cap so a 43-min meeting fits untrimmed (2026-09-04).
-        // Post-call only — ASR and the in-call runner are already gone.
-        try await AIClient(model: model, numCtx: 12_288, numPredict: 1500)
+        // The same budget the prompt was trimmed to, so the window always
+        // fits the transcript it was given (ReviewBudget). Post-call only —
+        // ASR and the in-call runner are already gone.
+        let budget = ReviewBudget.forModel(model)
+        return try await AIClient(model: model, timeout: budget.timeout,
+                                  numCtx: budget.numCtx, numPredict: budget.numPredict)
             .complete(system: system, user: user)
     }
 
@@ -1691,15 +1692,11 @@ final class LiveSessionViewModel {
             .map { "\($0.speaker): \($0.text)" }
             .joined(separator: "\n")
 
-        let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
-            nudges: nudges,
-            transcript: labeledTranscript,
-            context: sessionContext,
-            durationMinutes: durationMin,
-            languageName: (settings.notesLanguage).notesLanguageName(
-                meetingLanguage: singleSessionLanguage,
-                detected: languageTally.dominant)
-        )
+        let reviewNudges = nudges
+        let reviewContext = sessionContext
+        let reviewLanguage = (settings.notesLanguage).notesLanguageName(
+            meetingLanguage: singleSessionLanguage,
+            detected: languageTally.dominant)
 
         Task {
             var summary: String?
@@ -1721,6 +1718,15 @@ final class LiveSessionViewModel {
                 if pinnedModel == nil {
                     sessionModelState = .pinned(sessionModelState?.sessionID ?? UUID(), reviewModel)
                 }
+                // Built once the model is known: cloud and roomy local
+                // budgets carry the whole meeting instead of trimming it.
+                let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
+                    nudges: reviewNudges,
+                    transcript: labeledTranscript,
+                    context: reviewContext,
+                    durationMinutes: durationMin,
+                    languageName: reviewLanguage,
+                    budget: ReviewBudget.forModel(reviewModel))
                 do {
                     summary = try await Self.completeReview(reviewModel, system, user)
                 } catch {
@@ -2122,9 +2128,13 @@ final class LiveSessionViewModel {
         lines.append("")
 
         // Pre-call context
-        if !preCallContext.meetingGoal.isEmpty {
+        // Confirmed guests are saved even without a goal: Regenerate reads
+        // this section back (PreCallContext.saved) so notes keep who was there.
+        if !preCallContext.meetingGoal.isEmpty || !sessionContext.participants.isEmpty {
             lines.append("## Pre-Call Context")
-            lines.append("**Goal:** \(preCallContext.meetingGoal)")
+            if !preCallContext.meetingGoal.isEmpty {
+                lines.append("**Goal:** \(preCallContext.meetingGoal)")
+            }
             if preCallContext.scheduledDurationMinutes > 0 {
                 lines.append("**Scheduled Duration:** \(preCallContext.scheduledDurationMinutes) min")
             }

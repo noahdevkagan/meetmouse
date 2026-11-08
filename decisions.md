@@ -2153,3 +2153,23 @@ no real-call accuracy row until a publishable corpus exists (a staged call); the
 old rows stay under a neutral name. Real names in tests and comments became made-up
 ones, and the review prompt's example was rewritten because it used real-call terms.
 All of this remains in git history and forks until cleaned separately.
+
+## 2026-11-08 — Notes budget: whole meeting for cloud, bigger window only on >=32 GB Macs
+A customer said notes weren't accurate. The prompt trimmed every transcript over
+32K characters (~40 minutes) to its first 10K and last 22K, and Regenerate sent an
+empty context. On a made-up 50-minute meeting (`bench/notes/`) the trimmed prompt
+caught 0 of 6 mid-meeting decisions on qwen3.5:9b and invented a deadline; untrimmed
+with goal and guests it caught 6 of 6. Rules (`ReviewBudget` in PromptBuilder.swift):
+- Cloud (Claude account, Claude API, OpenAI): no trim up to 400K characters (a guard
+  against all-day captures, ~100K tokens, inside every supported model's window).
+- Local on >=32 GB: 72K characters in a 24K-token window. Notes run after capture
+  stops, so the extra KV cache competes only with other apps; the 70% fit rule
+  already left room on these Macs. Timeout 480s: a non-streamed local reply over
+  ~20K prompt tokens takes minutes on a base M-series chip.
+- Local under 32 GB: today's 32K trim in a 12K window, unchanged, because 8-16 GB
+  Macs are the ones the RAM-aware model work (2026-08-05/08-11) protected.
+The budget depends only on the model reference and installed RAM, not free memory
+at that moment, so the prompt and the window it runs in can never disagree.
+Regenerate now reads the goal, participants and tendencies back from the file's
+`## Pre-Call Context`; that section is now also written when guests were confirmed
+without a goal. The bench is informational (`bench/notes/run.sh`), never in the gate.

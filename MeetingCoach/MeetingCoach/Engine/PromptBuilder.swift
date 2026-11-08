@@ -1,5 +1,46 @@
 import Foundation
 
+/// How much transcript the notes prompt may carry and the window it runs in.
+/// The 32K trim (keep the opening and the tail, drop the middle) exists
+/// because small local models run in a 12K-token window; it cost real notes
+/// every decision made mid-meeting (bench/notes). Cloud models have room for
+/// the whole call; local models get a bigger window only where memory
+/// allows (decisions.md, 2026-11-08).
+struct ReviewBudget: Equatable {
+    /// Transcript characters kept; nil = the whole transcript.
+    let transcriptChars: Int?
+    let numCtx: Int
+    let numPredict: Int
+    /// Seconds. A non-streamed local reply over a long prompt takes minutes.
+    let timeout: Double
+
+    /// 12K tokens: today's window for <32 GB Macs (~43 minutes fit whole).
+    static let standard = ReviewBudget(transcriptChars: 32_000, numCtx: 12_288,
+                                       numPredict: 1500, timeout: 300)
+    /// 24K tokens: ~90 minutes fit whole. Only on Macs with >=32 GB, where
+    /// the larger KV cache after the call (capture already stopped) is safe.
+    static let roomy = ReviewBudget(transcriptChars: 72_000, numCtx: 24_576,
+                                    numPredict: 1500, timeout: 480)
+    /// Cloud: whole meeting. The cap (~100K tokens) only guards runaway
+    /// all-day captures; Claude and GPT-4.1 windows are larger than that.
+    static let cloud = ReviewBudget(transcriptChars: 400_000, numCtx: 12_288,
+                                    numPredict: 2000, timeout: 300)
+
+    static func forModel(_ model: String, ramGB: Int = ModelMemory.physicalRAMGB) -> ReviewBudget {
+        if model.hasPrefix("cloud:") { return .cloud }
+        return ramGB >= 32 ? .roomy : .standard
+    }
+
+    /// Whole transcript when it fits; otherwise the opening (topics get
+    /// framed early) and the tail (commitments land late), 5:11.
+    func fit(_ transcript: String) -> String {
+        guard let limit = transcriptChars, transcript.count > limit else { return transcript }
+        let head = limit * 5 / 16
+        return transcript.prefix(head) + "\n[… middle of the meeting trimmed …]\n"
+            + transcript.suffix(limit - head)
+    }
+}
+
 /// Builds LLM prompts for the post-call review.
 enum PromptBuilder {
 
@@ -7,7 +48,8 @@ enum PromptBuilder {
     static func buildPostCallReviewPrompt(nudges: [Nudge], transcript: String,
                                           context: PreCallContext,
                                           durationMinutes: Int,
-                                          languageName: String? = nil)
+                                          languageName: String? = nil,
+                                          budget: ReviewBudget = .standard)
         -> (system: String, user: String) {
         // Strictly-delimited sections, one item per line — the app parses
         // this into a structured card (MeetingReview.parse). Small local
@@ -110,15 +152,7 @@ enum PromptBuilder {
         // early) and the tail (decisions and commitments land late) instead
         // of the first N chars only.
         if !transcript.isEmpty {
-            var t = transcript
-            // Sized against the review call's 12288 num_ctx: 32K chars is
-            // ~8K tokens, leaving room for this system prompt and a 1500-
-            // token reply. Noah's real 43-min meeting was 35K chars and the
-            // old 24K cap amputated exactly the middle where the team
-            // review happened (2026-09-04) — most meetings now fit whole.
-            if t.count > 32_000 {
-                t = t.prefix(10_000) + "\n[… middle of the meeting trimmed …]\n" + t.suffix(22_000)
-            }
+            let t = budget.fit(transcript)
             userLines.append("\nTranscript (You = the user, the person these notes are for):\n\(t)")
         }
 

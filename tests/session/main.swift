@@ -1225,6 +1225,48 @@ func runTests() async {
     check(legacyPrompt.system.contains("transcript's dominant language"),
           "legacy review infers dominant transcript language")
 
+    // Notes budget: cloud keeps the whole meeting, roomy local keeps up to
+    // 72K, everything else keeps today's 32K head+tail trim.
+    let longTranscript = String(repeating: "Them: filler words here.\n", count: 2_000)
+        + "Them: MIDDLE-DECISION fourteen dollars.\n"
+        + String(repeating: "You: more filler words.\n", count: 2_000)
+    check(longTranscript.count > 72_000, "fixture is longer than every local budget")
+    let trimmed = PromptBuilder.buildPostCallReviewPrompt(
+        nudges: [], transcript: longTranscript, context: PreCallContext(),
+        durationMinutes: 50, budget: .standard).user
+    check(!trimmed.contains("MIDDLE-DECISION") && trimmed.contains("middle of the meeting trimmed"),
+          "standard budget trims the middle")
+    let cloudPrompt = PromptBuilder.buildPostCallReviewPrompt(
+        nudges: [], transcript: longTranscript, context: PreCallContext(),
+        durationMinutes: 50, budget: ReviewBudget.forModel("cloud:anthropic:claude-sonnet-5")).user
+    check(cloudPrompt.contains("MIDDLE-DECISION") && !cloudPrompt.contains("trimmed"),
+          "cloud budget sends the whole meeting")
+    check(ReviewBudget.forModel("qwen3.5:9b", ramGB: 32) == .roomy
+          && ReviewBudget.forModel("qwen3.5:4b", ramGB: 16) == .standard,
+          "local window grows only on >=32 GB Macs")
+    check(ReviewBudget.roomy.fit(String(repeating: "x", count: 60_000)).count == 60_000,
+          "roomy budget keeps a 60K-char meeting whole")
+
+    // Regenerate reads the saved goal and guests back (roles may hold commas).
+    let savedContext = PreCallContext.saved(in: """
+        # Meeting
+        **Duration:** 50:00
+
+        ## Pre-Call Context
+        **Goal:** Agree launch pricing
+        **Participants:** Ana Example (Head of Ops, Acme), Bo ()
+
+        ## Transcript
+        **Goal:** not this one
+        """)
+    check(savedContext.meetingGoal == "Agree launch pricing"
+          && savedContext.participants.map(\.name) == ["Ana Example", "Bo"]
+          && savedContext.participants.first?.role == "Head of Ops, Acme",
+          "saved pre-call context round-trips goal and participants",
+          "\(savedContext.meetingGoal) \(savedContext.participants)")
+    check(PreCallContext.saved(in: "## Transcript\n[00:01] You: hi").meetingGoal.isEmpty,
+          "files without pre-call context give an empty context")
+
     let parsedSpanish = MeetingReview.parse(llmText: """
         TITLE:
         Presupuesto aprobado

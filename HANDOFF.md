@@ -5,7 +5,23 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-11-04): Speaker prompt at the bubble; four-platform check
+## Current state (2026-11-08): Customer-review fixes, items 1-4
+
+A customer review (2 tacos) said notes are inaccurate, prep is hidden, home doesn't
+say what needs attention, and notes can't be corrected. User approved items 1-4
+of the evaluation (before/after mockups: `.context/before-after/`). Plan, one
+commit per item, Debug build + `/verify` before each, no push:
+1. Notes inputs: Regenerate passes the saved goal/participants (parsed from the
+   file's `## Pre-Call Context`); no 32K middle trim for Claude/OpenAI; local
+   gets a bigger window only on >=32 GB Macs, else today's trim. Informational
+   bench `bench/notes/` (made-up transcript, planted facts, invented deadlines).
+2. Prep on Start: optional "Add goal / questions" under Start opens
+   PreCallFormView (with Save for later); Questions to Ask leaves Advanced.
+3. Home "needs attention": open follow-ups from unticked next steps across saved
+   notes, notes-to-review / no-notes rows; home drops its duplicate recent list.
+4. Edit notes in place + redo one section; regenerate-all after an edit asks first.
+
+## Earlier state (2026-11-04): Speaker prompt at the bubble; four-platform check
 
 User: Zoom suggestion was right on a real guest call but they had to open the app
 to accept it. Plan: (1) one-tap Yes/No card beside the talk bubble; (2) fix OCR

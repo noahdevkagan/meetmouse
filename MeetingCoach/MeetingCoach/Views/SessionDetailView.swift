@@ -816,18 +816,25 @@ struct SessionDetailView: View {
         let savedLanguage = languageCode.flatMap {
             MeetingLanguageSelection.resolvedPersistedCode($0)?.language
         }
+        let model = settings.effectiveModel
+        let budget = ReviewBudget.forModel(model)
         let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
             nudges: [], transcript: transcript,
-            context: PreCallContext(), durationMinutes: max(1, durationMinutes),
+            // The goal and guests saved with the meeting, not an empty
+            // context: notes that know who was there attribute better.
+            context: PreCallContext.saved(in: rawContent),
+            durationMinutes: max(1, durationMinutes),
             languageName: settings.notesLanguage.notesLanguageName(
                 meetingLanguage: savedLanguage,
                 // Multi-language, switched, legacy, and imported meetings
                 // name no single language: detect the main one on-device.
                 detected: savedLanguage == nil && settings.notesLanguage == .meeting
-                    ? TranscriptLanguageDetector.tally(lines.map(\.text)).dominant : nil))
+                    ? TranscriptLanguageDetector.tally(lines.map(\.text)).dominant : nil),
+            budget: budget)
         let text: String
         do {
-            text = try await AIClient(model: settings.effectiveModel, numCtx: 12_288, numPredict: 1500)
+            text = try await AIClient(model: model, timeout: budget.timeout,
+                                      numCtx: budget.numCtx, numPredict: budget.numPredict)
                 .complete(system: system, user: user)
         } catch {
             reviewError = error.localizedDescription
