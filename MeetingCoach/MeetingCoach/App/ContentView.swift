@@ -2558,7 +2558,7 @@ struct InstalledModelRow: View {
                     }
                 } label: {
                     Image(systemName: "trash")
-                        .foregroundStyle(settings.deletingModel != nil ? .secondary : .red.opacity(0.7))
+                        .foregroundStyle(settings.deletingModel != nil ? Color.secondary : Color.red.opacity(0.7))
                 }
                 .font(.caption)
                 .buttonStyle(.plain)
