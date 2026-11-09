@@ -1225,6 +1225,229 @@ func runTests() async {
     check(legacyPrompt.system.contains("transcript's dominant language"),
           "legacy review infers dominant transcript language")
 
+    // Notes budget: cloud keeps the whole meeting, roomy local keeps up to
+    // 72K, everything else keeps today's 32K head+tail trim.
+    let longTranscript = String(repeating: "Them: filler words here.\n", count: 2_000)
+        + "Them: MIDDLE-DECISION fourteen dollars.\n"
+        + String(repeating: "You: more filler words.\n", count: 2_000)
+    check(longTranscript.count > 72_000, "fixture is longer than every local budget")
+    let trimmed = PromptBuilder.buildPostCallReviewPrompt(
+        nudges: [], transcript: longTranscript, context: PreCallContext(),
+        durationMinutes: 50, budget: .standard).user
+    check(!trimmed.contains("MIDDLE-DECISION") && trimmed.contains("middle of the meeting trimmed"),
+          "standard budget trims the middle")
+    let cloudPrompt = PromptBuilder.buildPostCallReviewPrompt(
+        nudges: [], transcript: longTranscript, context: PreCallContext(),
+        durationMinutes: 50, budget: ReviewBudget.forModel("cloud:anthropic:claude-sonnet-5")).user
+    check(cloudPrompt.contains("MIDDLE-DECISION") && !cloudPrompt.contains("trimmed"),
+          "cloud budget sends the whole meeting")
+    check(ReviewBudget.forModel("qwen3.5:9b", ramGB: 32) == .roomy
+          && ReviewBudget.forModel("qwen3.5:4b", ramGB: 16) == .standard,
+          "local window grows only on >=32 GB Macs")
+    check(ReviewBudget.roomy.fit(String(repeating: "x", count: 60_000)).count == 60_000,
+          "roomy budget keeps a 60K-char meeting whole")
+
+    // Regenerate reads the saved goal and guests back (roles may hold commas).
+    let savedContext = PreCallContext.saved(in: """
+        # Meeting
+        **Duration:** 50:00
+
+        ## Pre-Call Context
+        **Goal:** Agree launch pricing
+        **Participants:** Ana Example (Head of Ops, Acme), Bo ()
+
+        ## Transcript
+        **Goal:** not this one
+        """)
+    check(savedContext.meetingGoal == "Agree launch pricing"
+          && savedContext.participants.map(\.name) == ["Ana Example", "Bo"]
+          && savedContext.participants.first?.role == "Head of Ops, Acme",
+          "saved pre-call context round-trips goal and participants",
+          "\(savedContext.meetingGoal) \(savedContext.participants)")
+    check(PreCallContext.saved(in: "## Transcript\n[00:01] You: hi").meetingGoal.isEmpty,
+          "files without pre-call context give an empty context")
+
+    // Saved notes are user data, not model output: no preamble/cap losses.
+    do {
+        let draft = (1...9).map { "### Topic \($0)\n- Detail \($0)\n" }.joined(separator: "\n")
+            + "\n**Suggested Next Steps**\n"
+            + (1...9).map { "- [ ] Task \($0)" }.joined(separator: "\n")
+        let parsed = MeetingReview.parseSavedMarkdown(draft)
+        check(parsed.sections.count == 9 && parsed.actionItems.count == 9,
+              "human notes preserve nine topics and steps without a summary")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("rewrite-\(UUID())")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("meeting.md")
+        let original = MeetingNotesFile.settingEdited(true, in:
+            MeetingNotesFile.replacingReview(in: "# Meeting\n\n## Transcript\n", with: parsed))
+        try? original.write(to: url, atomically: true, encoding: .utf8)
+        check(MeetingNotesFile.review(in: original)?.sections.count == 9,
+              "saved notes reload all topics without summary")
+        let followUp = MeetingNotesFile.FollowUp(url: url, index: 8, text: "Task 9",
+                                                meetingTitle: "Meeting", date: nil)
+        check(MeetingNotesFile.setDone(followUp, true), "home can tick ninth human-authored step")
+        let changed = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        check(MeetingNotesFile.review(in: changed)?.actionItems.last?.isDone == true
+              && MeetingNotesFile.review(in: changed)?.sections.count == 9,
+              "home checkbox rewrite preserves every topic and step")
+        var rewritten = parsed
+        rewritten.summary = "Rewritten summary"
+        do {
+            let rejected = try MeetingNotesFile.saveRewrite(rewritten, to: url, expectedContent: original)
+            check(rejected == nil && (try? String(contentsOf: url, encoding: .utf8)) == changed,
+                  "late AI rewrite cannot overwrite a newer home checkbox change")
+            let saved = try MeetingNotesFile.saveRewrite(rewritten, to: url, expectedContent: changed)
+            check(saved?.contains("Rewritten summary") == true
+                  && saved.map(MeetingNotesFile.isEdited) == true,
+                  "unchanged file accepts rewrite and preserves edited marker")
+        } catch { check(false, "rewrite persistence succeeds", "\(error)") }
+    }
+
+    // Default starts (menu bar/detection) must consume saved participant prep.
+    do {
+        let vm = LiveSessionViewModel()
+        var context = PreCallContext()
+        context.participants = [.init(name: "Morgan Example", role: "Designer")]
+        vm.nextCallPrepared = true
+        vm.startLive(context: context)
+        try? await Task.sleep(for: .milliseconds(300))
+        check(AudioCaptureManager.last?.expectedParticipants == ["Morgan Example"]
+              && vm.displaySpeaker("Them") == "Morgan Example",
+              "default start honors saved prep for capture and speaker naming")
+        AudioCaptureManager.last?.onUtterance?(Utterance(t: 1, speaker: "Them", text: "We agreed on the design.", endT: 3))
+        try? await Task.sleep(for: .milliseconds(50))
+        vm.stopLive()
+        let content = vm.savedPath.flatMap { try? String(contentsOfFile: $0, encoding: .utf8) } ?? ""
+        check(PreCallContext.saved(in: content).participants.map(\.name) == ["Morgan Example"],
+              "default start saves prepared participants for later notes")
+        vm.deleteSession()
+        vm.startLive(context: context)
+        try? await Task.sleep(for: .milliseconds(300))
+        check(AudioCaptureManager.last?.expectedParticipants.isEmpty == true
+              && vm.displaySpeaker("Them") == "Them",
+              "next unprepared meeting does not reuse last call's guests")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // Edit notes + redo one section.
+    do {
+        var notes = MeetingReview.parse(llmText: """
+            TITLE:
+            Pricing with Ana
+            SUMMARY:
+            Price agreed.
+            NOTES:
+            ### Pricing
+            - $14 per seat
+            ### Hiring
+            - Two finalists
+            NEXT STEPS:
+            - Chase legal (You) — retention answer
+            - Book review (Them) — after launch
+            """)
+        notes.actionItems[1].isDone = true
+        // A hand edit round-trips through the saved markdown shape.
+        var edited = MeetingReview.parse(llmText: notes.recapMarkdown)
+        check(edited.sections.map(\.heading) == ["Pricing", "Hiring"]
+              && edited.actionItems.map(\.isDone) == [false, true],
+              "edited notes markdown round-trips sections and ticks")
+        edited.sections[0].bullets.append("Five-seat minimum")
+        let reparsed = MeetingReview.parse(llmText: edited.recapMarkdown)
+        check(reparsed.sections[0].bullets == ["$14 per seat", "Five-seat minimum"],
+              "a hand-added bullet survives save and reload")
+
+        let topic = notes.replacing(.topic(1), withRewrite: "- Two finalists; decide by start date\n- Backend role still open")
+        check(topic?.sections[1].bullets == ["Two finalists; decide by start date", "Backend role still open"]
+              && topic?.sections[0] == notes.sections[0] && topic?.summary == notes.summary
+              && topic?.actionItems.map(\.text) == notes.actionItems.map(\.text),
+              "redo replaces only the chosen topic")
+        let echoed = notes.replacing(.topic(0), withRewrite: "### Pricing\n- $14 per seat, five-seat minimum")
+        check(echoed?.sections[0].bullets == ["$14 per seat, five-seat minimum"]
+              && echoed?.sections.count == 2,
+              "a rewrite that repeats its heading still lands in that topic")
+        let steps = notes.replacing(.nextSteps, withRewrite: "- Chase legal (You) — retention answer\n- Book review (Them) — after launch\n- Send summary (You) — tomorrow morning")
+        check(steps?.actionItems.map(\.isDone) == [false, true, false],
+              "redo of next steps keeps ticks on unchanged steps")
+        check(notes.replacing(.summary, withRewrite: "Teams launches at $14 per seat.")?.summary
+              == "Teams launches at $14 per seat.", "redo replaces the summary")
+        check(notes.replacing(.nextSteps, withRewrite: "") == nil
+              && notes.replacing(.topic(9), withRewrite: "- x") == nil,
+              "an empty or misaddressed rewrite leaves notes unchanged")
+
+        let longMeeting = String(repeating: "Them: filler words here.\n", count: 2_000)
+            + "Them: MIDDLE-DECISION.\n" + String(repeating: "You: more filler.\n", count: 2_000)
+        let redoPrompt = PromptBuilder.buildSectionRewritePrompt(
+            section: .topic(1), review: notes, request: .custom("Use first names"),
+            transcript: longMeeting, context: PreCallContext.saved(in: "## Pre-Call Context\n**Goal:** Agree pricing\n"),
+            languageName: "English", budget: ReviewBudget.forModel("cloud:openai:gpt-4.1"))
+        check(redoPrompt.user.contains("Section: Hiring") && redoPrompt.user.contains("- Two finalists")
+              && redoPrompt.user.contains("Use first names") && redoPrompt.user.contains("Meeting goal: Agree pricing")
+              && redoPrompt.user.contains("MIDDLE-DECISION")
+              && redoPrompt.user.contains("do not repeat their content): Pricing")
+              && redoPrompt.system.contains("Never invent facts"),
+              "section rewrite prompt carries the section, request, context and whole transcript")
+    }
+
+    // Home "needs attention": follow-ups from current and legacy notes,
+    // statuses, ticking writes the file, and the edited marker round-trips.
+    do {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("notes-attention-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let now = Date()
+        func stamp(_ daysAgo: Double) -> String {
+            let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "yyyy-MM-dd'T'HH-mm"
+            return f.string(from: now.addingTimeInterval(-daysAgo * 86_400))
+        }
+        let current = dir.appendingPathComponent("\(stamp(1))_pricing.md")
+        let legacy = dir.appendingPathComponent("\(stamp(3))_legacy.md")
+        let bare = dir.appendingPathComponent("\(stamp(2))_bare.md")
+        let old = dir.appendingPathComponent("\(stamp(45))_old.md")
+        let header = "# Meeting\n**Talk ratio:** 40% you\n\n## Transcript\n- [00:01] You: hi\n"
+            + (2...6).map { "- [00:0\($0)] Them: line \($0)\n" }.joined()
+        try? (header + "\n## Review\n\n**Summary**\nPrice agreed.\n\n### Pricing\n- $14 per seat\n\n**Suggested Next Steps**\n- [ ] Chase legal on retention (You)\n- [x] Book the review (Them)\n")
+            .write(to: current, atomically: true, encoding: .utf8)
+        try? (header + "\n## Review\n\n**Key Takeaways**\n- Old flat notes\n\n**Suggested Next Steps**\n- Send the deck (You)\n- “I'll send it over” — Them, 01:23\n")
+            .write(to: legacy, atomically: true, encoding: .utf8)
+        try? header.write(to: bare, atomically: true, encoding: .utf8)
+        let tiny = dir.appendingPathComponent("\(stamp(2))_tiny.md")
+        try? "# Test\n\n## Transcript\n- [00:01] You: Uh\n".write(to: tiny, atomically: true, encoding: .utf8)
+        try? (header + "\n## Review\n\n**Suggested Next Steps**\n- [ ] Too old (You)\n")
+            .write(to: old, atomically: true, encoding: .utf8)
+        let files = [current, bare, tiny, legacy, old]
+        let found = MeetingNotesFile.attention(files: files, opened: [], now: now) { url, _ in url.lastPathComponent }
+        check(found.followUps.map(\.text) == ["Chase legal on retention (You)", "Send the deck (You)"],
+              "follow-ups: unticked steps from current and legacy notes, last 14 days, no recap quotes",
+              "\(found.followUps.map(\.text))")
+        check(found.statuses.map(\.kind) == [.notesReady, .noNotes, .noNotes],
+              "statuses: notes ready, no notes, legacy flat notes count as no AI notes",
+              "\(found.statuses.map(\.kind))")
+        let seen = MeetingNotesFile.attention(files: files, opened: [current.lastPathComponent], now: now) { u, _ in u.lastPathComponent }
+        check(!seen.statuses.contains { $0.url == current }, "opened notes leave notes-to-review")
+        if let first = found.followUps.first {
+            check(MeetingNotesFile.setDone(first, true), "ticking a follow-up writes the file")
+            let after = (try? String(contentsOf: current, encoding: .utf8)) ?? ""
+            check(after.contains("- [x] Chase legal on retention (You)")
+                  && after.contains("Talk split (whole meeting): you 40%")
+                  && after.contains("## Transcript\n- [00:01] You: hi\n- [00:02] Them: line 2"),
+                  "ticked follow-up persists; transcript and talk split kept", after)
+            var moved = first
+            moved = .init(url: first.url, index: first.index, text: "Changed text",
+                          meetingTitle: first.meetingTitle, date: first.date)
+            check(!MeetingNotesFile.setDone(moved, false), "a follow-up whose line changed is not written")
+        }
+        let marked = MeetingNotesFile.settingEdited(true, in: header)
+        check(MeetingNotesFile.isEdited(marked) && !MeetingNotesFile.isEdited(header)
+              && marked.contains("**Talk ratio:** 40% you\n**Notes edited:** yes\n\n## Transcript"),
+              "edited marker goes at the end of the header block", marked)
+        check(MeetingNotesFile.settingEdited(false, in: marked) == header,
+              "edited marker removes cleanly")
+        try? FileManager.default.removeItem(at: dir)
+    }
+
     let parsedSpanish = MeetingReview.parse(llmText: """
         TITLE:
         Presupuesto aprobado

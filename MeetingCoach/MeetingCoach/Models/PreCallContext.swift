@@ -64,6 +64,55 @@ struct PreCallContext: Codable {
     }
 }
 
+extension PreCallContext {
+    /// The goal, guests and tendencies a saved meeting recorded under
+    /// "## Pre-Call Context", so regenerating notes later sees what the
+    /// post-call notes saw. Older files without the section give an empty
+    /// context, exactly what Regenerate used to send.
+    static func saved(in markdown: String) -> PreCallContext {
+        var context = PreCallContext()
+        var inSection = false
+        for line in markdown.components(separatedBy: "\n") {
+            if line.hasPrefix("## ") {
+                inSection = line.hasPrefix("## Pre-Call Context")
+                continue
+            }
+            guard inSection else { continue }
+            if let goal = value(line, "**Goal:**") {
+                context.meetingGoal = goal
+            } else if let list = value(line, "**Participants:**") {
+                context.participants = participants(from: list)
+            } else if let list = value(line, "**Known Tendencies:**") {
+                context.myKnownTendencies = list.components(separatedBy: ", ").filter { !$0.isEmpty }
+            }
+        }
+        return context
+    }
+
+    private static func value(_ line: String, _ label: String) -> String? {
+        guard line.hasPrefix(label) else { return nil }
+        let v = line.dropFirst(label.count).trimmingCharacters(in: .whitespaces)
+        return v.isEmpty ? nil : v
+    }
+
+    /// "Ana (Head of Ops, Acme), Bo ()" → two participants. Roles may hold
+    /// commas, so split on the "Name (role)" shape, not on commas.
+    static func participants(from list: String) -> [Participant] {
+        var result: [Participant] = []
+        var rest = Substring(list)
+        while let open = rest.firstIndex(of: "("),
+              let close = rest[open...].firstIndex(of: ")") {
+            let name = rest[..<open].trimmingCharacters(in: CharacterSet(charactersIn: ", "))
+            let role = rest[rest.index(after: open)..<close].trimmingCharacters(in: .whitespaces)
+            if !name.isEmpty { result.append(Participant(name: name, role: role)) }
+            rest = rest[rest.index(after: close)...]
+        }
+        let tail = rest.trimmingCharacters(in: CharacterSet(charactersIn: ", "))
+        if !tail.isEmpty { result.append(Participant(name: tail)) }
+        return result
+    }
+}
+
 /// The kind of meeting changes what good facilitation looks like: long turns
 /// are the FORMAT of an advisory 1:1 but a red flag on a sales call. Signals
 /// scale their thresholds by these multipliers.

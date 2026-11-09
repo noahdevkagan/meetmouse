@@ -9,13 +9,18 @@ struct MeetingReviewView: View {
     /// copy/share controls appear in the card header.
     var recapText: String?
     var onToggleActionItem: ((UUID) -> Void)?
+    /// Present = each rewritable section gets a "Redo" menu. A nil request
+    /// means "Custom instruction…" (the host asks for the text).
+    var onRedo: ((ReviewSectionRef, NotesRewrite?) -> Void)? = nil
+    /// The section being rewritten right now (spinner instead of the menu).
+    var redoingSection: ReviewSectionRef? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
 
             if !review.summary.isEmpty {
-                section(icon: "text.alignleft", tint: .purple, title: "Summary") {
+                section(icon: "text.alignleft", tint: .purple, title: "Summary", ref: .summary) {
                     Text(review.summary)
                         .font(.callout)
                         .textSelection(.enabled)
@@ -33,9 +38,9 @@ struct MeetingReviewView: View {
             // Topic-grouped notes (the Granola-style body). The flat Key
             // Takeaways list only renders for deterministic and pre-0.22
             // reviews — an LLM review carries sections instead.
-            ForEach(Array(review.sections.enumerated()), id: \.offset) { _, topic in
+            ForEach(Array(review.sections.enumerated()), id: \.offset) { i, topic in
                 Divider()
-                section(icon: "number", tint: .blue, title: topic.heading) {
+                section(icon: "number", tint: .blue, title: topic.heading, ref: .topic(i)) {
                     bulletList(topic.bullets)
                 }
             }
@@ -56,7 +61,8 @@ struct MeetingReviewView: View {
 
             if !review.actionItems.isEmpty {
                 Divider()
-                section(icon: "checkmark.circle.fill", tint: Dorado.dollar, title: "Suggested Next Steps") {
+                section(icon: "checkmark.circle.fill", tint: Dorado.dollar, title: "Suggested Next Steps",
+                        ref: .nextSteps) {
                     ForEach(review.actionItems) { item in
                         Button {
                             onToggleActionItem?(item.id)
@@ -120,6 +126,34 @@ struct MeetingReviewView: View {
         }
     }
 
+    @ViewBuilder
+    private func redoControl(_ ref: ReviewSectionRef, title: String,
+                             onRedo: @escaping (ReviewSectionRef, NotesRewrite?) -> Void) -> some View {
+        if redoingSection == ref {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.mini)
+                Text("Rewriting…").font(.caption).foregroundStyle(.secondary)
+            }
+        } else {
+            Menu {
+                Button("Regenerate this section") { onRedo(ref, .regenerate) }
+                Button("Make it shorter") { onRedo(ref, .shorter) }
+                Button("Add anything missing") { onRedo(ref, .addMissing) }
+                Divider()
+                Button("Custom instruction…") { onRedo(ref, nil) }
+            } label: {
+                Label("Redo", systemImage: "arrow.triangle.2.circlepath")
+                    .font(.caption)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .disabled(redoingSection != nil)
+            .help("Rewrite only this section with AI. The rest of your notes stay as they are.")
+            .accessibilityLabel("Redo \(title)")
+        }
+    }
+
     private func bulletList(_ items: [String]) -> some View {
         ForEach(Array(items.enumerated()), id: \.offset) { _, item in
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -136,6 +170,7 @@ struct MeetingReviewView: View {
     }
 
     private func section(icon: String, tint: Color, title: String,
+                         ref: ReviewSectionRef? = nil,
                          @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
@@ -149,6 +184,10 @@ struct MeetingReviewView: View {
                     )
                 Text(title)
                     .font(.subheadline.weight(.semibold))
+                if let ref, let onRedo {
+                    Spacer(minLength: 8)
+                    redoControl(ref, title: title, onRedo: onRedo)
+                }
             }
             VStack(alignment: .leading, spacing: 6) {
                 content()

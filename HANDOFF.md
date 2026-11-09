@@ -5,7 +5,45 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-11-04): Speaker prompt at the bubble; four-platform check
+## Current state (2026-11-09): Fix code-review findings
+
+Plan: preserve human-edited notes on save/reload without LLM truncation or
+preamble stripping; cancel section rewrites on navigation and reject writes if
+the saved file changed; honor saved next-call participants in every start path.
+Completed: saved-note parsing preserves all nine-topic/nine-step fixtures even
+without a summary; file-checked rewrites preserve newer Home checkbox changes;
+all start paths honor prepared guests and the next unprepared call drops them.
+Regression session suite and Debug build passed. Logs:
+`.context/fix-review-session.log`, `.context/fix-review-build.log`.
+No GUI/live-call check, push, or release. Review fixes committed at the user’s request.
+
+## Current state (2026-11-08): Customer-review fixes, items 1-4
+
+A customer review (2 tacos) said notes are inaccurate, prep is hidden, home doesn't
+say what needs attention, and notes can't be corrected. User approved items 1-4
+of the evaluation (before/after mockups: `.context/before-after/`). Plan, one
+commit per item, Debug build + `/verify` before each, no push:
+1. Notes inputs: Regenerate passes the saved goal/participants (parsed from the
+   file's `## Pre-Call Context`); no 32K middle trim for Claude/OpenAI; local
+   gets a bigger window only on >=32 GB Macs, else today's trim. Informational
+   bench `bench/notes/` (made-up transcript, planted facts, invented deadlines).
+2. Prep on Start: optional "Add goal / questions" under Start opens
+   PreCallFormView (with Save for later); Questions to Ask leaves Advanced.
+3. Home "needs attention": open follow-ups from unticked next steps across saved
+   notes, notes-to-review / no-notes rows; home drops its duplicate recent list.
+4. Edit notes in place + redo one section; regenerate-all after an edit asks first.
+
+Done, 4 commits on this branch (22d4893, d6220ab, afddeea, 7c8654e), not pushed.
+Debug build and all session checks pass after each; tests/nudges pass. Bench
+(`bench/notes/run.sh`, qwen3.5:9b): before 1/7 facts + 1 invented deadline,
+roomy 7/7 + 0. GUI captures in `.context/before-after/after-real/` (they show the
+user's real meetings; local only). Not GUI-verified: item 4's Notes tab (AX lost the
+window when the desktop changed Space; covered by session checks and a live redo
+parse). Incident: an AX press by index on the prep sheet started a real capture
+once; killed within seconds, nothing saved or sent (decisions.md). Next: user tries
+items 2-4 in the Debug build; then decide on starter questions/templates (item 5).
+
+## Earlier state (2026-11-04): Speaker prompt at the bubble; four-platform check
 
 User: Zoom suggestion was right on a real guest call but they had to open the app
 to accept it. Plan: (1) one-tap Yes/No card beside the talk bubble; (2) fix OCR

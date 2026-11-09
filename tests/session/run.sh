@@ -56,5 +56,6 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Models/ReferralLink.swift" \
   "$SRC/Models/TranscriptSearch.swift" \
   "$SRC/Models/TranscriptStore.swift" \
+  "$SRC/Models/MeetingNotesFile.swift" \
   "$SRC"/Engine/Signals/*.swift
 "$OUT/sessioncheck"

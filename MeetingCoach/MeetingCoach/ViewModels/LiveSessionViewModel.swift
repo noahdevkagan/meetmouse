@@ -113,6 +113,37 @@ final class LiveSessionViewModel {
 
     /// Pre-call form
     var showPreCallForm = false
+    /// The user saved goal / guests / questions for the next call from the
+    /// sidebar's "Add goal / questions". The plain Start button then treats
+    /// those guests as confirmed for that call; cleared when the call ends.
+    var nextCallPrepared = false
+    /// Opens the prep form from Start meeting's right-click menu.
+    var showPrepForm = false
+
+    /// Questions pasted under the old Advanced → Questions to Ask box become
+    /// this call's prepared questions, so they're visible beside Start
+    /// instead of joining the next meeting unseen.
+    func adoptStandingQuestions(defaults: UserDefaults = .standard) {
+        guard !isLive else { return }
+        let standing = (defaults.string(forKey: "plannedQuestionsText") ?? "")
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        defaults.removeObject(forKey: "plannedQuestionsText")
+        guard !standing.isEmpty else { return }
+        for q in standing where !preCallContext.plannedQuestions.contains(q) {
+            preCallContext.plannedQuestions.append(q)
+        }
+        nextCallPrepared = true
+    }
+
+    /// Forget the prepared next call (goal, guests, questions).
+    func clearNextCallPrep() {
+        preCallContext.meetingGoal = ""
+        preCallContext.participants = []
+        preCallContext.plannedQuestions = []
+        nextCallPrepared = false
+    }
 
     /// Demo replay: the bundled sample meeting playing through the real
     /// pipeline. Demo sessions are never saved and never train adaptation.
@@ -180,6 +211,10 @@ final class LiveSessionViewModel {
     /// Exactly one participant confirmed for THIS call seeds the remote name.
     private var preCallRemoteName: String?
     private var participantsConfirmedForSession = false
+    /// The context the ended call ran with, kept for its notes: Stop clears
+    /// the goal for the next call before the notes are written.
+    private var endedSessionContext: PreCallContext?
+    private var reviewContext: PreCallContext { endedSessionContext ?? sessionContext }
     /// Keep the form's last-used values available for editing, but don't
     /// pass yesterday's guests to coaching prompts or saved meeting metadata.
     private var sessionContext: PreCallContext {
@@ -348,11 +383,12 @@ final class LiveSessionViewModel {
     nonisolated static func liveCompleteReview(_ model: String,
                                                _ system: String,
                                                _ user: String) async throws -> String {
-        // 12288/1500 (not the 8192/512 defaults): the topic-sectioned
-        // review is the one long reply — sized with PromptBuilder's 32K
-        // transcript cap so a 43-min meeting fits untrimmed (2026-09-04).
-        // Post-call only — ASR and the in-call runner are already gone.
-        try await AIClient(model: model, numCtx: 12_288, numPredict: 1500)
+        // The same budget the prompt was trimmed to, so the window always
+        // fits the transcript it was given (ReviewBudget). Post-call only —
+        // ASR and the in-call runner are already gone.
+        let budget = ReviewBudget.forModel(model)
+        return try await AIClient(model: model, timeout: budget.timeout,
+                                  numCtx: budget.numCtx, numPredict: budget.numPredict)
             .complete(system: system, user: user)
     }
 
@@ -431,7 +467,8 @@ final class LiveSessionViewModel {
            let defaultMinutes = settings?.defaultMeetingMinutes, defaultMinutes > 0 {
             preCallContext.scheduledDurationMinutes = defaultMinutes
         }
-        // Questions pasted under Advanced ("Questions to Ask") join any
+        // Questions still in the legacy standing paste (moved beside Start
+        // as prepared questions; see adoptStandingQuestions) join any
         // per-call ones from the form. Both are consumed by the session —
         // stopLive clears them so the next call starts with a fresh list.
         let standing = (UserDefaults.standard.string(forKey: "plannedQuestionsText") ?? "")
@@ -511,7 +548,8 @@ final class LiveSessionViewModel {
         lastOllamaManager = ollamaManager
 
         resetSessionState()
-        participantsConfirmedForSession = participantsConfirmed
+        participantsConfirmedForSession = participantsConfirmed || nextCallPrepared
+        endedSessionContext = nil
         signalEngine = SignalEngine(
             context: sessionContext,
             tuning: tuning,
@@ -523,7 +561,7 @@ final class LiveSessionViewModel {
         let participantNames = preCallContext.participants
             .map { $0.name.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-        preCallRemoteName = participantsConfirmed && participantNames.count == 1 ? participantNames[0] : nil
+        preCallRemoteName = participantsConfirmedForSession && participantNames.count == 1 ? participantNames[0] : nil
         recomputeRemoteAlias()
         status = resolvedLanguage.isEnglish
             ? "Starting — coaching loaded"
@@ -548,7 +586,7 @@ final class LiveSessionViewModel {
         manager.contextualHints = sessionContext.vocabularyHints + vocabulary.canonicals
         // Saved voices are candidates only when the user confirms who is
         // attending THIS call. The last-used form is not attendance evidence.
-        manager.expectedParticipants = participantsConfirmed ? participantNames : []
+        manager.expectedParticipants = participantsConfirmedForSession ? participantNames : []
         manager.vocabulary = vocabulary
         captureManager = manager
 
@@ -875,12 +913,16 @@ final class LiveSessionViewModel {
             FreeTier.shared.recordMeeting()
         }
 
-        // Questions are per-meeting: coverage was just written into the
-        // session file, so clear both sources — the live checklist context
-        // and the standing paste under Advanced — for a fresh list next
-        // call. Goal/participants stay as the last-used context.
+        // Questions and the goal are per-meeting: they were just written
+        // into the session file, so clear them for the next call (a stale
+        // goal would otherwise steer the next meeting's coaching and notes
+        // without being shown anywhere). Participants stay as the form's
+        // last-used values; they only apply when confirmed for a call.
+        endedSessionContext = sessionContext
         preCallContext.plannedQuestions = []
+        preCallContext.meetingGoal = ""
         UserDefaults.standard.removeObject(forKey: "plannedQuestionsText")
+        nextCallPrepared = false
 
         showPostSession = true
 
@@ -1003,6 +1045,7 @@ final class LiveSessionViewModel {
         latestSystemSegments = []
         preCallRemoteName = nil
         participantsConfirmedForSession = false
+        endedSessionContext = nil
         endedCaptureManager = nil
         micOnly = false
         appleCallCapture = false
@@ -1691,15 +1734,11 @@ final class LiveSessionViewModel {
             .map { "\($0.speaker): \($0.text)" }
             .joined(separator: "\n")
 
-        let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
-            nudges: nudges,
-            transcript: labeledTranscript,
-            context: sessionContext,
-            durationMinutes: durationMin,
-            languageName: (settings.notesLanguage).notesLanguageName(
-                meetingLanguage: singleSessionLanguage,
-                detected: languageTally.dominant)
-        )
+        let reviewNudges = nudges
+        let reviewContext = self.reviewContext
+        let reviewLanguage = (settings.notesLanguage).notesLanguageName(
+            meetingLanguage: singleSessionLanguage,
+            detected: languageTally.dominant)
 
         Task {
             var summary: String?
@@ -1721,6 +1760,15 @@ final class LiveSessionViewModel {
                 if pinnedModel == nil {
                     sessionModelState = .pinned(sessionModelState?.sessionID ?? UUID(), reviewModel)
                 }
+                // Built once the model is known: cloud and roomy local
+                // budgets carry the whole meeting instead of trimming it.
+                let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
+                    nudges: reviewNudges,
+                    transcript: labeledTranscript,
+                    context: reviewContext,
+                    durationMinutes: durationMin,
+                    languageName: reviewLanguage,
+                    budget: ReviewBudget.forModel(reviewModel))
                 do {
                     summary = try await Self.completeReview(reviewModel, system, user)
                 } catch {
@@ -1792,7 +1840,7 @@ final class LiveSessionViewModel {
     private func instantReview(durationMinutes: Int) -> MeetingReview {
         DeterministicReview.review(nudges: nudges,
                                    utterances: utterances,
-                                   context: sessionContext,
+                                   context: reviewContext,
                                    durationMinutes: durationMinutes,
                                    talkShare: talkStats.sessionShare)
     }
@@ -2122,9 +2170,13 @@ final class LiveSessionViewModel {
         lines.append("")
 
         // Pre-call context
-        if !preCallContext.meetingGoal.isEmpty {
+        // Confirmed guests are saved even without a goal: Regenerate reads
+        // this section back (PreCallContext.saved) so notes keep who was there.
+        if !preCallContext.meetingGoal.isEmpty || !sessionContext.participants.isEmpty {
             lines.append("## Pre-Call Context")
-            lines.append("**Goal:** \(preCallContext.meetingGoal)")
+            if !preCallContext.meetingGoal.isEmpty {
+                lines.append("**Goal:** \(preCallContext.meetingGoal)")
+            }
             if preCallContext.scheduledDurationMinutes > 0 {
                 lines.append("**Scheduled Duration:** \(preCallContext.scheduledDurationMinutes) min")
             }

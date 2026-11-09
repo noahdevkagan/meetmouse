@@ -1762,8 +1762,6 @@ struct SidebarView: View {
             DisclosureGroup(isExpanded: $showAdvanced) {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 14) {
-                        PlannedQuestionsSection()
-                        Divider()
                         FeedbackSection(liveSession: liveSession,
                                         settings: settings, ollamaManager: ollamaManager)
                         Divider()
@@ -2010,58 +2008,6 @@ struct OllamaStatusBar: View {
 }
 
 // MARK: - Questions to Ask (standing checklist)
-
-/// Advanced row: questions for the next call, pasteable one per line. They
-/// join the live checklist (with any per-call ones from the goal form),
-/// tick off as the transcript covers them, and clear when the call ends.
-struct PlannedQuestionsSection: View {
-    @AppStorage("plannedQuestionsText") private var questionsText = ""
-    @State private var isExpanded = false
-
-    private var count: Int {
-        questionsText.components(separatedBy: .newlines)
-            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count
-    }
-
-    var body: some View {
-        DisclosureGroup(isExpanded: $isExpanded) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("One per line — paste a whole list. During a call they show as a checklist and tick off as you ask them. The list clears when the call ends, ready for the next meeting's questions.")
-                    .font(.caption2).foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-                TextEditor(text: $questionsText)
-                    .font(.caption)
-                    .frame(minHeight: 70, maxHeight: 140)
-                    .scrollContentBackground(.hidden)
-                    .padding(6)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(.background))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Color.secondary.opacity(0.2))
-                    )
-            }
-            .padding(.top, 8)
-        } label: {
-            HStack(spacing: 6) {
-                Label("Questions to Ask", systemImage: "checklist")
-                    .font(.subheadline.weight(.semibold))
-                HelpDot(text: "Questions to cover on your next call — discovery questions, deal qualifiers, whatever matters. The coach tracks them live, then clears the list when the call ends.")
-                Spacer(minLength: 0)
-                if count > 0 {
-                    Text("\(count)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            // Whole row toggles, matching the Advanced header — the
-            // chevron alone was a miss-prone target (Noah 2026-08-05).
-            .contentShape(Rectangle())
-            .onTapGesture {
-                withAnimation { isExpanded.toggle() }
-            }
-        }
-    }
-}
 
 /// Tiny (?) that reveals a one-paragraph explanation on click.
 struct HelpDot: View {
@@ -2519,6 +2465,68 @@ struct CatalogModelRow: View {
 
 // MARK: - Live Section
 
+/// Optional prep for the next call (PreCallFormView). Invisible until used:
+/// opened from Start meeting's right-click menu, shown as a small "Next call"
+/// card only once prep is saved. Start itself stays one click.
+private struct NextCallPrepRow: View {
+    @Bindable var liveSession: LiveSessionViewModel
+    let onStart: () -> Void
+    private var editing: Binding<Bool> {
+        Binding(get: { liveSession.showPrepForm }, set: { liveSession.showPrepForm = $0 })
+    }
+
+    var body: some View {
+        Group {
+            if liveSession.nextCallPrepared {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Next call").font(.system(size: 12, weight: .semibold))
+                        Spacer()
+                        Button("Edit") { liveSession.showPrepForm = true }
+                            .buttonStyle(.plain).font(.system(size: 12))
+                            .foregroundStyle(Dorado.dollar)
+                        Button {
+                            liveSession.clearNextCallPrep()
+                        } label: {
+                            Image(systemName: "xmark").font(.system(size: 10, weight: .semibold))
+                        }
+                        .buttonStyle(.plain).foregroundStyle(.secondary)
+                        .help("Clear the goal, people and questions for the next call")
+                        .accessibilityLabel("Clear next call prep")
+                    }
+                    ForEach(summaryLines, id: \.self) { line in
+                        Text(line).font(.system(size: 12)).foregroundStyle(.secondary)
+                            .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .cardStyle(cornerRadius: 8)
+            } else {
+                // Hidden by default: most people never prep. The way in is
+                // Start meeting's right-click menu (and the detection pill).
+                Color.clear.frame(height: 0)
+            }
+        }
+        .onAppear { liveSession.adoptStandingQuestions() }
+        .sheet(isPresented: editing) {
+            PreCallFormView(context: $liveSession.preCallContext, onStart: onStart,
+                            onSave: { liveSession.nextCallPrepared = true })
+        }
+    }
+
+    private var summaryLines: [String] {
+        let context = liveSession.preCallContext
+        var lines: [String] = []
+        if !context.meetingGoal.isEmpty { lines.append("Goal: \(context.meetingGoal)") }
+        let names = context.participants.map(\.name).filter { !$0.isEmpty }
+        if !names.isEmpty { lines.append("With " + names.joined(separator: ", ")) }
+        let count = context.plannedQuestions.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count
+        if count > 0 { lines.append(count == 1 ? "1 question to ask" : "\(count) questions to ask") }
+        return lines.isEmpty ? ["Nothing added yet"] : lines
+    }
+}
+
 struct LiveSection: View {
     @Bindable var liveSession: LiveSessionViewModel
     @Bindable var settings: SettingsViewModel
@@ -2625,7 +2633,12 @@ struct LiveSection: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .tint(Dorado.dollar)
-                .help("Listens to your meeting audio and coaches you in real time. Instant nudges (talk time, interruptions, unanswered questions) are always on.")
+                .help("Listens to your meeting audio and coaches you in real time. Instant nudges (talk time, interruptions, unanswered questions) are always on. Right-click to prepare a goal and questions first.")
+                .contextMenu {
+                    Button("Prepare next call (goal, people, questions)…") {
+                        liveSession.showPrepForm = true
+                    }
+                }
                 .sheet(isPresented: $liveSession.showPreCallForm) {
                     PreCallFormView(context: $liveSession.preCallContext) {
                         // The guest list was just reviewed for this call —
@@ -2661,6 +2674,15 @@ struct LiveSection: View {
                     Text("Saves automatically on this Mac")
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
+                }
+
+                NextCallPrepRow(liveSession: liveSession) {
+                    liveSession.startLive(
+                        context: liveSession.preCallContext,
+                        settings: settings,
+                        ollamaManager: ollamaManager,
+                        participantsConfirmed: true
+                    )
                 }
             }
 

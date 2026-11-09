@@ -16,6 +16,65 @@ struct ReviewSection: Equatable {
     var bullets: [String] = []
 }
 
+/// One rewritable part of the notes, for "Redo section".
+enum ReviewSectionRef: Hashable {
+    case summary
+    case topic(Int)
+    case nextSteps
+}
+
+extension MeetingReview {
+    /// The section's current text, in the shape the rewrite prompt asks for.
+    func text(of ref: ReviewSectionRef) -> String {
+        switch ref {
+        case .summary: return summary
+        case .topic(let i):
+            return sections.indices.contains(i) ? sections[i].bullets.map { "- \($0)" }.joined(separator: "\n") : ""
+        case .nextSteps: return actionItems.map { "- \($0.text)" }.joined(separator: "\n")
+        }
+    }
+
+    func heading(of ref: ReviewSectionRef) -> String {
+        switch ref {
+        case .summary: return "Summary"
+        case .topic(let i): return sections.indices.contains(i) ? sections[i].heading : "Notes"
+        case .nextSteps: return "Next steps"
+        }
+    }
+
+    /// This review with one section replaced by a model's rewrite of it
+    /// (only that section's lines), or nil when the reply held nothing
+    /// usable — the caller then leaves the notes untouched. Other sections,
+    /// the title and the user's edits stay exactly as they were.
+    func replacing(_ ref: ReviewSectionRef, withRewrite reply: String) -> MeetingReview? {
+        var updated = self
+        switch ref {
+        case .summary:
+            let parsed = MeetingReview.parse(llmText: "SUMMARY:\n" + reply)
+            let text = parsed.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return nil }
+            updated.summary = text
+        case .topic(let i):
+            guard sections.indices.contains(i) else { return nil }
+            let parsed = MeetingReview.parse(llmText: "NOTES:\n### \(sections[i].heading)\n" + reply)
+            // A model that repeats the heading opens a second copy; keep
+            // every bullet it wrote for this topic.
+            let bullets = parsed.sections.flatMap(\.bullets) + parsed.takeaways
+            guard !bullets.isEmpty else { return nil }
+            updated.sections[i].bullets = bullets
+        case .nextSteps:
+            let parsed = MeetingReview.parse(llmText: "NEXT STEPS:\n" + reply)
+            guard !parsed.actionItems.isEmpty else { return nil }
+            // Keep ticks on steps that survived the rewrite word for word.
+            let done = Set(actionItems.filter(\.isDone).map(\.text))
+            updated.actionItems = parsed.actionItems.map {
+                ActionItem(text: $0.text, isDone: done.contains($0.text))
+            }
+        }
+        return updated
+    }
+}
+
 /// Structured post-meeting review. Both review paths produce this — the
 /// deterministic (no-LLM) builder directly, the LLM path via `parse` — so
 /// the UI never renders a raw text blob and internal signal ids never leak.
@@ -105,7 +164,14 @@ struct MeetingReview: Equatable {
         return t
     }
 
-    static func parse(llmText: String, talkShare: Double? = nil) -> MeetingReview {
+    /// Saved/user-authored notes must not use the model-output size limits
+    /// or discard text before the first recognized section label.
+    static func parseSavedMarkdown(_ text: String, talkShare: Double? = nil) -> MeetingReview {
+        parse(llmText: text, talkShare: talkShare, savedMarkdown: true)
+    }
+
+    static func parse(llmText: String, talkShare: Double? = nil,
+                      savedMarkdown: Bool = false) -> MeetingReview {
         enum Section { case title, summary, notes, takeaways, nextSteps, wins, focus }
         var review = MeetingReview(talkShare: talkShare)
         var section = Section.summary
@@ -208,7 +274,7 @@ struct MeetingReview: Equatable {
         // header exists anywhere, keep everything (fallback path below).
         let allLines = llmText.components(separatedBy: .newlines)
         var startIndex = 0
-        for (i, raw) in allLines.enumerated() {
+        for (i, raw) in allLines.enumerated() where !savedMarkdown {
             let t = raw.trimmingCharacters(in: .whitespaces)
             if inlineHeader(t) != nil || sectionFor(header: t) != nil {
                 startIndex = i
@@ -317,9 +383,9 @@ struct MeetingReview: Equatable {
 
         review.summary = summaryLines.joined(separator: " ")
         if !focusLines.isEmpty { review.nextFocus = focusLines.joined(separator: " ") }
-        if review.actionItems.count > 8 { review.actionItems.removeLast(review.actionItems.count - 8) }
+        if !savedMarkdown && review.actionItems.count > 8 { review.actionItems.removeLast(review.actionItems.count - 8) }
         review.sections.removeAll { $0.bullets.isEmpty }
-        if review.sections.count > 8 { review.sections.removeLast(review.sections.count - 8) }
+        if !savedMarkdown && review.sections.count > 8 { review.sections.removeLast(review.sections.count - 8) }
 
         if review.isEmpty {
             // Unparseable response — degrade to readable text, never blank.

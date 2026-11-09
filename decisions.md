@@ -2153,3 +2153,93 @@ no real-call accuracy row until a publishable corpus exists (a staged call); the
 old rows stay under a neutral name. Real names in tests and comments became made-up
 ones, and the review prompt's example was rewritten because it used real-call terms.
 All of this remains in git history and forks until cleaned separately.
+
+## 2026-11-08 — Notes budget: whole meeting for cloud, bigger window only on >=32 GB Macs
+A customer said notes weren't accurate. The prompt trimmed every transcript over
+32K characters (~40 minutes) to its first 10K and last 22K, and Regenerate sent an
+empty context. On a made-up 50-minute meeting (`bench/notes/`) the trimmed prompt
+caught 0 of 6 mid-meeting decisions on qwen3.5:9b and invented a deadline; untrimmed
+with goal and guests it caught 6 of 6. Rules (`ReviewBudget` in PromptBuilder.swift):
+- Cloud (Claude account, Claude API, OpenAI): no trim up to 400K characters (a guard
+  against all-day captures, ~100K tokens, inside every supported model's window).
+- Local on >=32 GB: 72K characters in a 24K-token window. Notes run after capture
+  stops, so the extra KV cache competes only with other apps; the 70% fit rule
+  already left room on these Macs. Timeout 480s: a non-streamed local reply over
+  ~20K prompt tokens takes minutes on a base M-series chip.
+- Local under 32 GB: today's 32K trim in a 12K window, unchanged, because 8-16 GB
+  Macs are the ones the RAM-aware model work (2026-08-05/08-11) protected.
+The budget depends only on the model reference and installed RAM, not free memory
+at that moment, so the prompt and the window it runs in can never disagree.
+Regenerate now reads the goal, participants and tendencies back from the file's
+`## Pre-Call Context`; that section is now also written when guests were confirmed
+without a goal. The bench is informational (`bench/notes/run.sh`), never in the gate.
+
+## 2026-11-08 — Prep lives beside Start; goal is per-meeting
+The review said prep was a missed opportunity, but the goal/guests/questions form
+already existed and opened only from the meeting-detected pill, while Questions to
+Ask sat under Advanced. Now an optional "Add goal / questions" link under Start opens
+the same PreCallFormView, which gained "Save for later". Saved prep shows as a small
+"Next call" card (Edit / clear). Start stays one click and passes the prepared guests
+as confirmed for that call only (`nextCallPrepared`, cleared at Stop). The Advanced
+box is gone; anything still pasted there is adopted as prepared questions when the
+sidebar appears, so nothing joins a meeting unseen.
+The goal is now cleared at Stop like questions. Before, it silently carried into
+every later one-click meeting's coaching and notes with nothing on screen showing
+it; guests already had this rule (2026-09-02). The ended call's context is kept in
+`endedSessionContext` so its own notes still see the goal after Stop clears it.
+Verification note: pressing sheet buttons by AX index is unsafe (SwiftUI exposes no
+titles there). An index press on the prep sheet started a real capture once; it was
+killed within seconds, before anything was saved or sent. Identify buttons by AXHelp,
+or avoid sheets that contain Start.
+
+## 2026-11-08 — Home shows what needs attention, read from the files
+The review asked for "what needs attention, what comes next and what's completed";
+home repeated the sidebar's meeting list. Home now shows (MeetingNotesFile):
+- Open follow-ups: unticked next steps from the last 14 days of notes. Ticking one
+  rewrites that meeting's `## Review` exactly like the checkbox in its Notes tab.
+  Lines are re-identified by index + text, so a changed file is never mis-ticked.
+- Recent meetings to look at (7 days): notes not yet opened (opened file names in
+  UserDefaults `openedMeetingNotes`), or no AI notes (no topic sections).
+The basic recap's "next steps" are quoted transcript lines (`“…” — Speaker, 01:23`);
+on the maintainer's real archive they were most of the 119 "follow-ups" a 30-day
+window listed, so they're excluded (14 days without them: 35). Captures with fewer
+than 6 transcript lines don't get a "Generate notes" row. No statuses, projects or
+calendar: everything is derived from what the files already say.
+
+## 2026-11-08 — Notes are editable; one section can be redone; edits are never silently replaced
+The review asked to "correct mistakes, refine summaries and regenerate specific
+sections"; the only option was regenerating everything. Choices:
+- Edit is a markdown editor over the saved `## Review` text (the same shape the file
+  stores and MeetingReview.parse reads back), not per-bullet inline editing: one
+  code path, nothing the parser can't round-trip, and every field survives.
+- A hand edit writes `**Notes edited:** yes` into the file's header block (not into
+  the notes, which are copied and shared). While it's there, Regenerate with AI asks
+  "Replace your edited notes?" and the Share notes path refuses to regenerate. A
+  confirmed regenerate removes the marker.
+- Redo section rewrites only the summary, one topic, or the next steps, using the
+  same provider, ReviewBudget, saved context and parser as Regenerate, plus a short
+  section prompt (PromptBuilder.buildSectionRewritePrompt). It replaces just that
+  section and keeps ticks on next steps whose text didn't change. If the notes
+  changed while the model worked (a tick, an edit, another meeting opened), the late
+  reply is discarded. Redo doesn't set the edited marker; it's AI text the user
+  asked for, and the rest of their edits are untouched.
+Live check on qwen3.5:9b: a next-steps redo parsed and left every other section
+identical. The model still kept a deadline it had invented, so redo is not a fix
+for model quality; item 1's whole-transcript budget is.
+
+## 2026-11-09 — Prep is hidden until someone looks for it (amends 2026-11-08)
+Noah: about 90% of people won't prep, so a visible "Add goal / questions" link under
+Start is default clutter for most to serve a few. The link is gone. The way in is
+Start meeting's right-click menu ("Prepare next call…", mentioned in its tooltip),
+plus the existing "Start with goal" on the meeting-detected pill. The "Next call"
+card appears only after someone saves prep. Questions to Ask stays out of Advanced:
+it now lives only in the prep form, so it adds nothing to the default screen.
+A chevron on Start was rejected as still visible on every launch.
+
+## 2026-11-09 — Human notes and delayed rewrites preserve saved changes
+Saved notes use a parsing mode without the LLM's eight-item limits or preamble
+stripping, including reloads and Home checkbox writes. Model replies retain their
+existing limits. Section rewrites cancel when the detail view disappears and
+compare the full saved file before writing, so another writer's changes win.
+Saved next-call prep is honored inside startLive, shared by sidebar, menu bar,
+and detection starts; unprepared last-used guests remain unconfirmed.

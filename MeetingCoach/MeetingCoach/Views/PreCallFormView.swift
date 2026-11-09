@@ -4,6 +4,9 @@ import SwiftUI
 struct PreCallFormView: View {
     @Binding var context: PreCallContext
     let onStart: () -> Void
+    /// Present = opened from "Add goal / questions": offer saving the prep
+    /// for the next call without starting it now.
+    var onSave: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     /// People from past meetings, offered as one-tap suggestions rather than
@@ -17,8 +20,8 @@ struct PreCallFormView: View {
             // Header
             HStack {
                 VStack(alignment: .leading) {
-                    Text("Pre-Call Setup").font(.title2.bold())
-                    Text("Set your goal so the coach knows what to watch for")
+                    Text("Prepare this meeting").font(.title2.bold())
+                    Text("All optional. The coach and your notes use what you add here.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -167,11 +170,15 @@ struct PreCallFormView: View {
             // Start button
             HStack {
                 Spacer()
+                if let onSave {
+                    Button("Save for later") {
+                        commit()
+                        dismiss()
+                        onSave()
+                    }
+                }
                 Button {
-                    ParticipantStore.save(context.participants)
-                    context.plannedQuestions = context.plannedQuestions
-                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                        .filter { !$0.isEmpty }
+                    commit()
                     dismiss()
                     onStart()
                 } label: {
@@ -187,5 +194,13 @@ struct PreCallFormView: View {
         .onAppear {
             remembered = ParticipantStore.load()
         }
+    }
+
+    private func commit() {
+        context.participants.removeAll { $0.name.trimmingCharacters(in: .whitespaces).isEmpty }
+        ParticipantStore.save(context.participants)
+        context.plannedQuestions = context.plannedQuestions
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 }
