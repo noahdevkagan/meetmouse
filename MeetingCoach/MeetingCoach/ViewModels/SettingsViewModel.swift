@@ -46,17 +46,31 @@ final class SettingsViewModel {
         }
         let normalized = try OllamaEndpoint.normalize(configuration.baseURL)
         let chosenModel = configuration.model.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !chosenModel.isEmpty else {
-            throw AIError.message("Select an Ollama model.")
-        }
-        guard installedModels.contains(where: { OllamaProvider.modelNamesMatch(configured: chosenModel, installed: $0.name) }) else {
-            throw AIError.message("Model '\(chosenModel)' is not installed on this Ollama server.")
+        let existingOllama = (!aiConfiguration.model.isEmpty ? aiConfiguration.model : selectedOllamaModel).trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedModel: String
+        if !chosenModel.isEmpty {
+            guard let match = installedModels.first(where: { OllamaProvider.modelNamesMatch(configured: chosenModel, installed: $0.name) }) else {
+                throw AIError.message("Model '\(chosenModel)' is not installed on this Ollama server.")
+            }
+            resolvedModel = match.name
+        } else if !existingOllama.isEmpty,
+                  let match = installedModels.first(where: { OllamaProvider.modelNamesMatch(configured: existingOllama, installed: $0.name) }) {
+            // Ollama already has a model selected and it still exists on the server
+            resolvedModel = match.name
+        } else if !selectedModel.isEmpty,
+                  let match = installedModels.first(where: { OllamaProvider.modelNamesMatch(configured: selectedModel, installed: $0.name) }) {
+            // Fallback from Local to Ollama only if Ollama does not have a model selected or it no longer exists
+            resolvedModel = match.name
+        } else {
+            resolvedModel = ""
         }
         cancelDownload()
         downloadError = nil
-        let cleanConfig = AIConfiguration(provider: .ollama, model: chosenModel, baseURL: normalized.absoluteString)
+        let cleanConfig = AIConfiguration(provider: .ollama, model: resolvedModel, baseURL: normalized.absoluteString)
         cleanConfig.save()
         aiConfiguration = cleanConfig
+        selectedOllamaModel = resolvedModel
+        UserDefaults.standard.set(resolvedModel, forKey: "selectedOllamaModel")
         ollamaModels = installedModels
         ollamaSelectedModelMissing = false
         useMock = false
@@ -69,6 +83,44 @@ final class SettingsViewModel {
         ollamaSelectedModelMissing = false
     }
 
+    func selectOllamaModel(_ modelName: String) {
+        guard aiConfiguration.provider == .ollama else { return }
+        activeSelectedModel = modelName
+    }
+
+    var activeModels: [OllamaModel] {
+        aiConfiguration.provider == .ollama ? ollamaModels : availableModels
+    }
+
+    var activeSelectedModel: String {
+        get {
+            aiConfiguration.provider == .ollama ? aiConfiguration.model : selectedModel
+        }
+        set {
+            if aiConfiguration.provider == .ollama {
+                selectedOllamaModel = newValue
+                UserDefaults.standard.set(newValue, forKey: "selectedOllamaModel")
+                aiConfiguration.model = newValue
+                aiConfiguration.save()
+                ollamaSelectedModelMissing = false
+            } else {
+                selectedModel = newValue
+                save()
+            }
+        }
+    }
+
+    /// Model name shown next to "Model" in the disclosure header; empty when the
+    /// dropdown is unselected (selection is empty or not in `activeModels`).
+    var displayedSelectedModel: String {
+        if useMock { return "mock" }
+        let current = activeSelectedModel
+        guard !current.isEmpty else { return "" }
+        return activeModels.first(where: {
+            OllamaProvider.modelNamesMatch(configured: current, installed: $0.name)
+        })?.name ?? ""
+    }
+
     /// Cloud and direct Ollama requests need no embedded catalog download or memory sizing.
     func prepareAI(ollamaManager: OllamaManager) async -> Bool {
         if usesCloudAI {
@@ -76,6 +128,7 @@ final class SettingsViewModel {
                 if let url = aiConfiguration.normalizedOllamaURL {
                     _ = try? await refreshOllamaModels(baseURL: url.absoluteString)
                 }
+                return !aiConfiguration.model.isEmpty && !ollamaModels.isEmpty
             }
             return true
         }
@@ -100,6 +153,7 @@ final class SettingsViewModel {
     }
 
     var selectedModel: String
+    var selectedOllamaModel: String
     var rubricPath: String
     var availableModels: [OllamaModel] = []
     var ollamaReachable: Bool = false
@@ -229,6 +283,9 @@ final class SettingsViewModel {
         // one-size qwen3.5:9b default swapped 8–16 GB Macs into a freeze.
         self.selectedModel = UserDefaults.standard.string(forKey: "selectedModel")
             ?? recommendedCatalogModel.fullName
+        let currentAI = AIConfiguration.current
+        self.selectedOllamaModel = UserDefaults.standard.string(forKey: "selectedOllamaModel")
+            ?? (currentAI.provider == .ollama ? currentAI.model : "")
         self.rubricPath = UserDefaults.standard.string(forKey: "rubricPath") ?? ""
         if self.rubricPath.isEmpty {
             AppSupport.ensureLayout()
@@ -256,9 +313,10 @@ final class SettingsViewModel {
         NotificationCenter.default.addObserver(
             forName: OllamaProvider.didDetectMissingModel, object: nil, queue: .main
         ) { [weak self] notif in
+            let missing = notif.object as? String
             Task { @MainActor [weak self] in
                 guard let self, self.aiConfiguration.provider == .ollama else { return }
-                if let missing = notif.object as? String {
+                if let missing {
                     if OllamaProvider.modelNamesMatch(configured: self.aiConfiguration.model, installed: missing) {
                         self.ollamaSelectedModelMissing = true
                     }
@@ -295,6 +353,7 @@ final class SettingsViewModel {
 
     func save() {
         UserDefaults.standard.set(selectedModel, forKey: "selectedModel")
+        UserDefaults.standard.set(selectedOllamaModel, forKey: "selectedOllamaModel")
         UserDefaults.standard.set(rubricPath, forKey: "rubricPath")
     }
 
@@ -356,16 +415,20 @@ final class SettingsViewModel {
         if aiConfiguration.provider == .ollama {
             if models.isEmpty {
                 self.ollamaSelectedModelMissing = !aiConfiguration.model.isEmpty
-            } else if !models.contains(where: { OllamaProvider.modelNamesMatch(configured: aiConfiguration.model, installed: $0.name) }) {
-                if let fallback = Self.fallbackInstalledModel(in: models) {
-                    mclog("[Settings] Ollama model '\(aiConfiguration.model)' not found; silently falling back to '\(fallback)'")
-                    aiConfiguration.model = fallback
-                    aiConfiguration.save()
+            } else if !aiConfiguration.model.isEmpty {
+                if models.contains(where: { OllamaProvider.modelNamesMatch(configured: aiConfiguration.model, installed: $0.name) }) {
                     self.ollamaSelectedModelMissing = false
                 } else {
+                    // Selected Ollama model is missing on the server.
+                    // No fallback to Local AI or fallback catalog models (matches Claude / OpenAI).
                     self.ollamaSelectedModelMissing = true
                 }
             } else {
+                // Ollama currently has no model selected:
+                // Check if Local's selectedModel exists on the Ollama server:
+                if let match = models.first(where: { OllamaProvider.modelNamesMatch(configured: selectedModel, installed: $0.name) }) {
+                    activeSelectedModel = match.name
+                }
                 self.ollamaSelectedModelMissing = false
             }
         }

@@ -243,17 +243,19 @@ struct SearchResultsView: View {
             let client = AIClient(model: settings.effectiveModel,
                                       numCtx: 4096, numPredict: 384)
             let isRunning: Bool
+            let modelName = settings.usesCloudAI ? settings.aiConfiguration.model : settings.effectiveModel
             if !settings.usesCloudAI {
                 isRunning = await OllamaClient(model: settings.effectiveModel).runningModels().contains(settings.effectiveModel)
             } else if settings.aiConfiguration.provider == .ollama,
                       let url = settings.aiConfiguration.normalizedOllamaURL {
-                isRunning = await OllamaProvider.runningModels(baseURL: url).contains(settings.effectiveModel)
+                let running = await OllamaProvider.runningModels(baseURL: url)
+                isRunning = running.contains(where: { OllamaProvider.modelNamesMatch(configured: modelName, installed: $0) })
             } else {
                 isRunning = true
             }
             if !isRunning, question == query {
                 askState = .thinking(
-                    "Loading \(settings.effectiveModel) — the first question pays this once, repeats are much faster…")
+                    "Loading \(modelName) — the first question pays this once, repeats are much faster…")
             }
             let text = try await client.complete(system: system, user: user)
             let cleaned = text.components(separatedBy: .newlines)

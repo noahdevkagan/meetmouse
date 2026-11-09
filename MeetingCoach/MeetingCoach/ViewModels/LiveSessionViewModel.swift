@@ -722,6 +722,9 @@ final class LiveSessionViewModel {
         }
 
         if settings.usesCloudAI {
+            if settings.aiConfiguration.provider == .ollama && settings.aiConfiguration.model.isEmpty {
+                return settleDeterministic("no Ollama model selected")
+            }
             let candidate = settings.effectiveModel
             if let cloud = AIConfiguration.cloud(from: candidate), cloud.provider == .ollama {
                 let prepResult = await Self.prepareOllamaSession(cloud)

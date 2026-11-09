@@ -906,7 +906,9 @@ func runTests() async {
         }
         let vm = LiveSessionViewModel()
         let settings = liveSettings()
-        let target = AIConfiguration(provider: .ollama, model: "llama3:8b", baseURL: "http://127.0.0.1:11434").modelReference
+        let targetConfig = AIConfiguration(provider: .ollama, model: "llama3:8b", baseURL: "http://127.0.0.1:11434")
+        let target = targetConfig.modelReference
+        settings.aiConfiguration = targetConfig
         settings.usesCloudAI = true
         settings.selectedModel = target
         let manager = OllamaManager()
@@ -931,7 +933,9 @@ func runTests() async {
         }
         let vm = LiveSessionViewModel()
         let settings = liveSettings()
-        let target = AIConfiguration(provider: .ollama, model: "ghost", baseURL: "http://127.0.0.1:11434").modelReference
+        let targetConfig = AIConfiguration(provider: .ollama, model: "ghost", baseURL: "http://127.0.0.1:11434")
+        let target = targetConfig.modelReference
+        settings.aiConfiguration = targetConfig
         settings.usesCloudAI = true
         settings.selectedModel = target
         let manager = OllamaManager()
@@ -942,6 +946,80 @@ func runTests() async {
         check(vm.basicModeNotice?.detail.contains("ghost") == true, "missing notice mentions missing model name")
         vm.stopLive()
         vm.deleteSession()
+    }
+
+    // Ollama provider empty model: settles deterministic without pinning or preparing session
+    do {
+        resetSeams()
+        var ollamaPrepared = false
+        LiveSessionViewModel.prepareOllamaSession = { _ in
+            ollamaPrepared = true
+            return .success(true)
+        }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings()
+        settings.aiConfiguration = AIConfiguration(provider: .ollama, model: "", baseURL: "http://127.0.0.1:11434")
+        settings.usesCloudAI = true
+        let manager = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == nil, "empty ollama model settles deterministic without pinning")
+        check(!ollamaPrepared, "prepareOllamaSession not invoked when ollama model is empty")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // Local <-> Ollama model persistence & fallback behavior:
+    do {
+        let settings = liveSettings("qwen3.5:9b")
+        settings.availableModels = [installed("qwen3.5:9b", 5.2)]
+        check(settings.activeSelectedModel == "qwen3.5:9b", "initial local selection")
+        check(settings.displayedSelectedModel == "qwen3.5:9b", "displayed model matches installed local model")
+
+        // 1. Switch to Ollama which also has qwen3.5:9b -> falls back to local selection
+        let ollamaWithQwen = [installed("qwen3.5:9b", 5.2), installed("llama3:8b", 4.7)]
+        try settings.enableOllama(AIConfiguration(provider: .ollama, model: "", baseURL: "http://127.0.0.1:11434"),
+                                  installedModels: ollamaWithQwen)
+        check(settings.activeSelectedModel == "qwen3.5:9b", "ollama adopts matching local model on initial switch")
+        check(settings.displayedSelectedModel == "qwen3.5:9b", "displayed model matches adopted ollama model")
+
+        // 2. User explicitly selects llama3:8b in Ollama
+        settings.activeSelectedModel = "llama3:8b"
+        check(settings.activeSelectedModel == "llama3:8b", "ollama model updated in dropdown")
+        check(settings.displayedSelectedModel == "llama3:8b", "displayed model reflects new ollama selection")
+
+        // 3. User switches back to Local -> preserves qwen3.5:9b
+        settings.useLocalAI()
+        check(settings.activeSelectedModel == "qwen3.5:9b", "switching back to local restores local selection")
+        check(settings.displayedSelectedModel == "qwen3.5:9b", "displayed model reflects restored local selection")
+
+        // 4. User switches back to Ollama -> preserves previous Ollama selection (llama3:8b), NOT overwritten by qwen3.5:9b
+        try settings.enableOllama(AIConfiguration(provider: .ollama, model: "", baseURL: "http://127.0.0.1:11434"),
+                                  installedModels: ollamaWithQwen)
+        check(settings.activeSelectedModel == "llama3:8b", "switching to ollama preserves previous ollama selection")
+        check(settings.displayedSelectedModel == "llama3:8b", "displayed model reflects preserved ollama selection")
+
+        // 5. Switch to an Ollama server where neither llama3:8b nor qwen3.5:9b exists -> zero fallback to local
+        let ollamaOther = [installed("mistral:7b", 4.1)]
+        try settings.enableOllama(AIConfiguration(provider: .ollama, model: "", baseURL: "http://192.168.1.50:11434"),
+                                  installedModels: ollamaOther)
+        check(settings.activeSelectedModel == "", "unmatched ollama server leaves model unselected")
+        check(settings.displayedSelectedModel == "", "unselected dropdown shows empty label after Model")
+        check(settings.usesCloudAI, "provider stays Ollama without fallback to local AI")
+
+        // 6. User selects mistral:7b on the new server
+        settings.activeSelectedModel = "mistral:7b"
+        check(settings.activeSelectedModel == "mistral:7b", "new selection in dropdown")
+        check(settings.displayedSelectedModel == "mistral:7b", "displayed label reflects new selection")
+
+        // 7. Model removed from server: flags missing without falling back to local
+        settings.ollamaModels = []
+        _ = try? settings.refreshOllamaModels(baseURL: "http://192.168.1.50:11434")
+        check(settings.ollamaSelectedModelMissing, "missing model flagged without fallback to local")
+        check(settings.usesCloudAI, "stay on Ollama when server models change")
+        check(settings.activeSelectedModel == "mistral:7b", "retains configured Ollama model name")
+    } catch {
+        check(false, "ollama model persistence test threw", "\(error)")
     }
 
     // Real activation must use the post-capture budget, not just the pure helper.

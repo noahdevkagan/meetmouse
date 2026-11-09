@@ -91,9 +91,93 @@ struct Rubric {
 
 @MainActor
 final class SettingsViewModel {
+    var aiConfiguration = AIConfiguration()
     var usesCloudAI = false
     var selectedModel = "stub-model"
-    var effectiveModel: String { selectedModel }
+    var selectedOllamaModel = ""
+    var ollamaModels: [OllamaModel] = []
+    var ollamaSelectedModelMissing = false
+    var effectiveModel: String {
+        if usesCloudAI {
+            if aiConfiguration.provider != .local { return aiConfiguration.modelReference }
+            return selectedModel
+        }
+        return selectedModel
+    }
+    var activeModels: [OllamaModel] {
+        aiConfiguration.provider == .ollama ? ollamaModels : availableModels
+    }
+    var activeSelectedModel: String {
+        get {
+            aiConfiguration.provider == .ollama ? aiConfiguration.model : selectedModel
+        }
+        set {
+            if aiConfiguration.provider == .ollama {
+                selectedOllamaModel = newValue
+                aiConfiguration.model = newValue
+                ollamaSelectedModelMissing = false
+            } else {
+                selectedModel = newValue
+            }
+        }
+    }
+    var displayedSelectedModel: String {
+        if useMock { return "mock" }
+        let current = activeSelectedModel
+        guard !current.isEmpty else { return "" }
+        return activeModels.first(where: {
+            OllamaProvider.modelNamesMatch(configured: current, installed: $0.name)
+        })?.name ?? ""
+    }
+    func enableOllama(_ configuration: AIConfiguration, installedModels: [OllamaModel]) throws {
+        let chosenModel = configuration.model.trimmingCharacters(in: .whitespacesAndNewlines)
+        let existingOllama = (!aiConfiguration.model.isEmpty ? aiConfiguration.model : selectedOllamaModel).trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedModel: String
+        if !chosenModel.isEmpty {
+            guard let match = installedModels.first(where: { OllamaProvider.modelNamesMatch(configured: chosenModel, installed: $0.name) }) else {
+                throw AIError.message("Model '\(chosenModel)' is not installed on this Ollama server.")
+            }
+            resolvedModel = match.name
+        } else if !existingOllama.isEmpty,
+                  let match = installedModels.first(where: { OllamaProvider.modelNamesMatch(configured: existingOllama, installed: $0.name) }) {
+            resolvedModel = match.name
+        } else if !selectedModel.isEmpty,
+                  let match = installedModels.first(where: { OllamaProvider.modelNamesMatch(configured: selectedModel, installed: $0.name) }) {
+            resolvedModel = match.name
+        } else {
+            resolvedModel = ""
+        }
+        aiConfiguration = AIConfiguration(provider: .ollama, model: resolvedModel, baseURL: configuration.baseURL)
+        selectedOllamaModel = resolvedModel
+        ollamaModels = installedModels
+        ollamaSelectedModelMissing = false
+        usesCloudAI = true
+        useMock = false
+    }
+    func refreshOllamaModels(baseURL: String) throws -> [OllamaModel] {
+        if aiConfiguration.provider == .ollama {
+            if ollamaModels.isEmpty {
+                ollamaSelectedModelMissing = !aiConfiguration.model.isEmpty
+            } else if !aiConfiguration.model.isEmpty {
+                if ollamaModels.contains(where: { OllamaProvider.modelNamesMatch(configured: aiConfiguration.model, installed: $0.name) }) {
+                    ollamaSelectedModelMissing = false
+                } else {
+                    ollamaSelectedModelMissing = true
+                }
+            } else {
+                if let match = ollamaModels.first(where: { OllamaProvider.modelNamesMatch(configured: selectedModel, installed: $0.name) }) {
+                    activeSelectedModel = match.name
+                }
+                ollamaSelectedModelMissing = false
+            }
+        }
+        return ollamaModels
+    }
+    func useLocalAI() {
+        aiConfiguration = AIConfiguration()
+        usesCloudAI = false
+        ollamaSelectedModelMissing = false
+    }
     var semanticCoachEnabled = false
     var useMock = true
     var defaultMeetingMinutes = 0

@@ -68,7 +68,7 @@ struct AIConfiguration: Codable, Equatable, Sendable {
               let value = try? JSONDecoder().decode(Self.self, from: data) else { return .init() }
         if value.provider == .local { return value }
         if value.provider == .ollama {
-            guard !value.model.isEmpty, (try? OllamaEndpoint.normalize(value.baseURL)) != nil else { return .init() }
+            guard (try? OllamaEndpoint.normalize(value.baseURL)) != nil else { return .init() }
             return value
         }
         guard value.provider.models.contains(value.model) else { return .init() }

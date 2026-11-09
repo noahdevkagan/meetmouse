@@ -61,50 +61,6 @@ struct AISettingsView: View {
                         .disabled(testing || refreshingOllama)
                         .textFieldStyle(.roundedBorder)
 
-                    HStack {
-                        Button(refreshingOllama ? "Refreshing…" : "Refresh models") {
-                            Task { await refreshOllama() }
-                        }
-                        .disabled(testing || refreshingOllama)
-
-                        Spacer()
-                        if OllamaEndpoint.isLoopback(ollamaURL) {
-                            Text("Local server")
-                                .font(.caption2).foregroundStyle(.secondary)
-                        } else {
-                            Text("Remote server")
-                                .font(.caption2).foregroundStyle(.secondary)
-                        }
-                    }
-
-                    if settings.ollamaModels.isEmpty {
-                        Text("No models found on Ollama server. Verify the server is running and pull a model.")
-                            .font(.caption).foregroundStyle(.secondary)
-                        Button("Download models…") {
-                            settings.showModelCatalog = true
-                        }
-                        .disabled(testing || refreshingOllama)
-                    } else {
-                        Picker("Model", selection: $model) {
-                            ForEach(settings.ollamaModels) { m in
-                                Text(m.name + (m.parameterSize.isEmpty ? "" : " (\(m.parameterSize))")).tag(m.name)
-                            }
-                        }
-                        .disabled(testing || refreshingOllama)
-
-                        Button("Download models…") {
-                            settings.showModelCatalog = true
-                        }
-                        .disabled(testing || refreshingOllama)
-
-                        if OllamaEndpoint.isLoopback(ollamaURL),
-                           let selected = settings.ollamaModels.first(where: { OllamaProvider.modelNamesMatch(configured: model, installed: $0.name) }),
-                           !ModelMemory.fits(selected) {
-                            Label("This model may exceed comfortable memory on this Mac (\(ModelMemory.physicalRAMGB) GB RAM).", systemImage: "exclamationmark.triangle")
-                                .font(.caption).foregroundStyle(.orange)
-                        }
-                    }
-
                     if settings.aiConfiguration.provider == .ollama && settings.ollamaSelectedModelMissing {
                         Label("The selected model '\(settings.aiConfiguration.model)' is not found on your Ollama server. MeetMouse is running with built-in coaching and basic notes until a model is selected.", systemImage: "exclamationmark.triangle.fill")
                             .font(.caption).foregroundStyle(.orange)
@@ -122,14 +78,14 @@ struct AISettingsView: View {
 
                     HStack {
                         Button(testing ? "Working…" : "Test connection") { testConnection() }
-                            .disabled(testing || refreshingOllama || model.isEmpty)
+                            .disabled(testing || refreshingOllama)
                         Button("Save and enable") { enable() }
                             .buttonStyle(.borderedProminent)
-                            .disabled(testing || refreshingOllama || model.isEmpty || (!OllamaEndpoint.isLoopback(ollamaURL) && !consent))
+                            .disabled(testing || refreshingOllama || (!OllamaEndpoint.isLoopback(ollamaURL) && !consent))
                     }
                     Text(OllamaEndpoint.isLoopback(ollamaURL)
-                         ? "Test sends only a short sample prompt to your local Ollama instance."
-                         : "Test sends only a short sample prompt to your remote Ollama server.")
+                         ? "Test checks that your local Ollama server is responding."
+                         : "Test checks that your remote Ollama server is responding.")
                         .font(.caption2).foregroundStyle(.secondary)
                     if settings.usesCloudAI {
                         Button("Use local AI") {
@@ -220,25 +176,6 @@ struct AISettingsView: View {
         .onChange(of: ollamaURL) { _, _ in status = nil }
     }
 
-    private func refreshOllama() async {
-        guard let url = OllamaEndpoint.normalizeOrNil(ollamaURL) else {
-            status = "Invalid server URL. Include http:// or https://"
-            isError = true
-            return
-        }
-        refreshingOllama = true
-        defer { refreshingOllama = false }
-        do {
-            let models = try await settings.refreshOllamaModels(baseURL: url.absoluteString)
-            if !models.contains(where: { OllamaProvider.modelNamesMatch(configured: model, installed: $0.name) }) {
-                model = models.first?.name ?? ""
-            }
-            isError = false
-        } catch {
-            fail(error)
-        }
-    }
-
     private func loadProvider() {
         accountConnected = false
         key = ""; consent = false; status = nil; isError = false
@@ -247,14 +184,6 @@ struct AISettingsView: View {
                 ollamaURL = settings.aiConfiguration.baseURL
             } else {
                 ollamaURL = OllamaEndpoint.defaultBaseURL
-            }
-            if settings.aiConfiguration.provider == .ollama {
-                model = settings.aiConfiguration.model
-            } else {
-                model = settings.ollamaModels.first?.name ?? ""
-            }
-            Task {
-                await refreshOllama()
             }
             return
         }
@@ -276,9 +205,10 @@ struct AISettingsView: View {
             Task {
                 defer { testing = false }
                 do {
+                    let models = try await settings.refreshOllamaModels(baseURL: url.absoluteString)
                     try settings.enableOllama(
-                        AIConfiguration(provider: .ollama, model: model, baseURL: url.absoluteString),
-                        installedModels: settings.ollamaModels
+                        AIConfiguration(provider: .ollama, model: "", baseURL: url.absoluteString),
+                        installedModels: models
                     )
                     isError = false
                     status = OllamaEndpoint.isLoopback(url)
@@ -345,19 +275,9 @@ struct AISettingsView: View {
             Task {
                 defer { testing = false }
                 do {
-                    let candidate = model.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !candidate.isEmpty else {
-                        throw OllamaProviderError.modelNotFound("No model selected.")
-                    }
-                    _ = try await OllamaProvider.complete(
-                        baseURL: url,
-                        model: candidate,
-                        system: "Reply briefly.",
-                        user: "Say OK.",
-                        numPredict: 16
-                    )
+                    _ = try await OllamaProvider.listModels(baseURL: url)
                     isError = false
-                    status = "Connection successful. Model responded."
+                    status = "Connection successful."
                 } catch {
                     fail(error)
                 }

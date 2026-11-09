@@ -143,12 +143,14 @@ empty home screen. No engine launch when no model is installed. Why: decisions.m
 ## Current state (2026-11-01): Direct Ollama provider support — implemented & verified
 
 First-class Ollama support via `AIProvider.ollama` is complete:
-- Configurable server URL in Settings → AI (default `http://127.0.0.1:11434`, or remote server URL) with dynamic model listing via `/api/tags` and memory fit checks.
+- Configurable server URL in Settings → AI (default `http://127.0.0.1:11434`, or remote server URL) with dynamic model listing via `/api/tags` and memory fit checks; Settings tests connection only without forcing model selection.
+- Model selection is unified in the Coaching tab's Model dropdown and catalog with "Use" button support. The dropdown header displays the active model or empty text when unselected or unmatched.
+- Local ↔ Ollama persistence: separate `selectedOllamaModel` key preserves Ollama model selection when switching to Local and back. Zero fallback to Local AI when Ollama is unavailable or model is missing (matches Claude / OpenAI).
 - Connects passively without spawning external processes; loopback Ollama never terminates the server serving models.
 - Loopback inference stays 100% on-device (no cloud consent needed); remote URLs require explicit text-sharing consent, refuse redirects, and use ephemeral URLSession.
 - Missing model detection at Settings load, session activation, mid-call heartbeat, and post-call notes; warns user with an actionable banner and settles to built-in coaching / basic notes without pinning or running polling loops against a missing model.
 - ATS `NSAllowsLocalNetworking = true` configured in Info.plist and project.yml for LAN Ollama servers.
-- Verified: `tests/ai` (91/91 passing), `tests/session` (all passing including Ollama provider pins and missing model degradation), `tests/nudges` (all golden and timing checks passing), `tests/hygiene` (all passing), changelog check passing.
+- Verified: `tests/ai` (99/99 passing), `tests/session` (all passing including Ollama provider pins, fallback/persistence rules, and missing model degradation), `tests/nudges` (all golden and timing checks passing), `tests/hygiene` (all passing), changelog check passing.
 
 ## Current state (2026-10-20): Global open shortcut — implemented
 

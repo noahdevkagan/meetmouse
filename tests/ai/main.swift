@@ -217,6 +217,12 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
         let decodedFromRef = AIConfiguration.cloud(from: ref)
         check(decodedFromRef == ollamaRemote, "model reference preserves baseURL and model")
 
+        let emptyModelConfig = AIConfiguration(provider: .ollama, model: "", baseURL: "http://127.0.0.1:11434")
+        emptyModelConfig.save(to: defaults)
+        let restoredEmpty = AIConfiguration.read(from: defaults)
+        check(restoredEmpty == emptyModelConfig, "empty model ollama config round trips in defaults")
+        check(AIConfiguration.cloud(from: emptyModelConfig.modelReference) == nil, "empty model reference rejected by cloud(from:)")
+
         check(OllamaProvider.modelNamesMatch(configured: "llama3", installed: "llama3:latest"), "modelNamesMatch handles implicit latest")
         check(OllamaProvider.modelNamesMatch(configured: "llama3:latest", installed: "llama3"), "modelNamesMatch handles explicit latest")
         check(OllamaProvider.modelNamesMatch(configured: "llama3:8b", installed: "llama3:8b"), "modelNamesMatch handles exact match")

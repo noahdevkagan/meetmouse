@@ -2175,10 +2175,21 @@ Key design choices:
   `coach.analyze()`; the moment Ollama comes online, `basicModeNotice` clears and AI coaching resumes.
 - Server preservation: activating or using loopback Ollama never terminates the server
   serving models; OllamaManager only manages the lifecycle of the bundled runtime in local mode.
-- Missing model policy: if a configured Ollama model fails verification or is missing at
-  session start, MeetMouse displays a basic-mode notice and settles into deterministic coaching
-  without pinning or running polling loops against the missing model. If another model is available
-  in Settings, it silently switches to the RAM-aware fallback model without a warning banner. An
-  orange warning banner is displayed only when 0 models remain.
+- Missing model & unavailable policy (Claude / OpenAI identical): if the Ollama server is
+  unavailable or a configured model is missing, MeetMouse displays a basic-mode notice
+  ("Ollama unavailable" or "Ollama model missing") and settles into deterministic coaching
+  without pinning, never falls back to Local AI, never spawns embedded Ollama, and never
+  silently switches to local models. If an Ollama model is missing from the server, Settings
+  marks `ollamaSelectedModelMissing = true` and shows a warning banner instead of silently
+  falling back to catalog models.
 - Model reference encoding: encoded as `cloud:ollama:<base64-url>:<model>` ensuring
   session pins are self-contained and survive app restarts without ambiguity.
+- Unified Coaching tab Model selection: Settings → AI configures and tests the Ollama
+  connection via `/api/tags` without requiring a pre-selected model; model selection
+  lives exclusively in the Coaching tab's Model dropdown and catalog. The dropdown header
+  displays the active model or empty text when unselected or unmatched. Switching from Local
+  to Ollama preserves any active Ollama selection (stored in `selectedOllamaModel`), adopting
+  the Local model name only if Ollama has no selection and that exact model is installed on
+  the Ollama server; otherwise the selection remains empty. Switching back to Local preserves
+  the Local model selection. Empty Ollama model configurations persist safely in settings
+  without fallback to Local.

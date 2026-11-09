@@ -2095,7 +2095,7 @@ struct ModelSection: View {
     @Bindable var settings: SettingsViewModel
     var liveSession: LiveSessionViewModel
 
-    private var hasModels: Bool { !settings.availableModels.isEmpty }
+    private var hasModels: Bool { !settings.activeModels.isEmpty }
 
     /// A live session pins its model exactly once, at start (see
     /// activateSessionModel) — a picker change mid-meeting silently applies
@@ -2110,7 +2110,7 @@ struct ModelSection: View {
         case .deterministic:
             return "This session is coaching without AI. Your selected model will be checked again when you start a new session."
         case .pinned(_, let model):
-            guard model != settings.selectedModel else { return nil }
+            guard model != settings.activeSelectedModel else { return nil }
             return "This session keeps using \(model). Your new selection will be checked when you start the next session."
         }
     }
@@ -2147,99 +2147,92 @@ struct ModelSection: View {
                 .font(.caption2).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if settings.usesCloudAI {
+            if settings.usesCloudAI && settings.aiConfiguration.provider != .ollama {
                 let provider = settings.aiConfiguration.provider
-                let icon = provider == .ollama ? (settings.aiConfiguration.isLoopbackOllama ? "desktopcomputer" : "server.rack") : "cloud"
-                Label(provider == .ollama ? "Ollama" : provider.title, systemImage: icon)
+                Label(provider.title, systemImage: "cloud")
 
-                let desc: String = {
-                    if provider == .ollama {
-                        if settings.aiConfiguration.isLoopbackOllama {
-                            return "\(settings.aiConfiguration.model) · Local Ollama instance. Audio and text stay on this Mac. Manage in Settings → AI."
-                        } else {
-                            return "\(settings.aiConfiguration.model) · Remote Ollama at \(settings.aiConfiguration.baseURL). Manage in Settings → AI."
-                        }
-                    } else {
-                        return "\(AIProvider.modelTitle(settings.aiConfiguration.model)) · Meeting text is sent to this provider. Manage your key in Settings → AI."
-                    }
-                }()
+                let desc = "\(AIProvider.modelTitle(settings.aiConfiguration.model)) · Meeting text is sent to this provider. Manage your key in Settings → AI."
                 Text(desc)
                     .font(.caption).foregroundStyle(.secondary)
+            } else {
+                if settings.aiConfiguration.provider == .ollama {
+                    let icon = settings.aiConfiguration.isLoopbackOllama ? "desktopcomputer" : "server.rack"
+                    let title = settings.aiConfiguration.isLoopbackOllama ? "Ollama (on this Mac)" : "Ollama (\(settings.aiConfiguration.baseURL))"
+                    Label(title, systemImage: icon)
 
-                if settings.aiConfiguration.provider == .ollama && settings.ollamaSelectedModelMissing {
-                    HStack(alignment: .top, spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                        Text("Model '\(settings.aiConfiguration.model)' is not found on your Ollama server. MeetMouse is running with built-in coaching and basic notes until a model is selected.")
-                            .font(.caption2).foregroundStyle(.orange)
+                    if settings.ollamaSelectedModelMissing {
+                        HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                            Text("Model '\(settings.aiConfiguration.model)' is not found on your Ollama server. MeetMouse is running with built-in coaching and basic notes until a model is selected.")
+                                .font(.caption2).foregroundStyle(.orange)
+                        }
+                        .padding(.vertical, 2)
                     }
-                    .padding(.vertical, 2)
                 }
-            } else if hasModels {
-                DisclosureGroup(isExpanded: $isExpanded) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Picker("", selection: $settings.selectedModel) {
-                            // One Text per row on purpose: the macOS menu
-                            // picker drops an HStack's trailing column, so
-                            // the size used to vanish from the dropdown
-                            // (Noah, 2026-09-04).
-                            ForEach(settings.availableModels) { model in
-                                Text("\(model.name) (\(model.sizeLabel))")
-                                    .tag(model.name)
+
+                if hasModels {
+                    DisclosureGroup(isExpanded: $isExpanded) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Picker("", selection: $settings.activeSelectedModel) {
+                                // One Text per row on purpose: the macOS menu
+                                // picker drops an HStack's trailing column, so
+                                // the size used to vanish from the dropdown
+                                // (Noah, 2026-09-04).
+                                ForEach(settings.activeModels) { model in
+                                    Text("\(model.name) (\(model.sizeLabel))")
+                                        .tag(model.name)
+                                }
                             }
-                        }
-                        .labelsHidden()
-                        .onChange(of: settings.selectedModel) { _, _ in
-                            settings.save()
-                        }
+                            .labelsHidden()
 
-                        Text("Installed models are checked for available memory and loaded when a meeting starts. Selecting a model does not mean it is running.")
-                            .font(.caption2).foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        if let hint = liveSelectionHint {
-                            Text(hint)
+                            Text("Installed models are checked for available memory and loaded when a meeting starts. Selecting a model does not mean it is running.")
                                 .font(.caption2).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
-                        }
 
-                        Toggle("Use sample coach (no download)", isOn: $settings.useMock)
-                            .font(.caption)
+                            if let hint = liveSelectionHint {
+                                Text(hint)
+                                    .font(.caption2).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
 
-                        Button("Browse all models...") {
-                            settings.showModelCatalog = true
-                        }
-                        .font(.caption)
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.blue)
-                    }
-                    .padding(.top, 8)
-                } label: {
-                    HStack(spacing: 6) {
-                        Label("Model", systemImage: "cpu")
-                            .font(.subheadline.weight(.semibold))
-                        Spacer()
-                        // Collapsed state still answers "which model?"
-                        Text(settings.useMock ? "mock" : settings.selectedModel)
+                            Toggle("Use sample coach (no download)", isOn: $settings.useMock)
+                                .font(.caption)
+
+                            Button("Browse all models...") {
+                                settings.showModelCatalog = true
+                            }
                             .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.blue)
+                        }
+                        .padding(.top, 8)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Label("Model", systemImage: "cpu")
+                                .font(.subheadline.weight(.semibold))
+                            Spacer()
+                            // Collapsed state still answers "which model?"
+                            Text(settings.displayedSelectedModel)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation { isExpanded.toggle() }
+                        }
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        withAnimation { isExpanded.toggle() }
+                    // Dimmed, not hidden: on-demand AI reviews of saved sessions
+                    // still use this model even with live coaching off.
+                    .opacity(settings.semanticCoachEnabled ? 1 : 0.55)
+                } else if settings.downloadingModel != nil {
+                    // Downloading state (shown below)
+                } else if !settings.hasCheckedModels {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("Checking models...").font(.caption).foregroundStyle(.secondary)
                     }
-                }
-                // Dimmed, not hidden: on-demand AI reviews of saved sessions
-                // still use this model even with live coaching off.
-                .opacity(settings.semanticCoachEnabled ? 1 : 0.55)
-            } else if settings.downloadingModel != nil {
-                // Downloading state (shown below)
-            } else if !settings.hasCheckedModels {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Checking models...").font(.caption).foregroundStyle(.secondary)
-                }
-            } else {
+                } else {
                 VStack(spacing: 10) {
                     VStack(spacing: 4) {
                         Image(systemName: "checkmark.circle")
@@ -2305,6 +2298,7 @@ struct ModelSection: View {
                         .font(.caption)
                 }
             }
+        }
 
             // The clear error that replaces the old freeze: selection too
             // big for this Mac's RAM, or the launch-time model load failed.
@@ -2379,7 +2373,7 @@ struct ModelCatalogView: View {
 
             Divider()
 
-            let installedList = settings.aiConfiguration.provider == .ollama ? settings.ollamaModels : settings.availableModels
+            let installedList = settings.activeModels
             if !installedList.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Installed").font(.caption.bold()).foregroundStyle(.secondary)
@@ -2442,10 +2436,7 @@ struct InstalledModelRow: View {
     @Bindable var settings: SettingsViewModel
 
     var isSelected: Bool {
-        if settings.aiConfiguration.provider == .ollama {
-            return OllamaProvider.modelNamesMatch(configured: settings.aiConfiguration.model, installed: model.name)
-        }
-        return settings.selectedModel == model.name
+        OllamaProvider.modelNamesMatch(configured: settings.activeSelectedModel, installed: model.name)
     }
 
     var body: some View {
@@ -2484,13 +2475,7 @@ struct InstalledModelRow: View {
             Spacer()
             if !isSelected {
                 Button("Use") {
-                    if settings.aiConfiguration.provider == .ollama {
-                        settings.aiConfiguration.model = model.name
-                        settings.aiConfiguration.save()
-                    } else {
-                        settings.selectedModel = model.name
-                        settings.save()
-                    }
+                    settings.activeSelectedModel = model.name
                 }
                 .font(.caption)
                 .buttonStyle(.bordered)

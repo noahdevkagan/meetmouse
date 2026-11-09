@@ -704,7 +704,8 @@ struct SessionDetailView: View {
             }
         } else if settings.aiConfiguration.provider == .ollama,
                   let url = settings.aiConfiguration.normalizedOllamaURL {
-            if await !OllamaProvider.runningModels(baseURL: url).contains(settings.effectiveModel) {
+            let running = await OllamaProvider.runningModels(baseURL: url)
+            if !running.contains(where: { OllamaProvider.modelNamesMatch(configured: settings.aiConfiguration.model, installed: $0) }) {
                 guard !Task.isCancelled else { return }
                 askBusy = settings.aiConfiguration.isLoopbackOllama
                     ? "Warming up the local model…"

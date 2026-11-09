@@ -7,6 +7,12 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Connect to an existing Ollama installation directly: choose "Ollama" in Settings → AI to use models already installed on your Mac or a remote Ollama server.
+- Choose and switch between your installed Ollama models directly from the main Coaching tab's Model menu.
+- If a chosen Ollama model is removed, MeetMouse alerts you and gracefully continues with built-in coaching until you choose another model.
+
 ## 0.34.0 — 2026-11-04
 
 - Speaker name suggestions now appear right beside the talk bubble with Yes and No buttons, so you can confirm a name during the call without opening MeetMouse.
@@ -15,10 +21,6 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 - Speaker snapshots can read Google Meet’s blue speaker outlines as well as Zoom’s green/yellow outlines. Participant names must be visible; matches still need your confirmation.
 - Speaker-name settings now explain Zoom’s name-visibility option. When all snapshots miss the names, MeetMouse explains how to name a speaker manually.
 - Calls now run lighter by default. New installs start with advanced live coaching off, so no large AI model downloads or runs during calls, and built-in nudges still work. A setup checklist on the home screen offers your Claude account or a local model for AI notes after each call. Want AI nudges during calls? Turn on advanced live coaching in Settings → AI, which now shows what it costs in memory on your Mac. Existing installs keep their current setting.
-
-- Connect to an existing Ollama installation directly: choose "Ollama" in Settings → AI to use models already installed on your Mac or a remote Ollama server.
-- Automatically lists installed models from your Ollama server and checks whether they fit in your Mac's memory.
-- If a chosen Ollama model is removed, MeetMouse alerts you and gracefully continues with built-in coaching until you choose another model.
 
 ## 0.33.1 — 2026-10-27
 
