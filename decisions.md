@@ -2226,3 +2226,12 @@ sections"; the only option was regenerating everything. Choices:
 Live check on qwen3.5:9b: a next-steps redo parsed and left every other section
 identical. The model still kept a deadline it had invented, so redo is not a fix
 for model quality; item 1's whole-transcript budget is.
+
+## 2026-11-09 — Prep is hidden until someone looks for it (amends 2026-11-08)
+Noah: about 90% of people won't prep, so a visible "Add goal / questions" link under
+Start is default clutter for most to serve a few. The link is gone. The way in is
+Start meeting's right-click menu ("Prepare next call…", mentioned in its tooltip),
+plus the existing "Start with goal" on the meeting-detected pill. The "Next call"
+card appears only after someone saves prep. Questions to Ask stays out of Advanced:
+it now lives only in the prep form, so it adds nothing to the default screen.
+A chevron on Start was rejected as still visible on every launch.

@@ -11,7 +11,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 - AI notes for long meetings now include what was decided in the middle of the call. With Claude or OpenAI the whole meeting is used; on Macs with 32 GB of memory or more, local AI reads meetings up to about 90 minutes in full (was about 40).
 - Regenerating a meeting's notes now uses the goal and participants you saved for that meeting, so owners and names come out right.
-- Prepare a call before it starts: click "Add goal / questions" under Start meeting to set a goal, who's on the call and questions to cover, then Save for later or start right away. Start meeting is still one click, and your questions tick off live as you ask them. Questions to Ask moved here from Advanced.
+- Prepare a call before it starts, if you want to: right-click Start meeting and choose "Prepare next call" to set a goal, who's on the call and questions to cover, then Save for later or start right away. Saved prep shows as a small "Next call" card; nothing appears if you never use it. Start meeting is still one click, and your questions tick off live as you ask them. Questions to Ask moved here from Advanced.
 - A meeting's goal now applies only to that meeting instead of carrying over to the next one.
 - The home screen now shows what needs your attention: open follow-ups from your meeting notes from the last two weeks (tick one off right there), meetings whose notes you haven't looked at, and recent meetings with no AI notes yet. The meeting list stays in the sidebar.
 - Edit a meeting's notes yourself: click Edit notes on the Notes tab, fix or add anything, and save. If you later click Regenerate with AI, MeetMouse asks before replacing your edits.

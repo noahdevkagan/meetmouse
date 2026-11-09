@@ -117,6 +117,8 @@ final class LiveSessionViewModel {
     /// sidebar's "Add goal / questions". The plain Start button then treats
     /// those guests as confirmed for that call; cleared when the call ends.
     var nextCallPrepared = false
+    /// Opens the prep form from Start meeting's right-click menu.
+    var showPrepForm = false
 
     /// Questions pasted under the old Advanced → Questions to Ask box become
     /// this call's prepared questions, so they're visible beside Start

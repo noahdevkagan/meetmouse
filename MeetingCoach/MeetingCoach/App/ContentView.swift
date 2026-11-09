@@ -2465,13 +2465,15 @@ struct CatalogModelRow: View {
 
 // MARK: - Live Section
 
-/// Optional prep beside Start: goal, guests and questions for the next call
-/// (PreCallFormView), shown as a small summary once saved. Start itself
-/// stays one click; nothing here is required.
+/// Optional prep for the next call (PreCallFormView). Invisible until used:
+/// opened from Start meeting's right-click menu, shown as a small "Next call"
+/// card only once prep is saved. Start itself stays one click.
 private struct NextCallPrepRow: View {
     @Bindable var liveSession: LiveSessionViewModel
     let onStart: () -> Void
-    @State private var editing = false
+    private var editing: Binding<Bool> {
+        Binding(get: { liveSession.showPrepForm }, set: { liveSession.showPrepForm = $0 })
+    }
 
     var body: some View {
         Group {
@@ -2480,7 +2482,7 @@ private struct NextCallPrepRow: View {
                     HStack {
                         Text("Next call").font(.system(size: 12, weight: .semibold))
                         Spacer()
-                        Button("Edit") { editing = true }
+                        Button("Edit") { liveSession.showPrepForm = true }
                             .buttonStyle(.plain).font(.system(size: 12))
                             .foregroundStyle(Dorado.dollar)
                         Button {
@@ -2501,18 +2503,13 @@ private struct NextCallPrepRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .cardStyle(cornerRadius: 8)
             } else {
-                Button { editing = true } label: {
-                    Label("Add goal / questions", systemImage: "plus")
-                        .font(.system(size: 12, weight: .medium))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Dorado.dollar)
-                .help("Optional: a goal, who's on the call, and questions to cover. They tick off live as you ask them.")
+                // Hidden by default: most people never prep. The way in is
+                // Start meeting's right-click menu (and the detection pill).
+                Color.clear.frame(height: 0)
             }
         }
         .onAppear { liveSession.adoptStandingQuestions() }
-        .sheet(isPresented: $editing) {
+        .sheet(isPresented: editing) {
             PreCallFormView(context: $liveSession.preCallContext, onStart: onStart,
                             onSave: { liveSession.nextCallPrepared = true })
         }
@@ -2639,7 +2636,12 @@ struct LiveSection: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .tint(Dorado.dollar)
-                .help("Listens to your meeting audio and coaches you in real time. Instant nudges (talk time, interruptions, unanswered questions) are always on.")
+                .help("Listens to your meeting audio and coaches you in real time. Instant nudges (talk time, interruptions, unanswered questions) are always on. Right-click to prepare a goal and questions first.")
+                .contextMenu {
+                    Button("Prepare next call (goal, people, questions)…") {
+                        liveSession.showPrepForm = true
+                    }
+                }
                 .sheet(isPresented: $liveSession.showPreCallForm) {
                     PreCallFormView(context: $liveSession.preCallContext) {
                         // The guest list was just reviewed for this call —
