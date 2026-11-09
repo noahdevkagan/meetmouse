@@ -135,10 +135,30 @@ final class SettingsViewModel {
         // Nothing installed means nothing to run: don't start the engine just
         // to find that out at the end of every notes-free meeting.
         await refreshModels()
-        guard !availableModels.isEmpty else { return false }
+        guard hasInstalledSelectedModel else { return false }
         guard await ollamaManager.ensureRunning() else { return false }
         await refreshModels()
-        return !availableModels.isEmpty
+        return hasInstalledSelectedModel
+    }
+
+    private(set) var hasExplicitModelSelection: Bool
+
+    var selectedModel: String {
+        didSet {
+            hasExplicitModelSelection = !selectedModel.isEmpty
+        }
+    }
+    var selectedOllamaModel: String
+    var rubricPath: String
+    var availableModels: [OllamaModel] = []
+    var ollamaReachable: Bool = false
+    var hasCheckedModels: Bool = false
+    var isRefreshingModels: Bool = false
+    var useMock: Bool = false
+    var showModelCatalog: Bool = false
+
+    var hasInstalledSelectedModel: Bool {
+        !selectedModel.isEmpty && availableModels.contains(where: { $0.name == selectedModel })
     }
 
     /// Fallback order matching `effectiveModel`: RAM-tiered recommendation if installed
@@ -152,14 +172,13 @@ final class SettingsViewModel {
         return fitting.min(by: { $0.size < $1.size })?.name ?? models.first?.name
     }
 
-    var selectedModel: String
-    var selectedOllamaModel: String
-    var rubricPath: String
-    var availableModels: [OllamaModel] = []
-    var ollamaReachable: Bool = false
-    var hasCheckedModels: Bool = false
-    var useMock: Bool = false
-    var showModelCatalog: Bool = false
+    /// True only when 0 models remain after a previously saved model vanished.
+    var isSavedModelVanished: Bool {
+        !usesCloudAI && hasCheckedModels && !useMock
+            && availableModels.isEmpty
+            && hasExplicitModelSelection
+            && !selectedModel.isEmpty
+    }
 
     /// Global selection, resolved and snapshotted by LiveSessionViewModel at
     /// meeting start. Changing it begins the needed download but never mutates
@@ -279,10 +298,11 @@ final class SettingsViewModel {
         self.defaultMeetingMinutes = UserDefaults.standard.object(forKey: "defaultMeetingMinutes") as? Int ?? 0
         let storedLaunchAtLogin = UserDefaults.standard.object(forKey: "launchAtLogin") as? Bool
         self.launchAtLogin = storedLaunchAtLogin ?? true
+        let persistedModel = UserDefaults.standard.string(forKey: "selectedModel")
+        self.hasExplicitModelSelection = !(persistedModel ?? "").isEmpty
         // Fresh installs default to the RAM-aware recommendation — the old
         // one-size qwen3.5:9b default swapped 8–16 GB Macs into a freeze.
-        self.selectedModel = UserDefaults.standard.string(forKey: "selectedModel")
-            ?? recommendedCatalogModel.fullName
+        self.selectedModel = persistedModel ?? recommendedCatalogModel.fullName
         let currentAI = AIConfiguration.current
         self.selectedOllamaModel = UserDefaults.standard.string(forKey: "selectedOllamaModel")
             ?? (currentAI.provider == .ollama ? currentAI.model : "")
@@ -352,7 +372,11 @@ final class SettingsViewModel {
     }
 
     func save() {
-        UserDefaults.standard.set(selectedModel, forKey: "selectedModel")
+        if hasExplicitModelSelection && !selectedModel.isEmpty {
+            UserDefaults.standard.set(selectedModel, forKey: "selectedModel")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "selectedModel")
+        }
         UserDefaults.standard.set(selectedOllamaModel, forKey: "selectedOllamaModel")
         UserDefaults.standard.set(rubricPath, forKey: "rubricPath")
     }
@@ -374,6 +398,7 @@ final class SettingsViewModel {
     var effectiveModel: String {
         if usesCloudAI { return aiConfiguration.modelReference }
         guard !availableModels.isEmpty else { return selectedModel }
+        guard hasInstalledSelectedModel else { return selectedModel }
         let fitting = availableModels.filter { ModelMemory.fits($0) }
         if let selected = availableModels.first(where: { $0.name == selectedModel }),
            ModelMemory.fits(selected) {
@@ -435,6 +460,8 @@ final class SettingsViewModel {
         return models
     }
 
+    /// Starts the managed local Ollama server if needed and fetches live `/api/tags`,
+    /// updating `availableModels` (which automatically updates both ModelCatalogView and the Model dropdown).
     func refreshModelsLive() async {
         if aiConfiguration.provider == .ollama {
             if let url = aiConfiguration.normalizedOllamaURL {
@@ -443,30 +470,44 @@ final class SettingsViewModel {
             return
         }
         guard !usesCloudAI else { return }
+        isRefreshingModels = true
+        defer { isRefreshingModels = false }
         if let manager = ollamaManager {
             _ = await manager.ensureRunning()
         }
         await refreshModels()
     }
 
+    func reconcileSelectedModel() {
+        guard !usesCloudAI else { return }
+        guard !availableModels.isEmpty else { return }
+        if !availableModels.contains(where: { $0.name == selectedModel }) {
+            if let fallback = Self.fallbackInstalledModel(in: availableModels) {
+                mclog("[Settings] Selected model '\(selectedModel)' not found; falling back to '\(fallback)'")
+                selectedModel = fallback
+                save()
+            }
+        }
+    }
+
     func refreshModels() async {
-        if aiConfiguration.provider == .ollama, let url = aiConfiguration.normalizedOllamaURL {
-            _ = try? await refreshOllamaModels(baseURL: url.absoluteString)
-        }
-        let client = OllamaClient(model: selectedModel)
-        do {
-            availableModels = try await client.listModels()
-            ollamaReachable = true
-        } catch {
+        if OllamaLocalEndpoint.activeURL() != nil {
+            let client = OllamaClient(model: selectedModel)
+            do {
+                availableModels = try await client.listModels()
+                ollamaReachable = true
+                hasCheckedModels = true
+                reconcileSelectedModel()
+                return
+            } catch {
+                ollamaReachable = false
+            }
+        } else {
             ollamaReachable = false
-            // Engine not running ≠ no models. The engine starts lazily, so
-            // the launch-time check always used to land here with an empty
-            // list — and the UI re-showed model onboarding over a store
-            // with gigabytes of pulled models. The manifests directory is
-            // the on-disk truth; read it instead.
-            availableModels = Self.installedModelsOnDisk()
         }
+        availableModels = Self.installedModelsOnDisk()
         hasCheckedModels = true
+        reconcileSelectedModel()
     }
 
     /// Models present in the app's own store, straight from the manifests
@@ -741,12 +782,22 @@ final class SettingsViewModel {
             }
             return
         }
+        if let manager = ollamaManager {
+            _ = await manager.ensureRunning()
+        }
         let client = OllamaClient(model: name)
         do {
             try await client.deleteModel(name: name)
-            await refreshModels()
-            if selectedModel == name {
-                selectedModel = availableModels.first?.name ?? ""
+            await refreshModelsLive()
+            if selectedModel == name || availableModels.isEmpty {
+                if availableModels.isEmpty {
+                    selectedModel = recommendedCatalogModel.fullName
+                    hasExplicitModelSelection = false
+                    save()
+                } else if let fallback = Self.fallbackInstalledModel(in: availableModels) {
+                    selectedModel = fallback
+                    save()
+                }
             }
         } catch {
             downloadError = "Failed to delete: \(error.localizedDescription)"

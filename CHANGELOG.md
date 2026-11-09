@@ -12,6 +12,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 - Connect to an existing Ollama installation directly: choose "Ollama" in Settings → AI to use models already installed on your Mac or a remote Ollama server.
 - Choose and switch between your installed Ollama models directly from the main Coaching tab's Model menu.
 - If a chosen Ollama model is removed, MeetMouse alerts you and gracefully continues with built-in coaching until you choose another model.
+- Local AI runs on an isolated port so running your own Ollama on port 11434 never conflicts with MeetMouse or leaves the model menu blank.
+- When an active local model is removed or missing from disk, MeetMouse automatically falls back to another installed local model so AI coaching and notes keep working.
 
 ## 0.34.0 — 2026-11-04
 

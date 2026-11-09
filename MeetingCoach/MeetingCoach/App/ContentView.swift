@@ -2302,7 +2302,13 @@ struct ModelSection: View {
 
             // The clear error that replaces the old freeze: selection too
             // big for this Mac's RAM, or the launch-time model load failed.
-            if let memoryNote = settings.modelFitNote ?? settings.modelWarmupError {
+            if settings.isSavedModelVanished {
+                Label("Model '\(settings.selectedModel)' is no longer available. Using built-in coaching until you download a model.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if let memoryNote = settings.modelFitNote ?? settings.modelWarmupError {
                 Label(memoryNote, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.orange)
@@ -2361,7 +2367,22 @@ struct ModelCatalogView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading) {
-                    Text("Download Models").font(.title2.bold())
+                    HStack(spacing: 6) {
+                        Text("Download Models").font(.title2.bold())
+                        if settings.isRefreshingModels {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Button {
+                                Task { await settings.refreshModelsLive() }
+                            } label: {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Refresh installed models")
+                        }
+                    }
                     Text("Choose a model to run locally via Ollama")
                         .font(.caption).foregroundStyle(.secondary)
                 }

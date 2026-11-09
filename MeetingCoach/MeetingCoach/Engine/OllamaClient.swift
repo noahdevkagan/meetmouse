@@ -1,5 +1,8 @@
+import Darwin
 import Foundation
 
+@_silgen_name("proc_pidpath")
+private func mc_proc_pidpath(_ pid: Int32, _ buffer: UnsafeMutableRawPointer, _ buffersize: UInt32) -> Int32
 /// RAM-fit rules for local models, in one place. A model is "comfortable"
 /// when its weights plus ~1.5 GB (KV cache + runner) stay within ~70% of
 /// unified memory — beyond that macOS swaps mid-meeting, which the user
@@ -244,16 +247,170 @@ let modelCatalog: [CatalogModel] = [
                  parameterSize: "9B", diskSize: "~5.5 GB", minRAMGB: 16),
 ]
 
-enum OllamaError: Error, LocalizedError {
+enum OllamaError: Error, LocalizedError, Equatable {
+    case notRunning
     case serverError(String)
     var errorDescription: String? {
-        switch self { case .serverError(let msg): return "Ollama: \(msg)" }
+        switch self {
+        case .notRunning:
+            return "Local AI engine is not running."
+        case .serverError(let msg):
+            return "Ollama: \(msg)"
+        }
     }
 }
 
-/// Talks to a local Ollama daemon. Enforces loopback-only (mirrors llm.py).
+/// Coordinates MeetMouse's managed local Ollama daemon on an OS-assigned
+/// ephemeral loopback port via `ollama.pid` and `ollama.port` in the app's
+/// isolated model directory, avoiding any collision with standalone Ollama on 11434.
+enum OllamaLocalEndpoint {
+    static let standaloneDefaultPort = 11434
+
+    private static let lock = NSLock()
+    private nonisolated(unsafe) static var activePortStorage: Int?
+    private nonisolated(unsafe) static var modelsDirectoryOverrideStorage: URL?
+    private nonisolated(unsafe) static var processPathResolverStorage: (@Sendable (pid_t) -> String?)?
+
+    static var modelsDirectory: URL {
+        lock.lock()
+        let override = modelsDirectoryOverrideStorage
+        lock.unlock()
+        if let override { return override }
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport.appendingPathComponent("MeetingCoach/ollama")
+    }
+
+    static var pidFileURL: URL { modelsDirectory.appendingPathComponent("ollama.pid") }
+    static var portFileURL: URL { modelsDirectory.appendingPathComponent("ollama.port") }
+
+    static func configureForTesting(modelsDirectory: URL?,
+                                    processPathResolver: (@Sendable (pid_t) -> String?)? = nil) {
+        lock.lock()
+        modelsDirectoryOverrideStorage = modelsDirectory
+        processPathResolverStorage = processPathResolver
+        if modelsDirectory != nil {
+            activePortStorage = nil
+        }
+        lock.unlock()
+    }
+
+    static func setActivePort(_ port: Int?) {
+        lock.lock()
+        if let port, (1024...65535).contains(port) {
+            activePortStorage = port
+        } else if port == nil {
+            activePortStorage = nil
+        }
+        lock.unlock()
+    }
+
+    static func activePort() -> Int? {
+        lock.lock()
+        let current = activePortStorage
+        lock.unlock()
+        if let current { return current }
+        return existingManagedServer()?.port
+    }
+
+    static func activeURL() -> URL? {
+        guard let port = activePort() else { return nil }
+        return URL(string: "http://127.0.0.1:\(port)")
+    }
+
+    /// Asks the macOS kernel for an unused ephemeral loopback TCP port (`127.0.0.1:0`).
+    static func allocateEphemeralPort() throws -> Int {
+        for _ in 0..<4 {
+            let fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
+            guard fd >= 0 else {
+                throw OllamaError.serverError("Could not allocate loopback socket (errno \(errno)).")
+            }
+            defer { close(fd) }
+
+            var addr = sockaddr_in()
+            addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+            addr.sin_family = sa_family_t(AF_INET)
+            addr.sin_port = 0
+            addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+
+            let bindResult = withUnsafePointer(to: &addr) {
+                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+                }
+            }
+            guard bindResult == 0 else {
+                throw OllamaError.serverError("Could not bind ephemeral loopback port (errno \(errno)).")
+            }
+
+            var bound = sockaddr_in()
+            var len = socklen_t(MemoryLayout<sockaddr_in>.size)
+            let nameResult = withUnsafeMutablePointer(to: &bound) {
+                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    getsockname(fd, $0, &len)
+                }
+            }
+            guard nameResult == 0 else {
+                throw OllamaError.serverError("Could not read ephemeral loopback port (errno \(errno)).")
+            }
+
+            let port = Int(UInt16(bigEndian: bound.sin_port))
+            if (1024...65535).contains(port), port != standaloneDefaultPort {
+                return port
+            }
+        }
+        throw OllamaError.serverError("Could not allocate a non-default ephemeral loopback port.")
+    }
+
+    static func writeServerState(pid: pid_t, port: Int) {
+        let dir = modelsDirectory
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? "\(pid)\n".write(to: pidFileURL, atomically: true, encoding: .utf8)
+        try? "\(port)\n".write(to: portFileURL, atomically: true, encoding: .utf8)
+    }
+
+    static func clearServerState(matchingPID expectedPID: pid_t? = nil) {
+        if let expectedPID {
+            if let raw = try? String(contentsOf: pidFileURL, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
+               let recorded = Int32(raw), recorded != expectedPID {
+                return
+            }
+        }
+        try? FileManager.default.removeItem(at: pidFileURL)
+        try? FileManager.default.removeItem(at: portFileURL)
+    }
+
+    private static func defaultProcessPath(for pid: pid_t) -> String? {
+        guard pid > 1, kill(pid, 0) == 0 else { return nil }
+        var buf = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
+        let n = buf.withUnsafeMutableBytes { raw -> Int32 in
+            guard let base = raw.baseAddress else { return 0 }
+            return mc_proc_pidpath(pid, base, UInt32(raw.count))
+        }
+        guard n > 0 else { return nil }
+        return String(cString: buf)
+    }
+
+    /// Returns a live MeetMouse-managed `ollama serve` recorded in `ollama.pid` / `ollama.port`.
+    static func existingManagedServer() -> (pid: pid_t, port: Int)? {
+        guard let pidText = try? String(contentsOf: pidFileURL, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
+              let portText = try? String(contentsOf: portFileURL, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
+              let pid = Int32(pidText), pid > 1,
+              let port = Int(portText), (1024...65535).contains(port), port != standaloneDefaultPort else {
+            return nil
+        }
+        lock.lock()
+        let resolver = processPathResolverStorage
+        lock.unlock()
+        let execPath = resolver?(pid) ?? defaultProcessPath(for: pid)
+        guard let execPath, URL(fileURLWithPath: execPath).lastPathComponent == "ollama" else {
+            return nil
+        }
+        return (pid: pid, port: port)
+    }
+}
+
+/// Talks to MeetMouse's local Ollama daemon. Enforces loopback-only (mirrors llm.py).
 actor OllamaClient {
-    let baseURL: URL
+    private let explicitBaseURL: URL?
     let model: String
     let timeout: TimeInterval
     /// Context window requested per call. KV-cache memory scales linearly
@@ -275,16 +432,18 @@ actor OllamaClient {
     private static let loopbackHosts: Set<String> = ["127.0.0.1", "localhost", "::1"]
 
     init(model: String = "qwen2.5:7b-instruct",
-         baseURL: URL = URL(string: "http://127.0.0.1:11434")!,
+         baseURL: URL? = nil,
          timeout: TimeInterval = 120,
          numCtx: Int = 8192,
          keepAlive: String = "10m",
          numPredict: Int = 512) {
-        let host = baseURL.host() ?? baseURL.host ?? ""
-        guard Self.loopbackHosts.contains(host) else {
-            fatalError("LLM base URL host '\(host)' is not loopback. Refusing — inference must stay local.")
+        if let baseURL {
+            let host = baseURL.host() ?? baseURL.host ?? ""
+            guard Self.loopbackHosts.contains(host) else {
+                fatalError("LLM base URL host '\(host)' is not loopback. Refusing — inference must stay local.")
+            }
         }
-        self.baseURL = baseURL
+        self.explicitBaseURL = baseURL
         self.model = model
         self.timeout = timeout
         self.numCtx = numCtx
@@ -292,9 +451,20 @@ actor OllamaClient {
         self.numPredict = numPredict
     }
 
+    private func requireBaseURL() throws -> URL {
+        guard let url = explicitBaseURL ?? OllamaLocalEndpoint.activeURL() else {
+            throw OllamaError.notRunning
+        }
+        let host = url.host() ?? url.host ?? ""
+        guard Self.loopbackHosts.contains(host) else {
+            fatalError("LLM base URL host '\(host)' is not loopback. Refusing — inference must stay local.")
+        }
+        return url
+    }
+
     /// POST /api/chat — Ollama native endpoint (faster than OpenAI-compat, supports num_ctx)
     func complete(system: String, user: String) async throws -> String {
-        let url = baseURL.appendingPathComponent("api/chat")
+        let url = try requireBaseURL().appendingPathComponent("api/chat")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -360,7 +530,9 @@ actor OllamaClient {
     /// keepAlive must be non-zero: no prompt plus keep_alive 0 is Ollama's
     /// unload request, which returns success without loading anything.
     func preload(keepAlive: String = "30m") async -> String? {
-        let url = baseURL.appendingPathComponent("api/generate")
+        guard let url = try? requireBaseURL().appendingPathComponent("api/generate") else {
+            return OllamaError.notRunning.localizedDescription
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -386,7 +558,7 @@ actor OllamaClient {
 
     /// GET /api/ps — models currently resident in the engine.
     func runningModels() async -> [String] {
-        let url = baseURL.appendingPathComponent("api/ps")
+        guard let url = try? requireBaseURL().appendingPathComponent("api/ps") else { return [] }
         guard let (data, _) = try? await URLSession.shared.data(from: url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let models = json["models"] as? [[String: Any]] else { return [] }
@@ -397,6 +569,7 @@ actor OllamaClient {
     /// actually resident. Multi-GB of RAM come back the moment there is no
     /// more work; warm-on-detect reloads before the next meeting.
     func unloadIfLoaded() async {
+        guard let baseURL = try? requireBaseURL() else { return }
         guard await runningModels().contains(model) else { return }
         var request = URLRequest(url: baseURL.appendingPathComponent("api/generate"))
         request.httpMethod = "POST"
@@ -411,7 +584,7 @@ actor OllamaClient {
 
     /// GET /api/tags — list locally available models
     func listModels() async throws -> [OllamaModel] {
-        let url = baseURL.appendingPathComponent("api/tags")
+        let url = try requireBaseURL().appendingPathComponent("api/tags")
         let (data, _) = try await URLSession.shared.data(from: url)
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let models = json["models"] as? [[String: Any]] else {
@@ -428,8 +601,13 @@ actor OllamaClient {
 
     /// POST /api/pull — download a model, streaming progress updates
     func pullModel(name: String) -> AsyncStream<PullProgress> {
-        let url = baseURL.appendingPathComponent("api/pull")
+        let targetURL = try? requireBaseURL().appendingPathComponent("api/pull")
         return AsyncStream { continuation in
+            guard let url = targetURL else {
+                continuation.yield(PullProgress(status: "error: \(OllamaError.notRunning.localizedDescription)", completed: 0, total: 0))
+                continuation.finish()
+                return
+            }
             Task {
                 var request = URLRequest(url: url)
                 request.httpMethod = "POST"
@@ -476,7 +654,7 @@ actor OllamaClient {
 
     /// DELETE /api/delete — remove a model
     func deleteModel(name: String) async throws {
-        let url = baseURL.appendingPathComponent("api/delete")
+        let url = try requireBaseURL().appendingPathComponent("api/delete")
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -489,6 +667,7 @@ actor OllamaClient {
 
     /// Check if Ollama is reachable
     func isReachable() async -> Bool {
+        guard (try? requireBaseURL()) != nil else { return false }
         do {
             _ = try await listModels()
             return true
