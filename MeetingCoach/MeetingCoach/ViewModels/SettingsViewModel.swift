@@ -18,6 +18,7 @@ final class SettingsViewModel {
     var usesCloudAI: Bool { aiConfiguration.provider != .local }
     var ollamaModels: [OllamaModel] = []
     var ollamaSelectedModelMissing: Bool = false
+    private(set) var isUsingDevFallbackOllama = false
 
     func enableCloudAI(_ configuration: AIConfiguration, key: String) throws {
         guard configuration.provider != .local, configuration.provider != .ollama,
@@ -36,6 +37,8 @@ final class SettingsViewModel {
         downloadError = nil
         configuration.save()
         aiConfiguration = configuration
+        AIConfiguration.runtimeOverride = nil
+        isUsingDevFallbackOllama = false
         ollamaSelectedModelMissing = false
         useMock = false
     }
@@ -58,8 +61,9 @@ final class SettingsViewModel {
             // Ollama already has a model selected and it still exists on the server
             resolvedModel = match.name
         } else if !selectedModel.isEmpty,
-                  let match = installedModels.first(where: { OllamaProvider.modelNamesMatch(configured: selectedModel, installed: $0.name) }) {
-            // Fallback from Local to Ollama only if Ollama does not have a model selected or it no longer exists
+                  let match = installedModels.first(where: { OllamaProvider.modelNamesMatch(configured: selectedModel, installed: $0.name) }),
+                  !match.isCloudModel {
+            // Fallback from Local to Ollama only if Ollama does not have a model selected or it no longer exists (and match is not a cloud model)
             resolvedModel = match.name
         } else {
             resolvedModel = ""
@@ -69,6 +73,8 @@ final class SettingsViewModel {
         let cleanConfig = AIConfiguration(provider: .ollama, model: resolvedModel, baseURL: normalized.absoluteString)
         cleanConfig.save()
         aiConfiguration = cleanConfig
+        AIConfiguration.runtimeOverride = nil
+        isUsingDevFallbackOllama = false
         selectedOllamaModel = resolvedModel
         UserDefaults.standard.set(resolvedModel, forKey: "selectedOllamaModel")
         ollamaModels = installedModels
@@ -80,7 +86,25 @@ final class SettingsViewModel {
         let configuration = AIConfiguration()
         configuration.save()
         aiConfiguration = configuration
+        AIConfiguration.runtimeOverride = nil
+        isUsingDevFallbackOllama = false
         ollamaSelectedModelMissing = false
+    }
+
+    func syncDevFallbackOllamaIfNeeded() {
+        #if DEBUG
+        guard !OllamaManager.hasBundleEmbeddedRuntime else { return }
+        guard OllamaLocalEndpoint.existingManagedServer() == nil else { return }
+        if aiConfiguration.provider == .local {
+            OllamaLocalEndpoint.setActivePort(OllamaLocalEndpoint.standaloneDefaultPort)
+            let fallbackModel = !selectedOllamaModel.isEmpty ? selectedOllamaModel : selectedModel
+            let config = AIConfiguration(provider: .ollama, model: fallbackModel, baseURL: OllamaEndpoint.defaultBaseURL)
+            aiConfiguration = config
+            AIConfiguration.runtimeOverride = config
+            selectedOllamaModel = fallbackModel
+            isUsingDevFallbackOllama = true
+        }
+        #endif
     }
 
     func selectOllamaModel(_ modelName: String) {
@@ -101,7 +125,11 @@ final class SettingsViewModel {
                 selectedOllamaModel = newValue
                 UserDefaults.standard.set(newValue, forKey: "selectedOllamaModel")
                 aiConfiguration.model = newValue
-                aiConfiguration.save()
+                if !isUsingDevFallbackOllama {
+                    aiConfiguration.save()
+                } else {
+                    AIConfiguration.runtimeOverride = aiConfiguration
+                }
                 ollamaSelectedModelMissing = false
             } else {
                 selectedModel = newValue
@@ -163,13 +191,15 @@ final class SettingsViewModel {
 
     /// Fallback order matching `effectiveModel`: RAM-tiered recommendation if installed
     /// and fits, else smallest fitting installed model, else first installed model.
+    /// Cloud models are excluded from automatic fallback so users must explicitly choose them.
     static func fallbackInstalledModel(in models: [OllamaModel]) -> String? {
-        guard !models.isEmpty else { return nil }
-        let fitting = models.filter { ModelMemory.fits($0) }
+        let localModels = models.filter { !$0.isCloudModel }
+        guard !localModels.isEmpty else { return nil }
+        let fitting = localModels.filter { ModelMemory.fits($0) }
         if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
             return recommended.name
         }
-        return fitting.min(by: { $0.size < $1.size })?.name ?? models.first?.name
+        return fitting.min(by: { $0.size < $1.size })?.name ?? localModels.first?.name
     }
 
     /// True only when 0 models remain after a previously saved model vanished.
@@ -227,10 +257,19 @@ final class SettingsViewModel {
     /// turned on. Weights plus the same runtime overhead the fit rules use.
     var liveCoachingCostNote: String {
         if usesCloudAI {
+            if aiConfiguration.provider == .ollama && (OllamaModel.isCloudModelName(aiConfiguration.model) || ollamaModels.first(where: { $0.name == aiConfiguration.model })?.isCloudModel == true) {
+                return "Sends meeting text to Ollama's cloud throughout each call and uses your plan or API allowance."
+            }
+            if aiConfiguration.provider == .ollama && !aiConfiguration.isLoopbackOllama {
+                return "Sends meeting text to your remote Ollama server throughout each call."
+            }
             return "Sends meeting text to \(aiConfiguration.provider.title) throughout each call and uses your plan or API allowance."
         }
+        if let selected = availableModels.first(where: { $0.name == effectiveModel }), selected.isCloudModel {
+            return "Sends meeting text to Ollama's cloud throughout each call and uses your plan or API allowance."
+        }
         let recommended = recommendedCatalogModel
-        let installedSize = availableModels.first { $0.name == effectiveModel }?.size ?? 0
+        let installedSize = availableModels.first { $0.name == effectiveModel && !$0.isCloudModel }?.size ?? 0
         let weightBytes = installedSize > 0 ? installedSize
             : Int64((Double(recommended.diskSize.filter { "0123456789.".contains($0) }) ?? 0) * 1_000_000_000)
         let gb = Int((Double(weightBytes + ModelMemory.runtimeOverheadBytes) / 1_000_000_000).rounded())
@@ -345,6 +384,8 @@ final class SettingsViewModel {
                 }
             }
         }
+
+        syncDevFallbackOllamaIfNeeded()
     }
 
     /// Register/unregister the app as a login item. Release builds only:
@@ -399,16 +440,16 @@ final class SettingsViewModel {
         if usesCloudAI { return aiConfiguration.modelReference }
         guard !availableModels.isEmpty else { return selectedModel }
         guard hasInstalledSelectedModel else { return selectedModel }
-        let fitting = availableModels.filter { ModelMemory.fits($0) }
-        if let selected = availableModels.first(where: { $0.name == selectedModel }),
-           ModelMemory.fits(selected) {
-            return selectedModel
+        if let selected = availableModels.first(where: { $0.name == selectedModel }) {
+            if selected.isCloudModel { return selectedModel }
+            if ModelMemory.fits(selected) { return selectedModel }
         }
+        let fitting = availableModels.filter { !$0.isCloudModel && ModelMemory.fits($0) }
         if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
             return recommended.name
         }
         return fitting.min(by: { $0.size < $1.size })?.name
-            ?? availableModels.first?.name ?? selectedModel
+            ?? availableModels.first(where: { !$0.isCloudModel })?.name ?? selectedModel
     }
 
     /// User-facing one-liner when the selected model can't run comfortably
@@ -443,6 +484,15 @@ final class SettingsViewModel {
             } else if !aiConfiguration.model.isEmpty {
                 if models.contains(where: { OllamaProvider.modelNamesMatch(configured: aiConfiguration.model, installed: $0.name) }) {
                     self.ollamaSelectedModelMissing = false
+                } else if isUsingDevFallbackOllama {
+                    // For dev fallback, if the initial selectedModel isn't installed on 11434,
+                    // pick a suitable installed model (non-cloud fallback) instead of showing missing model error
+                    if let fallback = Self.fallbackInstalledModel(in: models) {
+                        activeSelectedModel = fallback
+                        self.ollamaSelectedModelMissing = false
+                    } else {
+                        self.ollamaSelectedModelMissing = true
+                    }
                 } else {
                     // Selected Ollama model is missing on the server.
                     // No fallback to Local AI or fallback catalog models (matches Claude / OpenAI).
@@ -450,9 +500,12 @@ final class SettingsViewModel {
                 }
             } else {
                 // Ollama currently has no model selected:
-                // Check if Local's selectedModel exists on the Ollama server:
-                if let match = models.first(where: { OllamaProvider.modelNamesMatch(configured: selectedModel, installed: $0.name) }) {
+                // Check if Local's selectedModel exists on the Ollama server (non-cloud only):
+                if let match = models.first(where: { OllamaProvider.modelNamesMatch(configured: selectedModel, installed: $0.name) }),
+                   !match.isCloudModel {
                     activeSelectedModel = match.name
+                } else if let fallback = Self.fallbackInstalledModel(in: models) {
+                    activeSelectedModel = fallback
                 }
                 self.ollamaSelectedModelMissing = false
             }
@@ -463,6 +516,7 @@ final class SettingsViewModel {
     /// Starts the managed local Ollama server if needed and fetches live `/api/tags`,
     /// updating `availableModels` (which automatically updates both ModelCatalogView and the Model dropdown).
     func refreshModelsLive() async {
+        syncDevFallbackOllamaIfNeeded()
         if aiConfiguration.provider == .ollama {
             if let url = aiConfiguration.normalizedOllamaURL {
                 _ = try? await refreshOllamaModels(baseURL: url.absoluteString)
@@ -474,6 +528,7 @@ final class SettingsViewModel {
         defer { isRefreshingModels = false }
         if let manager = ollamaManager {
             _ = await manager.ensureRunning()
+            syncDevFallbackOllamaIfNeeded()
         }
         await refreshModels()
     }
@@ -491,6 +546,13 @@ final class SettingsViewModel {
     }
 
     func refreshModels() async {
+        syncDevFallbackOllamaIfNeeded()
+        if aiConfiguration.provider == .ollama {
+            if let url = aiConfiguration.normalizedOllamaURL {
+                _ = try? await refreshOllamaModels(baseURL: url.absoluteString)
+            }
+            return
+        }
         if OllamaLocalEndpoint.activeURL() != nil {
             let client = OllamaClient(model: selectedModel)
             do {
@@ -784,6 +846,7 @@ final class SettingsViewModel {
         }
         if let manager = ollamaManager {
             _ = await manager.ensureRunning()
+            syncDevFallbackOllamaIfNeeded()
         }
         let client = OllamaClient(model: name)
         do {

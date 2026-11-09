@@ -1022,6 +1022,73 @@ func runTests() async {
         check(false, "ollama model persistence test threw", "\(error)")
     }
 
+    // Ollama cloud models: excluded from automatic fallback & RAM calculations; explicit selection works
+    do {
+        let cloud1 = OllamaModel(name: "deepseek-v4-pro:cloud", size: 344, parameterSize: "", remoteHost: "https://ollama.com:443")
+        let local1 = installed("granite4:3b", 2.1)
+        let local2 = installed("gemma4:e4b", 9.6)
+
+        // 1. fallbackInstalledModel excludes cloud models
+        check(SettingsViewModel.fallbackInstalledModel(in: [cloud1, local1]) == "granite4:3b",
+              "fallbackInstalledModel ignores 344-byte cloud model and picks local model")
+        check(SettingsViewModel.fallbackInstalledModel(in: [cloud1]) == nil,
+              "fallbackInstalledModel returns nil when only cloud models exist")
+
+        // 2. effectiveModel returns cloud model when explicitly selected, but never falls back to it
+        let s = liveSettings("deepseek-v4-pro:cloud")
+        s.availableModels = [cloud1, local1]
+        check(s.effectiveModel == "deepseek-v4-pro:cloud", "explicitly selected cloud model is effectiveModel")
+
+        let sMissing = liveSettings("non-existent-model")
+        sMissing.availableModels = [cloud1, local1]
+        check(sMissing.effectiveModel == "granite4:3b", "missing model falls back to local model, not cloud model")
+
+        // 3. ModelMemory.candidatesForCurrentMemory preserves chosen cloud model but never picks it on ladder
+        let candChosen = ModelMemory.candidatesForCurrentMemory(chosen: "deepseek-v4-pro:cloud", installed: [cloud1, local1], availableGB: 2.0)
+        check(candChosen == ["deepseek-v4-pro:cloud"], "chosen cloud model preserved without local RAM check")
+
+        let candLadder = ModelMemory.candidatesForCurrentMemory(chosen: "qwen3.5:9b", installed: [cloud1, local1], availableGB: 2.0)
+        check(!candLadder.contains("deepseek-v4-pro:cloud"), "cloud model never selected as ladder fallback rung")
+
+        // 4. Switching to Ollama does not auto-adopt a cloud model from Local
+        let sOllama = liveSettings("deepseek-v4-pro:cloud")
+        try sOllama.enableOllama(AIConfiguration(provider: .ollama, model: "", baseURL: "http://127.0.0.1:11434"),
+                                 installedModels: [cloud1, local2])
+        check(sOllama.activeSelectedModel == "", "cloud model is not automatically adopted when switching to Ollama")
+
+        // 5. Offline reachability notice in LiveSessionViewModel
+        resetSeams()
+        LiveSessionViewModel.prepareOllamaSession = { _ in
+            .failure(.cloudUnavailable("offline"))
+        }
+        let vm = LiveSessionViewModel()
+        let cloudConfig = AIConfiguration(provider: .ollama, model: "deepseek-v4-pro:cloud", baseURL: "http://127.0.0.1:11434")
+        sOllama.aiConfiguration = cloudConfig
+        sOllama.usesCloudAI = true
+        sOllama.selectedModel = cloudConfig.modelReference
+        vm.startLive(context: PreCallContext(), settings: sOllama, ollamaManager: OllamaManager())
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vm.sessionModelState?.pinnedModel == nil, "cloudUnavailable settles deterministic")
+        check(vm.basicModeNotice?.cause == "Ollama cloud model unavailable", "cloudUnavailable reports Ollama cloud model unavailable")
+        vm.stopLive()
+        vm.deleteSession()
+
+        // 6. Rate limited notice in LiveSessionViewModel
+        resetSeams()
+        LiveSessionViewModel.prepareOllamaSession = { _ in
+            .failure(.rateLimited("quota reached"))
+        }
+        let vmRate = LiveSessionViewModel()
+        vmRate.startLive(context: PreCallContext(), settings: sOllama, ollamaManager: OllamaManager())
+        try? await Task.sleep(for: .milliseconds(500))
+        check(vmRate.sessionModelState?.pinnedModel == nil, "rateLimited settles deterministic")
+        check(vmRate.basicModeNotice?.cause == "Cloud rate limit reached", "rateLimited reports Cloud rate limit reached")
+        vmRate.stopLive()
+        vmRate.deleteSession()
+    } catch {
+        check(false, "cloud model session checks threw", "\(error)")
+    }
+
     // Real activation must use the post-capture budget, not just the pure helper.
     // A successful load pins Granite; a failed load still leaves built-in coaching.
     for loadFails in [false, true] {

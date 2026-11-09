@@ -5,6 +5,17 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-08): Ollama cloud models confirmation dialog, "Cloud" badge, RAM calculation exclusion, auto-refresh & dev mode sync — completed
+
+1. Display `"Cloud"` instead of `"0 MB"` for Ollama cloud models (`size < 1 MB`, `remote_host` present, or `:cloud`/`-cloud` tag) across the Coaching tab's `Model` dropdown and `Download Models` modal (`ModelCatalogView`).
+2. Show a confirmation dialog (matching `fix/safe-model-deletion-55`) whenever selecting a cloud model from either the Coaching tab's `Model` dropdown or the "Use" button in the "Download Models" modal, warning that meeting text is sent to Ollama's cloud while audio and transcription remain on this Mac. No toggle in Settings → AI.
+3. Exclude cloud models from default selection and RAM calculations (`SettingsViewModel.fallbackInstalledModel(in:)`, `effectiveModel` RAM ladder, `ModelMemory.candidatesForCurrentMemory`, and `liveCoachingCostNote` weight math) so cloud models are never automatically selected.
+4. Detect offline status and rate-limiting (HTTP 402/429) for Ollama cloud models and surface appropriate basic-mode notices (`Ollama cloud model unavailable` / `cloudRateLimited`).
+5. Remove the manual `arrow.clockwise` refresh button from `ModelCatalogView` (refreshing automatically on open via `.task { await settings.refreshModelsLive() }`).
+6. Reflect `Ollama` in-memory without mutating `UserDefaults` when an unvendored Dev build falls back to standalone Ollama on port 11434 via `AIConfiguration.runtimeOverride` and synchronized `AISettingsView` / `SettingsViewModel`.
+7. Removed all "Use local AI" buttons from Settings → AI. Selecting "Local (on this Mac)" does not require any button and only applies when the Settings window closes, leaving active AI unchanged while the window remains open, and reverting unsaved selections for other providers on close. Prevented the "Ollama server URL" TextField from auto-focusing/highlighting on window open.
+8. Gated Ollama "Save and enable" behind "Test connection": when the Ollama provider is selected in Settings → AI, the "Save and enable" button remains visible and is disabled until "Test connection" succeeds. The models fetched during the test are cached and passed to `settings.enableOllama` synchronously upon saving without repeating the network test. Any modification to `ollamaURL` resets the test state.
+
 ## Current state (2026-11-01): Ephemeral local Ollama port, live model refresh & missing-model fallback (#53) — completed
 
 1. Move MeetMouse's internal `Local (on this Mac)` `ollama serve` off hardcoded

@@ -22,6 +22,7 @@ enum ModelMemory {
     /// `minRAMGB` (MoE models break the pure size heuristic); anything the
     /// user pulled outside the catalog falls back to the size formula.
     static func fits(_ model: OllamaModel) -> Bool {
+        if model.isCloudModel { return true }
         if let entry = modelCatalog.first(where: { $0.fullName == model.name }) {
             return entry.fitsThisMac
         }
@@ -118,16 +119,21 @@ enum ModelMemory {
                                            installed: [OllamaModel],
                                            availableGB: Double,
                                            headroomGB: Double = currentHeadroomGB) -> [String] {
+        if let chosenModel = installed.first(where: { $0.name == chosen }), chosenModel.isCloudModel {
+            return [chosenModel.name]
+        }
+
         // A model with no reported size can't be sized, and one that isn't
         // installed can't be loaded at all — both are unsafe. Treating either
         // as "fine" is how something oversized slips through: the optimistic
         // reading is exactly the one that ends in a swapping meeting.
         func safe(_ model: OllamaModel) -> Bool {
-            guard model.size > 0 else { return false }
+            guard !model.isCloudModel, model.size > 0 else { return false }
             return runtimeNeedGB(installedBytes: model.size) + headroomGB <= availableGB
         }
         func rung(_ name: String) -> OllamaModel? {
             guard let model = installed.first(where: { $0.name == name }),
+                  !model.isCloudModel,
                   safe(model) else { return nil }
             return model
         }
@@ -595,7 +601,8 @@ actor OllamaClient {
             let size = dict["size"] as? Int64 ?? 0
             let details = dict["details"] as? [String: Any] ?? [:]
             let paramSize = details["parameter_size"] as? String ?? ""
-            return OllamaModel(name: name, size: size, parameterSize: paramSize)
+            let remoteHost = dict["remote_host"] as? String ?? ""
+            return OllamaModel(name: name, size: size, parameterSize: paramSize, remoteHost: remoteHost)
         }
     }
 

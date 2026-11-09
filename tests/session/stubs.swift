@@ -102,7 +102,16 @@ final class SettingsViewModel {
             if aiConfiguration.provider != .local { return aiConfiguration.modelReference }
             return selectedModel
         }
-        return selectedModel
+        if let selected = availableModels.first(where: { $0.name == selectedModel }) {
+            if selected.isCloudModel { return selectedModel }
+            if ModelMemory.fits(selected) { return selectedModel }
+        }
+        let localFitting = availableModels.filter { !$0.isCloudModel && ModelMemory.fits($0) }
+        if let recommended = localFitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
+            return recommended.name
+        }
+        return localFitting.min(by: { $0.size < $1.size })?.name
+            ?? availableModels.first(where: { !$0.isCloudModel })?.name ?? selectedModel
     }
     var activeModels: [OllamaModel] {
         aiConfiguration.provider == .ollama ? ollamaModels : availableModels
@@ -142,7 +151,8 @@ final class SettingsViewModel {
                   let match = installedModels.first(where: { OllamaProvider.modelNamesMatch(configured: existingOllama, installed: $0.name) }) {
             resolvedModel = match.name
         } else if !selectedModel.isEmpty,
-                  let match = installedModels.first(where: { OllamaProvider.modelNamesMatch(configured: selectedModel, installed: $0.name) }) {
+                  let match = installedModels.first(where: { OllamaProvider.modelNamesMatch(configured: selectedModel, installed: $0.name) }),
+                  !match.isCloudModel {
             resolvedModel = match.name
         } else {
             resolvedModel = ""
@@ -165,7 +175,8 @@ final class SettingsViewModel {
                     ollamaSelectedModelMissing = true
                 }
             } else {
-                if let match = ollamaModels.first(where: { OllamaProvider.modelNamesMatch(configured: selectedModel, installed: $0.name) }) {
+                if let match = ollamaModels.first(where: { OllamaProvider.modelNamesMatch(configured: selectedModel, installed: $0.name) }),
+                   !match.isCloudModel {
                     activeSelectedModel = match.name
                 }
                 ollamaSelectedModelMissing = false
@@ -189,12 +200,13 @@ final class SettingsViewModel {
         !selectedModel.isEmpty && availableModels.contains(where: { $0.name == selectedModel })
     }
     static func fallbackInstalledModel(in models: [OllamaModel]) -> String? {
-        guard !models.isEmpty else { return nil }
-        let fitting = models.filter { ModelMemory.fits($0) }
+        let localModels = models.filter { !$0.isCloudModel }
+        guard !localModels.isEmpty else { return nil }
+        let fitting = localModels.filter { ModelMemory.fits($0) }
         if let recommended = fitting.first(where: { $0.name == recommendedCatalogModel.fullName }) {
             return recommended.name
         }
-        return fitting.min(by: { $0.size < $1.size })?.name ?? models.first?.name
+        return fitting.min(by: { $0.size < $1.size })?.name ?? localModels.first?.name
     }
     var isSavedModelVanished: Bool {
         !usesCloudAI && hasCheckedModels && !useMock

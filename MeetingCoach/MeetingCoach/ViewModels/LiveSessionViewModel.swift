@@ -752,6 +752,14 @@ final class LiveSessionViewModel {
                         notice = .init(cause: "low memory",
                                        detail: "Not enough memory for '\(cloud.model)' in Ollama. Coaching uses built-in signals.",
                                        lowMemory: true)
+                    case .cloudUnavailable:
+                        notice = .init(cause: "Ollama cloud model unavailable",
+                                       detail: "Internet connection is offline or Ollama cloud is unreachable. Coaching uses built-in signals.",
+                                       lowMemory: false)
+                    case .rateLimited:
+                        notice = .init(cause: "Cloud rate limit reached",
+                                       detail: "Ollama cloud usage or rate limit reached. Coaching uses built-in signals.",
+                                       lowMemory: false)
                     default:
                         notice = .init(cause: "Ollama unavailable",
                                        detail: "\(err.localizedDescription) Coaching uses built-in signals.",
@@ -2004,7 +2012,15 @@ final class LiveSessionViewModel {
                         if let error = coach.lastError {
                             let cause: String
                             if cfg.provider == .ollama {
-                                cause = error.localizedCaseInsensitiveContains("not found") ? "Ollama model missing" : "Ollama unavailable"
+                                if error.localizedCaseInsensitiveContains("not found") {
+                                    cause = "Ollama model missing"
+                                } else if error.localizedCaseInsensitiveContains("rate limit") || error.localizedCaseInsensitiveContains("quota") {
+                                    cause = "Cloud rate limit reached"
+                                } else if (error.localizedCaseInsensitiveContains("offline") || error.localizedCaseInsensitiveContains("unavailable")) && OllamaModel.isCloudModelName(cfg.model) {
+                                    cause = "Ollama cloud model unavailable"
+                                } else {
+                                    cause = "Ollama unavailable"
+                                }
                             } else {
                                 cause = "Cloud AI unavailable"
                             }

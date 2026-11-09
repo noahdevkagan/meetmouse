@@ -14,6 +14,12 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 - If a chosen Ollama model is removed, MeetMouse alerts you and gracefully continues with built-in coaching until you choose another model.
 - Local AI runs on an isolated port so running your own Ollama on port 11434 never conflicts with MeetMouse or leaves the model menu blank.
 - When an active local model is removed or missing from disk, MeetMouse automatically falls back to another installed local model so AI coaching and notes keep working.
+- Ollama cloud models now show a "Cloud" label instead of "0 MB" in the model menu and download catalog.
+- Selecting an Ollama cloud model requests confirmation explaining that meeting text is sent to Ollama's cloud while audio and transcription stay on your Mac.
+- Ollama cloud models are kept separate from automatic local model fallbacks and memory sizing so they are never selected by surprise.
+- If an Ollama cloud model is offline or reaches usage limits during a meeting, MeetMouse alerts you and seamlessly continues with built-in coaching.
+- The model catalog now refreshes installed models automatically when opened.
+- In Settings → AI, connecting to an Ollama server enables saving immediately after testing without redundant network checks.
 
 ## 0.34.0 — 2026-11-04
 

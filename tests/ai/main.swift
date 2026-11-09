@@ -42,6 +42,13 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
         check(AIConfiguration.cloud(from: "qwen3.5:4b") == nil, "local names are never cloud references")
         defaults.removeObject(forKey: AIConfiguration.defaultsKey)
 
+        let devOllama = AIConfiguration(provider: .ollama, model: "llama3.1:latest", baseURL: "http://127.0.0.1:11434")
+        check(AIConfiguration.current.provider == .local, "AIConfiguration.current defaults to stored")
+        AIConfiguration.runtimeOverride = devOllama
+        check(AIConfiguration.current == devOllama, "AIConfiguration.current returns runtimeOverride when set")
+        AIConfiguration.runtimeOverride = nil
+        check(AIConfiguration.current.provider == .local, "AIConfiguration.current reverts to stored when runtimeOverride cleared")
+
         check(!LiveCoachingDefault.resolve(in: defaults, isExistingInstall: false), "new install starts with advanced live coaching off")
         check(!LiveCoachingDefault.resolve(in: defaults, isExistingInstall: true), "new-install default survives onboarding marking the install as used")
         defaults.removeObject(forKey: LiveCoachingDefault.key)
@@ -311,6 +318,73 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
         NotificationCenter.default.post(name: OllamaProvider.didDetectMissingModel, object: nil, userInfo: ["model": "missing-test"])
         check(noticeBox.received, "didDetectMissingModel notification posts and delivers model name")
         NotificationCenter.default.removeObserver(observer)
+
+        // Ollama cloud model detection and sizeLabel
+        let localModel = OllamaModel(name: "llama3:8b", size: 4_700_000_000, parameterSize: "8B")
+        check(!localModel.isCloudModel, "local model is not cloud model")
+        check(localModel.sizeLabel == "4.4 GB", "local model formats sizeLabel in GB")
+
+        let cloudModelBySize = OllamaModel(name: "deepseek-v4:latest", size: 344, parameterSize: "")
+        check(cloudModelBySize.isCloudModel, "size < 1MB marks cloud model")
+        check(cloudModelBySize.sizeLabel == "Cloud", "cloud model formats sizeLabel as Cloud")
+
+        let cloudModelByRemote = OllamaModel(name: "custom-cloud", size: 5_000_000, parameterSize: "", remoteHost: "https://ollama.com:443")
+        check(cloudModelByRemote.isCloudModel, "remoteHost marks cloud model")
+        check(cloudModelByRemote.sizeLabel == "Cloud", "cloud model with remoteHost formats sizeLabel as Cloud")
+
+        let cloudModelByName = OllamaModel(name: "deepseek-v4-pro:cloud", size: 5_000_000, parameterSize: "")
+        check(cloudModelByName.isCloudModel, ":cloud suffix marks cloud model")
+        check(cloudModelByName.sizeLabel == "Cloud", ":cloud suffix formats sizeLabel as Cloud")
+
+        let loopbackCloudConfig = AIConfiguration(provider: .ollama, model: "deepseek-v4-pro:cloud", baseURL: "http://127.0.0.1:11434")
+        check(loopbackCloudConfig.sendsTextOffDevice, "loopback Ollama sends text off device for cloud models")
+
+        let loopbackLocalConfig = AIConfiguration(provider: .ollama, model: "llama3:8b", baseURL: "http://127.0.0.1:11434")
+        check(!loopbackLocalConfig.sendsTextOffDevice, "loopback Ollama stays on device for local models")
+
+        // Rate limiting (HTTP 429)
+        StubHTTP.status = 429
+        StubHTTP.body = Data(#"{"error":"rate limit exceeded"}"#.utf8)
+        do {
+            _ = try await OllamaProvider.complete(
+                baseURL: URL(string: "http://127.0.0.1:11434")!,
+                model: "deepseek-v4-pro:cloud",
+                system: "sys",
+                user: "usr",
+                session: session
+            )
+            check(false, "429 must throw")
+        } catch let err as OllamaProviderError {
+            if case .rateLimited = err {
+                check(true, "HTTP 429 maps to OllamaProviderError.rateLimited")
+            } else {
+                check(false, "expected rateLimited, got \(err)")
+            }
+        } catch {
+            check(false, "expected OllamaProviderError, got \(error)")
+        }
+
+        // Offline reachability with cloud model
+        OllamaProvider.isNetworkOnline = { false }
+        do {
+            _ = try await OllamaProvider.complete(
+                baseURL: URL(string: "http://127.0.0.1:11434")!,
+                model: "deepseek-v4-pro:cloud",
+                system: "sys",
+                user: "usr",
+                session: session
+            )
+            check(false, "offline cloud model complete must throw")
+        } catch let err as OllamaProviderError {
+            if case .cloudUnavailable(let msg) = err {
+                check(msg.contains("offline") || msg.contains("unavailable"), "offline cloud model maps to cloudUnavailable")
+            } else {
+                check(false, "expected cloudUnavailable, got \(err)")
+            }
+        } catch {
+            check(false, "expected OllamaProviderError, got \(error)")
+        }
+        OllamaProvider.isNetworkOnline = { true }
 
         defaults.removeObject(forKey: AIConfiguration.defaultsKey)
         UserDefaults.standard.removeObject(forKey: AIConfiguration.defaultsKey)

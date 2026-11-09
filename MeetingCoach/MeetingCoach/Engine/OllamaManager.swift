@@ -30,7 +30,27 @@ final class OllamaManager {
     private var process: Process?
     private var activePort: Int?
     private var reusedSharedEngine = false
+    private(set) var didFallbackToStandaloneOllama = false
     private let logger = Logger(subsystem: "com.coach.MeetingCoach", category: "OllamaManager")
+
+    static var hasBundleEmbeddedRuntime: Bool {
+        if let resourceURL = Bundle.main.resourceURL {
+            let candidate = resourceURL.appendingPathComponent("ollama/ollama")
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return true
+            }
+        }
+        if let execURL = Bundle.main.executableURL {
+            let candidate = execURL
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("Resources/ollama/ollama")
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return true
+            }
+        }
+        return Bundle.main.url(forResource: "ollama", withExtension: nil, subdirectory: "ollama") != nil
+    }
 
     /// Last time the engine was auto-restarted after dying unexpectedly.
     /// One restart per window — external kills recover invisibly, a
@@ -110,6 +130,7 @@ final class OllamaManager {
                 OllamaLocalEndpoint.setActivePort(11434)
                 self.activePort = 11434
                 self.reusedSharedEngine = true
+                self.didFallbackToStandaloneOllama = true
                 self.status = .running
                 return
             }

@@ -2116,6 +2116,21 @@ struct ModelSection: View {
     }
 
     @State private var isExpanded = false
+    @State private var modelPendingCloudSelection: OllamaModel?
+
+    private var modelSelectionBinding: Binding<String> {
+        Binding<String>(
+            get: { settings.activeSelectedModel },
+            set: { newName in
+                if let target = settings.activeModels.first(where: { OllamaProvider.modelNamesMatch(configured: newName, installed: $0.name) }),
+                   target.isCloudModel {
+                    modelPendingCloudSelection = target
+                } else {
+                    settings.activeSelectedModel = newName
+                }
+            }
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -2173,7 +2188,10 @@ struct ModelSection: View {
                 if hasModels {
                     DisclosureGroup(isExpanded: $isExpanded) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Picker("", selection: $settings.activeSelectedModel) {
+                            Picker("", selection: modelSelectionBinding) {
+                                if !settings.activeModels.contains(where: { OllamaProvider.modelNamesMatch(configured: settings.activeSelectedModel, installed: $0.name) }) {
+                                    Text("Select a model…").tag("")
+                                }
                                 // One Text per row on purpose: the macOS menu
                                 // picker drops an HStack's trailing column, so
                                 // the size used to vanish from the dropdown
@@ -2346,6 +2364,28 @@ struct ModelSection: View {
                 Text(error).font(.caption).foregroundStyle(.red)
             }
         }
+        .confirmationDialog(
+            "Use cloud model \(modelPendingCloudSelection?.name ?? "")?",
+            isPresented: Binding(
+                get: { modelPendingCloudSelection != nil },
+                set: { if !$0 { modelPendingCloudSelection = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Use \(modelPendingCloudSelection?.name ?? "")") {
+                if let target = modelPendingCloudSelection {
+                    settings.activeSelectedModel = target.name
+                    modelPendingCloudSelection = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                modelPendingCloudSelection = nil
+            }
+        } message: {
+            if let target = modelPendingCloudSelection {
+                Text("\(target.name) runs in Ollama's cloud, not on this Mac. Meeting text, participant names, coaching context, notes, and questions will be sent to Ollama's servers when coaching or generating notes. Audio and transcription stay on this Mac.")
+            }
+        }
         .sheet(isPresented: $settings.showModelCatalog) {
             ModelCatalogView(settings: settings)
         }
@@ -2357,6 +2397,7 @@ struct ModelSection: View {
 struct ModelCatalogView: View {
     @Bindable var settings: SettingsViewModel
     @Environment(\.dismiss) private var dismiss
+    @State private var modelPendingCloudSelection: OllamaModel?
 
     // Models that can't run in this Mac's RAM aren't offered at all —
     // downloading one ends in a mid-meeting freeze, not a quality upgrade.
@@ -2371,16 +2412,6 @@ struct ModelCatalogView: View {
                         Text("Download Models").font(.title2.bold())
                         if settings.isRefreshingModels {
                             ProgressView().controlSize(.small)
-                        } else {
-                            Button {
-                                Task { await settings.refreshModelsLive() }
-                            } label: {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Refresh installed models")
                         }
                     }
                     Text("Choose a model to run locally via Ollama")
@@ -2402,7 +2433,13 @@ struct ModelCatalogView: View {
                         .padding(.top, 8)
 
                     ForEach(installedList) { model in
-                        InstalledModelRow(model: model, settings: settings)
+                        InstalledModelRow(
+                            model: model,
+                            settings: settings,
+                            onRequestUseCloudModel: { target in
+                                modelPendingCloudSelection = target
+                            }
+                        )
                     }
                 }
             }
@@ -2446,6 +2483,28 @@ struct ModelCatalogView: View {
             }
         }
         .frame(width: 520, height: 500)
+        .confirmationDialog(
+            "Use cloud model \(modelPendingCloudSelection?.name ?? "")?",
+            isPresented: Binding(
+                get: { modelPendingCloudSelection != nil },
+                set: { if !$0 { modelPendingCloudSelection = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Use \(modelPendingCloudSelection?.name ?? "")") {
+                if let target = modelPendingCloudSelection {
+                    settings.activeSelectedModel = target.name
+                    modelPendingCloudSelection = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                modelPendingCloudSelection = nil
+            }
+        } message: {
+            if let target = modelPendingCloudSelection {
+                Text("\(target.name) runs in Ollama's cloud, not on this Mac. Meeting text, participant names, coaching context, notes, and questions will be sent to Ollama's servers when coaching or generating notes. Audio and transcription stay on this Mac.")
+            }
+        }
         .task {
             await settings.refreshModelsLive()
         }
@@ -2455,6 +2514,7 @@ struct ModelCatalogView: View {
 struct InstalledModelRow: View {
     let model: OllamaModel
     @Bindable var settings: SettingsViewModel
+    var onRequestUseCloudModel: (OllamaModel) -> Void
 
     var isSelected: Bool {
         OllamaProvider.modelNamesMatch(configured: settings.activeSelectedModel, installed: model.name)
@@ -2476,7 +2536,7 @@ struct InstalledModelRow: View {
                     }
                     // Installed before the RAM checks existed (or on another
                     // Mac) — flag it instead of letting "Use" cause a freeze.
-                    if !ModelMemory.fits(model) {
+                    if !model.isCloudModel && !ModelMemory.fits(model) {
                         Text("too big for this Mac")
                             .font(.caption2)
                             .padding(.horizontal, 5)
@@ -2496,7 +2556,11 @@ struct InstalledModelRow: View {
             Spacer()
             if !isSelected {
                 Button("Use") {
-                    settings.activeSelectedModel = model.name
+                    if model.isCloudModel {
+                        onRequestUseCloudModel(model)
+                    } else {
+                        settings.activeSelectedModel = model.name
+                    }
                 }
                 .font(.caption)
                 .buttonStyle(.bordered)

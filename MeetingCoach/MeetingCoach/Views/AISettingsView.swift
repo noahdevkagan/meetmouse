@@ -6,6 +6,11 @@ struct AISettingsView: View {
     @State private var provider: AIProvider = .local
     @State private var model = ""
     @State private var ollamaURL = OllamaEndpoint.defaultBaseURL
+    @FocusState private var ollamaURLFocused: Bool
+    @State private var ollamaConnectionTested = false
+    @State private var testedOllamaModels: [OllamaModel] = []
+    @State private var settingsWindow: NSWindow?
+    @State private var isWindowVisible = false
     @State private var refreshingOllama = false
     @State private var key = ""
     @State private var hasSavedKey = false
@@ -49,15 +54,9 @@ struct AISettingsView: View {
                 if provider == .local {
                     Text("Local AI works offline after model downloads. Meeting text stays on your Mac. Manage local models in the main window’s coaching settings.")
                         .font(.caption).foregroundStyle(.secondary)
-                    if settings.usesCloudAI {
-                        Button("Use local AI") {
-                            settings.useLocalAI()
-                            status = "Local AI enabled. Future external requests are stopped."
-                            isError = false
-                        }
-                    }
                 } else if provider == .ollama {
                     TextField("Ollama server URL", text: $ollamaURL)
+                        .focused($ollamaURLFocused)
                         .disabled(testing || refreshingOllama)
                         .textFieldStyle(.roundedBorder)
 
@@ -81,19 +80,12 @@ struct AISettingsView: View {
                             .disabled(testing || refreshingOllama)
                         Button("Save and enable") { enable() }
                             .buttonStyle(.borderedProminent)
-                            .disabled(testing || refreshingOllama || (!OllamaEndpoint.isLoopback(ollamaURL) && !consent))
+                            .disabled(testing || refreshingOllama || !ollamaConnectionTested || (!OllamaEndpoint.isLoopback(ollamaURL) && !consent))
                     }
                     Text(OllamaEndpoint.isLoopback(ollamaURL)
                          ? "Test checks that your local Ollama server is responding."
                          : "Test checks that your remote Ollama server is responding.")
                         .font(.caption2).foregroundStyle(.secondary)
-                    if settings.usesCloudAI {
-                        Button("Use local AI") {
-                            settings.useLocalAI()
-                            status = "Local AI enabled. Ollama provider disabled."
-                            isError = false
-                        }
-                    }
                 } else {
                     Picker("Model", selection: $model) {
                         ForEach(provider.models, id: \.self) { Text(AIProvider.modelTitle($0)).tag($0) }
@@ -162,29 +154,93 @@ struct AISettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .background {
+            SettingsWindowAccessor(window: $settingsWindow)
+        }
         .onAppear {
+            isWindowVisible = true
+            settings.syncDevFallbackOllamaIfNeeded()
             provider = settings.aiConfiguration.provider
             loadProvider()
+            clearURLFieldFocus()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notif in
+            if let window = notif.object as? NSWindow, window == settingsWindow || (settingsWindow == nil && window == NSApp.keyWindow) {
+                if !isWindowVisible {
+                    isWindowVisible = true
+                    settings.syncDevFallbackOllamaIfNeeded()
+                    provider = settings.aiConfiguration.provider
+                    loadProvider()
+                }
+                clearURLFieldFocus()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notif in
+            if let window = notif.object as? NSWindow, window == settingsWindow || (settingsWindow == nil && window == NSApp.keyWindow) {
+                handleSettingsDismiss()
+            }
+        }
+        .onChange(of: settings.aiConfiguration.provider) { _, newProvider in
+            if provider != newProvider {
+                provider = newProvider
+                loadProvider()
+            }
         }
         .onChange(of: settings.semanticCoachEnabled) { _, enabled in
             if !enabled { liveSession.shedSessionModel(settings: nil) }
         }
         .onChange(of: provider) { _, _ in loadProvider() }
-        .onDisappear { accountTask?.cancel() }
+        .onDisappear {
+            handleSettingsDismiss()
+        }
         .onChange(of: model) { _, _ in status = nil }
         .onChange(of: key) { _, _ in status = nil }
-        .onChange(of: ollamaURL) { _, _ in status = nil }
+        .onChange(of: ollamaURL) { _, _ in
+            status = nil
+            ollamaConnectionTested = false
+            testedOllamaModels = []
+        }
+    }
+
+    private func clearURLFieldFocus() {
+        ollamaURLFocused = false
+        DispatchQueue.main.async {
+            ollamaURLFocused = false
+            let target = settingsWindow ?? NSApp.keyWindow
+            if let window = target, window.firstResponder is NSTextView {
+                window.makeFirstResponder(nil)
+            }
+        }
+    }
+
+    private func handleSettingsDismiss() {
+        accountTask?.cancel()
+        if provider == .local {
+            if settings.usesCloudAI {
+                settings.useLocalAI()
+                settings.syncDevFallbackOllamaIfNeeded()
+            }
+        }
+        provider = settings.aiConfiguration.provider
+        loadProvider()
+        isWindowVisible = false
     }
 
     private func loadProvider() {
         accountConnected = false
+        ollamaConnectionTested = false
+        testedOllamaModels = []
         key = ""; consent = false; status = nil; isError = false
+        if provider == .local {
+            return
+        }
         if provider == .ollama {
             if !settings.aiConfiguration.baseURL.isEmpty {
                 ollamaURL = settings.aiConfiguration.baseURL
             } else {
                 ollamaURL = OllamaEndpoint.defaultBaseURL
             }
+            clearURLFieldFocus()
             return
         }
         model = settings.aiConfiguration.provider == provider
@@ -201,22 +257,17 @@ struct AISettingsView: View {
                 fail(OllamaProviderError.invalidURL(ollamaURL))
                 return
             }
-            testing = true
-            Task {
-                defer { testing = false }
-                do {
-                    let models = try await settings.refreshOllamaModels(baseURL: url.absoluteString)
-                    try settings.enableOllama(
-                        AIConfiguration(provider: .ollama, model: "", baseURL: url.absoluteString),
-                        installedModels: models
-                    )
-                    isError = false
-                    status = OllamaEndpoint.isLoopback(url)
-                        ? "Ollama enabled on this Mac."
-                        : "Ollama enabled at \(url.absoluteString)."
-                } catch {
-                    fail(error)
-                }
+            do {
+                try settings.enableOllama(
+                    AIConfiguration(provider: .ollama, model: "", baseURL: url.absoluteString),
+                    installedModels: testedOllamaModels
+                )
+                isError = false
+                status = OllamaEndpoint.isLoopback(url)
+                    ? "Ollama enabled on this Mac."
+                    : "Ollama enabled at \(url.absoluteString)."
+            } catch {
+                fail(error)
             }
             return
         }
@@ -268,6 +319,8 @@ struct AISettingsView: View {
     private func testConnection() {
         if provider == .ollama {
             guard let url = OllamaEndpoint.normalizeOrNil(ollamaURL) else {
+                ollamaConnectionTested = false
+                testedOllamaModels = []
                 fail(OllamaProviderError.invalidURL(ollamaURL))
                 return
             }
@@ -275,10 +328,14 @@ struct AISettingsView: View {
             Task {
                 defer { testing = false }
                 do {
-                    _ = try await OllamaProvider.listModels(baseURL: url)
+                    let models = try await OllamaProvider.listModels(baseURL: url)
+                    testedOllamaModels = models
+                    ollamaConnectionTested = true
                     isError = false
                     status = "Connection successful."
                 } catch {
+                    ollamaConnectionTested = false
+                    testedOllamaModels = []
                     fail(error)
                 }
             }
@@ -312,5 +369,25 @@ struct AISettingsView: View {
                 } catch { fail(error) }
             }
         } catch { fail(error) }
+    }
+}
+
+private struct SettingsWindowAccessor: NSViewRepresentable {
+    @Binding var window: NSWindow?
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            self.window = view.window
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        if self.window == nil {
+            DispatchQueue.main.async {
+                self.window = nsView.window
+            }
+        }
     }
 }

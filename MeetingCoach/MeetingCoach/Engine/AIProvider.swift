@@ -61,8 +61,24 @@ struct AIConfiguration: Codable, Equatable, Sendable {
         baseURL = try container.decodeIfPresent(String.self, forKey: .baseURL) ?? ""
     }
 
+    private static let lock = NSLock()
+    private nonisolated(unsafe) static var _runtimeOverride: AIConfiguration?
+
+    static var runtimeOverride: AIConfiguration? {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return _runtimeOverride
+        }
+        set {
+            lock.lock()
+            defer { lock.unlock() }
+            _runtimeOverride = newValue
+        }
+    }
+
     static let defaultsKey = "aiProviderConfiguration"
-    static var current: AIConfiguration { read(from: .standard) }
+    static var current: AIConfiguration { runtimeOverride ?? read(from: .standard) }
     static func read(from defaults: UserDefaults) -> AIConfiguration {
         guard let data = defaults.data(forKey: defaultsKey),
               let value = try? JSONDecoder().decode(Self.self, from: data) else { return .init() }
@@ -89,7 +105,7 @@ struct AIConfiguration: Codable, Equatable, Sendable {
     var sendsTextOffDevice: Bool {
         switch provider {
         case .local: false
-        case .ollama: !isLoopbackOllama
+        case .ollama: !isLoopbackOllama || OllamaModel.isCloudModelName(model)
         case .anthropic, .openai, .claudeAccount: true
         }
     }

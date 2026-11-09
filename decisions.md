@@ -2202,3 +2202,65 @@ Key design choices:
   the Ollama server; otherwise the selection remains empty. Switching back to Local preserves
   the Local model selection. Empty Ollama model configurations persist safely in settings
   without fallback to Local.
+
+## 2026-11-08: Ollama cloud model confirmation dialog & RAM exclusion
+
+- Selection confirmation instead of Settings toggle: Ollama cloud models (proxied via
+  `/api/tags` with `:cloud` or `-cloud` tag, `remote_host`, or tiny `< 1 MB` manifest stubs)
+  send prompt text, participant names, and notes context off-device to Ollama's cloud. Rather
+  than adding a global toggle in Settings → AI, MeetMouse presents a `.confirmationDialog`
+  (matching the pattern in `fix/safe-model-deletion-55`) when the user selects a cloud model from
+  either the Coaching tab's `Model` dropdown or the "Use" button in the "Download Models" modal
+  (`ModelCatalogView`). Audio capture and transcription remain 100% on-device.
+- Exclusion from RAM-fit and automatic fallback ladders: Because cloud models report minimal disk
+  size in `/api/tags` (e.g. 344 bytes), automated RAM ladders (`fallbackInstalledModel(in:)`,
+  `effectiveModel` step-down, `ModelMemory.candidatesForCurrentMemory`, and
+  `SettingsViewModel.liveCoachingCostNote` memory calculations) previously treated them as tiny local
+  models and auto-selected them on fallback. Cloud models are now strictly excluded from all automatic
+  fallback and local RAM calculations; users must explicitly choose to use a cloud model.
+- "Cloud" badge: In both the Model dropdown and Download Models modal, `OllamaModel.sizeLabel`
+  displays "Cloud" instead of "0 MB" or byte counts.
+- Non-permanent Dev mode Ollama sync: When an unvendored Dev build runs and falls back to standalone
+  Ollama on port 11434, MeetMouse reflects Ollama in-memory so Settings shows "Ollama" without
+  writing to UserDefaults or corrupting an installed release build's settings.
+
+## 2026-11-08: In-memory runtime override for Dev build standalone Ollama fallback
+
+- When running an unvendored dev build (`!OllamaManager.hasBundleEmbeddedRuntime`), MeetMouse cannot
+  run embedded local Ollama and falls back to standalone Ollama on `127.0.0.1:11434`.
+- To prevent Settings → AI from continuing to display "Local (on this Mac)" in the Provider dropdown
+  and Active provider header, `syncDevFallbackOllamaIfNeeded()` runs during `SettingsViewModel.init()`,
+  `refreshModels()`, `refreshModelsLive()`, and `AISettingsView.onAppear`.
+- It sets `OllamaLocalEndpoint.setActivePort(11434)` and initializes an in-memory `AIConfiguration`
+  pointing to `http://127.0.0.1:11434`.
+- To avoid writing to `UserDefaults` (which is shared with `/Applications/MeetMouse.app`), an in-memory
+  `AIConfiguration.runtimeOverride` is exposed and read by `AIConfiguration.current`, ensuring `AIClient`,
+  `OllamaProvider`, and `SettingsViewModel` all operate consistently in Ollama mode while preserving
+  the user's saved settings. If the user explicitly selects "Use local AI" in `AISettingsView`,
+  `userExplicitlyChoseLocalInSession` is set to true and `runtimeOverride` is cleared so their choice is
+  respected for that session.
+- Cloud reachability & rate limiting: When network connectivity is offline at session start or during
+  a heartbeat with an Ollama cloud model, MeetMouse degrades gracefully to deterministic coaching
+  with the notice "Ollama cloud model unavailable". HTTP 402/429 rate limit errors surface as
+  "Cloud rate limit reached".
+
+## 2026-11-08: Window-close provider application & URL field focus cleanup
+
+- Removed all "Use local AI" buttons from `AISettingsView`. Selecting "Local (on this Mac)" in the
+  Provider dropdown leaves the current active AI intact while the Settings window remains open, and
+  only applies `settings.useLocalAI()` when the Settings window is closed or dismissed.
+- If another provider is selected in the dropdown without clicking "Save and enable", closing the
+  Settings window discards the unsaved selection and restores the active provider.
+- In unvendored Dev builds, `syncDevFallbackOllamaIfNeeded()` ensures that closing Settings on Local
+  keeps the in-memory override active for standalone Ollama on port 11434.
+- Prevented automatic text selection / highlighting in the "Ollama server URL" text field by clearing
+  first responder when Settings opens or becomes key, while preserving standard click-to-edit behavior.
+
+## 2026-11-09: Gate Ollama "Save and enable" behind "Test connection"
+
+- In `AISettingsView`, when the `Ollama` provider is selected, the "Save and enable" button remains
+  visible but is disabled until "Test connection" has successfully verified reachability and listed the server's models.
+- "Test connection" caches the fetched models (`testedOllamaModels`), allowing "Save and enable" to
+  apply the new configuration synchronously without performing a redundant second network test.
+- Any change to the Ollama server URL resets the tested state (`ollamaConnectionTested = false`),
+  disabling "Save and enable" and requiring "Test connection" to be run again before the new endpoint can be saved and enabled.

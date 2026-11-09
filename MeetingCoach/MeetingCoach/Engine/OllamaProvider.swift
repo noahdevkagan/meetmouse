@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import Network
 
 /// Progress update from a model pull operation.
 struct PullProgress: Sendable {
@@ -27,9 +28,29 @@ struct OllamaModel: Identifiable, Sendable, Equatable {
     let name: String
     let size: Int64
     let parameterSize: String
+    var remoteHost: String = ""
     var id: String { name }
 
+    init(name: String, size: Int64, parameterSize: String, remoteHost: String = "") {
+        self.name = name
+        self.size = size
+        self.parameterSize = parameterSize
+        self.remoteHost = remoteHost
+    }
+
+    static func isCloudModelName(_ name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return trimmed.hasSuffix(":cloud") || trimmed.hasSuffix("-cloud")
+    }
+
+    var isCloudModel: Bool {
+        !remoteHost.isEmpty || (size > 0 && size < 1_048_576) || Self.isCloudModelName(name)
+    }
+
     var sizeLabel: String {
+        if isCloudModel {
+            return "Cloud"
+        }
         let gb = Double(size) / 1_073_741_824
         if gb >= 1 {
             return String(format: "%.1f GB", gb)
@@ -119,6 +140,8 @@ enum OllamaProviderError: LocalizedError, Equatable {
     case modelNotFound(String)
     case chatUnsupported(String)
     case insufficientMemory(String)
+    case rateLimited(String)
+    case cloudUnavailable(String)
     case serverError(String)
     case disabledOrChanged
 
@@ -126,7 +149,9 @@ enum OllamaProviderError: LocalizedError, Equatable {
         switch self {
         case .invalidURL(let msg), .unreachable(let msg), .atsBlocked(let msg),
              .modelNotFound(let msg), .chatUnsupported(let msg),
-             .insufficientMemory(let msg), .serverError(let msg):
+             .insufficientMemory(let msg), .rateLimited(let msg),
+             .cloudUnavailable(let msg),
+             .serverError(let msg):
             return msg
         case .disabledOrChanged:
             return "Ollama provider was disabled or changed. Start a new session to use the new selection."
@@ -134,8 +159,36 @@ enum OllamaProviderError: LocalizedError, Equatable {
     }
 }
 
+final class NetworkReachability: @unchecked Sendable {
+    static let shared = NetworkReachability()
+    private let monitor = NWPathMonitor()
+    private let queue = DispatchQueue(label: "com.coach.MeetingCoach.NetworkReachability")
+    private var _isOnline: Bool = true
+    private let lock = NSLock()
+
+    var isOnline: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return _isOnline
+    }
+
+    private init() {
+        monitor.pathUpdateHandler = { [weak self] path in
+            guard let self else { return }
+            self.lock.lock()
+            self._isOnline = (path.status == .satisfied)
+            self.lock.unlock()
+        }
+        monitor.start(queue: queue)
+    }
+}
+
 enum OllamaProvider {
     static let didDetectMissingModel = Notification.Name("OllamaProvider.didDetectMissingModel")
+
+    nonisolated(unsafe) static var isNetworkOnline: () -> Bool = {
+        NetworkReachability.shared.isOnline
+    }
 
     private static let session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
@@ -200,7 +253,8 @@ enum OllamaProvider {
             let size = dict["size"] as? Int64 ?? 0
             let details = dict["details"] as? [String: Any] ?? [:]
             let paramSize = details["parameter_size"] as? String ?? ""
-            return OllamaModel(name: name, size: size, parameterSize: paramSize)
+            let remoteHost = dict["remote_host"] as? String ?? ""
+            return OllamaModel(name: name, size: size, parameterSize: paramSize, remoteHost: remoteHost)
         }
     }
 
@@ -212,6 +266,11 @@ enum OllamaProvider {
         do {
             let models = try await listModels(baseURL: baseURL, session: testSession)
             if let matched = models.first(where: { modelNamesMatch(configured: configuration.model, installed: $0.name) }) {
+                if matched.isCloudModel {
+                    if !isNetworkOnline() {
+                        return .failure(.cloudUnavailable("Ollama cloud model '\(configuration.model)' is unavailable while offline."))
+                    }
+                }
                 return .success(matched)
             }
             NotificationCenter.default.post(name: didDetectMissingModel, object: configuration.model)
@@ -381,6 +440,13 @@ enum OllamaProvider {
             throw OllamaProviderError.disabledOrChanged
         }
 
+        let isCloudModel = OllamaModel.isCloudModelName(configuration.model)
+        if isCloudModel {
+            if !isNetworkOnline() {
+                throw OllamaProviderError.cloudUnavailable("Ollama cloud model '\(configuration.model)' is unavailable while offline. Check your internet connection.")
+            }
+        }
+
         let url = baseURL.appendingPathComponent("api/chat")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -415,6 +481,9 @@ enum OllamaProvider {
         } catch let err as URLError where err.code == .appTransportSecurityRequiresSecureConnection {
             throw OllamaProviderError.atsBlocked("Connection blocked by macOS App Transport Security. Remote servers require HTTPS or a local network address.")
         } catch {
+            if isCloudModel && !isNetworkOnline() {
+                throw OllamaProviderError.cloudUnavailable("Ollama cloud model '\(configuration.model)' is unavailable while offline. Check your internet connection.")
+            }
             let host = baseURL.host() ?? baseURL.host ?? "server"
             throw OllamaProviderError.unreachable("Could not reach Ollama at \(host). Check that Ollama is running.")
         }
@@ -429,6 +498,12 @@ enum OllamaProvider {
 
         if !(200..<300).contains(status) {
             let errorMsg = json["error"] as? String ?? ""
+            if status == 402 || status == 429
+                || errorMsg.localizedCaseInsensitiveContains("rate limit")
+                || errorMsg.localizedCaseInsensitiveContains("quota")
+                || errorMsg.localizedCaseInsensitiveContains("too many requests") {
+                throw OllamaProviderError.rateLimited("Ollama: Usage, quota or rate limit reached. Check your Ollama account and try later.")
+            }
             if status == 404 || errorMsg.localizedCaseInsensitiveContains("not found") {
                 NotificationCenter.default.post(name: didDetectMissingModel, object: configuration.model)
                 throw OllamaProviderError.modelNotFound("Model '\(configuration.model)' was not found in Ollama. Check your installed models.")
@@ -439,6 +514,9 @@ enum OllamaProvider {
             if status >= 500 && errorMsg.localizedCaseInsensitiveContains("memory") {
                 throw OllamaProviderError.insufficientMemory("Ollama: Not enough memory to run '\(configuration.model)'.")
             }
+            if isCloudModel && (errorMsg.localizedCaseInsensitiveContains("network") || errorMsg.localizedCaseInsensitiveContains("unavailable") || status == 503) {
+                throw OllamaProviderError.cloudUnavailable("Ollama cloud model '\(configuration.model)' is unavailable. Check your internet connection.")
+            }
             if !errorMsg.isEmpty {
                 let compact = errorMsg.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
                 throw OllamaProviderError.serverError("Ollama: \(compact.prefix(160))")
@@ -447,9 +525,17 @@ enum OllamaProvider {
         }
 
         if let errorMsg = json["error"] as? String, !errorMsg.isEmpty {
+            if errorMsg.localizedCaseInsensitiveContains("rate limit")
+                || errorMsg.localizedCaseInsensitiveContains("quota")
+                || errorMsg.localizedCaseInsensitiveContains("too many requests") {
+                throw OllamaProviderError.rateLimited("Ollama: Usage, quota or rate limit reached. Check your Ollama account and try later.")
+            }
             if errorMsg.localizedCaseInsensitiveContains("not found") {
                 NotificationCenter.default.post(name: didDetectMissingModel, object: configuration.model)
                 throw OllamaProviderError.modelNotFound("Model '\(configuration.model)' was not found in Ollama.")
+            }
+            if isCloudModel && (errorMsg.localizedCaseInsensitiveContains("network") || errorMsg.localizedCaseInsensitiveContains("unavailable")) {
+                throw OllamaProviderError.cloudUnavailable("Ollama cloud model '\(configuration.model)' is unavailable. Check your internet connection.")
             }
             throw OllamaProviderError.serverError("Ollama error: \(errorMsg)")
         }
