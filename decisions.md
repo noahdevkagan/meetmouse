@@ -2235,3 +2235,11 @@ plus the existing "Start with goal" on the meeting-detected pill. The "Next call
 card appears only after someone saves prep. Questions to Ask stays out of Advanced:
 it now lives only in the prep form, so it adds nothing to the default screen.
 A chevron on Start was rejected as still visible on every launch.
+
+## 2026-11-09 — Human notes and delayed rewrites preserve saved changes
+Saved notes use a parsing mode without the LLM's eight-item limits or preamble
+stripping, including reloads and Home checkbox writes. Model replies retain their
+existing limits. Section rewrites cancel when the detail view disappears and
+compare the full saved file before writing, so another writer's changes win.
+Saved next-call prep is honored inside startLive, shared by sidebar, menu bar,
+and detection starts; unprepared last-used guests remain unconfirmed.

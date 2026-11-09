@@ -21,7 +21,7 @@ enum MeetingNotesFile {
     /// Parsed notes, with the header's talk ratio so a rewrite keeps the
     /// "Talk split" line.
     static func review(in content: String) -> MeetingReview? {
-        reviewText(in: content).map { MeetingReview.parse(llmText: $0, talkShare: talkShare(in: content)) }
+        reviewText(in: content).map { MeetingReview.parseSavedMarkdown($0, talkShare: talkShare(in: content)) }
     }
 
     static func talkShare(in content: String) -> Double? {
@@ -38,6 +38,20 @@ enum MeetingNotesFile {
         if let range = head.range(of: "\n## Review") { head = String(head[..<range.lowerBound]) }
         head = head.trimmingCharacters(in: .whitespacesAndNewlines)
         return head + "\n\n## Review\n\n\(review.recapMarkdown)\n"
+    }
+
+    /// Optimistic write for delayed AI work. Check the file, not a view's
+    /// cached review: another window or Home may have changed its notes.
+    /// Call synchronously on the main actor with other in-app note writers.
+    @MainActor
+    static func saveRewrite(_ review: MeetingReview, to url: URL,
+                            expectedContent: String) throws -> String? {
+        let latest = try String(contentsOf: url, encoding: .utf8)
+        guard latest == expectedContent else { return nil }
+        let updated = replacingReview(in: latest, with: review)
+        try updated.write(to: url, atomically: true, encoding: .utf8)
+        NotificationCenter.default.post(name: didChange, object: url)
+        return updated
     }
 
     // MARK: - Edited marker

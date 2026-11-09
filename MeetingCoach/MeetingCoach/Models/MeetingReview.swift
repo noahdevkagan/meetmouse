@@ -164,7 +164,14 @@ struct MeetingReview: Equatable {
         return t
     }
 
-    static func parse(llmText: String, talkShare: Double? = nil) -> MeetingReview {
+    /// Saved/user-authored notes must not use the model-output size limits
+    /// or discard text before the first recognized section label.
+    static func parseSavedMarkdown(_ text: String, talkShare: Double? = nil) -> MeetingReview {
+        parse(llmText: text, talkShare: talkShare, savedMarkdown: true)
+    }
+
+    static func parse(llmText: String, talkShare: Double? = nil,
+                      savedMarkdown: Bool = false) -> MeetingReview {
         enum Section { case title, summary, notes, takeaways, nextSteps, wins, focus }
         var review = MeetingReview(talkShare: talkShare)
         var section = Section.summary
@@ -267,7 +274,7 @@ struct MeetingReview: Equatable {
         // header exists anywhere, keep everything (fallback path below).
         let allLines = llmText.components(separatedBy: .newlines)
         var startIndex = 0
-        for (i, raw) in allLines.enumerated() {
+        for (i, raw) in allLines.enumerated() where !savedMarkdown {
             let t = raw.trimmingCharacters(in: .whitespaces)
             if inlineHeader(t) != nil || sectionFor(header: t) != nil {
                 startIndex = i
@@ -376,9 +383,9 @@ struct MeetingReview: Equatable {
 
         review.summary = summaryLines.joined(separator: " ")
         if !focusLines.isEmpty { review.nextFocus = focusLines.joined(separator: " ") }
-        if review.actionItems.count > 8 { review.actionItems.removeLast(review.actionItems.count - 8) }
+        if !savedMarkdown && review.actionItems.count > 8 { review.actionItems.removeLast(review.actionItems.count - 8) }
         review.sections.removeAll { $0.bullets.isEmpty }
-        if review.sections.count > 8 { review.sections.removeLast(review.sections.count - 8) }
+        if !savedMarkdown && review.sections.count > 8 { review.sections.removeLast(review.sections.count - 8) }
 
         if review.isEmpty {
             // Unparseable response — degrade to readable text, never blank.

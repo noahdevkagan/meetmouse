@@ -5,6 +5,18 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-09): Fix code-review findings
+
+Plan: preserve human-edited notes on save/reload without LLM truncation or
+preamble stripping; cancel section rewrites on navigation and reject writes if
+the saved file changed; honor saved next-call participants in every start path.
+Completed: saved-note parsing preserves all nine-topic/nine-step fixtures even
+without a summary; file-checked rewrites preserve newer Home checkbox changes;
+all start paths honor prepared guests and the next unprepared call drops them.
+Regression session suite and Debug build passed. Logs:
+`.context/fix-review-session.log`, `.context/fix-review-build.log`.
+No GUI/live-call check, push, or release. Review fixes committed at the user’s request.
+
 ## Current state (2026-11-08): Customer-review fixes, items 1-4
 
 A customer review (2 tacos) said notes are inaccurate, prep is hidden, home doesn't

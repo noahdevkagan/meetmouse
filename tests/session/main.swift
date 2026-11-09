@@ -1267,6 +1267,70 @@ func runTests() async {
     check(PreCallContext.saved(in: "## Transcript\n[00:01] You: hi").meetingGoal.isEmpty,
           "files without pre-call context give an empty context")
 
+    // Saved notes are user data, not model output: no preamble/cap losses.
+    do {
+        let draft = (1...9).map { "### Topic \($0)\n- Detail \($0)\n" }.joined(separator: "\n")
+            + "\n**Suggested Next Steps**\n"
+            + (1...9).map { "- [ ] Task \($0)" }.joined(separator: "\n")
+        let parsed = MeetingReview.parseSavedMarkdown(draft)
+        check(parsed.sections.count == 9 && parsed.actionItems.count == 9,
+              "human notes preserve nine topics and steps without a summary")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("rewrite-\(UUID())")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("meeting.md")
+        let original = MeetingNotesFile.settingEdited(true, in:
+            MeetingNotesFile.replacingReview(in: "# Meeting\n\n## Transcript\n", with: parsed))
+        try? original.write(to: url, atomically: true, encoding: .utf8)
+        check(MeetingNotesFile.review(in: original)?.sections.count == 9,
+              "saved notes reload all topics without summary")
+        let followUp = MeetingNotesFile.FollowUp(url: url, index: 8, text: "Task 9",
+                                                meetingTitle: "Meeting", date: nil)
+        check(MeetingNotesFile.setDone(followUp, true), "home can tick ninth human-authored step")
+        let changed = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        check(MeetingNotesFile.review(in: changed)?.actionItems.last?.isDone == true
+              && MeetingNotesFile.review(in: changed)?.sections.count == 9,
+              "home checkbox rewrite preserves every topic and step")
+        var rewritten = parsed
+        rewritten.summary = "Rewritten summary"
+        do {
+            let rejected = try MeetingNotesFile.saveRewrite(rewritten, to: url, expectedContent: original)
+            check(rejected == nil && (try? String(contentsOf: url, encoding: .utf8)) == changed,
+                  "late AI rewrite cannot overwrite a newer home checkbox change")
+            let saved = try MeetingNotesFile.saveRewrite(rewritten, to: url, expectedContent: changed)
+            check(saved?.contains("Rewritten summary") == true
+                  && saved.map(MeetingNotesFile.isEdited) == true,
+                  "unchanged file accepts rewrite and preserves edited marker")
+        } catch { check(false, "rewrite persistence succeeds", "\(error)") }
+    }
+
+    // Default starts (menu bar/detection) must consume saved participant prep.
+    do {
+        let vm = LiveSessionViewModel()
+        var context = PreCallContext()
+        context.participants = [.init(name: "Morgan Example", role: "Designer")]
+        vm.nextCallPrepared = true
+        vm.startLive(context: context)
+        try? await Task.sleep(for: .milliseconds(300))
+        check(AudioCaptureManager.last?.expectedParticipants == ["Morgan Example"]
+              && vm.displaySpeaker("Them") == "Morgan Example",
+              "default start honors saved prep for capture and speaker naming")
+        AudioCaptureManager.last?.onUtterance?(Utterance(t: 1, speaker: "Them", text: "We agreed on the design.", endT: 3))
+        try? await Task.sleep(for: .milliseconds(50))
+        vm.stopLive()
+        let content = vm.savedPath.flatMap { try? String(contentsOfFile: $0, encoding: .utf8) } ?? ""
+        check(PreCallContext.saved(in: content).participants.map(\.name) == ["Morgan Example"],
+              "default start saves prepared participants for later notes")
+        vm.deleteSession()
+        vm.startLive(context: context)
+        try? await Task.sleep(for: .milliseconds(300))
+        check(AudioCaptureManager.last?.expectedParticipants.isEmpty == true
+              && vm.displaySpeaker("Them") == "Them",
+              "next unprepared meeting does not reuse last call's guests")
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
     // Edit notes + redo one section.
     do {
         var notes = MeetingReview.parse(llmText: """

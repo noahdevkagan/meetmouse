@@ -173,6 +173,11 @@ struct SessionDetailView: View {
         } message: {
             Text("This removes the questions and answers. Your meeting transcript and notes stay saved.")
         }
+        .onDisappear {
+            redoTask?.cancel()
+            redoTask = nil
+            redoingSection = nil
+        }
         .onChange(of: tab) { _, _ in load() }
         .onReceive(NotificationCenter.default.publisher(for: TranscriptSearch.didChangeTitle)) { notification in
             guard notification.object as? URL == url else { return }
@@ -596,7 +601,7 @@ struct SessionDetailView: View {
     }
 
     private func saveEditedNotes() {
-        let parsed = MeetingReview.parse(llmText: notesDraft, talkShare: talkShareValue)
+        let parsed = MeetingReview.parseSavedMarkdown(notesDraft, talkShare: talkShareValue)
         guard !parsed.isEmpty else {
             reviewError = "Notes can't be empty. Cancel to keep the saved version."
             return
@@ -636,6 +641,7 @@ struct SessionDetailView: View {
     private func redoSection(_ ref: ReviewSectionRef, _ request: NotesRewrite) async {
         guard let settings, let ollamaManager, let current = review, !lines.isEmpty else { return }
         let meeting = url
+        let expectedContent = rawContent
         redoingSection = ref
         reviewError = nil
         defer { if url == meeting { redoingSection = nil } }
@@ -665,9 +671,18 @@ struct SessionDetailView: View {
             reviewError = "AI didn't return a usable section. Your notes are unchanged."
             return
         }
-        review = updated
-        persistReview(updated)
-        NotificationCenter.default.post(name: MeetingNotesFile.didChange, object: url)
+        do {
+            guard let saved = try MeetingNotesFile.saveRewrite(updated, to: meeting,
+                                                               expectedContent: expectedContent) else {
+                load()
+                reviewError = "Your saved notes changed while AI was working. The rewrite wasn't applied."
+                return
+            }
+            rawContent = saved
+            review = updated
+        } catch {
+            reviewError = "Couldn't save the rewrite: \(error.localizedDescription)"
+        }
     }
 
     private func notesLanguageName(_ settings: SettingsViewModel) -> String? {
@@ -1253,7 +1268,7 @@ struct SessionDetailView: View {
         talkShareValue = share
         let reviewText = reviewLines.joined(separator: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        review = reviewText.isEmpty ? nil : MeetingReview.parse(llmText: reviewText, talkShare: share)
+        review = reviewText.isEmpty ? nil : MeetingReview.parseSavedMarkdown(reviewText, talkShare: share)
         // Seen on Notes = no longer "Notes to review" on the home screen.
         if tab == .summary, review != nil { MeetingNotesFile.markOpened(url) }
 

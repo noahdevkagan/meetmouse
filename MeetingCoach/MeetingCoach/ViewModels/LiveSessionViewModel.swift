@@ -548,7 +548,7 @@ final class LiveSessionViewModel {
         lastOllamaManager = ollamaManager
 
         resetSessionState()
-        participantsConfirmedForSession = participantsConfirmed
+        participantsConfirmedForSession = participantsConfirmed || nextCallPrepared
         endedSessionContext = nil
         signalEngine = SignalEngine(
             context: sessionContext,
@@ -561,7 +561,7 @@ final class LiveSessionViewModel {
         let participantNames = preCallContext.participants
             .map { $0.name.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-        preCallRemoteName = participantsConfirmed && participantNames.count == 1 ? participantNames[0] : nil
+        preCallRemoteName = participantsConfirmedForSession && participantNames.count == 1 ? participantNames[0] : nil
         recomputeRemoteAlias()
         status = resolvedLanguage.isEnglish
             ? "Starting — coaching loaded"
@@ -586,7 +586,7 @@ final class LiveSessionViewModel {
         manager.contextualHints = sessionContext.vocabularyHints + vocabulary.canonicals
         // Saved voices are candidates only when the user confirms who is
         // attending THIS call. The last-used form is not attendance evidence.
-        manager.expectedParticipants = participantsConfirmed ? participantNames : []
+        manager.expectedParticipants = participantsConfirmedForSession ? participantNames : []
         manager.vocabulary = vocabulary
         captureManager = manager
 

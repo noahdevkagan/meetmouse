@@ -2618,10 +2618,7 @@ struct LiveSection: View {
                     liveSession.startLive(
                         context: liveSession.preCallContext,
                         settings: settings,
-                        ollamaManager: ollamaManager,
-                        // Guests saved via "Add goal / questions" were
-                        // reviewed for this call; last call's are not.
-                        participantsConfirmed: liveSession.nextCallPrepared
+                        ollamaManager: ollamaManager
                     )
                 } label: {
                     HStack(spacing: 10) {
