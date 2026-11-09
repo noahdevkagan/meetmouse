@@ -149,7 +149,7 @@ def render(releases, locale="en", ctx=None) -> str:
 
 
 def main():
-    releases = parse(CHANGELOG.read_text())
+    releases = parse(CHANGELOG.read_text(encoding="utf-8"))
     if not releases:
         sys.exit("no releases parsed from CHANGELOG.md")
 

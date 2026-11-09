@@ -5,9 +5,9 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: MeetMouse 0.33.1\n"
+"Project-Id-Version: MeetMouse 0.34.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-11-02 15:17-0300\n"
+"POT-Creation-Date: 2026-11-09 09:55-0300\n"
 "PO-Revision-Date: 2026-11-02 10:58-0300\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es\n"
@@ -47,8 +47,8 @@ msgstr ""
 msgid "MeetMouse vs Otter.ai"
 msgstr ""
 
-#: scripts/build-changelog.py:101 site/build.py:285 site/templates/404.html:47
-#: site/templates/home.html:380 site/templates/home.html:558
+#: scripts/build-changelog.py:101 site/templates/404.html:47
+#: site/templates/home.html:380 site/templates/home.html:558 site/build.py:285
 msgid "Changelog"
 msgstr ""
 
@@ -56,8 +56,8 @@ msgstr ""
 msgid "Redeem your AppSumo code — MeetMouse"
 msgstr ""
 
-#: site/build.py:262 site/templates/appsumo.html:85
-#: site/templates/home.html:374 site/templates/thanks.html:53
+#: site/templates/appsumo.html:85 site/templates/home.html:374
+#: site/templates/thanks.html:61 site/build.py:262
 msgid "MeetMouse home"
 msgstr "MeetMouse inicio"
 
@@ -90,7 +90,7 @@ msgstr ""
 msgid "Your download is ready. Open the DMG and drag MeetMouse to Applications."
 msgstr ""
 
-#: site/templates/appsumo.html:107 site/templates/thanks.html:61
+#: site/templates/appsumo.html:107 site/templates/thanks.html:70
 msgid "Download MeetMouse for Mac"
 msgstr ""
 
@@ -98,7 +98,7 @@ msgstr ""
 msgid "Then unlock unlimited meetings:"
 msgstr ""
 
-#: site/templates/appsumo.html:109 site/templates/thanks.html:63
+#: site/templates/appsumo.html:109 site/templates/thanks.html:72
 msgid "Unlock MeetMouse Unlimited"
 msgstr ""
 
@@ -112,43 +112,43 @@ msgid ""
 "href='mailto:{email}'>{email}</a>"
 msgstr ""
 
-#: site/build.py:404 site/templates/article.html:1
+#: site/templates/article.html:1 site/build.py:404
 msgid "Breadcrumb"
 msgstr "Navegación"
 
-#: site/build.py:201 site/build.py:457 site/templates/article.html:30
-#: site/templates/article.html:56 site/templates/home.html:391
-#: site/templates/home.html:548
+#: site/templates/article.html:30 site/templates/article.html:56
+#: site/templates/home.html:391 site/templates/home.html:548 site/build.py:201
+#: site/build.py:457
 msgid "Download MeetMouse free"
 msgstr "Descargar MeetMouse gratis"
 
-#: site/build.py:458 site/templates/article.html:31
+#: site/templates/article.html:31 site/build.py:458
 msgid "Free for 3 meetings a week. No bot, and your meeting stays on your Mac."
 msgstr ""
 "Gratis para 3 reuniones por semana. Sin bot, y tu reunión se queda en tu "
 "Mac."
 
-#: site/build.py:448 site/templates/article.html:44
-#: site/templates/home.html:534
+#: site/templates/article.html:44 site/templates/home.html:534
+#: site/build.py:448
 msgid "Questions"
 msgstr "Preguntas frecuentes"
 
-#: site/build.py:467 site/templates/article.html:54
+#: site/templates/article.html:54 site/build.py:467
 msgid "Try MeetMouse"
 msgstr "Prueba MeetMouse"
 
-#: site/build.py:509 site/build.py:510 site/templates/article.html:64
-#: site/templates/article.html:66
+#: site/templates/article.html:64 site/templates/article.html:66
+#: site/build.py:509 site/build.py:510
 msgid "More guides"
 msgstr ""
 
+#: site/templates/article.html:74 site/templates/home.html:560
 #: site/build.py:254 site/build.py:278 site/build.py:512 site/build.py:666
 #: site/build.py:952 site/build.py:1210 site/build.py:1240
-#: site/templates/article.html:74 site/templates/home.html:560
 msgid "Comparisons"
 msgstr ""
 
-#: site/build.py:514 site/templates/article.html:82
+#: site/templates/article.html:82 site/build.py:514
 msgid "From the blog"
 msgstr ""
 
@@ -253,17 +253,17 @@ msgid ""
 "— no bot joins your call and no audio ever leaves your Mac."
 msgstr ""
 
-#: site/build.py:260 site/templates/home.html:371
+#: site/templates/home.html:371 site/build.py:260
 msgid "Skip to content"
 msgstr "Ir al contenido"
 
-#: site/build.py:255 site/build.py:279 site/build.py:717 site/build.py:952
-#: site/build.py:1234 site/build.py:1235 site/templates/home.html:379
-#: site/templates/home.html:557
+#: site/templates/home.html:379 site/templates/home.html:557 site/build.py:255
+#: site/build.py:279 site/build.py:717 site/build.py:952 site/build.py:1234
+#: site/build.py:1235
 msgid "Blog"
 msgstr ""
 
-#: site/build.py:201 site/templates/home.html:382
+#: site/templates/home.html:382 site/build.py:201
 msgid "Download free"
 msgstr "Descargar gratis"
 
@@ -617,7 +617,7 @@ msgstr ""
 msgid "MeetMouse vs Gong"
 msgstr ""
 
-#: site/build.py:1225 site/templates/home.html:528
+#: site/templates/home.html:528 site/build.py:1225
 msgid "All comparisons"
 msgstr ""
 
@@ -644,12 +644,12 @@ msgstr ""
 msgid "Best tools"
 msgstr ""
 
-#: scripts/build-changelog.py:103 site/build.py:286
-#: site/templates/home.html:562
+#: scripts/build-changelog.py:103 site/templates/home.html:562
+#: site/build.py:286
 msgid "Releases on GitHub"
 msgstr "Versiones en GitHub"
 
-#: site/build.py:276 site/templates/home.html:563
+#: site/templates/home.html:563 site/build.py:276
 msgid "Also by me: Rhino Voice, private Mac dictation"
 msgstr ""
 
@@ -657,28 +657,48 @@ msgstr ""
 msgid "Thanks! Download MeetMouse"
 msgstr ""
 
-#: site/templates/thanks.html:59
+#: site/templates/thanks.html:67
 msgid "Thanks for buying MeetMouse 🎉"
 msgstr ""
 
-#: site/templates/thanks.html:60
+#: site/templates/thanks.html:68
+msgid "Your payment is complete. PayPal emailed you a receipt."
+msgstr ""
+
+#: site/templates/thanks.html:69
 msgid ""
 "Already installed MeetMouse? Skip to the unlock button. Otherwise, open "
 "the DMG and drag MeetMouse to Applications."
 msgstr ""
 
-#: site/templates/thanks.html:62
+#: site/templates/thanks.html:71
 msgid "Then unlock unlimited meetings on that Mac:"
 msgstr ""
 
-#: site/templates/thanks.html:64
-#, python-brace-format
-msgid ""
-"Button not working? In MeetMouse, open <strong>Get MeetMouse "
-"Unlimited</strong> from the menu bar and enter <code>{code}</code>."
+#: site/templates/thanks.html:73
+msgid "One click. Nothing to type. MeetMouse opens and confirms it's unlocked."
 msgstr ""
 
-#: site/templates/thanks.html:65
+#: site/templates/thanks.html:75
+msgid "Your unlock code"
+msgstr ""
+
+#: site/templates/thanks.html:78
+msgid "Copy code"
+msgstr ""
+
+#: site/templates/thanks.html:80
+msgid ""
+"Only needed if the button doesn't open MeetMouse, or on another Mac: "
+"click the mouse icon in your menu bar → <strong>Get MeetMouse "
+"Unlimited</strong> → paste the code."
+msgstr ""
+
+#: site/templates/thanks.html:86
+msgid "Copied ✓"
+msgstr ""
+
+#: site/templates/thanks.html:90
 #, python-brace-format
 msgid ""
 "On first launch, click <strong>Download Model</strong> once (needs WiFi "
@@ -1623,8 +1643,8 @@ msgstr ""
 #: site/articles/compare__meetmouse-vs-fireflies.html:37
 #: site/articles/compare__meetmouse-vs-granola.html:38
 #: site/articles/compare__meetmouse-vs-otter.html:37
-#: site/articles/compare__meetmouse-vs-poised.html:37 site/build.py:561
-#: site/build.py:567 site/build.py:774 site/content/compare.py:1
+#: site/articles/compare__meetmouse-vs-poised.html:37 site/content/compare.py:1
+#: site/build.py:561 site/build.py:567 site/build.py:774
 msgid "Price"
 msgstr "Precio"
 
@@ -4925,7 +4945,9 @@ msgid ""
 msgstr ""
 
 #: site/build.py:212
-msgid "MeetMouse Unlimited for Mac"
+msgid ""
+"MeetMouse Unlimited for Mac - get your unlock code at "
+"meetmouse.com/thanks.html"
 msgstr ""
 
 #: site/build.py:431
@@ -4984,7 +5006,7 @@ msgstr ""
 msgid "Best for"
 msgstr "Ideal para"
 
-#: site/build.py:561 site/content/alternatives.py:1
+#: site/content/alternatives.py:1 site/build.py:561
 msgid "Stays on your Mac"
 msgstr "Se queda en tu Mac"
 
@@ -9612,6 +9634,51 @@ msgstr "diciembre"
 
 #: CHANGELOG.md:1
 msgid ""
+"Speaker name suggestions now appear right beside the talk bubble with Yes"
+" and No buttons, so you can confirm a name during the call without "
+"opening MeetMouse."
+msgstr ""
+
+#: CHANGELOG.md:1
+msgid ""
+"Speaker snapshots no longer misread a capital I as a lowercase L in names"
+" (for example, \"lvan\" instead of \"Ivan\")."
+msgstr ""
+
+#: CHANGELOG.md:1
+msgid ""
+"Speaker snapshots recognize the standalone Google Meet app. The window "
+"chooser shows detected calls first, with an option to select the call you"
+" switch to."
+msgstr ""
+
+#: CHANGELOG.md:1
+msgid ""
+"Speaker snapshots can read Google Meet’s blue speaker outlines as well as"
+" Zoom’s green/yellow outlines. Participant names must be visible; matches"
+" still need your confirmation."
+msgstr ""
+
+#: CHANGELOG.md:1
+msgid ""
+"Speaker-name settings now explain Zoom’s name-visibility option. When all"
+" snapshots miss the names, MeetMouse explains how to name a speaker "
+"manually."
+msgstr ""
+
+#: CHANGELOG.md:1
+msgid ""
+"Calls now run lighter by default. New installs start with advanced live "
+"coaching off, so no large AI model downloads or runs during calls, and "
+"built-in nudges still work. A setup checklist on the home screen offers "
+"your Claude account or a local model for AI notes after each call. Want "
+"AI nudges during calls? Turn on advanced live coaching in Settings → AI, "
+"which now shows what it costs in memory on your Mac. Existing installs "
+"keep their current setting."
+msgstr ""
+
+#: CHANGELOG.md:1
+msgid ""
 "When a call plays through your Mac's built-in speakers, MeetMouse now "
 "shows a one-line tip to use headphones. Without them your mic also hears "
 "the other side, so their words can show up as yours or both sides can "
@@ -10018,7 +10085,7 @@ msgstr ""
 #: CHANGELOG.md:1
 msgid ""
 "Fixed one person showing up as two speakers in a one-on-one when you had "
-"saved them under two names (like \"anna\" and \"Anna Notario\"): their "
+"saved them under two names (like \"anna\" and \"Anna Jones\"): their "
 "turns no longer flip between names, and short replies stay attributed. If"
 " two labels still look like the same person, a one-tap \"sound like the "
 "same person\" card merges them — transcript, timeline, and saved voice "
@@ -10282,8 +10349,8 @@ msgstr ""
 #: CHANGELOG.md:1
 msgid ""
 "Sessions get real names: the AI review that reads your whole meeting now "
-"titles it — \"Caitlin · margins & win-back\" instead of a word collage. "
-"Your own renames always win"
+"titles it — \"Dana · pricing & renewal\" instead of a word collage. Your "
+"own renames always win"
 msgstr ""
 
 #: CHANGELOG.md:1

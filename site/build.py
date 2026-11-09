@@ -209,7 +209,7 @@ def buy_form(compact=False, locale="en", ctx=None):
     _ = ctx.gettext
     loc = i18n.get_locale(locale)
     cancel_url = f"{BASE}{loc['root']}/" if loc["root"] else f"{BASE}/"
-    item_name = "MeetMouse Unlimited for Mac - get your unlock code at meetmouse.com/thanks.html"
+    item_name = _("MeetMouse Unlimited for Mac - get your unlock code at meetmouse.com/thanks.html")
     price = PRICES.meetmouse.price
     label = _("Buy MeetMouse Unlimited — {price}").format(price=price) if compact else _("Or buy MeetMouse Unlimited — {price} once").format(price=price)
     cls = "buy-form buy-form-compact" if compact else "buy-form buy-form-inline"
@@ -1081,7 +1081,7 @@ def render_home(locale="en"):
 
 
 def llms_txt():
-    head_txt = (DOCS / "llms.txt").read_text().split("\n## Product")[0].rstrip()
+    head_txt = (DOCS / "llms.txt").read_text(encoding="utf-8").split("\n## Product")[0].rstrip()
     def sec(title, links):
         return f"## {title}\n\n" + "\n".join(f"- [{t}]({h if h.startswith('http') else BASE + h}): {b}" for h, t, b in links)
 
@@ -1256,10 +1256,10 @@ WORKER_ROUTES = {"/get"}
 
 def check_links(files):
     bad = []
-    known = {"/", "/br/"} | {"/" + str(p.relative_to(DOCS).with_suffix("")).replace("\\", "/") for p in DOCS.rglob("*.html")}
-    known |= {"/" + str(p.relative_to(DOCS)) for p in DOCS.rglob("*") if p.is_file()}
-    known |= {"/" + str(p.parent.relative_to(DOCS)) + "/" for p in DOCS.rglob("index.html")}
-    known |= {"/" + str(f.relative_to(DOCS).with_suffix("")) for f in files} | {"/" + str(f.parent.relative_to(DOCS)) + "/" for f in files}
+    known = {"/", "/br/"} | {"/" + p.relative_to(DOCS).with_suffix("").as_posix() for p in DOCS.rglob("*.html")}
+    known |= {"/" + p.relative_to(DOCS).as_posix() for p in DOCS.rglob("*") if p.is_file()}
+    known |= {"/" + p.parent.relative_to(DOCS).as_posix() + "/" for p in DOCS.rglob("index.html")}
+    known |= {"/" + f.relative_to(DOCS).with_suffix("").as_posix() for f in files} | {"/" + f.parent.relative_to(DOCS).as_posix() + "/" for f in files}
     known |= WORKER_ROUTES
 
     # 1. Internal link target existence and valid ld+json
@@ -1302,8 +1302,8 @@ def check_links(files):
         rel_f = f.relative_to(DOCS)
         my_clean = ("" if rel_f == Path("index.html")
                     else "br" if rel_f == Path("br/index.html")
-                    else str(rel_f.parent) if rel_f.name == "index.html"
-                    else str(rel_f.with_suffix("")))
+                    else rel_f.parent.as_posix() if rel_f.name == "index.html"
+                    else rel_f.with_suffix("").as_posix())
         expected_alts = get_alternates(my_clean)
         if expected_alts:
             expected_set = set(expected_alts)
@@ -1318,7 +1318,7 @@ def main():
     files = build()
     bad = check_links(files)
     if "--check" in sys.argv:
-        stale = [str(f.relative_to(REPO)) for f, t in files.items() if not f.exists() or f.read_text() != t]
+        stale = [str(f.relative_to(REPO)) for f, t in files.items() if not f.exists() or f.read_text(encoding="utf-8") != t]
         if not (DOCS / "lang.js").exists() or (DOCS / "lang.js").read_text(encoding="utf-8") != (ROOT / "lang.js").read_text(encoding="utf-8"):
             stale.append(str((DOCS / "lang.js").relative_to(REPO)))
         if stale:
@@ -1336,7 +1336,7 @@ def main():
 
     for f, text in files.items():
         f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_text(text)
+        f.write_text(text, encoding="utf-8")
     print(f"Wrote {len(files)} content pages to docs/.")
     if bad:
         print("Link issues found:", file=sys.stderr)

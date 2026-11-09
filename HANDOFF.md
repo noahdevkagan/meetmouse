@@ -193,6 +193,14 @@ Completed the localization pipeline, pricing centralization, placeholder decoupl
    - `python3 scripts/build-sitemap.py --check` passes with 89 URLs current.
    - `msgfmt -c` compiles both `pt_BR` and `es` catalogs with 0 fatal errors.
 
+## Current state (2026-11-09): Rebase onto main, copy updates & 100% translation coverage — complete
+
+Rebased `pr/58` onto `origin/main` (`8faa94e`), porting recent upstream HTML copy changes into the i18n pipeline:
+1. **Thanks page unlock box & one-click unlock flow (`site/templates/thanks.html`):** Integrated upstream changes from commit `8faa94e` into `site/templates/thanks.html`: payment receipt notice (`.paid`), copyable unlock code card (`.code-box`, `.code-row`, `button#copy`), and fallback instructions (`.code-help`), wrapping copy in `_()` while preserving language dropdown and `/get` download link.
+2. **PayPal item name localization (`site/build.py`):** Wrapped `item_name` in `_()` within `buy_form()`, extracting `MeetMouse Unlimited for Mac - get your unlock code at meetmouse.com/thanks.html` and translating to Portuguese.
+3. **Cross-platform path normalization in site verification (`site/build.py`):** Updated `check_links()` to use `Path.as_posix()` and explicit `encoding="utf-8"` in `read_text()` and `write_text()`, ensuring smooth verification on Windows environments.
+4. **100% Brazilian Portuguese translation coverage (`site/locale/pt_BR/`):** Translated all 15 new/updated strings (including `thanks.html` additions, PayPal `item_name`, 0.34.0 release notes, and anonymized changelog bullets from #66), recompiling MO catalogs. All 94 content pages, 2 changelog pages (67 releases), and sitemap verified with zero broken links or schema issues.
+
 ## Current state (2026-10-20): Global open shortcut — implemented
 
 Control–Command–M opens/raises the existing main window from any app while
