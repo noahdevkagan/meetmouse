@@ -1,0 +1,100 @@
+<!doctype html>
+<!-- GENERATED from CHANGELOG.md by scripts/build-changelog.py — do not edit by hand. -->
+<html lang="{{ lang_tag }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<meta name="description" content="{{ desc }}">
+<link rel="canonical" href="{{ url }}">
+{{ hreflang_html | safe }}
+<script src="{{ rel_prefix }}lang.js" defer></script>
+<link rel="icon" type="image/png" href="{{ rel_prefix }}icon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ url }}">
+<meta property="og:title" content="{{ title }}">
+<meta property="og:description" content="{{ desc }}">
+<meta property="og:image" content="https://meetmouse.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ title }}">
+<meta name="twitter:description" content="{{ desc }}">
+<meta name="twitter:image" content="https://meetmouse.com/og.png">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: #fff;
+    color: #1a1a1a;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 620px; margin: 0 auto; padding: 72px 24px 96px; }
+  .home { font-size: 14px; color: #888; text-decoration: none; }
+  .home:hover { color: #555; }
+  h1 { font-size: 40px; line-height: 1.15; letter-spacing: -0.02em; font-weight: 700; margin-top: 24px; }
+  .sub { font-size: 17px; color: #555; margin-top: 12px; }
+  .release { margin-top: 56px; }
+  .release h2 {
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+  }
+  .release .date { font-size: 13px; font-weight: 400; color: #999; margin-left: 10px; }
+  .release ul { list-style: none; margin-top: 16px; }
+  .release li {
+    color: #444;
+    font-size: 15px;
+    padding-left: 18px;
+    position: relative;
+    margin-bottom: 10px;
+  }
+  .release li::before { content: "·"; position: absolute; left: 2px; color: #bbb; }
+  .release code {
+    overflow-wrap: anywhere;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    background: #f6f7f9;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+  footer {
+    margin-top: 88px;
+    padding-top: 24px;
+    border-top: 1px solid #eee;
+    font-size: 13px;
+    color: #999;
+  }
+  footer a { color: #999; }
+  @media (max-width: 480px) { h1 { font-size: 31px; } }
+</style>
+</head>
+<body>
+<main>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+    <a class="home" href="{{ resolve_url('/') }}">&larr; MeetMouse</a>
+    {{ lang_dropdown | safe }}
+  </div>
+  <h1>{{ h1 }}</h1>
+  <p class="sub">{{ sub }}</p>
+
+  {% for rel in releases %}
+  <section class="release">
+    <h2>{{ rel.version }} {% if rel.date_formatted %}<span class="date">{{ rel.date_formatted }}</span>{% endif %}</h2>
+    <ul>
+      {% for bullet in rel.bullets %}
+      <li>{{ bullet | safe }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
+
+  <footer>
+    <p>MeetMouse · <a href="mailto:support@meetmouse.com">support@meetmouse.com</a> · <a href="https://github.com/noahdevkagan/meeting-coach-releases/releases">{{ gh_link }}</a></p>
+  </footer>
+</main>
+</body>
+</html>

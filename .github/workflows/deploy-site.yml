@@ -34,6 +34,9 @@ jobs:
         with:
           fetch-depth: 0   # sitemap lastmod comes from git history
 
+      - name: Install site dependencies
+        run: pip install -r site/requirements.txt
+
       - name: Check generated pages are current and links resolve
         run: python3 site/build.py --check
 

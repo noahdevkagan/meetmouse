@@ -140,6 +140,59 @@ theirs), no automatic model pull, checklist row becomes "AI notes after each
 call" with Connect Claude or a local download, and the checklist shows on the
 empty home screen. No engine launch when no model is installed. Why: decisions.md 2026-11-04.
 
+## Current state (2026-11-02): Full Brazilian Portuguese Site Localization, Centralized Pricing & Gettext Pipeline — complete
+
+Completed the localization pipeline, pricing centralization, placeholder decoupling, dynamic utility page detection, header language selector, and full Portuguese catalog translation:
+1. **Centralized Pricing (`site/pricing.py`):**
+   - Single authoritative source for all tool pricing tiers (`PRICES.meetmouse.price = "$20"`, Granola, Fathom, Otter, Fireflies, tl;dv, Poised, Yoodli, Krisp, Shadow, Descript, Limitless).
+   - Injected into Jinja globals (`prices`, `price`) via `site/i18n.py`.
+   - Replaced all hardcoded `$20` across source files, roundups (`site/content/best.py`), comparisons (`site/content/compare.py`), and article templates (`site/articles/*.html`).
+2. **Decoupled Monetary Placeholders in PO Catalogs:**
+   - Source strings and translation catalogs use variable placeholders: `{price}/user/mo` → `{price}/usuário/mês`, `{price}/mo` → `{price}/mês`, `{price}/seat/mo` → `{price}/usuário/mês`, `{price}/user` → `{price}/usuário`, `{price} once for unlimited` → `{price} uma única vez para uso ilimitado`.
+   - Updating prices in `site/pricing.py` never breaks `.po` msgid matches or leaves outdated prices on localized pages.
+3. **Source-Code-Driven String Extraction (`scripts/extract_strings.py`):**
+   - Extracts strings via `babel.messages.extract.extract_python` (for `site/build.py` and `scripts/build-changelog.py`) and `jinja2.ext.babel_extract` (for `site/templates/*.html` and `site/articles/*.html`).
+   - Standard gettext locations (`filename:lineno`) written to `site/locale/messages.pot` and synced to PO/MO catalogs.
+   - Dynamic version extraction from `CHANGELOG.md` via `get_latest_version()` (first non-Unreleased heading, `0.33.1`), avoiding hardcoding or release loop variable collisions (`rel_version`).
+   - Sanitizes message flags: discards `python-format` and adds `no-python-format` on strings containing `%` (e.g., `100% on-device`, `40% of Them lines`), ensuring zero `msgfmt -c` format specifier errors.
+   - Sets `copyright_holder = "MeetMouse"` and preserves existing header comments, revision dates, and last-translator metadata across extractions.
+4. **Header Language Dropdown Navigation & Head-Embedded CSS:**
+   - Restored `<select class="lang-select">` header dropdown selector that dynamically filters to only languages with available translations for the current page.
+   - Embedded `LANG_SELECT_CSS` directly within `<head>` via `hreflang_links` and `hreflang_html` across all template and content pages with native select reset (`appearance: none; -webkit-appearance: none;`) and centered inline SVG chevron arrow.
+   - Excluded language endonyms (`English`, `Português`, `Español`) from gettext extraction and `.po` catalogs.
+   - Removed in-content "Read in..." paragraphs and footer toggle links.
+   - `site/lang.js` persists `localStorage.preferred_lang` and switches to the reciprocal URL on selection.
+   - Cloudflare Pages `docs/_redirects` provides wildcard 302 fallbacks (`/br/* /:splat 302`) to English canonical pages.
+5. **Template-First Copy Consolidation, URL Decoupling & Download Unification:**
+   - Deleted `site/content/home.py` so Jinja2 templates serve as the single source of truth for page copy.
+   - Defined `faqs` list directly in `site/templates/home.html` driving both `<dl class="faq">` elements and `<script type="application/ld+json">` schemas (`SoftwareApplication`, `FAQPage`) using `| tojson`. Removed all hardcoded copy strings from `site/build.py`.
+   - Parameterized links and unlock codes with `{url}`, `{email}`, `{code}`, and `{releases_url}` in `home.html`, `appsumo.html`, and `thanks.html`. Centralized `UNLOCK_CODE = "MOUSE-5KC5-7EDA"` in `site/pricing.py`.
+   - Unified download buttons on `thanks.html` and `appsumo.html` to `<a class="dl-btn" href="/get">`, removing redundant client-side GitHub releases API fetch scripts.
+   - Updated `appsumo.html` to load `fetch("{{ rel_prefix }}appsumo-hashes.json")` for relative `file://` URL compatibility.
+   - Removed underline on `.brand` link in `site/templates/appsumo.html`.
+6. **Dynamic Utility Page Availability (`site/build.py`):**
+   - Replaced hardcoded title maps and message counting in `is_page_available` with `get_template_first_string(tmpl_path)`, dynamically parsing the first `_("...")` string from `templates/{canon}.html` (`404.html`, `thanks.html`, `appsumo.html`) and checking presence in the locale's compiled catalog.
+6. **Generic Translation CLI (`scripts/translate_catalog.py`):**
+   - Parameterized CLI accepting target locale (`python3 scripts/translate_catalog.py [locale]`).
+   - Retrieves canonical locale metadata directly from `site/i18n.py` via `i18n.get_locale()`.
+   - Enforces global critical translation rules (target language, placeholder preservation, HTML tag integrity, technical term preservation, JSON formatting); dynamically appends locale pricing guidelines from `LOCALE_RULES`.
+   - Automatically updates `PO-Revision-Date` with current timestamp upon writing translations.
+   - Populates `Last-Translator` and header comments from git configuration (`git config user.name`, `git config user.email`).
+7. **100% Brazilian Portuguese Catalog & Localized Changelogs:**
+   - Translated all 1,925 messages in `site/locale/pt_BR/LC_MESSAGES/messages.po` (0 untranslated, 0 fuzzy) using local on-device Ollama (`gemma3:4b`), including all 239 `CHANGELOG.md` bullet points via `scripts/translate_catalog.py pt_BR`.
+   - Author comment set to `# Eduardo Mozart de Oliveira <2974895+eduardomozart@users.noreply.github.com>, 2026.` and `Last-Translator: Eduardo Mozart de Oliveira <2974895+eduardomozart@users.noreply.github.com>`. Header `ORGANIZATION` set to `MeetMouse`.
+   - Verified zero AST junk keys (`topic`, `h1`, `intro`, `quick`, `app_lddescription`, `blurb`, `pick_them`, `pick_mm`, `cell`).
+   - Localized changelogs generated (`docs/changelog.html`, `docs/br/changelog.html`) with localized dates and reciprocal hreflangs.
+8. **Spanish Catalog Integrity (`site/locale/es/`):**
+   - Strictly aligned to original Spanish content from `site/content/es.py` and `docs/es/alternativas-a-fathom.html` (only the 46 Fathom alternatives strings, pros/cons, table headers, and 5 Spanish FAQs).
+   - Fixed 1-to-1 zip misalignment against English questions in `alternatives.py`, leaving the 2 unrepresented English FAQs untranslated without machine translation.
+   - Preserved `Last-Translator` default placeholder (`FULL NAME <EMAIL@ADDRESS>`) and header comments without automated attribution.
+9. **Verification:**
+   - `python3 site/build.py --check` passes with 94 verified content pages (0 broken links, 0 schema errors, 0 unresolved placeholders).
+   - `python3 scripts/build-changelog.py --check` passes with all 2 changelog pages current (66 releases).
+   - `python3 scripts/build-sitemap.py --check` passes with 89 URLs current.
+   - `msgfmt -c` compiles both `pt_BR` and `es` catalogs with 0 fatal errors.
+
 ## Current state (2026-10-20): Global open shortcut — implemented
 
 Control–Command–M opens/raises the existing main window from any app while
@@ -975,6 +1028,10 @@ verified only); consider surfacing Ask on Enter in the sidebar box.
 
 ## Outstanding
 
+- **Site localization & docs generation complete:**
+  - 100% Brazilian Portuguese translation (`/br/`) across all marketing pages, utility pages, and 66 changelog releases.
+  - Spanish catalog aligned strictly to original Fathom alternatives content (`docs/es/blog/fathom-alternatives.html`).
+  - All check gates passing (`site/build.py --check`, `scripts/build-changelog.py --check`, `scripts/build-sitemap.py --check`).
 - **Verify 0.20.0 in the wild:** exercise low-memory/busy-Mac Basic mode,
   fallback to a smaller installed model, the one-click lightweight download
   for a future session, and a named speaker's short one-on-one reply.
@@ -999,10 +1056,8 @@ verified only); consider surfacing Ask on Enter in the sidebar box.
 
 ## Next session
 
-v0.20.0 is live and auto-updating users. Next: verify Basic mode and the
-lightweight fallback end-to-end on a busy Mac, then run a real Spanish or
-French meeting plus the call-matrix spot checks on real hardware. After that,
-fix the `startIfNeeded` retry regression.
+Site localization pipeline and Portuguese pages are completely built and verified. Next:
+run push-gate / review git diff, then commit and deploy site updates.
 
 
 2026-09-21 push follow-up: user confirmed app build PASS. ASR SwiftPM checkout

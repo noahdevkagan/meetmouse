@@ -1,0 +1,90 @@
+<nav class="breadcrumb" aria-label="{{ _('Breadcrumb') }}">
+  {% for h, t in breadcrumbs %}
+  {% if h %}
+  <a href="{{ h }}">{{ t }}</a><span aria-hidden="true">/</span>
+  {% else %}
+  <span>{{ t }}</span>
+  {% endif %}
+  {% endfor %}
+</nav>
+
+<h1>{{ h1 }}</h1>
+
+{% if byline_text %}
+<div class="byline">
+  <img src="/img/noah.jpg" alt="Noah Kagan" width="44" height="44">
+  <div><strong>Noah Kagan</strong><span>{{ byline_text }}</span></div>
+</div>
+{% endif %}
+
+<p class="dek">{{ dek }}</p>
+
+{% if answer %}
+<aside class="answer-box">
+  <h2>{{ ans_label }}</h2>
+  <p>{{ answer | safe }}</p>
+</aside>
+{% endif %}
+
+<p class="top-cta">
+  <a class="button" href="/get">{{ _("Download MeetMouse free") }}</a>
+  <span>{{ _("Free for 3 meetings a week. No bot, and your meeting stays on your Mac.") }}</span>
+</p>
+
+{% if intro_ps %}
+{% for p in intro_ps %}
+<p>{{ p | safe }}</p>
+{% endfor %}
+{% endif %}
+
+{{ body | safe }}
+
+{% if faq_items %}
+<section>
+  <h2>{{ _("Questions") }}</h2>
+  <dl class="faq">
+    {% for q, a in faq_items %}
+    <div><dt>{{ q }}</dt><dd>{{ a | safe }}</dd></div>
+    {% endfor %}
+  </dl>
+</section>
+{% endif %}
+
+<section class="doc-cta">
+  <h2>{{ _("Try MeetMouse") }}</h2>
+  <p>{{ free_cta }}</p>
+  <a class="button" href="/get">{{ _("Download MeetMouse free") }}</a>
+</section>
+
+{% if checked_text %}
+<p class="checked-note">{{ checked_text }}</p>
+{% endif %}
+
+{% if more_guides or more_comparisons or more_blog %}
+<nav class="more-links" aria-label="{{ _('More guides') }}">
+  {% if more_guides %}
+  <h2>{{ _("More guides") }}</h2>
+  <ul>
+    {% for h, t in more_guides %}
+    <li><a href="{{ h }}">{{ t }}</a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if more_comparisons %}
+  <h2>{{ _("Comparisons") }}</h2>
+  <ul>
+    {% for h, t in more_comparisons %}
+    <li><a href="{{ h }}">{{ t }}</a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if more_blog %}
+  <h2>{{ _("From the blog") }}</h2>
+  <ul>
+    {% for h, t in more_blog %}
+    <li><a href="{{ h }}">{{ t }}</a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</nav>
+{% endif %}

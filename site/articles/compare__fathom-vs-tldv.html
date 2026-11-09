@@ -1,74 +1,71 @@
-<!--meta
-{
+{% set meta = {
   "path": "compare/fathom-vs-tldv",
   "kind": "compare",
-  "title": "Fathom vs tl;dv (2026): Honest Comparison From a Competitor",
-  "description": "Fathom vs tl;dv: two free AI notetakers compared on free-plan limits, summaries, clips, and paid pricing — from a competitor, honestly.",
-  "h1": "Fathom vs tl;dv: the two best free bots",
-  "dek": "Disclosure: I make MeetMouse, which competes with both. Neither of these is a bad choice, which is kind of annoying for me.",
-  "answer_label": "TL;DR",
-  "answer": "Both are free, both are bots, both are good. Fathom if you want the best summaries and no expiration date on your free recordings. tl;dv if your team shares clips more than summaries. If you're still not sure, get Fathom.",
-  "intro": [],
+  "title": _("Fathom vs tl;dv (2026): Honest Comparison From a Competitor"),
+  "description": _("Fathom vs tl;dv: two free AI notetakers compared on free-plan limits, summaries, clips, and paid pricing — from a competitor, honestly."),
+  "h1": _("Fathom vs tl;dv: the two best free bots"),
+  "dek": _("Disclosure: I make MeetMouse, which competes with both. Neither of these is a bad choice, which is kind of annoying for me."),
+  "answer_label": _("TL;DR"),
+  "answer": _("Both are free, both are bots, both are good. Fathom if you want the best summaries and no expiration date on your free recordings. tl;dv if your team shares clips more than summaries. If you're still not sure, get Fathom."),
+  "intro": [
+  ],
   "faq": [
-    [
-      "Is Fathom or tl;dv better?",
-      "Fathom for summaries and a free plan that doesn't delete recordings. tl;dv for clipping and sharing moments."
-    ],
-    [
-      "Are Fathom and tl;dv free?",
-      "Both have free plans. Fathom's keeps recordings; tl;dv's free plan keeps data up to 3 months. Paid: Fathom Team from $19/user/month, tl;dv Pro $29/seat/month ($18 billed annually)."
-    ],
-    [
-      "Do both join as a bot?",
-      "tl;dv does. Fathom does by default, and lists bot-free capture as a beta. For no bot, look at Granola (cloud notes) or MeetMouse (on your Mac)."
-    ],
-    [
-      "Can I use MeetMouse with Fathom or tl;dv?",
-      "Yes. They record; MeetMouse listens through your Mac and coaches you live. No conflict."
-    ]
+    [_("Is Fathom or tl;dv better?"), _("Fathom for summaries and a free plan that doesn't delete recordings. tl;dv for clipping and sharing moments.")],
+    [_("Are Fathom and tl;dv free?"), _("Both have free plans. Fathom's keeps recordings; tl;dv's free plan keeps data up to 3 months. Paid: Fathom Team from {team_price}/user/month, tl;dv Pro {tldv_price}/seat/month ({annual_price} billed annually).")],
+    [_("Do both join as a bot?"), _("tl;dv does. Fathom does by default, and lists bot-free capture as a beta. For no bot, look at Granola (cloud notes) or MeetMouse (on your Mac).")],
+    [_("Can I use MeetMouse with Fathom or tl;dv?"), _("Yes. They record; MeetMouse listens through your Mac and coaches you live. No conflict.")],
   ],
   "date": "2026-09-29",
-  "checked": "October 2026"
-}
--->
+  "checked": _("October 2026"),
+} %}
 <section>
-<h2>What each tool is</h2>
-<p><strong>Fathom</strong> joins your call, records it, and gives you clean summaries and action items. Generous free plan with no shot clock.</p>
-    <p><strong>tl;dv</strong> joins your call, records it, and is built around clipping and sharing moments. The free plan keeps data up to 3 months.</p>
+
+{# trans Section: What each tool is #}
+<h2>{% trans %}What each tool is{% endtrans %}</h2>
+<p>{% trans %}<strong>Fathom</strong> joins your call, records it, and gives you clean summaries and action items. Generous free plan with no shot clock.{% endtrans %}</p>
+    <p>{% trans %}<strong>tl;dv</strong> joins your call, records it, and is built around clipping and sharing moments. The free plan keeps data up to 3 months.{% endtrans %}</p>
 </section>
 
 <section>
-<h2>Head to head</h2>
+
+{# trans Section: Head to head #}
+<h2>{% trans %}Head to head{% endtrans %}</h2>
 <div class="table-wrap">
       <table>
-        <tr><th></th><th>Fathom</th><th>tl;dv</th></tr>
-        <tr><td>Bot joins the call</td><td>Yes, by default (bot-free in beta)</td><td>Yes</td></tr>
-        <tr><td>Free plan</td><td>Unlimited recordings + summaries</td><td>Unlimited recordings, data kept up to 3 months</td></tr>
-        <tr><td>Paid</td><td>Team from $19/user/mo</td><td>Pro $29/seat/mo ($18 annual)</td></tr>
-        <tr><td>Best at</td><td>Summaries and action items</td><td>Clips and highlights</td></tr>
-        <tr><td>Where AI runs</td><td>Cloud</td><td>Cloud</td></tr>
+        <tr><th></th><th>{% trans %}Fathom{% endtrans %}</th><th>{% trans %}tl;dv{% endtrans %}</th></tr>
+        <tr><td>{% trans %}Bot joins the call{% endtrans %}</td><td>{% trans %}Yes, by default (bot-free in beta){% endtrans %}</td><td>{% trans %}Yes{% endtrans %}</td></tr>
+        <tr><td>{% trans %}Free plan{% endtrans %}</td><td>{% trans %}Unlimited recordings + summaries{% endtrans %}</td><td>{% trans %}Unlimited recordings, data kept up to 3 months{% endtrans %}</td></tr>
+        <tr><td>{% trans %}Paid{% endtrans %}</td><td>{{ _("Team from {price}/user/mo", price=prices.fathom.team) }}</td><td>{{ _("Pro {price}/seat/mo ({annual} annual)", price=prices.tldv.pro, annual=prices.tldv.pro_annual) }}</td></tr>
+        <tr><td>{% trans %}Best at{% endtrans %}</td><td>{% trans %}Summaries and action items{% endtrans %}</td><td>{% trans %}Clips and highlights{% endtrans %}</td></tr>
+        <tr><td>{% trans %}Where AI runs{% endtrans %}</td><td>{% trans %}Cloud{% endtrans %}</td><td>{% trans %}Cloud{% endtrans %}</td></tr>
       </table>
     </div>
 </section>
 
 <section>
-<h2>Where Fathom wins</h2>
+
+{# trans Section: Where Fathom wins #}
+<h2>{% trans %}Where Fathom wins{% endtrans %}</h2>
 <ul>
-      <li><strong>The free plan.</strong> No 3-month deletion. Your recordings stick around.</li>
-      <li><strong>Summaries.</strong> The cleanest out of the box.</li>
-      <li><strong>Cheaper paid tier.</strong> $19 vs $29.</li>
+      <li>{% trans %}<strong>The free plan.</strong> No 3-month deletion. Your recordings stick around.{% endtrans %}</li>
+      <li>{% trans %}<strong>Summaries.</strong> The cleanest out of the box.{% endtrans %}</li>
+      <li>{% trans %}<strong>Cheaper paid tier.</strong> $19 vs $29.{% endtrans %}</li>
     </ul>
 </section>
 
 <section>
-<h2>Where tl;dv wins</h2>
+
+{# trans Section: Where tl;dv wins #}
+<h2>{% trans %}Where tl;dv wins{% endtrans %}</h2>
 <ul>
-      <li><strong>Clipping.</strong> Grab the moment, send it to the team. That's the product.</li>
-      <li><strong>Show, don't tell.</strong> For product and research teams, a 40-second clip changes minds faster than a paragraph.</li>
+      <li>{% trans %}<strong>Clipping.</strong> Grab the moment, send it to the team. That's the product.{% endtrans %}</li>
+      <li>{% trans %}<strong>Show, don't tell.</strong> For product and research teams, a 40-second clip changes minds faster than a paragraph.{% endtrans %}</li>
     </ul>
 </section>
 
 <section>
-<h2>The part neither fixes</h2>
-<p>Both are bots, both are cloud, and both document the meeting after it's over. MeetMouse doesn't join the call, keeps transcription and AI on your Mac, and coaches you while the meeting's still winnable — notes after, too. Free for 3 meetings a week, $20 once for unlimited. It happily runs alongside either one. <a href="/compare/meetmouse-vs-fathom">MeetMouse vs Fathom</a> · <a href="/compare/meetmouse-vs-tldv">MeetMouse vs tl;dv</a>.</p>
+
+{# trans Section: The part neither fixes #}
+<h2>{% trans %}The part neither fixes{% endtrans %}</h2>
+<p>{{ _("Both are bots, both are cloud, and both document the meeting after it's over. MeetMouse doesn't join the call, keeps transcription and AI on your Mac, and coaches you while the meeting's still winnable — notes after, too. Free for 3 meetings a week, {price} once for unlimited. It happily runs alongside either one. <a href=\"/compare/meetmouse-vs-fathom\">MeetMouse vs Fathom</a> · <a href=\"/compare/meetmouse-vs-tldv\">MeetMouse vs tl;dv</a>.", price=price) }}</p>
 </section>

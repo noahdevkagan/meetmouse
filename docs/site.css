@@ -44,8 +44,9 @@ button { font: inherit; }
 .mark { flex: none; width: 42px; height: 42px; border-radius: 26%; overflow: hidden; display: inline-grid; place-items: center; background: var(--green); }
 .mark img { width: 100%; height: 100%; display: block; }
 .site-header nav { margin-left: auto; display: flex; align-items: center; gap: 26px; }
-.site-header nav > a, footer a { color: var(--muted); font-size: 14px; font-weight: 600; }
-.site-header nav > a:hover, footer a:hover { color: var(--ink); }
+.site-header nav > a:not(.button), footer a:not(.button) { color: var(--muted); font-size: 14px; font-weight: 600; }
+.site-header nav > a:not(.button):hover, footer a:not(.button):hover { color: var(--ink); }
+
 
 /* Buy button */
 .buy-form { margin: 0; }
@@ -212,3 +213,21 @@ footer span { color: var(--ink); font-weight: 700; }
 }
 .top-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 4px 0 28px; }
 .top-cta span { color: var(--muted); font-size: 14px; }
+
+/* Language navigation links */
+.lang-switch {
+  font-size: 14px;
+  color: var(--muted, #69635f);
+  margin: 12px 0 20px;
+}
+.lang-switch a {
+  color: var(--green-dark, #1f9a31);
+  text-decoration: underline;
+  font-weight: 500;
+}
+.lang-switch a:hover {
+  color: var(--green-ink, #0f2e15);
+}
+.en-version {
+  font-weight: 500;
+}
