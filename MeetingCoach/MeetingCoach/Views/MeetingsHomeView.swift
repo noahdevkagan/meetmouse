@@ -29,10 +29,11 @@ struct MeetingsHomeView: View {
                     Text(subtitle).font(.system(size: 15)).foregroundStyle(.secondary)
                 }
 
-                if loaded && !hasMeetings {
+                if loaded && (!hasMeetings || DebugPreview.active) {
                     // A new person's first screen: setup lives here.
                     OnboardingChecklistView(liveSession: liveSession, settings: settings)
-                } else if loaded {
+                }
+                if loaded && hasMeetings {
                     if settings.hasCheckedModels, !settings.aiReady { AISetupCard(settings: settings) }
                     if !attention.followUps.isEmpty { followUpsSection }
                     if !attention.statuses.isEmpty { statusSection }

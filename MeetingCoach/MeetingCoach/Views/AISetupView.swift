@@ -1,5 +1,31 @@
 import SwiftUI
 
+/// Debug-only UI preview for the AI setup screens. Read from the launch
+/// environment, never persisted, and compiled out of release builds: in release
+/// every member returns the normal value.
+///   MC_PREVIEW_AI_SETUP=1                  setup UI behaves as if AI isn't set up
+///   MC_PREVIEW_CLAUDE_CLI=missing|outdated|ok   what the setup UI shows for Claude Code
+/// Preview changes only what the setup UI displays; real actions are inert.
+enum DebugPreview {
+    static let note = "Preview mode — nothing was changed."
+    #if DEBUG
+    private static let environment = ProcessInfo.processInfo.environment
+    static let active = environment["MC_PREVIEW_AI_SETUP"] == "1"
+    static var cliStatus: ClaudeAccount.CLIStatus? {
+        guard active else { return nil }
+        switch environment["MC_PREVIEW_CLAUDE_CLI"] {
+        case "missing": return .missing
+        case "outdated": return .outdated
+        case "ok": return .ready
+        default: return nil
+        }
+    }
+    #else
+    static let active = false
+    static var cliStatus: ClaudeAccount.CLIStatus? { nil }
+    #endif
+}
+
 /// Drives the two-choice AI setup: sign in with a Claude account (installing
 /// Claude Code first if needed) or download a local model. Shared by the
 /// onboarding checklist, the home "Set up AI notes" card and the sheet opened
@@ -23,14 +49,26 @@ final class AISetupModel {
     var consent = false
     private var task: Task<Void, Never>?
     private var runID = 0
+    /// Shown instead of acting when DebugPreview is on.
+    private(set) var previewNote: String?
 
     var isWorking: Bool { [.installing, .signingIn, .enabling].contains(step) }
 
     func chooseClaude() {
         error = nil
+        previewNote = nil
         run(.signingIn) { [self] id in
             do {
-                switch try await ClaudeAccount.cliStatus() {
+                let status: ClaudeAccount.CLIStatus
+                if let preview = DebugPreview.cliStatus { status = preview }
+                else { status = try await ClaudeAccount.cliStatus() }
+                if DebugPreview.active, status == .ready {
+                    // Preview: show the consent step without signing in.
+                    consent = false
+                    step = .consent
+                    return
+                }
+                switch status {
                 case .missing: step = .needsInstall(outdated: false)
                 case .outdated: step = .needsInstall(outdated: true)
                 case .ready: await signIn()
@@ -46,6 +84,7 @@ final class AISetupModel {
     /// Only ever called from the Install button.
     func installClaudeCode() {
         error = nil
+        if DebugPreview.active { previewNote = DebugPreview.note; return }
         run(.installing) { [self] id in
             do {
                 try await ClaudeAccount.install()
@@ -84,6 +123,7 @@ final class AISetupModel {
 
     func enableClaude(settings: SettingsViewModel, onReady: @escaping () -> Void) {
         guard consent, let model = AIProvider.claudeAccount.models.first else { return }
+        if DebugPreview.active { previewNote = DebugPreview.note; return }
         step = .enabling
         let configuration = AIConfiguration(provider: .claudeAccount, model: model)
         task = Task { [self] in
@@ -104,6 +144,7 @@ final class AISetupModel {
 
     func downloadLocal(settings: SettingsViewModel) {
         error = nil
+        if DebugPreview.active { previewNote = DebugPreview.note; return }
         settings.downloadModel(recommendedCatalogModel, switchToLocalOnSuccess: true)
     }
 
@@ -116,7 +157,7 @@ final class AISetupModel {
         else if isWorking { step = .choose }
     }
 
-    func back() { cancel(); runID += 1; error = nil; consent = false; step = .choose }
+    func back() { cancel(); runID += 1; error = nil; previewNote = nil; consent = false; step = .choose }
 
     private func run(_ initial: Step, _ body: @escaping @MainActor (Int) async -> Void) {
         task?.cancel()
@@ -152,6 +193,9 @@ struct AISetupView: View {
                 case .signingIn: working("Finish signing in to Claude in your browser…")
                 case .consent, .enabling: consent
                 }
+            }
+            if let note = model.previewNote {
+                Text(note).font(.caption.weight(.semibold)).foregroundStyle(.orange)
             }
             if let message = model.error {
                 Text(message).font(.caption).foregroundStyle(.red)
