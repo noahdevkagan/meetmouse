@@ -174,4 +174,99 @@ do {
     check("keeps changed short reply", f.filter(reply, since: at(-3))?.text == reply)
 }
 
+// ---- ShortEchoGate: 1-2 word bleed duplicates on built-in speakers ----
+// The capture manager only submits mic lines when the route is built-in
+// speakers; on any other route the gate is never consulted, so every short
+// line is delivered untouched (modelled below as "never submitted").
+func u(_ t: TimeInterval, _ end: TimeInterval, _ speaker: String, _ text: String) -> Utterance {
+    Utterance(t: t, speaker: speaker, text: text, endT: end)
+}
+let t0 = Date(timeIntervalSinceReferenceDate: 5_000)
+
+// Them copy first, then mic copy: dropped at once.
+do {
+    let g = ShortEchoGate()
+    g.recordFar(u(10.0, 10.4, "Them", "Okay."))
+    check("short dup dropped (Them first)",
+          g.submit(u(10.2, 10.6, "You", "Okay."), now: t0) == .drop && g.heldCount == 0)
+}
+
+// Mic copy first: held, then dropped when the Them copy lands; never delivered.
+do {
+    let g = ShortEchoGate()
+    check("mic first is held", g.submit(u(10.0, 10.4, "You", "Okay."), now: t0) == .hold)
+    let dropped = g.recordFar(u(10.1, 10.5, "Them", "Okay."))
+    check("short dup dropped (mic first)", dropped.count == 1 && g.heldCount == 0)
+    check("dropped line never expires into the transcript",
+          g.expire(now: t0.addingTimeInterval(10)).isEmpty)
+}
+
+// Different short words are kept (after the hold, with no twin).
+do {
+    let g = ShortEchoGate()
+    g.recordFar(u(10, 10.4, "Them", "Okay."))
+    check("different word is held, not dropped",
+          g.submit(u(10.2, 10.6, "You", "Yeah."), now: t0) == .hold)
+    check("different word delivered on expiry",
+          g.expire(now: t0.addingTimeInterval(ShortEchoGate.holdSeconds)).map(\.text) == ["Yeah."])
+}
+
+// Same word outside the window is kept.
+do {
+    let g = ShortEchoGate()
+    g.recordFar(u(10, 10.4, "Them", "Okay."))
+    check("same word far outside window held then kept",
+          g.submit(u(10.4 + ShortEchoGate.window + 1, 14, "You", "Okay."), now: t0) == .hold)
+    check("kept on expiry",
+          g.expire(now: t0.addingTimeInterval(ShortEchoGate.holdSeconds)).count == 1)
+    let g2 = ShortEchoGate()
+    _ = g2.submit(u(30, 30.4, "You", "Okay."), now: t0)
+    check("late Them twin outside window does not retract",
+          g2.recordFar(u(10, 10.4, "Them", "Okay.")).isEmpty && g2.heldCount == 1)
+    let g3 = ShortEchoGate()
+    g3.recordFar(u(10, 10.4, "Them", "Okay."))
+    check("gap just inside window is echo",
+          g3.submit(u(10.4 + ShortEchoGate.window - 0.1, 13, "You", "Okay."), now: t0) == .drop)
+}
+
+// Two-word lines and multi-sentence short lines.
+do {
+    let g = ShortEchoGate()
+    g.recordFar(u(5, 6, "Them", "Okay. Yeah."))
+    check("two sentences each matched are dropped",
+          g.submit(u(5.2, 6.1, "You", "Okay. Yeah."), now: t0) == .drop)
+    check("partly matching short line is not dropped",
+          g.submit(u(5.2, 6.1, "You", "Okay. Sure."), now: t0) == .hold)
+}
+
+// A far utterance that merely contains the word is not a twin.
+do {
+    let g = ShortEchoGate()
+    g.recordFar(u(10, 12, "Them", "Okay so let us start with the agenda."))
+    check("containing sentence is not a twin",
+          g.submit(u(10.5, 10.9, "You", "Okay."), now: t0) == .hold)
+}
+
+// Longer mic lines are not the gate's business; EchoFilter behaviour unchanged.
+do {
+    let g = ShortEchoGate()
+    g.recordFar(u(10, 11, "Them", "That sounds right to me."))
+    check("3+ word line bypasses gate",
+          g.submit(u(10, 11, "You", "That sounds right to me."), now: t0) == .deliver)
+    let f = EchoFilter()
+    f.clock = { at(0) }
+    f.recordFarText("that sounds right to me")
+    check("longer phrase still stripped by EchoFilter",
+          f.filter("That sounds right to me.", since: at(-3)) == nil)
+    f.recordFarText("okay")
+    check("EchoFilter still keeps 1-2 words", f.filter("Okay.", since: at(-3))?.text == "Okay.")
+}
+
+// Held lines are never lost on route change / stop.
+do {
+    let g = ShortEchoGate()
+    _ = g.submit(u(1, 1.4, "You", "Right."), now: t0)
+    check("flushAll returns held", g.flushAll().count == 1 && g.heldCount == 0)
+}
+
 exit(fail ? 1 : 0)

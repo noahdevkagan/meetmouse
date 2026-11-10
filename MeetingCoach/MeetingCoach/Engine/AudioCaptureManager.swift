@@ -193,6 +193,10 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     // voice can reach the mic acoustically (speakers). Mic sentences that
     // mostly repeat concurrent "Them" speech are stripped before delivery.
     private let echoFilter = EchoFilter()
+    /// 1-2 word bleed duplicates (EchoFilter never judges those). Only active
+    /// while the output route is the built-in speakers.
+    private let shortEchoGate = ShortEchoGate()
+    private var outputOnBuiltInSpeakers = false
 
     init(language: ResolvedMeetingLanguage) {
         self._language = language
@@ -411,6 +415,8 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         micPipeline = nil
         sysPipeline?.stop()
         sysPipeline = nil
+        // Held short mic lines are real unless proven otherwise: never lose them.
+        for u in shortEchoGate.flushAll() { emit(u) }
     }
 
     // MARK: - Mid-call language switch
@@ -592,6 +598,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                 // Remember far-side words for echo comparison (partials feed
                 // the pool too; commits catch re-transcription revisions).
                 echoFilter.recordFarText(u.text)
+                for dup in shortEchoGate.recordFar(u) {
+                    mclog("[Capture] Dropped short bleed duplicate (held, system twin arrived): \(dup.text.prefix(30))")
+                }
             } else {
                 // Bleed gate backstop: mic has been quiet — whatever was
                 // transcribed leaked from the speakers. Only plausible while
@@ -622,11 +631,37 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                     u = Utterance(t: u.t, speaker: u.speaker, text: text,
                                   endT: u.t + u.duration * keptFraction)
                 }
+                // 1-2 word lines on built-in speakers: drop when the system
+                // channel has the same words at the same moment, else hold
+                // briefly for the system twin (it commits later than the mic).
+                if micStateLock.withLock({ outputOnBuiltInSpeakers }) {
+                    switch shortEchoGate.submit(u, now: Date()) {
+                    case .drop:
+                        mclog("[Capture] Dropped short bleed duplicate: \(u.text.prefix(30))")
+                        return
+                    case .hold:
+                        DispatchQueue.global().asyncAfter(deadline: .now() + ShortEchoGate.holdSeconds + 0.1) { [weak self] in
+                            self?.releaseHeldShortLines()
+                        }
+                        return
+                    case .deliver:
+                        break
+                    }
+                }
             }
         }
+        emit(u)
+    }
+
+    private func emit(_ u: Utterance) {
         Task { @MainActor [onUtterance] in
             onUtterance?(u)
         }
+    }
+
+    /// Deliver held short mic lines whose wait expired with no system twin.
+    private func releaseHeldShortLines() {
+        for u in shortEchoGate.expire(now: Date()) { emit(u) }
     }
 
     // MARK: - Microphone
@@ -1296,6 +1331,8 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         let speakers = Self.defaultOutputIsBuiltInSpeakers()
         guard speakers != reportedBuiltInSpeakers else { return }
         reportedBuiltInSpeakers = speakers
+        micStateLock.withLock { outputOnBuiltInSpeakers = speakers }
+        if !speakers { for u in shortEchoGate.flushAll() { emit(u) } }
         mclog("[Capture] Output route: \(speakers ? "built-in speakers (far side can reach the mic)" : "not built-in speakers")")
         Task { @MainActor [onOutputRoute] in
             onOutputRoute?(speakers)

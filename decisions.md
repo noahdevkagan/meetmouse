@@ -2243,3 +2243,39 @@ existing limits. Section rewrites cancel when the detail view disappears and
 compare the full saved file before writing, so another writer's changes win.
 Saved next-call prep is honored inside startLive, shared by sidebar, menu bar,
 and detection starts; unprepared last-used guests remain unconfirmed.
+
+## 2026-11-10 — Short bleed duplicates on built-in speakers (narrows "never filter 1-2 words")
+
+A real call on the Mac's speakers showed the guest's "Okay." twice at the same
+moment: You (speaker bleed into the mic) and Them (system audio). EchoFilter
+never treats 1-2 word sentences as echo (both sides truly say "Okay."/"Yeah."),
+and the bleed gate cannot fire during loud bleed (2026-10-27 entry), so the
+duplicate survived. This narrows the "never filter 1-2 words" rule: text alone
+is still never evidence, but the system channel is.
+
+Rule (`Engine/ShortEchoGate.swift`): only on the built-in-speaker route with
+system audio captured, a mic line of 1-2 words in total is dropped when every
+sentence equals a committed Them sentence (same normalized words) whose span is
+within 2 s of the mic span (overlap counts as gap 0). Mic copy dropped, Them
+copy kept. Headphones or any other route: the gate is never consulted.
+A short line with no twin is delivered unchanged.
+
+Window 2 s: both channels stamp spans from the same session clock (first to
+last voiced audio), so real twins overlap; 2 s absorbs system-capture latency,
+the different voice floors (0.002 vs 0.006) and a far chunk that merged
+neighbouring speech. Larger would start eating a real reply a beat after the
+guest's word.
+
+Hold, not retract: the mic commits after 0.9 s of silence, the system after
+2.0 s plus inference, so the mic copy usually lands first. Retracting would
+mean editing the view model's utterances after signals, talk stats and the
+builder had consumed them. Instead short mic lines on speakers wait up to 4 s
+(delivered with original timestamps; the view model already inserts by time),
+and each Them commit re-checks the held lines. So nothing downstream ever sees
+the dropped copy. Cost: a 1-2 word You line on speakers appears up to 4 s late.
+Held lines are flushed on stop and when the route leaves built-in speakers.
+
+Known cost: if both people truly say the same single word at the same instant
+on speakers, the user's copy is lost. Mixed chunks (a short phrase inside a
+longer mic utterance) are not handled; EchoFilter's rules still apply there.
+Not verified on real hardware.

@@ -9,5 +9,7 @@ OUT=tests/echo/.build
 mkdir -p "$OUT"
 swiftc -O -o "$OUT/echocheck" \
   tests/echo/main.swift \
-  MeetingCoach/MeetingCoach/Engine/EchoFilter.swift
+  MeetingCoach/MeetingCoach/Engine/EchoFilter.swift \
+  MeetingCoach/MeetingCoach/Engine/ShortEchoGate.swift \
+  MeetingCoach/MeetingCoach/Models/Utterance.swift
 "$OUT/echocheck"
