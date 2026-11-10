@@ -2,8 +2,8 @@ import SwiftUI
 
 /// First-run empty state for the main pane: a live checklist that gets a
 /// new person to their first coached meeting — permissions, the transcription
-/// download (already running, with real progress), an optional source for AI
-/// notes, then "join a meeting".
+/// download (already running, with real progress), AI notes setup (Claude
+/// account or a local model), then "join a meeting".
 /// Replaces the old demo-centric card; the demo survives as a footer link.
 struct OnboardingChecklistView: View {
     var liveSession: LiveSessionViewModel?
@@ -15,11 +15,6 @@ struct OnboardingChecklistView: View {
     // TCC has no change notifications — poll while visible so rows flip
     // moments after the user grants in the system dialog / System Settings.
     private let permissionPoll = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
-    @State private var claudeCodeInstalled = ClaudeAccount.executable != nil
-    @State private var claudeConnected = false
-    @State private var claudeTask: Task<Void, Never>?
-    @State private var claudeBusy = false
-    @State private var claudeError: String?
 
     private var download: ParakeetDownloadState { .shared }
     private var resolvedLanguage: ResolvedMeetingLanguage {
@@ -33,7 +28,7 @@ struct OnboardingChecklistView: View {
                     .font(Dorado.barlowXBold(22))
                     .foregroundStyle(Dorado.midnight)
                     .frame(maxWidth: .infinity)
-                Text("Two permissions, one download — then it's automatic.")
+                Text("Two permissions, a download and AI notes — then it's automatic.")
                     .font(Dorado.roboto(13))
                     .foregroundStyle(Dorado.grey500)
                     .frame(maxWidth: .infinity)
@@ -86,14 +81,11 @@ struct OnboardingChecklistView: View {
         .padding(.vertical, 32)
         .onAppear(perform: refreshPermissions)
         .onReceive(permissionPoll) { _ in refreshPermissions() }
-        .onDisappear { claudeTask?.cancel() }
     }
 
     private func refreshPermissions() {
         micState = PermissionStatus.microphone
         screenState = PermissionStatus.screenRecording
-        // Polled here too, so Connect appears once someone finishes installing.
-        claudeCodeInstalled = ClaudeAccount.executable != nil
     }
 
     // MARK: - Rows
@@ -148,41 +140,23 @@ struct OnboardingChecklistView: View {
     }
 
     @ViewBuilder private var aiNotesRow: some View {
-        let usesCloud = settings?.usesCloudAI == true
-        let hasLocalModel = settings.map { !$0.availableModels.isEmpty } ?? false
-        let downloading = settings?.downloadingModel != nil
-        checklistRow(done: usesCloud || hasLocalModel,
-                     active: downloading || claudeBusy,
+        let ready = settings?.aiReady == true
+        checklistRow(done: ready,
+                     active: false,
                      title: "AI notes after each call",
-                     titleBadge: "optional",
-                     caption: usesCloud
+                     caption: settings?.usesCloudAI == true
                          ? "\(settings?.aiConfiguration.provider.title ?? "Cloud AI") writes your notes after each call."
-                         : hasLocalModel
+                         : ready
                              ? "A local model writes your notes on this Mac after each call."
-                             : claudeCodeInstalled
-                                 ? "Your Claude account is the lightest way to get them, and nothing slows your Mac during calls. Without AI you still get a basic recap."
-                                 : "A local model writes them on this Mac and only loads after a call, so calls stay fast. Without AI you still get a basic recap.") {
-            if let settings, downloading {
-                Button("Cancel") { settings.cancelDownload() }
-                    .font(.caption)
-            } else if claudeBusy {
-                Button("Cancel") { claudeTask?.cancel() }
-                    .font(.caption)
-            }
+                             : "Pick one way to get full AI notes, summaries and follow-ups. Without it you only get a basic recap.") {
+            EmptyView()
         } detail: {
-            if let settings, !usesCloud, !hasLocalModel {
-                if downloading {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ProgressView(value: settings.downloadProgress)
-                            .controlSize(.small)
-                        Text(settings.downloadStatus)
-                            .font(.caption2).foregroundStyle(.tertiary)
-                    }
-                } else if autoPullPending(settings) {
+            if let settings, !ready || settings.downloadingModel != nil {
+                if autoPullPending(settings) && settings.downloadingModel == nil {
                     Text("Queued — starts after the transcription engine.")
                         .font(.caption2).foregroundStyle(.tertiary)
                 } else {
-                    notesSetupControls(settings)
+                    AISetupView(settings: settings).padding(.top, 4)
                 }
             }
         }
@@ -220,78 +194,6 @@ struct OnboardingChecklistView: View {
         return settings.semanticCoachEnabled
             && !UserDefaults.standard.bool(forKey: SettingsViewModel.autoModelPullAttemptedKey)
             && (download.isActive(for: engine) || download.isPending(for: engine))
-    }
-
-    @ViewBuilder private func notesSetupControls(_ settings: SettingsViewModel) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if claudeConnected {
-                Text(settings.semanticCoachEnabled
-                     ? "Signed in. Turning this on sends meeting text, never audio, to Claude for notes and questions, and throughout each call for advanced live coaching, which uses your plan allowance."
-                     : "Signed in. Turning this on sends meeting text, never audio, to Claude for notes and questions.")
-                    .font(.caption).foregroundStyle(Dorado.grey600)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button("Turn on Claude notes") { enableClaude(settings) }
-                    .font(.caption)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(claudeBusy)
-            } else if claudeCodeInstalled {
-                HStack(spacing: 8) {
-                    Button("Connect Claude") { connectClaude() }
-                        .font(.caption)
-                        .buttonStyle(.borderedProminent)
-                        .disabled(claudeBusy)
-                    Button("Download local model (\(recommendedCatalogModel.diskSize))") {
-                        settings.downloadModel(recommendedCatalogModel)
-                    }
-                    .font(.caption)
-                    .disabled(claudeBusy)
-                }
-            } else {
-                Button("Download local model (\(recommendedCatalogModel.diskSize))") {
-                    settings.downloadModel(recommendedCatalogModel)
-                }
-                .font(.caption)
-                .buttonStyle(.borderedProminent)
-                Link("Have Claude? Set up Claude Code ↗", destination: URL(string: "https://code.claude.com/docs/en/setup")!)
-                    .font(.caption)
-            }
-            if let error = claudeError ?? settings.downloadError {
-                Text(error)
-                    .font(.caption2).foregroundStyle(.red)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(.top, 4)
-    }
-
-    /// Skips the browser when Claude Code is already signed in. Connecting sends
-    /// no meeting text: that takes the separate Turn on step.
-    private func connectClaude() {
-        claudeBusy = true
-        claudeError = nil
-        claudeTask = Task {
-            defer { claudeBusy = false }
-            do {
-                do { try await ClaudeAccount.checkConnection() }
-                catch is CancellationError { return }
-                catch { try await ClaudeAccount.login() }
-                try Task.checkCancellation()
-                claudeConnected = true
-            } catch is CancellationError {
-            } catch {
-                claudeError = error.localizedDescription
-            }
-        }
-    }
-
-    private func enableClaude(_ settings: SettingsViewModel) {
-        guard let model = AIProvider.claudeAccount.models.first else { return }
-        do {
-            try settings.enableCloudAI(.init(provider: .claudeAccount, model: model), key: "")
-            claudeError = nil
-        } catch {
-            claudeError = error.localizedDescription
-        }
     }
 
     private var joinMeetingRow: some View {

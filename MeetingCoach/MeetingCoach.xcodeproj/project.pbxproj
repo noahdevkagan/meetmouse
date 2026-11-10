@@ -68,6 +68,7 @@
 		7738C639EFAA02BEF8DD5765 /* FeedbackFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */; };
 		7F992768252A6BB47097CD59 /* NudgeBackoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BBC737499DA851F1E6127E0 /* NudgeBackoff.swift */; };
 		80030FE4FB83C735E3AAE232 /* SharePrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7B3EB53680637D131C17BB7 /* SharePrompt.swift */; };
+		801A8E20BEAA1C6B3A10EA3C /* AISetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87EA259A9C440A726CDAD933 /* AISetupView.swift */; };
 		80330BBFB7DC43B0392C9628 /* OnboardingChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34B2E80ECDD1EC3FD9556335 /* OnboardingChecklistView.swift */; };
 		80A3C6A385E3EE4BE0E678BD /* AudioCaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 169665A106EBBC6CCDA1F018 /* AudioCaptureManager.swift */; };
 		831AAAE68BDAAC75DC37FB2B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B601F828AB17A262298DF0AE /* ContentView.swift */; };
@@ -208,6 +209,7 @@
 		81D33EEE89EF224DC87FCF6E /* Utterance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utterance.swift; sourceTree = "<group>"; };
 		826E23E63EE91A96C88BA0F1 /* Trigger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trigger.swift; sourceTree = "<group>"; };
 		85881F8DA1B5854DE7BA9F7A /* EchoFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoFilter.swift; sourceTree = "<group>"; };
+		87EA259A9C440A726CDAD933 /* AISetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISetupView.swift; sourceTree = "<group>"; };
 		88673BD63F55A97082E19D05 /* InterruptionSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterruptionSignal.swift; sourceTree = "<group>"; };
 		88712FFF039CAE16780F84A4 /* ReferralLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralLink.swift; sourceTree = "<group>"; };
 		912C009E304E68EE3CED2F6A /* UnansweredQuestionSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnansweredQuestionSignal.swift; sourceTree = "<group>"; };
@@ -278,6 +280,7 @@
 			isa = PBXGroup;
 			children = (
 				7A5350C0DCB7CE44CA74835F /* AISettingsView.swift */,
+				87EA259A9C440A726CDAD933 /* AISetupView.swift */,
 				E80054B1508EFBBFD8D840F3 /* CoachingOverlayPanel.swift */,
 				98DF6673920BD9AAF4C4B8E0 /* Dorado.swift */,
 				35B1ADEF0B99BDEB25D36FE4 /* FeedbackFormView.swift */,
@@ -674,6 +677,7 @@
 				572F7D6B74DEF1C6B976EBBB /* AIClient.swift in Sources */,
 				6A92709E9F9FEB3EEA99933F /* AIProvider.swift in Sources */,
 				359E6B061765BDA07BE4EEC3 /* AISettingsView.swift in Sources */,
+				801A8E20BEAA1C6B3A10EA3C /* AISetupView.swift in Sources */,
 				14F45DE559A585FE6868EB2B /* AdaptiveThresholds.swift in Sources */,
 				DEB20958B6B4DC26619F9B5F /* AppBundleNameMigration.swift in Sources */,
 				E50CF069AE16583B2665E1BE /* AppSupport.swift in Sources */,

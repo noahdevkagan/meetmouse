@@ -16,6 +16,9 @@ enum TalkBubbleLayout: String, CaseIterable {
 final class SettingsViewModel {
     private(set) var aiConfiguration = AIConfiguration.current
     var usesCloudAI: Bool { aiConfiguration.provider != .local }
+    /// True once an AI provider can write notes: a cloud provider the user has
+    /// enabled (which requires consent) or an installed local model.
+    var aiReady: Bool { usesCloudAI || !availableModels.isEmpty }
 
     func enableCloudAI(_ configuration: AIConfiguration, key: String) throws {
         guard configuration.provider != .local,
