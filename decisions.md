@@ -2361,3 +2361,6 @@ name. Manual choice wins: Allow ends discovery and replaces a window
 discovery pinned while the sheet was open (the same window keeps its run and
 evidence; the six-shot cap carries). An automatic pin is still never swapped
 silently.
+## Simplified Settings → AI
+
+Settings → AI now offers two choices (Claude account or local model). On the Claude-account path the "Turn on Claude notes" button doubles as consent, with an adjacent sentence saying meeting text goes to Claude, matching onboarding, so the separate consent toggle and Test connection are gone. API-key providers moved under a collapsed "Use an API key instead" group that keeps its explicit consent toggle (keys are billed and less common); Save validates with a sample call before enabling. The data-policy paragraphs collapsed into one "About data" disclosure.
