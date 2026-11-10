@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// First-run empty state for the main pane: a live checklist that gets a
-/// new person to their first coached meeting — permissions, the transcription
-/// download (already running, with real progress), AI notes setup (Claude
-/// account or a local model), then "join a meeting".
-/// Replaces the old demo-centric card; the demo survives as a footer link.
+/// First-run empty state for the main pane: three short rows (microphone,
+/// call audio, AI notes) that get a new person to their first coached meeting.
+/// The speech-model download runs on its own and only surfaces as one slim
+/// status line while it downloads or after it fails. The demo and Granola
+/// import survive as quiet footer links.
 struct OnboardingChecklistView: View {
     var liveSession: LiveSessionViewModel?
     var settings: SettingsViewModel?
@@ -22,63 +22,33 @@ struct OnboardingChecklistView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             VStack(spacing: 4) {
-                Text("Get set up for your first meeting")
+                Text("Get set up")
                     .font(Dorado.barlowXBold(22))
                     .foregroundStyle(Dorado.midnight)
                     .frame(maxWidth: .infinity)
-                Text("Two permissions, a download and AI notes — then it's automatic.")
+                Text("Three quick steps. Then it runs on its own.")
                     .font(Dorado.roboto(13))
                     .foregroundStyle(Dorado.grey500)
                     .frame(maxWidth: .infinity)
             }
 
             microphoneRow
-            screenRecordingRow
-            transcriptionRow
+            callAudioRow
             aiNotesRow
-            joinMeetingRow
+            speechModelStatus
 
             Divider()
 
-            if let settings { advancedCoachingOption(settings) }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Label {
-                    Text(settings?.usesCloudAI == true
-                         ? "Audio is never stored and never leaves this Mac. Meeting text goes to \(settings?.aiConfiguration.provider.title ?? "your AI provider") for AI features."
-                         : "Audio is never stored. Transcripts, models, coaching — everything stays on this Mac.")
-                        .font(Dorado.roboto(12))
-                        .foregroundStyle(Dorado.grey600)
-                        .fixedSize(horizontal: false, vertical: true)
-                } icon: {
-                    Image(systemName: "lock.shield")
-                        .font(.caption)
-                        .foregroundStyle(Dorado.dollar)
-                }
-                if let liveSession {
-                    Button("Curious what a nudge looks like? Watch the 15-second demo") {
-                        liveSession.startDemo()
-                    }
-                    .buttonStyle(.plain)
-                    .font(Dorado.roboto(13))
-                    .foregroundStyle(Dorado.bolt)
-                }
-                Button("Coming from Granola? Import your meetings") {
-                    openSettings()
-                }
-                .buttonStyle(.plain)
-                .font(.caption)
-                .foregroundStyle(.blue)
-            }
+            footer
         }
-        .padding(28)
-        .frame(maxWidth: 440)
+        .padding(24)
+        .frame(maxWidth: 500)
         .background(RoundedRectangle(cornerRadius: 12).fill(Dorado.surface))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Dorado.border, lineWidth: 1))
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
+        .padding(.vertical, 24)
         .onAppear(perform: refreshPermissions)
         .onReceive(permissionPoll) { _ in refreshPermissions() }
     }
@@ -92,95 +62,121 @@ struct OnboardingChecklistView: View {
 
     private var microphoneRow: some View {
         checklistRow(done: micState == .granted,
-                     title: "Microphone access",
+                     title: "Microphone",
                      caption: micState == .denied
-                         ? "Denied — enable MeetMouse in System Settings."
-                         : "So the coach can hear your side of the call.") {
+                         ? "Turn it on in System Settings."
+                         : "Hears your side of the call.") {
             if micState != .granted {
-                Button(micState == .denied ? "Open Settings" : "Grant") {
+                Button(micState == .denied ? "Open Settings" : "Allow") {
                     PermissionStatus.requestMicrophone { refreshPermissions() }
                 }
                 .font(.caption)
+                .accessibilityLabel(micState == .denied ? "Open System Settings for the microphone" : "Allow microphone access")
             }
         } detail: {
             EmptyView()
         }
     }
 
-    private var screenRecordingRow: some View {
+    private var callAudioRow: some View {
         checklistRow(done: screenState == .granted,
-                     title: "Screen Recording",
-                     caption: "How macOS lets us hear the other side of the call. Nothing is recorded or stored.") {
+                     title: "Call audio",
+                     caption: "Hears the other side. Nothing is recorded.") {
             if screenState != .granted {
-                Button("Grant") {
+                Button("Allow") {
                     PermissionStatus.requestScreenRecording()
                 }
                 .font(.caption)
+                .help("macOS asks for this as Screen Recording. MeetMouse only uses it to hear call audio.")
+                .accessibilityLabel("Allow call audio. macOS asks for this as Screen Recording.")
             }
         } detail: {
             EmptyView()
-        }
-    }
-
-    private var transcriptionRow: some View {
-        let engine = resolvedLanguage.preferredEngine
-        // Intel: no download will ever run — show the row as settled with an
-        // honest caption instead of an eternally-unchecked download.
-        return checklistRow(done: download.isReady(for: engine)
-                         || !PlatformSupport.neuralModelsSupported,
-                     active: download.isActive(for: engine),
-                     title: "Transcription engine",
-                     caption: PlatformSupport.neuralModelsSupported
-                         ? "\(engine == .parakeetV2 ? "Parakeet v2" : "Parakeet v3") for \(resolvedLanguage.englishName), on-device (~600 MB). Downloads automatically."
-                         : "Intel Mac: uses Apple's built-in English transcription. The high-accuracy engine and speaker naming need Apple Silicon.") {
-            EmptyView()
-        } detail: {
-            ParakeetProgressLine(engine: engine)
         }
     }
 
     @ViewBuilder private var aiNotesRow: some View {
         let ready = settings?.aiReady == true
         checklistRow(done: ready,
-                     active: false,
-                     title: "AI notes after each call",
-                     caption: settings?.usesCloudAI == true
-                         ? "\(settings?.aiConfiguration.provider.title ?? "Cloud AI") writes your notes after each call."
-                         : ready
-                             ? "A local model writes your notes on this Mac after each call."
-                             : "Pick one way to get full AI notes, summaries and follow-ups. Without it you only get a basic recap.") {
+                     title: "AI notes",
+                     caption: "Summary and follow-ups after each call.") {
             EmptyView()
         } detail: {
             if let settings, !ready || settings.downloadingModel != nil {
                 AISetupView(settings: settings,
                             localQueued: autoPullPending(settings) && settings.downloadingModel == nil)
-                    .padding(.top, 4)
+                    .padding(.top, 6)
             }
         }
     }
 
-    /// A switch, not a checklist row: most people should leave this off, so it
-    /// must not read as an unfinished setup step.
-    private func advancedCoachingOption(_ settings: SettingsViewModel) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Advanced live coaching").font(Dorado.barlowBold(15)).foregroundStyle(Dorado.midnight)
-                Text("Off keeps your calls smooth. On adds AI nudges during calls. \(settings.liveCoachingCostNote)")
-                    .font(Dorado.roboto(13))
-                    .foregroundStyle(Dorado.grey600)
-                    .fixedSize(horizontal: false, vertical: true)
+    /// One slim line, only while the speech model downloads or after it failed.
+    /// Nothing once it is done (or on Intel Macs, where no download runs).
+    @ViewBuilder private var speechModelStatus: some View {
+        let engine = resolvedLanguage.preferredEngine
+        if PlatformSupport.neuralModelsSupported {
+            if download.isPending(for: engine) {
+                statusLine { Text("Speech model queued…") }
+            } else if download.activeEngine == engine {
+                switch download.phase {
+                case .downloading(let fraction, _):
+                    statusLine { Text("Downloading speech model… \(Int(fraction * 100))%") }
+                case .compiling:
+                    statusLine { Text("Preparing speech model…") }
+                case .idle, .ready, .failed:
+                    EmptyView()
+                }
+            } else if download.failureMessage(for: engine) != nil {
+                statusLine {
+                    HStack(spacing: 6) {
+                        Text("Speech model download failed.").foregroundStyle(.red)
+                        Button("Retry") { download.retry(for: engine) }
+                    }
+                }
             }
-            Spacer(minLength: 0)
-            Toggle("Advanced live coaching", isOn: Binding(
-                get: { settings.semanticCoachEnabled },
-                set: { enabled in
-                    settings.semanticCoachEnabled = enabled
-                    if !enabled { liveSession?.shedSessionModel(settings: nil) }
-                }))
-                .labelsHidden()
-                .toggleStyle(.switch)
-                .controlSize(.small)
         }
+    }
+
+    private func statusLine<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .font(.caption)
+            .foregroundStyle(Dorado.grey600)
+            .padding(.leading, 34)
+    }
+
+    private var footer: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) { privacyLine; Spacer(minLength: 8); footerLinks }
+            VStack(alignment: .leading, spacing: 6) { privacyLine; footerLinks }
+        }
+    }
+
+    private var privacyLine: some View {
+        Label {
+            Text("Audio never leaves this Mac.")
+                .font(Dorado.roboto(12))
+                .foregroundStyle(Dorado.grey600)
+        } icon: {
+            Image(systemName: "lock.shield")
+                .font(.caption)
+                .foregroundStyle(Dorado.dollar)
+        }
+        .fixedSize()
+    }
+
+    private var footerLinks: some View {
+        HStack(spacing: 6) {
+            if let liveSession {
+                Button("Watch the demo") { liveSession.startDemo() }
+                    .buttonStyle(.plain)
+                Text("·").foregroundStyle(Dorado.grey500)
+            }
+            Button("Import from Granola") { openSettings() }
+                .buttonStyle(.plain)
+        }
+        .font(Dorado.roboto(12))
+        .foregroundStyle(Dorado.bolt)
+        .fixedSize()
     }
 
     /// True only while the one-time pull is really waiting on transcription. The
@@ -193,22 +189,10 @@ struct OnboardingChecklistView: View {
             && (download.isActive(for: engine) || download.isPending(for: engine))
     }
 
-    private var joinMeetingRow: some View {
-        checklistRow(done: false,
-                     active: liveSession?.isLive == true,
-                     title: liveSession?.isLive == true ? "You're live!" : "Join a meeting",
-                     caption: "We detect Zoom & Meet and offer to start — or click Go Live any time.") {
-            EmptyView()
-        } detail: {
-            EmptyView()
-        }
-    }
-
     // MARK: - Row scaffolding
 
-    private func checklistRow(done: Bool, active: Bool = false,
-                              title: String, titleBadge: String? = nil,
-                              caption: String,
+    /// Done rows collapse to the title with a green check.
+    private func checklistRow(done: Bool, title: String, caption: String,
                               @ViewBuilder trailing: () -> some View,
                               @ViewBuilder detail: () -> some View) -> some View {
         HStack(alignment: .top, spacing: 12) {
@@ -216,8 +200,6 @@ struct OnboardingChecklistView: View {
                 if done {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(Dorado.dollar)
-                } else if active {
-                    ProgressView().controlSize(.small)
                 } else {
                     Image(systemName: "circle")
                         .foregroundStyle(Color(hex: 0xC7CED7))
@@ -227,27 +209,20 @@ struct OnboardingChecklistView: View {
             .frame(width: 22, height: 22)
 
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(title).font(Dorado.barlowBold(15)).foregroundStyle(Dorado.midnight)
-                    if let titleBadge {
-                        Text(titleBadge)
-                            .font(.caption2)
-                            .padding(.horizontal, 6).padding(.vertical, 1)
-                            .background(Dorado.surfaceSubtle)
-                            .foregroundStyle(Dorado.grey600)
-                            .clipShape(Capsule())
-                    }
+                Text(title).font(Dorado.barlowBold(15)).foregroundStyle(Dorado.midnight)
+                if !done {
+                    Text(caption)
+                        .font(Dorado.roboto(13))
+                        .foregroundStyle(Dorado.grey600)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Text(caption)
-                    .font(Dorado.roboto(13))
-                    .foregroundStyle(Dorado.grey600)
-                    .fixedSize(horizontal: false, vertical: true)
                 detail()
             }
 
             Spacer(minLength: 0)
             trailing()
         }
+        .accessibilityElement(children: .contain)
     }
 }
 

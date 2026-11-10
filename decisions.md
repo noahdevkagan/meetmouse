@@ -2255,3 +2255,7 @@ installed. Not done: Settings reorganisation (out of scope), so Settings -> AI k
 Claude controls.
 
 2026-11-10 follow-up: the installer is no longer `curl | bash` in one string. It downloads to a temp file over HTTPS-only curl, checks the exit code and size, then runs bash on the file, each in its own process group that is killed whole on cancel or timeout, so a partial download never executes and cancel really stops it. `cliStatus()` throws on timeout/cancel/launch failure; only a real version below the minimum is "outdated". The local-model choice switches provider only after the download succeeds.
+
+## 2026-11-10 — First-run checklist cut to three rows
+
+Noah: the checklist was "long and confusing". It is now Microphone, Call audio, AI notes, one short line each. Removed: the Transcription engine row (downloads automatically; a slim status line shows only while downloading or after a failure), the Join a meeting row (not an action; nothing depended on it), and the Advanced live coaching toggle (still in Settings -> AI and the sidebar; this reverses the 2026-11-04 choice to show it in onboarding). The AI row shows both buttons inline; the long facts live in the consent and install steps after the click. Consent is unchanged: required and unticked.

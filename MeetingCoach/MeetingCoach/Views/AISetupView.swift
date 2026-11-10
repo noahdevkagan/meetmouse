@@ -221,17 +221,10 @@ struct AISetupView: View {
     // MARK: Choices
 
     private var choices: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            optionRow(title: "Use my Claude account",
-                      detail: "Sign in with your own Claude plan. Uses your plan's limits. Meeting text is sent to Anthropic; audio never leaves your Mac.",
-                      prominent: true) { model.chooseClaude() }
-            if localQueued {
-                Text("Your local model download is queued. It starts after the transcription engine.")
-                    .font(.caption2).foregroundStyle(.tertiary)
-            } else {
-                optionRow(title: "Download a local model",
-                          detail: "\(recommendedCatalogModel.diskSize) download. Private: stays on this Mac and works offline.",
-                          prominent: false) { model.downloadLocal(settings: settings) }
+        VStack(alignment: .leading, spacing: 8) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { claudeButton; localButton }
+                VStack(alignment: .leading, spacing: 8) { claudeButton; localButton }
             }
             if let failure = settings.downloadError {
                 HStack(spacing: 8) {
@@ -244,23 +237,23 @@ struct AISetupView: View {
         }
     }
 
-    private func optionRow(title: String, detail: String, prominent: Bool,
-                           action: @escaping () -> Void) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(Dorado.barlowBold(14)).foregroundStyle(Dorado.midnight)
-                Text(detail).font(Dorado.roboto(12)).foregroundStyle(Dorado.grey600)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 8)
-            if prominent {
-                Button("Choose", action: action).buttonStyle(.borderedProminent).controlSize(.small)
-            } else {
-                Button("Choose", action: action).controlSize(.small)
-            }
+    private var claudeButton: some View {
+        Button("Use my Claude account") { model.chooseClaude() }
+            .buttonStyle(.borderedProminent).controlSize(.small)
+            .accessibilityLabel("Use my Claude account for AI notes")
+    }
+
+    @ViewBuilder private var localButton: some View {
+        let size = recommendedCatalogModel.diskSize.replacingOccurrences(of: "~", with: "")
+        if localQueued {
+            Button("Download a model · starts soon") {}
+                .controlSize(.small).disabled(true)
+                .accessibilityLabel("Model download is queued and starts after the speech model")
+        } else {
+            Button("Download a model · \(size)") { model.downloadLocal(settings: settings) }
+                .controlSize(.small)
+                .accessibilityLabel("Download a model that runs on this Mac, \(size)")
         }
-        .padding(12)
-        .cardStyle(cornerRadius: 10)
     }
 
     private var downloadProgress: some View {
@@ -345,17 +338,17 @@ struct AISetupView: View {
     }
 }
 
-/// The home screen card shown until an AI provider is working.
+/// The home screen card shown until an AI provider is working (only when the
+/// first-run checklist is gone). One line plus the same two buttons.
 struct AISetupCard: View {
     var settings: SettingsViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Set up AI notes").font(Dorado.barlowBold(17)).foregroundStyle(Dorado.midnight)
-                Text("Right now you only get a basic recap after each call. Pick one way to get full AI notes, summaries and follow-ups.")
+                Text("AI notes").font(Dorado.barlowBold(17)).foregroundStyle(Dorado.midnight)
+                Text("Summary and follow-ups after each call. Until then you get a basic recap.")
                     .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey600)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             AISetupView(settings: settings)
         }
@@ -374,7 +367,7 @@ struct AISetupSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Set up AI notes").font(Dorado.barlowXBold(20)).foregroundStyle(Dorado.midnight)
-            Text("Pick one. You can change it later in Settings.")
+            Text("Summary and follow-ups after each call. Change it any time in Settings.")
                 .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey600)
             AISetupView(settings: settings) {
                 dismiss()
