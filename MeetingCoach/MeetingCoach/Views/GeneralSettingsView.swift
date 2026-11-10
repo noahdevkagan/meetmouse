@@ -288,38 +288,38 @@ struct GeneralSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Agent access (MCP)") {
+            Section("Connect to Claude") {
                 if let path = mcpHelperPath {
                     HStack {
-                        Button(mcpDesktopStatus == .done ? "Added to Claude Desktop ✓" : "Add to Claude Desktop") {
+                        Button(mcpDesktopStatus == .done || mcpDesktopStatus == .already
+                               ? "Added to Claude Desktop ✓" : "Add to Claude Desktop") {
                             mcpCopied = nil
                             addToClaudeDesktop(path)
                         }
                         .buttonStyle(.borderedProminent)
-                        Button(mcpCopied == "cli" ? "Copied ✓" : "Copy Claude Code command") {
-                            copyToPasteboard("claude mcp add meetmouse -- \"\(path)\"", tag: "cli")
+                        Spacer()
+                        Menu(mcpCopied == nil ? "Other apps" : "Copied ✓") {
+                            Button("Copy Claude Code command") {
+                                copyToPasteboard("claude mcp add meetmouse -- \"\(path)\"", tag: "cli")
+                            }
+                            Button("Copy JSON config") {
+                                copyToPasteboard(ClaudeDesktopConfig.snippet(helperPath: path), tag: "json")
+                            }
                         }
-                        Button(mcpCopied == "json" ? "Copied ✓" : "Copy JSON") {
-                            copyToPasteboard(ClaudeDesktopConfig.snippet(helperPath: path), tag: "json")
-                        }
+                        .fixedSize()
                     }
                     switch mcpDesktopStatus {
                     case .idle: EmptyView()
-                    case .done:
-                        Text("Added. Quit and reopen Claude to see MeetMouse under Connectors.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    case .already:
-                        Text("Already added ✓ Quit and reopen Claude if it isn't listed under Connectors.")
+                    case .done, .already:
+                        Text("Quit and reopen Claude — MeetMouse shows up under Connectors.")
                             .font(.caption).foregroundStyle(.secondary)
                     case .failed(let message):
                         Text(message).font(.caption).foregroundStyle(.red)
                     }
-                    Text("Claude's \u{201C}Add custom connector\u{201D} is for web URLs only — use the button above instead.")
-                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Text(mcpHelperPath == nil
                      ? "Agent server not found in this build."
-                     : "Lets Claude and other agents search and read your saved transcripts. The server runs locally; connected agents may send the text to their AI provider.")
+                     : "Lets Claude search and read your saved transcripts.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -405,6 +405,9 @@ struct GeneralSettingsView: View {
         NSPasteboard.general.setString(text, forType: .string)
         mcpCopied = tag
         if !keepStatus { mcpDesktopStatus = .idle }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            if mcpCopied == tag { mcpCopied = nil }
+        }
     }
 
     private func addToClaudeDesktop(_ bundledPath: String) {
