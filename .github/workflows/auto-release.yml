@@ -46,18 +46,24 @@ jobs:
             echo "v$VERSION is already tagged — nothing to release."
             exit 0
           fi
-          # A release run may already be in flight: queued, running, or
-          # waiting for approval in the `release` environment (status
-          # "waiting"). Dispatched runs report headBranch "main", so match
-          # any in-flight dispatch as well as a hand-pushed tag for this
-          # version. Otherwise a second CHANGELOG.md push while a release
-          # waits for approval would queue a duplicate.
-          if gh run list --workflow release.yml --limit 20 \
-               --json status,event,headBranch \
-               --jq '.[] | select(.status != "completed") | select(.event == "workflow_dispatch" or .headBranch == "v'"$VERSION"'") | .headBranch' \
-             | grep -q .; then
-            echo "A release run is already in progress or awaiting approval."
+          # release.yml's run-name is "Release v<version>" for both tag pushes
+          # and dispatches. Runs not yet completed include ones waiting for
+          # approval in the `release` environment (status "waiting").
+          INFLIGHT="$(gh run list --workflow release.yml --limit 30 \
+            --json status,displayTitle \
+            --jq '.[] | select(.status != "completed") | .displayTitle')"
+          if printf '%s\n' "$INFLIGHT" | grep -qxF "Release v$VERSION"; then
+            echo "A release run for v$VERSION is already in progress or awaiting approval."
             exit 0
+          fi
+          # A DIFFERENT release is in flight. Dispatching a second one is unsafe
+          # (two releases racing for the same appcast; approving them out of
+          # order could publish the older version last) and silently skipping
+          # would lose this version. So fail loudly: approve or reject the
+          # in-flight run, then re-run this job (Actions -> Auto release).
+          if printf '%s\n' "$INFLIGHT" | grep -q '^Release v'; then
+            echo "::error::Another release is in flight ($(printf '%s' "$INFLIGHT" | grep '^Release v' | paste -sd, -)). v$VERSION was NOT dispatched. Approve or reject that run, then re-run this job."
+            exit 1
           fi
           echo "Releasing v$VERSION"
           gh workflow run release.yml --ref main -f version="$VERSION"

@@ -2254,3 +2254,13 @@ input goes through `env:` and is validated instead of being interpolated into
 the shell. Signing and Cloudflare deploys share one job, so the whole job is
 gated; splitting them would limit what a compromised step can reach but was
 left out of scope.
+
+Follow-ups after review: the `gate` job gets a read-only token and only
+`release` gets contents: write. `run-name` carries the version so auto-release
+can match the specific version; if a different release is in flight it fails
+loudly rather than dispatching a second one (two releases racing for one
+appcast could publish the older version last) or skipping silently. Version
+check is a whole-string bash match (a line-wise grep let newlines through into
+$GITHUB_OUTPUT). The docs-push site deploy moved to a separate repo-level
+Pages-only token, `CLOUDFLARE_PAGES_API_TOKEN`, so the full-power
+`CLOUDFLARE_API_TOKEN` can live only in the `release` environment.
