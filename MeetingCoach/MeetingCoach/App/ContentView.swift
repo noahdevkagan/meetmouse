@@ -445,8 +445,13 @@ struct LiveTimelineView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                         if let error = liveSession.reviewAIError {
-                            Label(error, systemImage: "exclamationmark.triangle")
-                                .font(.caption).foregroundStyle(.orange)
+                            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                Label(error, systemImage: "exclamationmark.triangle")
+                                    .font(.caption).foregroundStyle(.orange)
+                                if !settings.aiReady || ClaudeAccount.isSetupProblem(error) {
+                                    SetUpAINotesButton(settings: settings)
+                                }
+                            }
                         }
                         // Review card
                         if let review = liveSession.meetingReview {

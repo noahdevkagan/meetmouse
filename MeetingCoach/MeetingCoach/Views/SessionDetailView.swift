@@ -64,6 +64,7 @@ struct SessionDetailView: View {
     @State private var confirmingStopShare = false
     @State private var revokingShare = false
     @State private var shareError: String?
+    @State private var offerRegenerate = false
     @State private var showingSharePrompt = false
     @FocusState private var askFocused: Bool
     // Notes editing: a hand edit marks the file (MeetingNotesFile.editedLabel)
@@ -204,6 +205,29 @@ struct SessionDetailView: View {
         .task(id: askTick) {
             guard askTick > 0, let question = pendingAsk else { return }
             await runSessionAsk(question)
+        }
+    }
+
+    private func startRegenerate() {
+        if notesEdited && review != nil {
+            confirmReplaceEdits = true
+        } else {
+            regenerating = true
+            regenTick += 1
+        }
+    }
+
+    /// "Set up AI notes" next to messages that AI setup can fix. After setup
+    /// succeeds, offers to regenerate this meeting's notes.
+    @ViewBuilder private func aiSetupButton(for message: String) -> some View {
+        if settings?.aiReady != true || ClaudeAccount.isSetupProblem(message) {
+            SetUpAINotesButton(settings: settings) {
+                // Let the sheet finish closing before the dialog appears.
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(400))
+                    if !lines.isEmpty { offerRegenerate = true }
+                }
+            }
         }
     }
 
@@ -484,9 +508,15 @@ struct SessionDetailView: View {
                 }
 
                 if let reviewError {
-                    Text(reviewError).font(.caption).foregroundStyle(.red)
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(reviewError).font(.caption).foregroundStyle(.red)
+                        aiSetupButton(for: reviewError)
+                    }
                 } else if !attemptedRegeneration, let automaticReviewError {
-                    Text(automaticReviewError).font(.caption).foregroundStyle(.orange)
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(automaticReviewError).font(.caption).foregroundStyle(.orange)
+                        aiSetupButton(for: automaticReviewError)
+                    }
                 }
                 if settings != nil, !lines.isEmpty, !editingNotes {
                     HStack(spacing: 8) {
@@ -496,12 +526,7 @@ struct SessionDetailView: View {
                                 .font(Dorado.roboto(13)).foregroundStyle(Dorado.grey600)
                         } else {
                             Button {
-                                if notesEdited && review != nil {
-                                    confirmReplaceEdits = true
-                                } else {
-                                    regenerating = true
-                                    regenTick += 1
-                                }
+                                startRegenerate()
                             } label: {
                                 HStack(spacing: 7) {
                                     Image(systemName: "sparkles")
@@ -517,6 +542,14 @@ struct SessionDetailView: View {
                 }
             }
             .padding(.init(top: 20, leading: 44, bottom: 20, trailing: 44))
+        }
+        .confirmationDialog("AI notes are ready", isPresented: $offerRegenerate, titleVisibility: .visible) {
+            Button(review == nil ? "Write notes for this meeting" : "Regenerate this meeting's notes") {
+                startRegenerate()
+            }
+            Button("Not now", role: .cancel) {}
+        } message: {
+            Text("Want AI to write this meeting's notes now?")
         }
         .confirmationDialog("Replace your edited notes?", isPresented: $confirmReplaceEdits,
                             titleVisibility: .visible) {
@@ -646,7 +679,7 @@ struct SessionDetailView: View {
         reviewError = nil
         defer { if url == meeting { redoingSection = nil } }
         guard await settings.prepareAI(ollamaManager: ollamaManager) else {
-            reviewError = "AI is unavailable — check Settings → AI or install a local model."
+            reviewError = "AI notes aren't set up yet, or AI isn't available right now."
             return
         }
         guard !Task.isCancelled, url == meeting else { return }
@@ -778,6 +811,7 @@ struct SessionDetailView: View {
                         }
                         if let askError {
                             Text(askError).font(.callout).foregroundStyle(.secondary)
+                            aiSetupButton(for: askError)
                             if chatSaveFailed {
                                 Button("Retry saving chat") {
                                     do {
@@ -873,7 +907,7 @@ struct SessionDetailView: View {
             if !Task.isCancelled { askBusy = nil; pendingAsk = nil }
         }
         guard let settings, let ollamaManager else {
-            askError = "Configure AI in Settings → AI, or install a local model."
+            askError = "AI notes aren't set up yet."
             askInput = question
             return
         }
@@ -882,7 +916,7 @@ struct SessionDetailView: View {
         // prepareAI short-circuits for them and does the Ollama dance otherwise.
         guard await settings.prepareAI(ollamaManager: ollamaManager) else {
             guard !Task.isCancelled else { return }
-            askError = "AI is unavailable — check Settings → AI or install a local model."
+            askError = "AI notes aren't set up yet, or AI isn't available right now."
             askInput = question
             return
         }
@@ -993,7 +1027,7 @@ struct SessionDetailView: View {
             preparingShare = false
             shareError = lines.isEmpty
                 ? "This meeting has no transcript to generate notes from."
-                : "AI is unavailable. Check Settings → AI, then click Share notes again."
+                : "AI notes aren't set up yet. Set them up, then click Share notes again."
             return
         }
         regenerating = true
@@ -1015,7 +1049,7 @@ struct SessionDetailView: View {
         }
         regenerating = true
         guard await settings.prepareAI(ollamaManager: ollamaManager) else {
-            reviewError = "AI is unavailable — check Settings → AI or install a local model."
+            reviewError = "AI notes aren't set up yet, or AI isn't available right now."
             return
         }
         guard !Task.isCancelled else { return }
