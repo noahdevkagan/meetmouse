@@ -158,6 +158,39 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
         check(ClaudeAccount.classify(versionOutput: "2.1.300", exitCode: 1) == nil, "failed run is not classified")
         check(ClaudeAccount.classify(versionOutput: "command not found", exitCode: 0) == nil, "non-version text is not classified")
         check(ClaudeAccount.isSetupProblem("Install Claude Code, then connect your Claude account here.") && ClaudeAccount.isSetupProblem("Connect your Claude subscription account first. An API-only login cannot be used here.") && !ClaudeAccount.isSetupProblem("Claude timed out. Try again or use a faster model."), "only fixable Claude problems offer setup")
+        check(ClaudeAccount.isSetupProblem(ClaudeAccount.couldNotStartMessage), "broken install offers setup")
+        check(ClaudeAccount.TimedOut().localizedDescription.contains("timed out") && !ClaudeAccount.isSetupProblem(ClaudeAccount.TimedOut().localizedDescription), "generic timeout text is not a setup problem")
+        check(ClaudeAccount.LaunchFailed().localizedDescription == ClaudeAccount.couldNotStartMessage, "launch failure uses the could-not-start text")
+        do {
+            _ = try await ClaudeAccount.run(executable: URL(fileURLWithPath: "/bin/sleep"), arguments: ["10"], timeout: 0.1)
+            check(false, "timeout must throw")
+        } catch is ClaudeAccount.TimedOut { check(true, "run timeout is a distinct TimedOut error") }
+        catch { check(false, "run timeout is a distinct TimedOut error") }
+        do {
+            _ = try await ClaudeAccount.run(executable: URL(fileURLWithPath: "/nonexistent/claude"), arguments: [], timeout: 1)
+            check(false, "missing binary must throw")
+        } catch is ClaudeAccount.LaunchFailed { check(true, "launch failure is a distinct LaunchFailed error") }
+        catch { check(false, "launch failure is a distinct LaunchFailed error") }
+        // Stale installer files: only our prefix, only old ones.
+        let tmpDir = FileManager.default.temporaryDirectory
+        let stale = tmpDir.appendingPathComponent("\(ClaudeAccount.installerTempPrefix)test-stale.sh")
+        let fresh = tmpDir.appendingPathComponent("\(ClaudeAccount.installerTempPrefix)test-fresh.sh")
+        let unrelated = tmpDir.appendingPathComponent("unrelated-test-stale.sh")
+        for u in [stale, fresh, unrelated] { try Data("x".utf8).write(to: u) }
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -7200)], ofItemAtPath: stale.path)
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -7200)], ofItemAtPath: unrelated.path)
+        ClaudeAccount.removeStaleInstallerFiles()
+        check(!FileManager.default.fileExists(atPath: stale.path), "old installer script removed")
+        check(FileManager.default.fileExists(atPath: fresh.path) && FileManager.default.fileExists(atPath: unrelated.path), "fresh or unrelated files kept")
+        try? FileManager.default.removeItem(at: fresh); try? FileManager.default.removeItem(at: unrelated)
+        // The setup model lives in a SwiftUI file this runner cannot link, so check
+        // its source: enabling needs the explicit flag, and only the button passes it.
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let setupSource = try String(contentsOf: root.appendingPathComponent("MeetingCoach/MeetingCoach/Views/AISetupView.swift"), encoding: .utf8)
+        check(setupSource.contains("guard userConfirmed, step == .consent"), "setup enable path is guarded by the explicit confirmation flag")
+        check(setupSource.components(separatedBy: "enableClaude(").count == 3 && setupSource.components(separatedBy: "userConfirmed: true").count == 2,
+              "only the Turn on AI notes button confirms cloud AI in setup")
+        check(!setupSource.contains("Toggle(") && !setupSource.contains("AI features"), "setup consent has no checkbox or 'AI features' wording")
         let args = ClaudeAccount.arguments(model: "haiku")
         check(args.contains("--safe-mode") && args.contains("--strict-mcp-config") && args.contains("--no-session-persistence"), "customizations MCP and persistence disabled")
         check(args[args.firstIndex(of: "--tools")! + 1].isEmpty, "CLI has no tools")

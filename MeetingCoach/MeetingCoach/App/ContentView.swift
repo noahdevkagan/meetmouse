@@ -1771,13 +1771,16 @@ struct SidebarView: View {
                                         settings: settings, ollamaManager: ollamaManager)
                         Divider()
                         ModelSection(settings: settings, liveSession: liveSession)
-                        Text(settings.usesCloudAI
-                             ? "Cloud AI is enabled for \(settings.semanticCoachEnabled ? "coaching, reviews" : "reviews") and questions. Audio stays on this Mac."
-                             : settings.semanticCoachEnabled
-                                 ? "AI nudges and the meeting summary switch on automatically when a model is installed."
-                                 : "AI notes switch on automatically when a model is installed.")
-                            .font(.caption2).foregroundStyle(.tertiary)
-                            .fixedSize(horizontal: false, vertical: true)
+                        // Shown for cloud AI; with a local model working there is nothing to
+                        // explain, and without one the home screen carries the setup.
+                        if settings.usesCloudAI {
+                            Text("Cloud AI is enabled for \(settings.semanticCoachEnabled ? "coaching, reviews" : "reviews") and questions. Audio stays on this Mac.")
+                                .font(.caption2).foregroundStyle(.tertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        } else if !settings.aiReady {
+                            Text("Set up AI notes on the home screen.")
+                                .font(.caption2).foregroundStyle(.tertiary)
+                        }
                     }
                     .padding(.top, 10)
                 }

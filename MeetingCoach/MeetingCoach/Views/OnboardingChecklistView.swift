@@ -102,7 +102,7 @@ struct OnboardingChecklistView: View {
                      caption: "Summary and follow-ups after each call.") {
             EmptyView()
         } detail: {
-            if let settings, !ready || settings.downloadingModel != nil {
+            if let settings, settings.hasCheckedModels, !ready || settings.downloadingModel != nil {
                 AISetupView(settings: settings,
                             localQueued: autoPullPending(settings) && settings.downloadingModel == nil)
                     .padding(.top, 6)

@@ -16,7 +16,7 @@ Plan (one PR): a new install must end up with working AI notes without visiting 
    card (cardStyle) until `settings.aiReady`; "Set up AI notes" buttons beside the basic-recap /
    "Settings -> AI" errors (live review, meeting page, search); after setup from a meeting page,
    offer to regenerate via the existing path.
-Status: review fixes applied (installer runs as download-then-bash in its own process group; cliStatus throws instead of guessing outdated; shared consent text; parent-hosted sheet). Debug build, tests/ai (77 checks) and tests/session pass. Checklist redesigned to three short rows (owner: "long and confusing"); GUI-verified in preview mode (`.context/verify/`). Push left to the coordinator.
+Status: review-2 fixes applied (broken-install repair button, timeout/launch errors, installer CLOEXEC/signal reset, cancel-after-install, busy checks, runID guards, stale temp cleanup, primary/secondary buttons, one-line install step, sidebar line only when AI not ready). Setup consent redesigned: two short lines, "What's sent?" popover with unchanged consent text, one "Turn on AI notes" button, no checkbox. Debug build, tests/ai and tests/session pass; GUI-verified in preview mode (`.context/verify/final-*.png`). Push left to the coordinator.
 
 ## Current state (2026-11-09): Fix code-review findings
 

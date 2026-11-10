@@ -561,6 +561,8 @@ struct SessionDetailView: View {
         }
         .confirmationDialog("AI notes are ready", isPresented: $offerRegenerate, titleVisibility: .visible) {
             Button(review == nil ? "Write notes for this meeting" : "Regenerate this meeting's notes") {
+                // The meeting may have become busy while the dialog was open.
+                guard !(regenerating || reviewInProgress || redoingSection != nil) else { return }
                 startRegenerate()
             }
             Button("Not now", role: .cancel) {}

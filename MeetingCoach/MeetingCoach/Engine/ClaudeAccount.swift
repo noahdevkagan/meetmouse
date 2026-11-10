@@ -37,7 +37,14 @@ enum ClaudeAccount {
             .contains { message.hasPrefix($0) }
     }
 
-    enum CLIStatus: Equatable { case missing, outdated, ready }
+    /// `broken`: the file exists but `--version` failed, timed out or printed
+    /// something that is not a version (e.g. an interrupted install).
+    enum CLIStatus: Equatable { case missing, outdated, broken, ready }
+
+    static let couldNotStartMessage = "Could not start Claude Code. Check its installation and try again."
+    /// The CLI did not answer in time. Own type so callers can tell it from a slow reply.
+    struct TimedOut: LocalizedError { var errorDescription: String? { "Claude timed out. Try again or use a faster model." } }
+    struct LaunchFailed: LocalizedError { var errorDescription: String? { couldNotStartMessage } }
 
     static let minimumVersion = "2.1.280"
 
@@ -49,22 +56,25 @@ enum ClaudeAccount {
         return number.compare(minimumVersion, options: .numeric) == .orderedAscending ? .outdated : .ready
     }
 
-    /// Throws on cancellation, timeout or launch failure instead of guessing
-    /// "outdated": only a version that really is below the minimum is outdated.
-    static func cliStatus() async throws -> CLIStatus {
+    /// Throws only on cancellation. A launch failure, timeout or non-version
+    /// output is `.broken`; only a version really below the minimum is `.outdated`.
+    /// `timeout` is longer right after an install: macOS scans new binaries on first launch.
+    static func cliStatus(timeout: TimeInterval = 10) async throws -> CLIStatus {
         guard let url = executable else { return .missing }
-        let version = try await run(executable: url, arguments: ["--version"], timeout: 10)
-        guard let status = classify(versionOutput: String(data: version.data, encoding: .utf8) ?? "",
-                                    exitCode: version.code) else {
-            throw AIError.message("Could not start Claude Code. Check its installation and try again.")
-        }
-        return status
+        let version: Output
+        do { version = try await run(executable: url, arguments: ["--version"], timeout: timeout) }
+        catch is TimedOut { return .broken }
+        catch is LaunchFailed { return .broken }
+        return classify(versionOutput: String(data: version.data, encoding: .utf8) ?? "",
+                        exitCode: version.code) ?? .broken
     }
 
     static func requireCLI() async throws -> URL {
         switch try await cliStatus() {
         case .missing:
             throw AIError.message("Install Claude Code, then connect your Claude account here.")
+        case .broken:
+            throw AIError.message(couldNotStartMessage)
         case .outdated:
             throw AIError.message("Update Claude Code to \(minimumVersion) or later to connect securely.")
         case .ready:
@@ -86,6 +96,23 @@ enum ClaudeAccount {
 
     /// Cancelled while the installer script was running: it may have partly installed.
     struct InstallInterrupted: Error {}
+    /// Cancelled after the installer script exited 0, during the final check:
+    /// the install itself finished.
+    struct InstalledThenCancelled: Error {}
+
+    static let installerTempPrefix = "meetmouse-claude-install-"
+    /// Removes installer scripts left by an interrupted run (app quit mid-install).
+    /// Only this app's prefix in the per-user temp dir, and only files older than
+    /// an hour so another running copy's live install is never touched.
+    static func removeStaleInstallerFiles(olderThan age: TimeInterval = 3600) {
+        let dir = FileManager.default.temporaryDirectory
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
+        for name in names where name.hasPrefix(installerTempPrefix) && name.hasSuffix(".sh") {
+            let url = dir.appendingPathComponent(name)
+            let modified = (try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date) ?? nil
+            if let modified, Date().timeIntervalSince(modified) > age { try? FileManager.default.removeItem(at: url) }
+        }
+    }
 
     private static let installLock = NSLock()
     nonisolated(unsafe) private static var installActive = false
@@ -108,7 +135,7 @@ enum ClaudeAccount {
 
         try Task.checkCancellation()
         let script = FileManager.default.temporaryDirectory
-            .appendingPathComponent("meetmouse-claude-install-\(UUID().uuidString).sh")
+            .appendingPathComponent("\(installerTempPrefix)\(UUID().uuidString).sh")
         defer { try? FileManager.default.removeItem(at: script) }
 
         // Step 1: download. Nothing has been installed yet, so cancelling is clean.
@@ -136,8 +163,14 @@ enum ClaudeAccount {
         } catch is GroupTimeout {
             throw AIError.message("The Claude Code install took too long and was stopped. It may have been partly installed in your home folder.")
         }
-        try Task.checkCancellation()
-        guard try await cliStatus() == .ready else {
+        let final: CLIStatus
+        do {
+            try Task.checkCancellation()
+            final = try await cliStatus(timeout: 30)
+        } catch is CancellationError {
+            throw InstalledThenCancelled()
+        }
+        guard final == .ready else {
             throw AIError.message("Claude Code installed, but this Mac still can't use it.")
         }
     }
@@ -150,8 +183,15 @@ enum ClaudeAccount {
         var attr: posix_spawnattr_t? = nil
         posix_spawnattr_init(&attr)
         defer { posix_spawnattr_destroy(&attr) }
-        posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETPGROUP))
+        // Own process group; no inherited descriptors (CLOEXEC_DEFAULT, stdio is
+        // re-opened below); default signal dispositions and an empty signal mask.
+        posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_CLOEXEC_DEFAULT
+                                              | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK))
         posix_spawnattr_setpgroup(&attr, 0)
+        var allSignals = sigset_t(); sigfillset(&allSignals)
+        posix_spawnattr_setsigdefault(&attr, &allSignals)
+        var noSignals = sigset_t(); sigemptyset(&noSignals)
+        posix_spawnattr_setsigmask(&attr, &noSignals)
         var actions: posix_spawn_file_actions_t? = nil
         posix_spawn_file_actions_init(&actions)
         defer { posix_spawn_file_actions_destroy(&actions) }
@@ -293,7 +333,7 @@ enum ClaudeAccount {
         }
         _ = fcntl(stdin.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
         do { try process.run() }
-        catch { throw AIError.message("Could not start Claude Code. Check its installation and try again.") }
+        catch { throw LaunchFailed() }
         try? stdin.fileHandleForReading.close()
         try? stdout.fileHandleForWriting.close()
         let reader = Task.detached { () throws -> Data in
@@ -313,7 +353,7 @@ enum ClaudeAccount {
         do {
             while process.isRunning {
                 try Task.checkCancellation()
-                guard ContinuousClock.now < deadline else { throw AIError.message("Claude timed out. Try again or use a faster model.") }
+                guard ContinuousClock.now < deadline else { throw TimedOut() }
                 try await Task.sleep(for: .milliseconds(50))
             }
             try Task.checkCancellation()

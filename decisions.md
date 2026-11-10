@@ -2259,3 +2259,8 @@ Claude controls.
 ## 2026-11-10 — First-run checklist cut to three rows
 
 Noah: the checklist was "long and confusing". It is now Microphone, Call audio, AI notes, one short line each. Removed: the Transcription engine row (downloads automatically; a slim status line shows only while downloading or after a failure), the Join a meeting row (not an action; nothing depended on it), and the Advanced live coaching toggle (still in Settings -> AI and the sidebar; this reverses the 2026-11-04 choice to show it in onboarding). The AI row shows both buttons inline; the long facts live in the consent and install steps after the click. Consent is unchanged: required and unticked.
+
+## 2026-11-10 — AI setup consent: labelled button plus short disclosure, no checkbox
+
+Noah: the consent step was "a lot of text" and "I have no clue what 'Allow AI features' means". In the setup flow only (checklist row, home card, sheet) the unticked checkbox is replaced by two plain lines (transcripts and notes go to Anthropic; audio stays here; Claude plan limits), plus a third line when advanced live coaching is on, a "What's sent?" popover holding the unchanged `cloudConsentText`, and one primary "Turn on AI notes" button directly under the disclosure. The button click is the explicit opt-in: `enableClaude` takes `userConfirmed`, passed true only by that button, so nothing else can enable cloud AI through the setup model; nothing is sent before the click. Settings -> AI is unchanged (full text, own toggle). Local-model setup has no consent step.
+
