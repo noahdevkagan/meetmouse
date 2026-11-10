@@ -2243,3 +2243,14 @@ existing limits. Section rewrites cancel when the detail view disappears and
 compare the full saved file before writing, so another writer's changes win.
 Saved next-call prep is honored inside startLive, shared by sidebar, menu bar,
 and detection starts; unprepared last-used guests remain unconfirmed.
+
+## 2026-11-10 — AI notes setup: one flow, Claude Code installed in-app on click
+Setup is two choices (Claude account / local model) shared by onboarding, a home card
+that stays until AI works, and a sheet behind "Set up AI notes" buttons. Installing Claude
+Code runs Anthropic's documented `curl -fsSL https://claude.ai/install.sh | bash` as a fixed
+string with a scrubbed environment, only after a click, never sudo, and falls back to the docs
+link on failure; the CLI is not bundled. Consent to send meeting text stays an explicit
+unticked toggle before `enableCloudAI`. "AI ready" = cloud enabled or a local model
+installed. Not done: Settings reorganisation (out of scope), so Settings -> AI keeps its own
+Claude controls.
+

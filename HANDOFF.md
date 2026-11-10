@@ -5,6 +5,19 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-10): AI notes setup as the main onboarding step
+
+Plan (one PR): a new install must end up with working AI notes without visiting Settings.
+1. `AISetupModel` (shared state machine) + `AISetupView` (two choices: Claude account / local
+   model) + `AISetupSheet`. Reuses ClaudeAccount, SettingsViewModel.enableCloudAI/downloadModel.
+2. `ClaudeAccount.install()`: runs Anthropic's official installer
+   (`curl -fsSL https://claude.ai/install.sh | bash`, fixed string, no sudo) only after a click.
+3. Checklist AI step loses "optional" and embeds the setup; home shows a "Set up AI notes"
+   card (cardStyle) until `settings.aiReady`; "Set up AI notes" buttons beside the basic-recap /
+   "Settings -> AI" errors (live review, meeting page, search); after setup from a meeting page,
+   offer to regenerate via the existing path.
+Status: built; Debug build, tests/ai (71 checks) and tests/session pass. Not GUI-verified.
+
 ## Current state (2026-11-09): Fix code-review findings
 
 Plan: preserve human-edited notes on save/reload without LLM truncation or
