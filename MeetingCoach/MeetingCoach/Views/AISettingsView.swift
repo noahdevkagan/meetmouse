@@ -64,20 +64,21 @@ struct AISettingsView: View {
 
     private var activeRow: some View {
         HStack {
-            Label("\(active.title) ·", systemImage: "checkmark.circle.fill")
+            Label(active.title, systemImage: "checkmark.circle.fill")
                 .fixedSize()
-            Spacer()
             Picker("Model", selection: Binding(
                 get: { settings.aiConfiguration.model },
                 set: { changeActiveModel($0) })) {
                 ForEach(active.models, id: \.self) { Text(AIProvider.modelTitle($0)).tag($0) }
             }
             .labelsHidden().fixedSize()
+            Spacer()
             Button("Switch to local") {
                 settings.useLocalAI()
-                accountConnected = false
                 isError = false
-                status = "Local AI enabled. Future cloud requests are stopped."
+                status = localReady ? "Local AI on. Future cloud requests are stopped."
+                                    : "Local AI on, download a model to get notes."
+                silentAccountCheck()
             }
         }
     }
@@ -87,11 +88,11 @@ struct AISettingsView: View {
     private var claudeChoice: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Claude account").font(.headline)
-            Text("Use your Claude plan. Best notes.")
+            Text("Use your Claude plan.")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("Sends meeting text, names and notes (never audio) to Claude. Uses your Claude plan’s limits.")
                 .font(.caption).foregroundStyle(.secondary)
             if accountConnected {
-                Text("Sends meeting text (never audio) to Claude for notes and questions.")
-                    .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Button("Turn on Claude notes") { enableAccount() }
                         .buttonStyle(.borderedProminent)
@@ -114,7 +115,7 @@ struct AISettingsView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("Local, free and open source").font(.headline)
-                if localReady {
+                if !settings.usesCloudAI && localReady {
                     Text("Current choice").font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -148,10 +149,12 @@ struct AISettingsView: View {
                 ForEach([AIProvider.anthropic, .openai]) { Text($0.title).tag($0) }
             }
             .disabled(busy)
-            Picker("Model", selection: $keyModel) {
-                ForEach(keyProvider.models, id: \.self) { Text(AIProvider.modelTitle($0)).tag($0) }
+            if active != keyProvider {
+                Picker("Model", selection: $keyModel) {
+                    ForEach(keyProvider.models, id: \.self) { Text(AIProvider.modelTitle($0)).tag($0) }
+                }
+                .disabled(busy)
             }
-            .disabled(busy)
             SecureField(hasSavedKey ? "Saved key — enter to replace" : "Paste API key", text: $key)
                 .disabled(busy)
                 .textContentType(.password)
@@ -164,6 +167,7 @@ struct AISettingsView: View {
                 Button(busy ? "Checking…" : "Save and enable") { saveKey() }
                     .buttonStyle(.borderedProminent)
                     .disabled(busy || !consent || (key.isEmpty && !hasSavedKey))
+                if busy { Button("Cancel") { accountTask?.cancel() } }
                 if hasSavedKey {
                     Button("Remove saved key", role: .destructive) { removeKey() }
                         .disabled(busy)
@@ -178,7 +182,7 @@ struct AISettingsView: View {
 
     private func loadKeyProvider() {
         if active.requiresAPIKey { keyProvider = active }
-        key = ""; consent = false
+        key = ""; consent = false; status = nil; isError = false
         keyModel = active == keyProvider ? settings.aiConfiguration.model : (keyProvider.models.first ?? "")
         if !keyProvider.models.contains(keyModel) { keyModel = keyProvider.models.first ?? "" }
         do { hasSavedKey = try AIKeychain.read(keyProvider) != nil }
@@ -189,6 +193,7 @@ struct AISettingsView: View {
     /// Detects an existing sign-in without a browser; sends no meeting text.
     private func silentAccountCheck() {
         guard ClaudeAccount.executable != nil, !settings.usesCloudAI, !accountConnected else { return }
+        accountTask?.cancel()
         accountTask = Task {
             if (try? await ClaudeAccount.checkConnection()) != nil, !Task.isCancelled { accountConnected = true }
         }
@@ -197,6 +202,7 @@ struct AISettingsView: View {
     /// Skips the browser when already signed in. Connecting sends no meeting
     /// text: that takes the separate "Turn on Claude notes" step.
     private func connectAccount() {
+        accountTask?.cancel()
         busy = true; isError = false; status = nil
         accountTask = Task {
             defer { busy = false }
@@ -240,16 +246,23 @@ struct AISettingsView: View {
         let configuration = AIConfiguration(provider: keyProvider, model: keyModel)
         do {
             let candidate = key.trimmingCharacters(in: .whitespacesAndNewlines)
+            if candidate.contains(where: { $0.isWhitespace || $0.isNewline }) {
+                status = "That key contains spaces or line breaks. Paste just the key."; isError = true; return
+            }
             let testKey = candidate.isEmpty ? (try AIKeychain.read(keyProvider) ?? "") : candidate
+            guard !testKey.isEmpty else { status = "Enter an API key first."; isError = true; return }
+            accountTask?.cancel()
             busy = true; status = nil
-            Task {
+            accountTask = Task {
                 defer { busy = false }
                 do {
                     _ = try await CloudAI.complete(configuration: configuration, key: testKey,
                                                     system: "Reply briefly.", user: "Say OK.", maxTokens: 32)
-                    try settings.enableCloudAI(configuration, key: key)
+                    try Task.checkCancellation()
+                    try settings.enableCloudAI(configuration, key: candidate)
                     key = ""; hasSavedKey = true; isError = false
                     status = "\(keyProvider.title) enabled."
+                } catch is CancellationError { status = "Cancelled."
                 } catch { fail(error) }
             }
         } catch { fail(error) }
