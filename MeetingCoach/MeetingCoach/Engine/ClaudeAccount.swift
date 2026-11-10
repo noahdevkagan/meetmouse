@@ -30,18 +30,82 @@ enum ClaudeAccount {
     static let isolation = ["--safe-mode", "--setting-sources", "", "--strict-mcp-config",
                             "--mcp-config", "{\"mcpServers\":{}}", "--no-chrome"]
 
-    static func requireCLI() async throws -> URL {
-        guard let url = executable else {
-            throw AIError.message("Install Claude Code, then connect your Claude account here.")
-        }
-        let version = try await run(executable: url, arguments: ["--version"], timeout: 10)
+    /// Errors that Set up AI notes can fix (not usage limits or timeouts).
+    static func isSetupProblem(_ message: String) -> Bool {
+        ["Install Claude Code", "Update Claude Code", "Connect your Claude subscription",
+         "Claude Code is no longer installed", "Could not start Claude Code"]
+            .contains { message.hasPrefix($0) }
+    }
+
+    enum CLIStatus: Equatable { case missing, outdated, ready }
+
+    static let minimumVersion = "2.1.280"
+
+    static func cliStatus() async -> CLIStatus {
+        guard let url = executable else { return .missing }
+        guard let version = try? await run(executable: url, arguments: ["--version"], timeout: 10) else { return .outdated }
         let text = String(data: version.data, encoding: .utf8) ?? ""
         let number = text.split(separator: " ").first.map(String.init) ?? ""
         guard version.code == 0, number.first?.isNumber == true,
-              number.compare("2.1.280", options: .numeric) != .orderedAscending else {
-            throw AIError.message("Update Claude Code to 2.1.280 or later to connect securely.")
+              number.compare(minimumVersion, options: .numeric) != .orderedAscending else { return .outdated }
+        return .ready
+    }
+
+    static func requireCLI() async throws -> URL {
+        switch await cliStatus() {
+        case .missing:
+            throw AIError.message("Install Claude Code, then connect your Claude account here.")
+        case .outdated:
+            throw AIError.message("Update Claude Code to \(minimumVersion) or later to connect securely.")
+        case .ready:
+            guard let url = executable else { throw AIError.message("Claude Code is no longer installed.") }
+            return url
         }
-        return url
+    }
+
+    /// Anthropic's official native installer, from https://code.claude.com/docs/en/setup.
+    /// Fixed text: nothing user-controlled reaches the shell, it downloads over
+    /// HTTPS only, installs under the user's home (~/.local) and never needs sudo.
+    static let installerCommand = "set -o pipefail; /usr/bin/curl -fsSL https://claude.ai/install.sh | /bin/bash"
+    static let installDocsURL = URL(string: "https://code.claude.com/docs/en/setup")!
+
+    /// Runs the installer, then confirms the result. Only call after an explicit click.
+    static func install(timeout: TimeInterval = 600) async throws {
+        try Task.checkCancellation()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/bash")
+        process.arguments = ["-c", installerCommand]
+        process.environment = installerEnvironment()
+        process.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        do { try process.run() }
+        catch { throw AIError.message("Couldn't start the Claude Code installer.") }
+        let deadline = ContinuousClock.now + .milliseconds(Int64(timeout * 1000))
+        do {
+            while process.isRunning {
+                try Task.checkCancellation()
+                guard ContinuousClock.now < deadline else { throw AIError.message("The Claude Code install took too long.") }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+        } catch {
+            if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+            throw error
+        }
+        guard process.terminationStatus == 0 else {
+            throw AIError.message("The Claude Code install didn't finish.")
+        }
+        guard await cliStatus() == .ready else {
+            throw AIError.message("Claude Code installed, but this Mac still can't use it.")
+        }
+    }
+
+    static func installerEnvironment(_ source: [String: String] = ProcessInfo.processInfo.environment) -> [String: String] {
+        var env = source.filter { ["USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy"].contains($0.key) }
+        env["HOME"] = FileManager.default.homeDirectoryForCurrentUser.path
+        env["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
+        return env
     }
 
     static func isSubscription(_ data: Data) -> Bool {
