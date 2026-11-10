@@ -2254,3 +2254,4 @@ unticked toggle before `enableCloudAI`. "AI ready" = cloud enabled or a local mo
 installed. Not done: Settings reorganisation (out of scope), so Settings -> AI keeps its own
 Claude controls.
 
+2026-11-10 follow-up: the installer is no longer `curl | bash` in one string. It downloads to a temp file over HTTPS-only curl, checks the exit code and size, then runs bash on the file, each in its own process group that is killed whole on cancel or timeout, so a partial download never executes and cancel really stops it. `cliStatus()` throws on timeout/cancel/launch failure; only a real version below the minimum is "outdated". The local-model choice switches provider only after the download succeeds.

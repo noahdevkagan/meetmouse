@@ -65,6 +65,8 @@ struct SessionDetailView: View {
     @State private var revokingShare = false
     @State private var shareError: String?
     @State private var offerRegenerate = false
+    @State private var showingAISetup = false
+    @State private var aiSetupFromAsk = false
     @State private var showingSharePrompt = false
     @FocusState private var askFocused: Bool
     // Notes editing: a hand edit marks the file (MeetingNotesFile.editedLabel)
@@ -219,15 +221,24 @@ struct SessionDetailView: View {
 
     /// "Set up AI notes" next to messages that AI setup can fix. After setup
     /// succeeds, offers to regenerate this meeting's notes.
-    @ViewBuilder private func aiSetupButton(for message: String) -> some View {
-        if settings?.aiReady != true || ClaudeAccount.isSetupProblem(message) {
-            SetUpAINotesButton(settings: settings) {
-                // Let the sheet finish closing before the dialog appears.
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(400))
-                    if !lines.isEmpty { offerRegenerate = true }
-                }
+    @ViewBuilder private func aiSetupButton(for message: String, fromAsk: Bool = false) -> some View {
+        if settings != nil, settings?.aiReady != true || ClaudeAccount.isSetupProblem(message) {
+            Button("Set up AI notes") {
+                aiSetupFromAsk = fromAsk
+                showingAISetup = true
             }
+            .font(.caption)
+        }
+    }
+
+    /// The setup sheet is hosted here, not on the button: the button disappears
+    /// as soon as AI becomes ready, which would tear the sheet down before the
+    /// regenerate offer could appear.
+    private func aiSetupFinished() {
+        guard !aiSetupFromAsk else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(400))
+            if !lines.isEmpty { offerRegenerate = true }
         }
     }
 
@@ -543,6 +554,11 @@ struct SessionDetailView: View {
             }
             .padding(.init(top: 20, leading: 44, bottom: 20, trailing: 44))
         }
+        .sheet(isPresented: $showingAISetup) {
+            if let settings {
+                AISetupSheet(settings: settings, onReady: aiSetupFinished)
+            }
+        }
         .confirmationDialog("AI notes are ready", isPresented: $offerRegenerate, titleVisibility: .visible) {
             Button(review == nil ? "Write notes for this meeting" : "Regenerate this meeting's notes") {
                 startRegenerate()
@@ -811,7 +827,7 @@ struct SessionDetailView: View {
                         }
                         if let askError {
                             Text(askError).font(.callout).foregroundStyle(.secondary)
-                            aiSetupButton(for: askError)
+                            aiSetupButton(for: askError, fromAsk: true)
                             if chatSaveFailed {
                                 Button("Retry saving chat") {
                                     do {

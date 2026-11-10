@@ -16,7 +16,7 @@ Plan (one PR): a new install must end up with working AI notes without visiting 
    card (cardStyle) until `settings.aiReady`; "Set up AI notes" buttons beside the basic-recap /
    "Settings -> AI" errors (live review, meeting page, search); after setup from a meeting page,
    offer to regenerate via the existing path.
-Status: built; Debug build, tests/ai (71 checks) and tests/session pass. Not GUI-verified.
+Status: review fixes applied (installer runs as download-then-bash in its own process group; cliStatus throws instead of guessing outdated; shared consent text; parent-hosted sheet). Debug build, tests/ai (77 checks) and tests/session pass. Not GUI-verified; push left to the coordinator.
 
 ## Current state (2026-11-09): Fix code-review findings
 

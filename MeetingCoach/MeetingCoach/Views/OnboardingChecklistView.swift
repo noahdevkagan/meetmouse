@@ -152,12 +152,9 @@ struct OnboardingChecklistView: View {
             EmptyView()
         } detail: {
             if let settings, !ready || settings.downloadingModel != nil {
-                if autoPullPending(settings) && settings.downloadingModel == nil {
-                    Text("Queued — starts after the transcription engine.")
-                        .font(.caption2).foregroundStyle(.tertiary)
-                } else {
-                    AISetupView(settings: settings).padding(.top, 4)
-                }
+                AISetupView(settings: settings,
+                            localQueued: autoPullPending(settings) && settings.downloadingModel == nil)
+                    .padding(.top, 4)
             }
         }
     }

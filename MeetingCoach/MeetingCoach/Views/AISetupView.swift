@@ -10,7 +10,7 @@ import SwiftUI
 final class AISetupModel {
     enum Step: Equatable {
         case choose
-        case needsInstall(outdated: Bool)
+        case needsInstall(outdated: Bool, note: String? = nil)
         case installing
         case installFailed(String)
         case signingIn
@@ -22,16 +22,23 @@ final class AISetupModel {
     private(set) var error: String?
     var consent = false
     private var task: Task<Void, Never>?
+    private var runID = 0
 
     var isWorking: Bool { [.installing, .signingIn, .enabling].contains(step) }
 
     func chooseClaude() {
         error = nil
-        run(.signingIn) { [self] in
-            switch await ClaudeAccount.cliStatus() {
-            case .missing: step = .needsInstall(outdated: false)
-            case .outdated: step = .needsInstall(outdated: true)
-            case .ready: await signIn()
+        run(.signingIn) { [self] id in
+            do {
+                switch try await ClaudeAccount.cliStatus() {
+                case .missing: step = .needsInstall(outdated: false)
+                case .outdated: step = .needsInstall(outdated: true)
+                case .ready: await signIn()
+                }
+            } catch is CancellationError {
+                if runID == id { step = .choose }
+            } catch {
+                if runID == id { self.error = error.localizedDescription; step = .choose }
             }
         }
     }
@@ -39,15 +46,19 @@ final class AISetupModel {
     /// Only ever called from the Install button.
     func installClaudeCode() {
         error = nil
-        run(.installing) { [self] in
+        run(.installing) { [self] id in
             do {
                 try await ClaudeAccount.install()
                 try Task.checkCancellation()
                 await signIn()
             } catch is CancellationError {
-                step = .needsInstall(outdated: false)
+                if runID == id { step = .needsInstall(outdated: false) }
+            } catch is ClaudeAccount.InstallInterrupted {
+                if runID == id {
+                    step = .needsInstall(outdated: false, note: "The install was stopped part-way, so some files may already be in your home folder. Installing again is safe.")
+                }
             } catch {
-                step = .installFailed(error.localizedDescription)
+                if runID == id { step = .installFailed(error.localizedDescription) }
             }
         }
     }
@@ -93,23 +104,26 @@ final class AISetupModel {
 
     func downloadLocal(settings: SettingsViewModel) {
         error = nil
-        if settings.usesCloudAI { settings.useLocalAI() }
-        settings.downloadModel(recommendedCatalogModel)
+        settings.downloadModel(recommendedCatalogModel, switchToLocalOnSuccess: true)
     }
 
     func cancel() {
         task?.cancel()
         task = nil
+        // The task's own handler sets the install-cancelled screen once the
+        // installer processes are really stopped.
         if step == .installing { step = .needsInstall(outdated: false) }
         else if isWorking { step = .choose }
     }
 
-    func back() { cancel(); error = nil; consent = false; step = .choose }
+    func back() { cancel(); runID += 1; error = nil; consent = false; step = .choose }
 
-    private func run(_ initial: Step, _ body: @escaping @MainActor () async -> Void) {
+    private func run(_ initial: Step, _ body: @escaping @MainActor (Int) async -> Void) {
         task?.cancel()
+        runID += 1
+        let id = runID
         step = initial
-        task = Task { await body() }
+        task = Task { await body(id) }
     }
 }
 
@@ -117,6 +131,9 @@ struct AISetupView: View {
     var settings: SettingsViewModel
     /// Called once when AI becomes ready through this view.
     var onReady: (() -> Void)?
+    /// A local-model download is already queued behind another step (onboarding):
+    /// the local option waits instead of starting a second download.
+    var localQueued = false
     @State private var model = AISetupModel()
     @State private var announced = false
 
@@ -129,7 +146,7 @@ struct AISetupView: View {
             } else {
                 switch model.step {
                 case .choose: choices
-                case .needsInstall(let outdated): installPrompt(outdated: outdated)
+                case .needsInstall(let outdated, let note): installPrompt(outdated: outdated, note: note)
                 case .installing: working("Downloading and installing Claude Code from Anthropic. This can take a minute.")
                 case .installFailed(let message): installFailed(message)
                 case .signingIn: working("Finish signing in to Claude in your browser…")
@@ -143,6 +160,10 @@ struct AISetupView: View {
         }
         .onChange(of: settings.aiReady) { _, ready in
             if ready { announce() }
+        }
+        .onChange(of: settings.usesCloudAI) { _, cloud in
+            // Switched from a Claude account to a freshly downloaded local model.
+            if !cloud, settings.aiReady { announce() }
         }
         .onDisappear { model.cancel() }
     }
@@ -160,9 +181,14 @@ struct AISetupView: View {
             optionRow(title: "Use my Claude account",
                       detail: "Sign in with your own Claude plan. Uses your plan's limits. Meeting text is sent to Anthropic; audio never leaves your Mac.",
                       prominent: true) { model.chooseClaude() }
-            optionRow(title: "Download a local model",
-                      detail: "\(recommendedCatalogModel.diskSize) download. Private: stays on this Mac and works offline.",
-                      prominent: false) { model.downloadLocal(settings: settings) }
+            if localQueued {
+                Text("Your local model download is queued. It starts after the transcription engine.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+            } else {
+                optionRow(title: "Download a local model",
+                          detail: "\(recommendedCatalogModel.diskSize) download. Private: stays on this Mac and works offline.",
+                          prominent: false) { model.downloadLocal(settings: settings) }
+            }
             if let failure = settings.downloadError {
                 HStack(spacing: 8) {
                     Text(failure.replacingOccurrences(of: "error: ", with: "Download failed: "))
@@ -219,13 +245,17 @@ struct AISetupView: View {
         }
     }
 
-    private func installPrompt(outdated: Bool) -> some View {
+    private func installPrompt(outdated: Bool, note: String?) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(outdated ? "Claude Code needs an update" : "Claude sign-in needs Claude Code")
                 .font(Dorado.barlowBold(14)).foregroundStyle(Dorado.midnight)
             Text("MeetMouse signs in through Claude Code, Anthropic's own app, so your login stays with Anthropic. \(outdated ? "The version on this Mac is too old." : "It isn't on this Mac yet.") Installing runs Anthropic's official installer (claude.ai/install.sh). It goes in your home folder and doesn't ask for your password.")
                 .font(Dorado.roboto(12)).foregroundStyle(Dorado.grey600)
                 .fixedSize(horizontal: false, vertical: true)
+            if let note {
+                Text(note).font(.caption).foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             HStack(spacing: 8) {
                 Button(outdated ? "Update Claude Code" : "Install Claude Code") { model.installClaudeCode() }
                     .buttonStyle(.borderedProminent).controlSize(.small)
@@ -236,7 +266,7 @@ struct AISetupView: View {
 
     private func installFailed(_ message: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("\(message) Nothing else on your Mac was changed.")
+            Text(message)
                 .font(.caption).foregroundStyle(.red)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
@@ -252,10 +282,10 @@ struct AISetupView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Signed in to Claude", systemImage: "checkmark.circle.fill")
                 .font(Dorado.barlowBold(14)).foregroundStyle(Dorado.midnight)
-            Text("To write notes, MeetMouse sends meeting text (never audio) to Anthropic through your Claude account. It counts against your Claude plan's limits. MeetMouse does not store your Claude login.")
+            Text("\(settings.cloudConsentText(providerTitle: "Anthropic through your Claude account")) It counts against your Claude plan's limits. MeetMouse does not store your Claude login.")
                 .font(Dorado.roboto(12)).foregroundStyle(Dorado.grey600)
                 .fixedSize(horizontal: false, vertical: true)
-            Toggle("Allow MeetMouse to send meeting text to Claude", isOn: $model.consent)
+            Toggle("Allow AI features to send this text to Claude", isOn: $model.consent)
                 .font(Dorado.roboto(12))
                 .disabled(model.step == .enabling)
             HStack(spacing: 8) {

@@ -1779,7 +1779,7 @@ final class LiveSessionViewModel {
             } else {
                 reviewAIError = settings.availableModels.isEmpty
                     ? "A basic recap is shown. Set up AI notes to get full summaries and follow-ups."
-                    : "AI is unavailable. A basic recap is shown; set up AI notes, then regenerate from the saved meeting."
+                    : "The local AI model couldn't start, so a basic recap is shown. Try Regenerate from the saved meeting, or restart MeetMouse."
             }
             guard reviewGenerationID == generationID else { return }
             if let summary, !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
