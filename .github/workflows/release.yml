@@ -32,6 +32,12 @@ jobs:
   release:
     needs: gate
     runs-on: macos-14
+    # Approval gate: the run pauses here until a required reviewer approves
+    # (Actions run -> Review deployments). The signing, notarization, Sparkle,
+    # releases-repo and Cloudflare secrets live in this environment, so they
+    # are not available before approval. The gate job above runs first with
+    # no environment, so approval is only requested once tests have passed.
+    environment: release
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,11 +66,18 @@ jobs:
 
       - name: Derive version
         id: ver
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
+          set -euo pipefail
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
+            VERSION="$INPUT_VERSION"
           else
             VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$'; then
+            echo "::error::Invalid version: $VERSION" >&2
+            exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 

@@ -26,8 +26,10 @@ security find-identity -v -p codesigning   # → "Developer ID Application: Noah
 At <https://appleid.apple.com> ▸ Sign-In & Security ▸ App-Specific Passwords,
 create one for "notarytool".
 
-### 3. GitHub repo secrets
-Settings ▸ Secrets and variables ▸ Actions ▸ New repository secret:
+### 3. GitHub secrets (in the `release` environment)
+Settings ▸ Environments ▸ `release` ▸ Environment secrets (not repo-level
+secrets, so nothing that signs or publishes is reachable without approval).
+The environment has a required reviewer; see "Approving a release" below.
 
 | Secret | Value |
 |---|---|
@@ -60,6 +62,17 @@ DMG → notarize + staple the DMG. Stapling the app itself matters because users
 drag it out of the DMG — an offline Mac can't fetch a ticket for an unstapled app.
 It also regenerates the Xcode project from `project.yml` (source of truth) and
 asserts the Ollama runtime is present in the built bundle before signing.
+
+### Approving a release
+Every release (tag push, `workflow_dispatch`, or the auto-release from a
+CHANGELOG.md push) runs the test gate first, then pauses before the `release`
+job. Open the run in the Actions tab, click **Review deployments**, tick
+`release`, and **Approve and deploy**. Only then are the secrets available.
+Reject to cancel. Secret names the workflow reads (all belong in the
+`release` environment): `MACOS_CERT_P12_BASE64`, `MACOS_CERT_PASSWORD`,
+`MACOS_KEYCHAIN_PASSWORD`, `MACOS_DEVELOPER_ID_APP`, `MACOS_TEAM_ID`,
+`MACOS_NOTARY_APPLE_ID`, `MACOS_NOTARY_PASSWORD`, `SPARKLE_ED_PRIVATE_KEY`,
+`RELEASES_TOKEN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
 
 ---
 

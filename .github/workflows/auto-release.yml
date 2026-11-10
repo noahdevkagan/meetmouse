@@ -2,7 +2,9 @@ name: Auto release
 
 # Pushing a "## X.Y.Z" changelog section to main IS the release: if the top
 # numbered version in CHANGELOG.md has no tag yet, dispatch release.yml,
-# which runs the gate, then creates tag vX.Y.Z and ships. No local tag push
+# which runs the gate, then PAUSES for approval in the `release` environment
+# (Actions run -> Review deployments), then creates tag vX.Y.Z and ships.
+# This workflow only dispatches; it never waits on the release run. No local tag push
 # is needed (Claude Code's auto mode blocks those). Editing an already
 # released section is a no-op because its tag exists.
 #
@@ -44,13 +46,17 @@ jobs:
             echo "v$VERSION is already tagged — nothing to release."
             exit 0
           fi
-          # A release run for this version may already be in flight (tag
-          # pushed by hand, or an earlier changelog push).
+          # A release run may already be in flight: queued, running, or
+          # waiting for approval in the `release` environment (status
+          # "waiting"). Dispatched runs report headBranch "main", so match
+          # any in-flight dispatch as well as a hand-pushed tag for this
+          # version. Otherwise a second CHANGELOG.md push while a release
+          # waits for approval would queue a duplicate.
           if gh run list --workflow release.yml --limit 20 \
-               --json status,displayTitle,headBranch \
-               --jq '.[] | select(.status != "completed") | .headBranch' \
-             | grep -qx "v$VERSION"; then
-            echo "A release run for v$VERSION is already in progress."
+               --json status,event,headBranch \
+               --jq '.[] | select(.status != "completed") | select(.event == "workflow_dispatch" or .headBranch == "v'"$VERSION"'") | .headBranch' \
+             | grep -q .; then
+            echo "A release run is already in progress or awaiting approval."
             exit 0
           fi
           echo "Releasing v$VERSION"

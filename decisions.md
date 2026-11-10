@@ -2243,3 +2243,14 @@ existing limits. Section rewrites cancel when the detail view disappears and
 compare the full saved file before writing, so another writer's changes win.
 Saved next-call prep is honored inside startLive, shared by sidebar, menu bar,
 and detection starts; unprepared last-used guests remain unconfirmed.
+
+## 2026-11-10 — Releases pause for approval in a `release` environment
+A CHANGELOG.md push to main used to sign, notarize and publish an update that
+Sparkle auto-installs on every Mac, using repo-level secrets with no human in
+the loop. The `release` job now runs in a GitHub Environment with a required
+reviewer (the gate job still runs first, unapproved, so approval comes after
+green tests), and the secrets move into that environment. The dispatch version
+input goes through `env:` and is validated instead of being interpolated into
+the shell. Signing and Cloudflare deploys share one job, so the whole job is
+gated; splitting them would limit what a compromised step can reach but was
+left out of scope.
