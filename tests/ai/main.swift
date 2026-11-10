@@ -171,6 +171,8 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
             check(false, "missing binary must throw")
         } catch is ClaudeAccount.LaunchFailed { check(true, "launch failure is a distinct LaunchFailed error") }
         catch { check(false, "launch failure is a distinct LaunchFailed error") }
+        check(ClaudeAccount.slowMessage.hasPrefix("Claude Code is slow") && !ClaudeAccount.isSetupProblem(ClaudeAccount.slowMessage), "slow reply is not a setup problem (no reinstall)")
+        check(ClaudeAccount.isPerUserTempDirectory(FileManager.default.temporaryDirectory.path) && !ClaudeAccount.isPerUserTempDirectory("/tmp") && !ClaudeAccount.isPerUserTempDirectory("/nonexistent"), "per-user temp dir check")
         // Stale installer files: only our prefix, only old ones.
         let tmpDir = FileManager.default.temporaryDirectory
         let stale = tmpDir.appendingPathComponent("\(ClaudeAccount.installerTempPrefix)test-stale.sh")
@@ -182,14 +184,41 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
         ClaudeAccount.removeStaleInstallerFiles()
         check(!FileManager.default.fileExists(atPath: stale.path), "old installer script removed")
         check(FileManager.default.fileExists(atPath: fresh.path) && FileManager.default.fileExists(atPath: unrelated.path), "fresh or unrelated files kept")
+        let staleDir = tmpDir.appendingPathComponent("\(ClaudeAccount.installerTempPrefix)test-dir.sh")
+        try FileManager.default.createDirectory(at: staleDir, withIntermediateDirectories: true)
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -7200)], ofItemAtPath: staleDir.path)
+        ClaudeAccount.removeStaleInstallerFiles()
+        check(FileManager.default.fileExists(atPath: staleDir.path), "stale cleanup never removes a directory")
+        try? FileManager.default.removeItem(at: staleDir)
         try? FileManager.default.removeItem(at: fresh); try? FileManager.default.removeItem(at: unrelated)
         // The setup model lives in a SwiftUI file this runner cannot link, so check
         // its source: enabling needs the explicit flag, and only the button passes it.
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let setupSource = try String(contentsOf: root.appendingPathComponent("MeetingCoach/MeetingCoach/Views/AISetupView.swift"), encoding: .utf8)
-        check(setupSource.contains("guard userConfirmed, step == .consent"), "setup enable path is guarded by the explicit confirmation flag")
-        check(setupSource.components(separatedBy: "enableClaude(").count == 3 && setupSource.components(separatedBy: "userConfirmed: true").count == 2,
-              "only the Turn on AI notes button confirms cloud AI in setup")
+        // Scan every Swift file: cloud AI may only be enabled from the Settings actions
+        // and the one setup button, and the compiler-enforced token is made once.
+        var enableCalls: [String: Int] = [:], tokenMakers: [String: Int] = [:], setupEnable: [String: Int] = [:]
+        let appDir = root.appendingPathComponent("MeetingCoach/MeetingCoach")
+        if let subpaths = FileManager.default.subpaths(atPath: appDir.path) {
+            for sub in subpaths where sub.hasSuffix(".swift") {
+                let file = appDir.appendingPathComponent(sub)
+                guard let text = try? String(contentsOf: file, encoding: .utf8) else { continue }
+                let name = file.lastPathComponent
+                let calls = text.components(separatedBy: ".enableCloudAI(").count - 1
+                if calls > 0 { enableCalls[name] = calls }
+                let makers = text.components(separatedBy: "ConsentClick()").count - 1
+                if makers > 0 { tokenMakers[name] = makers }
+                let setup = text.components(separatedBy: "enableClaude(settings:").count - 1
+                if setup > 0 { setupEnable[name] = setup }
+            }
+        }
+        check(enableCalls == ["AISettingsView.swift": 2, "AISetupView.swift": 1],
+              "enableCloudAI is called only from the Settings actions and the setup model: \(enableCalls)")
+        check(tokenMakers == ["AISetupView.swift": 1], "ConsentClick is created exactly once, in AISetupView: \(tokenMakers)")
+        check(setupEnable == ["AISetupView.swift": 2], "setup enable is defined and called only in AISetupView: \(setupEnable)")
+        check(setupSource.contains("struct ConsentClick { fileprivate init() {} }") && setupSource.contains("consent: ConsentClick, onReady"),
+              "enabling requires a ConsentClick token with a fileprivate init")
+        check(setupSource.contains("the questions you ask are sent to Anthropic"), "consent line names the questions")
         check(!setupSource.contains("Toggle(") && !setupSource.contains("AI features"), "setup consent has no checkbox or 'AI features' wording")
         let args = ClaudeAccount.arguments(model: "haiku")
         check(args.contains("--safe-mode") && args.contains("--strict-mcp-config") && args.contains("--no-session-persistence"), "customizations MCP and persistence disabled")

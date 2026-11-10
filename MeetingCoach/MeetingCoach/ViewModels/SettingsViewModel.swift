@@ -296,7 +296,7 @@ final class SettingsViewModel {
     func refreshModels() async {
         let client = OllamaClient(model: selectedModel)
         do {
-            availableModels = try await client.listModels()
+            availableModels = try await client.listModels(timeout: 3)
             ollamaReachable = true
         } catch {
             ollamaReachable = false

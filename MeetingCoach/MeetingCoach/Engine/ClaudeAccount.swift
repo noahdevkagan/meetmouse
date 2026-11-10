@@ -37,10 +37,12 @@ enum ClaudeAccount {
             .contains { message.hasPrefix($0) }
     }
 
-    /// `broken`: the file exists but `--version` failed, timed out or printed
-    /// something that is not a version (e.g. an interrupted install).
-    enum CLIStatus: Equatable { case missing, outdated, broken, ready }
+    /// `broken`: the file exists but could not be launched or printed something that
+    /// is not a version (e.g. an interrupted install). `slow`: it did not answer
+    /// `--version` in time, twice; that says nothing about the install, so no reinstall.
+    enum CLIStatus: Equatable { case missing, outdated, broken, slow, ready }
 
+    static let slowMessage = "Claude Code is slow to respond. Try again."
     static let couldNotStartMessage = "Could not start Claude Code. Check its installation and try again."
     /// The CLI did not answer in time. Own type so callers can tell it from a slow reply.
     struct TimedOut: LocalizedError { var errorDescription: String? { "Claude timed out. Try again or use a faster model." } }
@@ -56,14 +58,20 @@ enum ClaudeAccount {
         return number.compare(minimumVersion, options: .numeric) == .orderedAscending ? .outdated : .ready
     }
 
-    /// Throws only on cancellation. A launch failure, timeout or non-version
-    /// output is `.broken`; only a version really below the minimum is `.outdated`.
+    /// Throws only on cancellation. A launch failure or non-version output is
+    /// `.broken`; two timeouts are `.slow`; only a version really below the minimum is `.outdated`.
     /// `timeout` is longer right after an install: macOS scans new binaries on first launch.
     static func cliStatus(timeout: TimeInterval = 10) async throws -> CLIStatus {
         guard let url = executable else { return .missing }
         let version: Output
-        do { version = try await run(executable: url, arguments: ["--version"], timeout: timeout) }
-        catch is TimedOut { return .broken }
+        do {
+            do { version = try await run(executable: url, arguments: ["--version"], timeout: timeout) }
+            catch is TimedOut {
+                // One stall on a busy Mac is common: retry once, longer.
+                version = try await run(executable: url, arguments: ["--version"], timeout: max(timeout, 30))
+            }
+        }
+        catch is TimedOut { return .slow }
         catch is LaunchFailed { return .broken }
         return classify(versionOutput: String(data: version.data, encoding: .utf8) ?? "",
                         exitCode: version.code) ?? .broken
@@ -75,6 +83,8 @@ enum ClaudeAccount {
             throw AIError.message("Install Claude Code, then connect your Claude account here.")
         case .broken:
             throw AIError.message(couldNotStartMessage)
+        case .slow:
+            throw AIError.message(slowMessage)
         case .outdated:
             throw AIError.message("Update Claude Code to \(minimumVersion) or later to connect securely.")
         case .ready:
@@ -101,16 +111,27 @@ enum ClaudeAccount {
     struct InstalledThenCancelled: Error {}
 
     static let installerTempPrefix = "meetmouse-claude-install-"
+    /// The temp dir must be the per-user one: owned by this user, no group/other write.
+    static func isPerUserTempDirectory(_ path: String) -> Bool {
+        var info = stat()
+        guard lstat(path, &info) == 0, (info.st_mode & S_IFMT) == S_IFDIR else { return false }
+        return info.st_uid == getuid() && (info.st_mode & (S_IWGRP | S_IWOTH)) == 0
+    }
+
     /// Removes installer scripts left by an interrupted run (app quit mid-install).
     /// Only this app's prefix in the per-user temp dir, and only files older than
     /// an hour so another running copy's live install is never touched.
     static func removeStaleInstallerFiles(olderThan age: TimeInterval = 3600) {
         let dir = FileManager.default.temporaryDirectory
-        guard let names = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
+        guard isPerUserTempDirectory(dir.path),
+              let names = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
         for name in names where name.hasPrefix(installerTempPrefix) && name.hasSuffix(".sh") {
             let url = dir.appendingPathComponent(name)
-            let modified = (try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date) ?? nil
-            if let modified, Date().timeIntervalSince(modified) > age { try? FileManager.default.removeItem(at: url) }
+            guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+                  attrs[.type] as? FileAttributeType == .typeRegular,
+                  let modified = attrs[.modificationDate] as? Date,
+                  Date().timeIntervalSince(modified) > age else { continue }
+            try? FileManager.default.removeItem(at: url)
         }
     }
 
@@ -176,38 +197,40 @@ enum ClaudeAccount {
     }
 
     private struct GroupTimeout: Error {}
+    private static var spawnFailure: AIError {
+        .message("Couldn't start the Claude Code installer. Nothing was installed.")
+    }
 
     /// Starts a child in its own process group with stdio on /dev/null.
     private static func spawnGrouped(_ path: String, _ arguments: [String],
                                      environment: [String: String]) throws -> pid_t {
         var attr: posix_spawnattr_t? = nil
-        posix_spawnattr_init(&attr)
+        guard posix_spawnattr_init(&attr) == 0 else { throw spawnFailure }
         defer { posix_spawnattr_destroy(&attr) }
         // Own process group; no inherited descriptors (CLOEXEC_DEFAULT, stdio is
         // re-opened below); default signal dispositions and an empty signal mask.
-        posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_CLOEXEC_DEFAULT
-                                              | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK))
-        posix_spawnattr_setpgroup(&attr, 0)
         var allSignals = sigset_t(); sigfillset(&allSignals)
-        posix_spawnattr_setsigdefault(&attr, &allSignals)
         var noSignals = sigset_t(); sigemptyset(&noSignals)
-        posix_spawnattr_setsigmask(&attr, &noSignals)
         var actions: posix_spawn_file_actions_t? = nil
-        posix_spawn_file_actions_init(&actions)
+        guard posix_spawn_file_actions_init(&actions) == 0 else { throw spawnFailure }
         defer { posix_spawn_file_actions_destroy(&actions) }
+        var setup: Int32 = posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_CLOEXEC_DEFAULT
+                                                                 | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK))
+        setup |= posix_spawnattr_setpgroup(&attr, 0)
+        setup |= posix_spawnattr_setsigdefault(&attr, &allSignals)
+        setup |= posix_spawnattr_setsigmask(&attr, &noSignals)
         for fd in Int32(0)...2 {
-            posix_spawn_file_actions_addopen(&actions, fd, "/dev/null", fd == 0 ? O_RDONLY : O_WRONLY, 0)
+            setup |= posix_spawn_file_actions_addopen(&actions, fd, "/dev/null", fd == 0 ? O_RDONLY : O_WRONLY, 0)
         }
-        posix_spawn_file_actions_addchdir_np(&actions, FileManager.default.homeDirectoryForCurrentUser.path)
+        setup |= posix_spawn_file_actions_addchdir_np(&actions, FileManager.default.homeDirectoryForCurrentUser.path)
+        guard setup == 0 else { throw spawnFailure }
         var argv: [UnsafeMutablePointer<CChar>?] = ([path] + arguments).map { strdup($0) }
         argv.append(nil)
         var envp: [UnsafeMutablePointer<CChar>?] = environment.map { strdup("\($0.key)=\($0.value)") }
         envp.append(nil)
         defer { argv.forEach { free($0) }; envp.forEach { free($0) } }
         var pid: pid_t = 0
-        guard posix_spawn(&pid, path, &actions, &attr, argv, envp) == 0 else {
-            throw AIError.message("Couldn't start the Claude Code installer. Nothing was installed.")
-        }
+        guard posix_spawn(&pid, path, &actions, &attr, argv, envp) == 0 else { throw spawnFailure }
         return pid
     }
 
@@ -220,14 +243,19 @@ enum ClaudeAccount {
             while true {
                 let result = waitpid(pid, &status, WNOHANG)
                 if result == pid { return (status & 0x7f) == 0 ? (status >> 8) & 0xff : -1 }
-                if result < 0 { return -1 }
+                if result < 0 {
+                    if errno == EINTR { continue }
+                    // Unknown wait error: never leave the group running.
+                    kill(-pid, SIGKILL)
+                    return -1
+                }
                 try Task.checkCancellation()
                 guard ContinuousClock.now < deadline else { throw GroupTimeout() }
                 try await Task.sleep(for: .milliseconds(100))
             }
         } catch {
             kill(-pid, SIGKILL)
-            waitpid(pid, &status, 0)
+            while waitpid(pid, &status, 0) < 0 && errno == EINTR {}
             throw error
         }
     }

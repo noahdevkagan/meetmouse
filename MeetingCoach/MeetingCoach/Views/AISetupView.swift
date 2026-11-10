@@ -75,6 +75,8 @@ final class AISetupModel {
                 case .missing: installKind = .missing; step = .needsInstall(.missing)
                 case .outdated: installKind = .outdated; step = .needsInstall(.outdated)
                 case .broken: installKind = .broken; step = .needsInstall(.broken)
+                case .slow:
+                    if runID == id { error = ClaudeAccount.slowMessage; step = .choose }
                 case .ready: await signIn(id)
                 }
             } catch is CancellationError {
@@ -133,10 +135,10 @@ final class AISetupModel {
         }
     }
 
-    /// `userConfirmed` is true only from the "Turn on AI notes" button action; the
-    /// disclosure sits directly above it. Nothing else may enable cloud AI here.
-    func enableClaude(settings: SettingsViewModel, userConfirmed: Bool, onReady: @escaping () -> Void) {
-        guard userConfirmed, step == .consent, let model = AIProvider.claudeAccount.models.first else { return }
+    /// A `ConsentClick` can only be made by the "Turn on AI notes" button action (its
+    /// init is fileprivate); the disclosure sits directly above that button.
+    func enableClaude(settings: SettingsViewModel, consent: ConsentClick, onReady: @escaping () -> Void) {
+        guard step == .consent, let model = AIProvider.claudeAccount.models.first else { return }
         if DebugPreview.active { previewNote = DebugPreview.note; return }
         step = .enabling
         let configuration = AIConfiguration(provider: .claudeAccount, model: model)
@@ -349,7 +351,7 @@ struct AISetupView: View {
             Label("Signed in to Claude", systemImage: "checkmark.circle.fill")
                 .font(Dorado.barlowBold(14)).foregroundStyle(Dorado.midnight)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Your meeting transcripts and notes are sent to Anthropic to write your notes.")
+                Text("Your meeting transcripts, notes and the questions you ask are sent to Anthropic.")
                 Text("Audio stays on this Mac. Uses your Claude plan's limits.")
                 if settings.semanticCoachEnabled {
                     Text("Live coaching also sends text during the call.")
@@ -366,7 +368,7 @@ struct AISetupView: View {
                 }
             HStack(spacing: 8) {
                 Button(model.step == .enabling ? "Turning on…" : "Turn on AI notes") {
-                    model.enableClaude(settings: settings, userConfirmed: true, onReady: announce)
+                    model.enableClaude(settings: settings, consent: ConsentClick(), onReady: announce)
                 }
                 .buttonStyle(AISetupPrimaryStyle())
                 .disabled(model.step == .enabling)
@@ -376,6 +378,9 @@ struct AISetupView: View {
         }
     }
 }
+
+/// Proof that the user pressed "Turn on AI notes". Only this file can create one.
+struct ConsentClick { fileprivate init() {} }
 
 /// The home screen card shown until an AI provider is working (only when the
 /// first-run checklist is gone). One line plus the same two buttons.
@@ -441,6 +446,7 @@ struct SetUpAINotesButton: View {
 /// prominent style greys out in inactive windows).
 struct AISetupPrimaryStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
+    @Environment(\.isFocused) private var focused
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Dorado.roboto(12, .semibold))
@@ -448,6 +454,7 @@ struct AISetupPrimaryStyle: ButtonStyle {
             .padding(.vertical, 5).padding(.horizontal, 12)
             .background(Capsule().fill(configuration.isPressed ? Dorado.dorado500 : Dorado.dorado300))
             .contentShape(Capsule())
+            .overlay(Capsule().stroke(Color.accentColor, lineWidth: 2).padding(-2).opacity(focused ? 1 : 0))
             .opacity(enabled ? 1 : 0.45)
     }
 }
