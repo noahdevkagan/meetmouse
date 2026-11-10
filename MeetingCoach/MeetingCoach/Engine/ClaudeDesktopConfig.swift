@@ -61,15 +61,35 @@ enum ClaudeDesktopConfig {
         }
         root["mcpServers"] = servers
         let out = try JSONSerialization.data(
-            withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+            withJSONObject: root, options: [.prettyPrinted, .withoutEscapingSlashes])
         return (out, status)
+    }
+
+    static let installedHelperPath = "/Applications/MeetMouse.app/Contents/MacOS/meetmouse-mcp"
+
+    enum HelperChoice: Equatable {
+        case use(String)
+        case useDev(String)   // dev/build path; caller should note it
+        case refuse           // translocated with no /Applications copy
+    }
+
+    /// Pure: which helper path is safe to write into the config.
+    static func chooseHelperPath(bundled: String, installedExists: Bool, isDebug: Bool) -> HelperChoice {
+        if installedExists { return .use(installedHelperPath) }
+        if bundled.contains("/AppTranslocation/") { return .refuse }
+        if isDebug || bundled.contains("/DerivedData/") || bundled.contains("/Build/Products/") {
+            return isDebug ? .useDev(bundled) : .refuse
+        }
+        return .use(bundled)
     }
 
     /// Reads, merges, backs up once, and writes atomically. Throws
     /// `ConfigError.invalidJSON` without touching the file if it is unreadable JSON.
     @discardableResult
-    static func install(helperPath: String, at url: URL = configURL) throws -> Status {
+    static func install(helperPath: String, at configLocation: URL = configURL) throws -> Status {
         let fm = FileManager.default
+        // Follow a symlinked config (dotfiles setups) so the link survives the atomic write.
+        let url = configLocation.resolvingSymlinksInPath()
         let existing = fm.fileExists(atPath: url.path) ? try Data(contentsOf: url) : nil
         let (data, status) = try merge(existing: existing, helperPath: helperPath)
         if status == .alreadyAdded { return status }

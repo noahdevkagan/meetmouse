@@ -292,6 +292,7 @@ struct GeneralSettingsView: View {
                 if let path = mcpHelperPath {
                     HStack {
                         Button(mcpDesktopStatus == .done ? "Added to Claude Desktop ✓" : "Add to Claude Desktop") {
+                            mcpCopied = nil
                             addToClaudeDesktop(path)
                         }
                         .buttonStyle(.borderedProminent)
@@ -399,21 +400,42 @@ struct GeneralSettingsView: View {
         case failed(String)
     }
 
-    private func copyToPasteboard(_ text: String, tag: String) {
+    private func copyToPasteboard(_ text: String, tag: String, keepStatus: Bool = false) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
         mcpCopied = tag
+        if !keepStatus { mcpDesktopStatus = .idle }
     }
 
-    private func addToClaudeDesktop(_ path: String) {
+    private func addToClaudeDesktop(_ bundledPath: String) {
+        #if DEBUG
+        let isDebug = true
+        #else
+        let isDebug = false
+        #endif
+        let choice = ClaudeDesktopConfig.chooseHelperPath(
+            bundled: bundledPath,
+            installedExists: FileManager.default.isExecutableFile(atPath: ClaudeDesktopConfig.installedHelperPath),
+            isDebug: isDebug)
+        let path: String
+        switch choice {
+        case .refuse:
+            mcpDesktopStatus = .failed("Move MeetMouse to Applications first.")
+            return
+        case .use(let p): path = p
+        case .useDev(let p): path = p
+        }
         do {
             let status = try ClaudeDesktopConfig.install(helperPath: path)
             mcpDesktopStatus = status == .alreadyAdded ? .already : .done
+            if case .useDev = choice {
+                mcpDesktopStatus = .failed("Added, but this is a dev build path and will break when the build moves. Quit and reopen Claude.")
+            }
         } catch ClaudeDesktopConfig.ConfigError.invalidJSON {
-            copyToPasteboard(ClaudeDesktopConfig.snippet(helperPath: path), tag: "json")
+            copyToPasteboard(ClaudeDesktopConfig.snippet(helperPath: path), tag: "json", keepStatus: true)
             mcpDesktopStatus = .failed("Claude's config file isn't valid JSON, so MeetMouse left it alone. The snippet is copied — merge it in by hand.")
         } catch {
-            copyToPasteboard(ClaudeDesktopConfig.snippet(helperPath: path), tag: "json")
+            copyToPasteboard(ClaudeDesktopConfig.snippet(helperPath: path), tag: "json", keepStatus: true)
             mcpDesktopStatus = .failed("Couldn't update Claude's config (\(error.localizedDescription)). The snippet is copied — merge it in by hand.")
         }
     }
