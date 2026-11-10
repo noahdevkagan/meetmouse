@@ -290,13 +290,31 @@ struct GeneralSettingsView: View {
 
             Section("Agent access (MCP)") {
                 if let path = mcpHelperPath {
-                    Button(mcpCopied ? "Copied ✓" : "Copy setup command") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(
-                            "claude mcp add meetmouse -- \"\(path)\"",
-                            forType: .string)
-                        mcpCopied = true
+                    HStack {
+                        Button(mcpDesktopStatus == .done ? "Added to Claude Desktop ✓" : "Add to Claude Desktop") {
+                            addToClaudeDesktop(path)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        Button(mcpCopied == "cli" ? "Copied ✓" : "Copy Claude Code command") {
+                            copyToPasteboard("claude mcp add meetmouse -- \"\(path)\"", tag: "cli")
+                        }
+                        Button(mcpCopied == "json" ? "Copied ✓" : "Copy JSON") {
+                            copyToPasteboard(ClaudeDesktopConfig.snippet(helperPath: path), tag: "json")
+                        }
                     }
+                    switch mcpDesktopStatus {
+                    case .idle: EmptyView()
+                    case .done:
+                        Text("Added. Quit and reopen Claude to see MeetMouse under Connectors.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    case .already:
+                        Text("Already added ✓ Quit and reopen Claude if it isn't listed under Connectors.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    case .failed(let message):
+                        Text(message).font(.caption).foregroundStyle(.red)
+                    }
+                    Text("Claude's \u{201C}Add custom connector\u{201D} is for web URLs only — use the button above instead.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Text(mcpHelperPath == nil
                      ? "Agent server not found in this build."
@@ -373,7 +391,32 @@ struct GeneralSettingsView: View {
         .joined(separator: "\n")
     }
 
-    @State private var mcpCopied = false
+    @State private var mcpCopied: String?
+    @State private var mcpDesktopStatus: MCPDesktopStatus = .idle
+
+    private enum MCPDesktopStatus: Equatable {
+        case idle, done, already
+        case failed(String)
+    }
+
+    private func copyToPasteboard(_ text: String, tag: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        mcpCopied = tag
+    }
+
+    private func addToClaudeDesktop(_ path: String) {
+        do {
+            let status = try ClaudeDesktopConfig.install(helperPath: path)
+            mcpDesktopStatus = status == .alreadyAdded ? .already : .done
+        } catch ClaudeDesktopConfig.ConfigError.invalidJSON {
+            copyToPasteboard(ClaudeDesktopConfig.snippet(helperPath: path), tag: "json")
+            mcpDesktopStatus = .failed("Claude's config file isn't valid JSON, so MeetMouse left it alone. The snippet is copied — merge it in by hand.")
+        } catch {
+            copyToPasteboard(ClaudeDesktopConfig.snippet(helperPath: path), tag: "json")
+            mcpDesktopStatus = .failed("Couldn't update Claude's config (\(error.localizedDescription)). The snippet is copied — merge it in by hand.")
+        }
+    }
 
     private var mcpHelperPath: String? {
         Bundle.main.url(forAuxiliaryExecutable: "meetmouse-mcp")?.path

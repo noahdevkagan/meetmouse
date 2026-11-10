@@ -2361,3 +2361,14 @@ name. Manual choice wins: Allow ends discovery and replaces a window
 discovery pinned while the sheet was open (the same window keeps its run and
 evidence; the six-shot cap carries). An automatic pin is still never swapped
 silently.
+## 2026-11-09 — Claude Desktop: merge into claude_desktop_config.json, not a .mcpb extension
+Claude's "Add custom connector" dialog only accepts remote HTTPS MCP URLs, so the
+stdio helper can't go there. Settings → General → Agent access now has "Add to
+Claude Desktop", which merges `mcpServers.meetmouse.command` (the in-bundle
+`meetmouse-mcp` path) into the config file (only that key touched; one-time
+`.meetmouse-backup`; invalid JSON is never overwritten, snippet is copied instead).
+Chose this over a .mcpb Desktop Extension because an extension copies the binary
+and would not auto-update with the app; the config points at the bundle path, so
+Sparkle updates just work. The app is unsandboxed (ENABLE_APP_SANDBOX NO), so the
+direct write is allowed. Logic lives in Engine/ClaudeDesktopConfig.swift, tested by
+tests/claude-desktop (wired into push-gate).
