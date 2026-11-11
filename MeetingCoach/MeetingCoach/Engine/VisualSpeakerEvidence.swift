@@ -43,13 +43,27 @@ enum VisualSpeakerEvidence {
         }
     }
 
+    /// Diarized speech the lone remote voice must have before roster
+    /// evidence may name it: one voice over a few seconds proves little.
+    static let minRosterRemoteSpeech: TimeInterval = 20
+
     /// One-on-one fallback when no tile is highlighted: every readable roster
     /// shows the same single other person, and diarization heard exactly one
     /// remote voice. A second visible name or a second voice vetoes.
+    ///
+    /// Only a numbered diarizer voice ("Them N") qualifies, and only with
+    /// enough diarized speech. Bare "Them" means the diarizer has not
+    /// published (or never will: Intel, model unavailable), so it carries no
+    /// evidence that only one person is talking: in a group call every
+    /// remote voice is "Them" until then (decisions 2026-09-17, 2026-11-10).
     static func rosterMatch(_ rosters: [VisualRosterObservation],
-                            remoteLabels: Set<String>) -> (label: String, name: String)? {
+                            remoteLabels: Set<String>,
+                            remoteSegments: [SpeakerSegment]) -> (label: String, name: String)? {
         guard remoteLabels.count == 1, let label = remoteLabels.first,
-              label.wholeMatch(of: #/^Them \d+$/#) != nil else { return nil }
+              label.wholeMatch(of: #/^Them \d+$/#) != nil,
+              remoteSegments.filter({ $0.speaker == label })
+                .reduce(0, { $0 + max(0, $1.end - $1.start) }) >= minRosterRemoteSpeech
+        else { return nil }
         let seen = rosters.filter { !$0.names.isEmpty }
         guard seen.allSatisfy({ $0.names.count == 1 }),
               let name = seen.first?.names.first,
