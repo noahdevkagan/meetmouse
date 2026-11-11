@@ -2252,7 +2252,7 @@ now re-checks on a backing-off cadence (2, 3, 5, 8, 13, 20, then every 30 s)
 until exactly one recognized call window exists or the session ends. Zero
 candidates shows no "choose your call" banner; two or more show it with a
 Choose... button and keep checking, so the question withdraws itself. A pinned
-window is never swapped: automatic mode resumes discovery only when the pinned
+window is never swapped automatically: automatic mode resumes discovery only when the pinned
 window no longer exists anywhere (CGWindowList by id, so a minimized or
 off-Space window counts as present and ends assistance as before); the six
 snapshot cap and collected evidence carry over. A manually chosen window never
@@ -2267,7 +2267,27 @@ UNVERIFIED against a live call. A denylist of main-window sections was rejected:
 a false match turns every auto-stop into "ended?" and makes Zoom calls look
 ambiguous. Cost: a meeting titled only by its subject is missed (end-watch falls
 back to the 60 s mic path, same as before). Teams has no outline reader, so
-automatic mode recognizes the window (ambiguity, end-watch) but takes no
-screenshot of it. Roster evidence also accepts a bare "Them" as the
-single remote voice when no numbered voice exists (the call site used to strip
-it); still two snapshots 10 s apart, one name, one-tap suggestion.
+it is never screenshotted (automatic or manual) and never ends discovery: a
+Teams-only screen keeps re-checking with a "names can't be read" status, and a
+readable Zoom/Meet window that opens later is used. Teams plus exactly one
+readable call window pins the readable one rather than asking; that is what
+happened before Teams was recognized, and the Teams window could never be
+captured anyway. Two or more readable windows still ask. Teams browser tabs
+also match with Chromium's profile segment and "and N more pages" title
+decorations.
+
+Review follow-up (same day). The draft let a bare "Them" receive a roster
+suggestion; that was wrong. Bare "Them" means the diarizer has not published
+(or never will: Intel, model unavailable), so in a group call every remote
+voice is "Them" and "exactly one voice" passed by default: two snapshots of a
+tile row showing one other name would have offered that name for all remote
+speech and saved a mixed voice as one profile. Roster evidence now needs a
+numbered diarizer voice ("Them N") that is the only remote voice in audio and
+transcript with at least 20 s of its own diarized speech; bare "Them" never
+counts as the voice and never vetoes. No pre-call exception: a confirmed
+one-on-one already names remote speech through the display alias, and a
+same-name roster suggestion is suppressed, so it would only add a conflicting
+name. Manual choice wins: Allow ends discovery and replaces a window
+discovery pinned while the sheet was open (the same window keeps its run and
+evidence; the six-shot cap carries). An automatic pin is still never swapped
+silently.

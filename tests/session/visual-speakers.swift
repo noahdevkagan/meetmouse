@@ -233,33 +233,32 @@ func visualSpeakerChecks(scratch: URL) async {
           "visual: self-name matching tolerates case and short forms")
 
     let one: Set<String> = ["Them 1"]
+    let talk = [SpeakerSegment(speaker: "Them 1", start: 0, end: 30)]
     let seen = [VisualRosterObservation(names: ["Sam Rivera"], time: 5),
                 VisualRosterObservation(names: ["sam rivera"], time: 20)]
-    check(VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: one).map { "\($0.label)=\($0.name)" } == "Them 1=Sam Rivera",
+    check(VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: one, remoteSegments: talk).map { "\($0.label)=\($0.name)" } == "Them 1=Sam Rivera",
           "visual: repeated one-on-one roster names the only remote voice")
-    check(VisualSpeakerEvidence.rosterMatch([seen[0]], remoteLabels: one) == nil,
+    check(VisualSpeakerEvidence.rosterMatch([seen[0]], remoteLabels: one, remoteSegments: talk) == nil,
           "visual: one roster snapshot is not enough")
-    check(VisualSpeakerEvidence.rosterMatch([seen[0], .init(names: ["Sam Rivera"], time: 9)], remoteLabels: one) == nil,
+    check(VisualSpeakerEvidence.rosterMatch([seen[0], .init(names: ["Sam Rivera"], time: 9)], remoteLabels: one, remoteSegments: talk) == nil,
           "visual: roster snapshots must be spread out")
-    check(VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: ["Them 1", "Them 2"]) == nil,
+    check(VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: ["Them 1", "Them 2"], remoteSegments: talk) == nil,
           "visual: second remote voice vetoes roster")
-    check(VisualSpeakerEvidence.rosterMatch(seen + [.init(names: ["Sam Rivera", "Priya"], time: 35)], remoteLabels: one) == nil,
+    check(VisualSpeakerEvidence.rosterMatch(seen + [.init(names: ["Sam Rivera", "Priya"], time: 35)], remoteLabels: one, remoteSegments: talk) == nil,
           "visual: second visible guest vetoes roster")
-    check(VisualSpeakerEvidence.rosterMatch(seen + [.init(names: ["Priya"], time: 35)], remoteLabels: one) == nil,
+    check(VisualSpeakerEvidence.rosterMatch(seen + [.init(names: ["Priya"], time: 35)], remoteLabels: one, remoteSegments: talk) == nil,
           "visual: conflicting roster names veto")
-    check(VisualSpeakerEvidence.rosterMatch(seen + [.init(names: [], time: 35)], remoteLabels: one)?.name == "Sam Rivera",
+    check(VisualSpeakerEvidence.rosterMatch(seen + [.init(names: [], time: 35)], remoteLabels: one, remoteSegments: talk)?.name == "Sam Rivera",
           "visual: unreadable snapshots do not veto")
-    check(VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: ["Them"]).map { "\($0.label)=\($0.name)" } == "Them=Sam Rivera"
-          && VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: ["Sam Rivera"]) == nil,
-          "visual: bare Them single remote voice gets a roster suggestion; named voices do not")
-    check(VisualSpeakerEvidence.unnamedRemoteLabels(["Them"]) == ["Them"]
-          && VisualSpeakerEvidence.unnamedRemoteLabels(["Them", "Them 1"]) == ["Them 1"]
-          && VisualSpeakerEvidence.unnamedRemoteLabels(["Them 1", "Them 2"]).count == 2
-          && VisualSpeakerEvidence.unnamedRemoteLabels(["Them", "Sam Rivera"]) == ["Them", "Sam Rivera"]
-          && VisualSpeakerEvidence.rosterMatch([seen[0]], remoteLabels: ["Them"]) == nil
-          && VisualSpeakerEvidence.rosterMatch(seen + [.init(names: ["Sam Rivera", "Priya"], time: 35)],
-                                               remoteLabels: ["Them"]) == nil,
-          "visual: bare Them keeps the two-snapshot, one-name and one-voice rules")
+    check(VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: ["Them"], remoteSegments: talk) == nil
+          && VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: ["Them"], remoteSegments: []) == nil
+          && VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: ["Sam Rivera"], remoteSegments: talk) == nil,
+          "visual: bare Them (diarizer not published or off) and named voices get no roster suggestion")
+    check(VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: one,
+                                            remoteSegments: [.init(speaker: "Them 1", start: 0, end: 12)]) == nil
+          && VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: one,
+                                               remoteSegments: [.init(speaker: "Them 2", start: 0, end: 60)]) == nil,
+          "visual: one remote voice needs enough of its own diarized speech")
 
     // Real Vision OCR over a synthetic Zoom screen-share window: a shared
     // page with a dark bookmarks bar (same text size) must not count.
@@ -493,12 +492,90 @@ func visualSpeakerChecks(scratch: URL) async {
     let teamsCapture = VisualSpeakerCapture(findWindows: { [teamsNew] }, snapshot: { _ in
         teamsShots += 1
         return .init(name: nil, start: Date(), end: Date())
-    }, pause: { _ in })
+    }, pause: { _ in await Task.yield() })
     teamsCapture.startAutomatically(sessionStart: Date(), canStart: { true }) {}
     for _ in 0..<50 where teamsCapture.isDiscovering { await Task.yield() }
     check(teamsShots == 0 && teamsCapture.count == 0 && !teamsCapture.isRunning
           && teamsCapture.status.contains("Teams"),
           "visual: automatic mode takes no screenshot of a window it cannot read")
+    check(teamsCapture.isDiscovering, "visual: an unreadable Teams window does not end discovery")
+    teamsCapture.stop(reset: true)
+
+    // Teams first, a readable Zoom window seconds later: the Zoom one is used.
+    var teamsThenZoom: [SpeakerWindowChoice] = [teamsNew]
+    var tzWaits = 0
+    var tzShots: [CGWindowID] = []
+    let teamsLater = VisualSpeakerCapture(findWindows: { teamsThenZoom }, snapshot: { w in
+        tzShots.append(w.id)
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in tzWaits += 1; await Task.yield() })
+    teamsLater.startAutomatically(sessionStart: Date(), canStart: { true }) {}
+    for _ in 0..<50 where tzWaits < 3 { await Task.yield() }
+    check(tzShots.isEmpty && teamsLater.isDiscovering && !teamsLater.needsWindowChoice
+          && teamsLater.status.contains("Teams"),
+          "visual: Teams alone keeps re-checking without capturing or asking to choose")
+    teamsThenZoom = [teamsNew, zoom]
+    for _ in 0..<300 where tzShots.count < 6 { await Task.yield() }
+    check(tzShots == Array(repeating: zoom.id, count: 6) && !teamsLater.isDiscovering,
+          "visual: a readable call window opening after Teams is picked (Teams never captured)")
+    check(VisualSpeakerCapture.meetingWindows(in: [teamsTab, zoom, meet]).count == 3,
+          "visual: Teams still counts as a recognized call window")
+
+    // Chromium title decorations: profile segment, several selected tabs, Edge.
+    let tabShapes = [
+        "Meeting with Sam Rivera | Microsoft Teams - Google Chrome - Work",
+        "Meeting with Sam Rivera | Microsoft Teams and 2 more pages - Google Chrome",
+        "Call with Sam Rivera | Microsoft Teams and 1 more page - Google Chrome - Work",
+        "Meeting compact view | Microsoft Teams and 3 more pages - Work - Microsoft Edge",
+        "Meeting with Sam Rivera | Microsoft Teams",
+    ].enumerated().map { SpeakerWindowChoice(id: CGWindowID(40 + $0.offset), pid: 2,
+                                             app: $0.offset == 3 ? "Microsoft Edge" : "Google Chrome",
+                                             title: $0.element) }
+    let tabMisses = [
+        "(2) Chat | Sam Rivera | Microsoft Teams - Google Chrome - Work",
+        "Weekly sync | Microsoft Teams and 2 more pages - Google Chrome",
+        "Meeting with Sam Rivera | Microsoft Teams Help - Google Chrome",
+    ].enumerated().map { SpeakerWindowChoice(id: CGWindowID(50 + $0.offset), pid: 2,
+                                             app: "Google Chrome", title: $0.element) }
+    check(VisualSpeakerCapture.meetingWindows(in: tabShapes + tabMisses) == tabShapes,
+          "visual: Teams browser tabs match with profile and 'and N more pages' decorations; main window still not")
+
+    // The user's explicit choice wins over a window discovery pinned while
+    // the Choose sheet was open.
+    var raceShots: [CGWindowID] = []
+    let raced = VisualSpeakerCapture(findWindows: { [zoom] }, snapshot: { w in
+        raceShots.append(w.id)
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in await Task.yield() })
+    raced.startAutomatically(sessionStart: Date(), canStart: { true }) {}
+    for _ in 0..<100 where raceShots.isEmpty { await Task.yield() }
+    check(raced.isRunning && raceShots.first == zoom.id, "visual: discovery pinned a window before Allow")
+    raced.start(window: meet, sessionStart: Date()) {}
+    for _ in 0..<300 where raced.isRunning { await Task.yield() }
+    check(raceShots.count == 6 && raceShots.last == meet.id && raceShots.contains(meet.id) && raced.count == 6,
+          "visual: manual Allow replaces an automatic pin (six-shot cap holds)")
+    var sameShots = 0
+    let sameRace = VisualSpeakerCapture(findWindows: { [zoom] }, snapshot: { _ in
+        sameShots += 1
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in await Task.yield() })
+    sameRace.startAutomatically(sessionStart: Date(), canStart: { true }) {}
+    for _ in 0..<100 where sameShots == 0 { await Task.yield() }
+    sameRace.start(window: zoom, sessionStart: Date()) {}
+    check(sameRace.isRunning, "visual: manual Allow of the already-pinned window keeps its run")
+    for _ in 0..<300 where sameRace.isRunning { await Task.yield() }
+    check(sameShots == 6, "visual: keeping the pin does not exceed the six-shot cap")
+    var sheetShots: [CGWindowID] = []
+    let sheetOpen = VisualSpeakerCapture(findWindows: { [zoom, zoom2] }, snapshot: { w in
+        sheetShots.append(w.id)
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in await Task.yield() })
+    sheetOpen.startAutomatically(sessionStart: Date(), canStart: { true }) {}
+    for _ in 0..<20 { await Task.yield() }
+    sheetOpen.start(window: zoom2, sessionStart: Date()) {}
+    for _ in 0..<300 where sheetOpen.isRunning { await Task.yield() }
+    check(Set(sheetShots) == [zoom2.id] && !sheetOpen.isDiscovering,
+          "visual: manual Allow during discovery ends discovery and captures the chosen window")
 
     var foundWindows: CheckedContinuation<[SpeakerWindowChoice], Never>?
     let discovery = VisualSpeakerCapture(findWindows: {
@@ -608,7 +685,9 @@ func visualSpeakerChecks(scratch: URL) async {
         vm.deleteSession()
     }
 
-    // 1:1 where the diarizer never numbers the lone remote voice: bare "Them".
+    // Roster on bare "Them": no suggestion until the diarizer has published
+    // and heard exactly one remote voice over enough speech. A group call
+    // whose roster row shows one other name is all bare "Them" until then.
     do {
         var shots = 0
         let rosterCapture = VisualSpeakerCapture(findWindows: { [zoom] }, snapshot: { _ in
@@ -621,14 +700,22 @@ func visualSpeakerChecks(scratch: URL) async {
         for _ in 0..<300 where rosterCapture.count < 6 || rosterCapture.isRunning { await Task.yield() }
         if let audio = AudioCaptureManager.last {
             audio.onUtterance?(Utterance(t: 6, speaker: "Them",
-                                         text: "A one on one with a single unnumbered remote voice here.", endT: 100))
+                                         text: "Two remote people are talking but nothing is diarized yet.", endT: 50))
+            audio.onUtterance?(Utterance(t: 52, speaker: "Them",
+                                         text: "This is the second remote person speaking in the group.", endT: 100))
             try? await Task.sleep(for: .milliseconds(50))
+            check(!vm.speakerNameSuggestions.contains { $0.kind == .visualName },
+                  "visual pipeline bare Them: no roster suggestion before the diarizer publishes (or with it off)")
+            audio.onSpeakerSegments?(.system, [.init(speaker: "Them 1", start: 5, end: 12)])
+            check(!vm.speakerNameSuggestions.contains { $0.kind == .visualName },
+                  "visual pipeline bare Them: one voice over a few seconds is not enough")
+            audio.onSpeakerSegments?(.system, [.init(speaker: "Them 1", start: 5, end: 105)])
             let suggestion = vm.speakerNameSuggestions.first { $0.kind == .visualName }
-            check(suggestion?.label == "Them" && suggestion?.name == "Sarah",
-                  "visual pipeline bare Them: roster suggests the lone remote voice")
-            check(vm.utterances.first?.speaker == "Them", "visual pipeline bare Them: suggestion awaits confirmation")
-            audio.onSpeakerSegments?(.system, [.init(speaker: "Them 1", start: 5, end: 105),
-                                               .init(speaker: "Them 2", start: 5, end: 105)])
+            check(suggestion?.label == "Them 1" && suggestion?.name == "Sarah",
+                  "visual pipeline bare Them: a confirmed single diarized voice gets the roster suggestion")
+            check(vm.utterances.allSatisfy { $0.speaker != "Sarah" }, "visual pipeline bare Them: suggestion awaits confirmation")
+            audio.onSpeakerSegments?(.system, [.init(speaker: "Them 1", start: 5, end: 50),
+                                               .init(speaker: "Them 2", start: 52, end: 105)])
             check(!vm.speakerNameSuggestions.contains { $0.kind == .visualName },
                   "visual pipeline bare Them: a second voice withdraws it")
         } else { check(false, "visual pipeline bare Them: audio callbacks wired") }

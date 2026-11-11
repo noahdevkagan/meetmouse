@@ -141,9 +141,10 @@ func runTests() async {
             check(false, "capture manager wired (roster)"); return
         }
         capture.onUtterance?(Utterance(t: 6, speaker: "Them",
-            text: "Here is the ideal flow for self submissions.", endT: 9))
+            text: "Here is the ideal flow for self submissions.", endT: 40))
         try? await Task.sleep(for: .milliseconds(50))
-        capture.onSpeakerSegments?(.system, [SpeakerSegment(speaker: "Them 1", start: 5.8, end: 9.2)])
+        // Roster evidence needs at least 20 s of the lone voice's speech.
+        capture.onSpeakerSegments?(.system, [SpeakerSegment(speaker: "Them 1", start: 5.8, end: 40)])
         vm.startVisualSpeakerAssistance(window: .init(id: 0, pid: 0, app: "Zoom", title: "Zoom Meeting"))
         for _ in 0..<200 where rosterCapture.isRunning { await Task.yield() }
         let suggestion = vm.speakerNameSuggestions.first { $0.kind == .visualName }
@@ -151,8 +152,8 @@ func runTests() async {
               "visual: one-on-one roster suggests the remote voice's name",
               "\(vm.speakerNameSuggestions.map(\.key))")
         check(vm.utterances.map(\.speaker).contains("Them 1"), "visual: roster suggestion never renames on its own")
-        capture.onSpeakerSegments?(.system, [SpeakerSegment(speaker: "Them 1", start: 5.8, end: 9.2),
-                                             SpeakerSegment(speaker: "Them 2", start: 12, end: 14)])
+        capture.onSpeakerSegments?(.system, [SpeakerSegment(speaker: "Them 1", start: 5.8, end: 40),
+                                             SpeakerSegment(speaker: "Them 2", start: 42, end: 44)])
         check(!vm.speakerNameSuggestions.contains { $0.kind == .visualName },
               "visual: second remote voice withdraws roster suggestion")
         vm.stopLive()

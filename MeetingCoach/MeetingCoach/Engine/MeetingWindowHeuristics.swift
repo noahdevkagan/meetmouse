@@ -119,15 +119,17 @@ enum MeetingWindowHeuristics {
             cleanedBrowserSuffix(w.title))
     }
 
-    /// "Meeting with Sam | Microsoft Teams - Google Chrome" → without the browser.
+    /// Drop browser window decorations after the final "| Microsoft Teams":
+    /// Chromium's " and N more pages" (several tabs selected), " - Google
+    /// Chrome", a profile segment (" - Google Chrome - Work", Edge's
+    /// " - Work - Microsoft Edge"). Safari adds nothing. Anything else after
+    /// "Microsoft Teams" is left alone and fails the match.
     private static func cleanedBrowserSuffix(_ title: String) -> String {
-        var t = title
-        for browser in browserOwners {
-            for sep in [" - ", " – ", " — "] where t.hasSuffix(sep + browser) {
-                t = String(t.dropLast(sep.count + browser.count))
-            }
-        }
-        return t
+        guard let bar = title.range(of: "|", options: .backwards),
+              title[bar.upperBound...].range(
+                of: #"^\s*Microsoft Teams(\s+and \d+ more pages?)?(\s+[-–—]\s+.+)?$"#,
+                options: [.regularExpression, .caseInsensitive]) != nil else { return title }
+        return title[..<bar.upperBound] + " Microsoft Teams"
     }
 
     /// Bundle id decides when known; otherwise the owner name. A resolved

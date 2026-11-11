@@ -43,23 +43,27 @@ enum VisualSpeakerEvidence {
         }
     }
 
-    /// Unnamed remote voices from the system channel. Numbered labels win;
-    /// bare "Them" is kept only when no numbered voice exists (named voices stay and veto), because the
-    /// bare label is what the transcript shows before the first diarizer
-    /// publish and later becomes "Them 1" for the same voice.
-    static func unnamedRemoteLabels(_ labels: Set<String>) -> Set<String> {
-        let numbered = labels.filter { $0.wholeMatch(of: #/^Them \d+$/#) != nil }
-        return numbered.isEmpty ? labels : labels.subtracting(["Them"])
-    }
+    /// Diarized speech the lone remote voice must have before roster
+    /// evidence may name it: one voice over a few seconds proves little.
+    static let minRosterRemoteSpeech: TimeInterval = 20
 
     /// One-on-one fallback when no tile is highlighted: every readable roster
     /// shows the same single other person, and diarization heard exactly one
     /// remote voice. A second visible name or a second voice vetoes.
+    ///
+    /// Only a numbered diarizer voice ("Them N") qualifies, and only with
+    /// enough diarized speech. Bare "Them" means the diarizer has not
+    /// published (or never will: Intel, model unavailable), so it carries no
+    /// evidence that only one person is talking: in a group call every
+    /// remote voice is "Them" until then (decisions 2026-09-17, 2026-11-10).
     static func rosterMatch(_ rosters: [VisualRosterObservation],
-                            remoteLabels: Set<String>) -> (label: String, name: String)? {
-        // A 1:1 diarizer may leave its only remote voice as the bare "Them".
+                            remoteLabels: Set<String>,
+                            remoteSegments: [SpeakerSegment]) -> (label: String, name: String)? {
         guard remoteLabels.count == 1, let label = remoteLabels.first,
-              label == "Them" || label.wholeMatch(of: #/^Them \d+$/#) != nil else { return nil }
+              label.wholeMatch(of: #/^Them \d+$/#) != nil,
+              remoteSegments.filter({ $0.speaker == label })
+                .reduce(0, { $0 + max(0, $1.end - $1.start) }) >= minRosterRemoteSpeech
+        else { return nil }
         let seen = rosters.filter { !$0.names.isEmpty }
         guard seen.allSatisfy({ $0.names.count == 1 }),
               let name = seen.first?.names.first,
