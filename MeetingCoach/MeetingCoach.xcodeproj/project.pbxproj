@@ -210,11 +210,8 @@
 		81D33EEE89EF224DC87FCF6E /* Utterance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utterance.swift; sourceTree = "<group>"; };
 		826E23E63EE91A96C88BA0F1 /* Trigger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trigger.swift; sourceTree = "<group>"; };
 		85881F8DA1B5854DE7BA9F7A /* EchoFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoFilter.swift; sourceTree = "<group>"; };
-<<<<<<< HEAD
-		87EA259A9C440A726CDAD933 /* AISetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISetupView.swift; sourceTree = "<group>"; };
-=======
 		85C0F041AC83F3FBF9A6A9E6 /* ShortEchoGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortEchoGate.swift; sourceTree = "<group>"; };
->>>>>>> origin/main
+		87EA259A9C440A726CDAD933 /* AISetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISetupView.swift; sourceTree = "<group>"; };
 		88673BD63F55A97082E19D05 /* InterruptionSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterruptionSignal.swift; sourceTree = "<group>"; };
 		88712FFF039CAE16780F84A4 /* ReferralLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralLink.swift; sourceTree = "<group>"; };
 		912C009E304E68EE3CED2F6A /* UnansweredQuestionSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnansweredQuestionSignal.swift; sourceTree = "<group>"; };
