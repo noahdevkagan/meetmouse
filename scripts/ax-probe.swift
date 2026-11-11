@@ -124,6 +124,9 @@ final class StopFlag {
 }
 let stop = StopFlag()
 var sigSources: [DispatchSourceSignal] = []
+// A closed pipe (`| head`, or Ctrl-C killing `tee`) must not kill the probe
+// before the accessibility flags are restored and the end snapshot is written.
+signal(SIGPIPE, SIG_IGN)
 for s in [SIGINT, SIGTERM, SIGHUP] {
     signal(s, SIG_IGN)
     let src = DispatchSource.makeSignalSource(signal: s, queue: DispatchQueue.global())
@@ -364,6 +367,9 @@ func looksLikeName(_ s: String) -> Bool {
 final class Walker {
     let maxNodes: Int, maxDepth: Int, deadline: Date, collect: Bool
     var tick = Tick()
+    /// Elements already visited in this walk. AX trees can loop (an app whose
+    /// AXChildren include itself), which would burn the whole time budget.
+    var visited = Set<ElKey>()
     var consecutiveTimeouts = 0
     init(maxNodes: Int, maxDepth: Int, deadline: Date, collect: Bool) {
         self.maxNodes = maxNodes; self.maxDepth = maxDepth; self.deadline = deadline; self.collect = collect
@@ -385,6 +391,7 @@ final class Walker {
         if tick.nodeCount >= maxNodes { tick.capped.insert("nodes"); return nil }
         if Date() > deadline { tick.capped.insert("time"); return nil }
         if stop.isSet { tick.capped.insert("stopped"); return nil }
+        if !visited.insert(ElKey(el: el)).inserted { return nil }
         tick.nodeCount += 1
 
         let n = Node(el)

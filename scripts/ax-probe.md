@@ -10,7 +10,7 @@ Google Meet (Chrome).
 ```bash
 swift scripts/ax-probe.swift zoom   --seconds 120 --interval 2
 swift scripts/ax-probe.swift teams  --seconds 120 --interval 2   # new Teams (com.microsoft.teams2), else classic
-swift scripts/ax-probe.swift chrome --seconds 120 --interval 2 --window meet --max-nodes 15000
+swift scripts/ax-probe.swift chrome --seconds 120 --interval 4 --window meet --max-nodes 15000
 # also: teams-classic, safari, or any bundle id (e.g. com.microsoft.edgemac)
 ```
 
