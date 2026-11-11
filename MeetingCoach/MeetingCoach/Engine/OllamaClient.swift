@@ -448,9 +448,11 @@ actor OllamaClient {
     }
 
     /// GET /api/tags — list locally available models
-    func listModels() async throws -> [OllamaModel] {
+    func listModels(timeout: TimeInterval? = nil) async throws -> [OllamaModel] {
         let url = baseURL.appendingPathComponent("api/tags")
-        let (data, _) = try await URLSession.shared.data(from: url)
+        var request = URLRequest(url: url)
+        if let timeout { request.timeoutInterval = timeout }
+        let (data, _) = try await URLSession.shared.data(for: request)
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let models = json["models"] as? [[String: Any]] else {
             return []

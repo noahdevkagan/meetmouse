@@ -16,6 +16,9 @@ enum TalkBubbleLayout: String, CaseIterable {
 final class SettingsViewModel {
     private(set) var aiConfiguration = AIConfiguration.current
     var usesCloudAI: Bool { aiConfiguration.provider != .local }
+    /// True once an AI provider can write notes: a cloud provider the user has
+    /// enabled (which requires consent) or an installed local model.
+    var aiReady: Bool { !DebugPreview.active && (usesCloudAI || !availableModels.isEmpty) }
 
     func enableCloudAI(_ configuration: AIConfiguration, key: String) throws {
         guard configuration.provider != .local,
@@ -35,6 +38,15 @@ final class SettingsViewModel {
         configuration.save()
         aiConfiguration = configuration
         useMock = false
+    }
+
+    /// One source of truth for what the cloud-AI consent covers (Settings and setup).
+    func cloudConsentText(providerTitle: String) -> String {
+        var text = "When enabled, meeting text, participant names, coaching context, notes and questions used by AI features go directly to \(providerTitle). Audio and transcription stay on your Mac. Cloud AI requires internet access and follows the provider’s data policies."
+        if semanticCoachEnabled {
+            text += " Advanced live coaching is on, so text is also sent throughout the call, not only after it."
+        }
+        return text
     }
 
     func useLocalAI() {
@@ -284,7 +296,7 @@ final class SettingsViewModel {
     func refreshModels() async {
         let client = OllamaClient(model: selectedModel)
         do {
-            availableModels = try await client.listModels()
+            availableModels = try await client.listModels(timeout: 3)
             ollamaReachable = true
         } catch {
             ollamaReachable = false
@@ -381,7 +393,8 @@ final class SettingsViewModel {
     /// without hijacking the user's selected model, and without the post-pull
     /// verification load (the user is mid-meeting on a machine that just
     /// proved it has no memory to spare).
-    func downloadModel(_ catalogModel: CatalogModel, forSessionFallback: Bool = false) {
+    func downloadModel(_ catalogModel: CatalogModel, forSessionFallback: Bool = false,
+                       switchToLocalOnSuccess: Bool = false) {
         let fullName = catalogModel.fullName
         // The catalog UI already hides models that can't fit; this is the
         // backstop for every other path to a pull.
@@ -422,6 +435,12 @@ final class SettingsViewModel {
                         self.save()
                     }
                     await self.refreshModels()
+                    // Leave a working cloud provider in place until the local
+                    // model is really there.
+                    if switchToLocalOnSuccess, self.usesCloudAI,
+                       self.availableModels.contains(where: { $0.name == fullName }) {
+                        self.useLocalAI()
+                    }
                     // Freshly pulled = the user is right here in Settings;
                     // a short warm-up window verifies it loads (OOM surfaces
                     // now, not mid-meeting) without pinning RAM for hours.

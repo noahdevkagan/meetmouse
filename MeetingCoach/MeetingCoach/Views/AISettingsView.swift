@@ -68,7 +68,7 @@ struct AISettingsView: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
 
-                    Text("When enabled, meeting text, participant names, coaching context, notes and questions used by AI features go directly to \(provider.title). Audio and transcription stay on your Mac. Cloud AI requires internet access and follows the provider’s data policies.")
+                    Text(settings.cloudConsentText(providerTitle: provider.title))
                         .font(.caption).foregroundStyle(.secondary)
                     Toggle("Allow AI features to send this text to \(provider.title)", isOn: $consent)
                         .disabled(testing)

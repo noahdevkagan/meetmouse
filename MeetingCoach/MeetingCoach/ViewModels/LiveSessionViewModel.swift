@@ -1786,8 +1786,8 @@ final class LiveSessionViewModel {
                 }
             } else {
                 reviewAIError = settings.availableModels.isEmpty
-                    ? "A basic recap is shown. For AI notes, connect Claude or choose a model in Settings → AI."
-                    : "AI is unavailable. A basic recap is shown; check Settings → AI, then retry from the saved meeting."
+                    ? "A basic recap is shown. Set up AI notes to get full summaries and follow-ups."
+                    : "The local AI model couldn't start, so a basic recap is shown. Try Regenerate from the saved meeting, or restart MeetMouse."
             }
             guard reviewGenerationID == generationID else { return }
             if let summary, !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

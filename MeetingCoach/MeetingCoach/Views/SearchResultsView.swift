@@ -206,6 +206,7 @@ struct SearchResultsView: View {
                     Text(why)
                         .font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                    if settings?.aiReady != true { SetUpAINotesButton(settings: settings) }
                 }
             }
         }
@@ -229,7 +230,7 @@ struct SearchResultsView: View {
 
         guard await settings.prepareAI(ollamaManager: ollamaManager) else {
             if question == query {
-                askState = .unavailable("Configure AI in Settings → AI, or install a local model — word matches still work.")
+                askState = .unavailable("AI notes aren't set up yet — word matches still work.")
             }
             return
         }

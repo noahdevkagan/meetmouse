@@ -2244,6 +2244,26 @@ compare the full saved file before writing, so another writer's changes win.
 Saved next-call prep is honored inside startLive, shared by sidebar, menu bar,
 and detection starts; unprepared last-used guests remain unconfirmed.
 
+## 2026-11-10 — AI notes setup: one flow, Claude Code installed in-app on click
+Setup is two choices (Claude account / local model) shared by onboarding, a home card
+that stays until AI works, and a sheet behind "Set up AI notes" buttons. Installing Claude
+Code runs Anthropic's documented `curl -fsSL https://claude.ai/install.sh | bash` as a fixed
+string with a scrubbed environment, only after a click, never sudo, and falls back to the docs
+link on failure; the CLI is not bundled. Consent to send meeting text stays an explicit
+unticked toggle before `enableCloudAI`. "AI ready" = cloud enabled or a local model
+installed. Not done: Settings reorganisation (out of scope), so Settings -> AI keeps its own
+Claude controls.
+
+2026-11-10 follow-up: the installer is no longer `curl | bash` in one string. It downloads to a temp file over HTTPS-only curl, checks the exit code and size, then runs bash on the file, each in its own process group that is killed whole on cancel or timeout, so a partial download never executes and cancel really stops it. `cliStatus()` throws on timeout/cancel/launch failure; only a real version below the minimum is "outdated". The local-model choice switches provider only after the download succeeds.
+
+## 2026-11-10 — First-run checklist cut to three rows
+
+Noah: the checklist was "long and confusing". It is now Microphone, Call audio, AI notes, one short line each. Removed: the Transcription engine row (downloads automatically; a slim status line shows only while downloading or after a failure), the Join a meeting row (not an action; nothing depended on it), and the Advanced live coaching toggle (still in Settings -> AI and the sidebar; this reverses the 2026-11-04 choice to show it in onboarding). The AI row shows both buttons inline; the long facts live in the consent and install steps after the click. Consent is unchanged: required and unticked.
+
+## 2026-11-10 — AI setup consent: labelled button plus short disclosure, no checkbox
+
+Noah: the consent step was "a lot of text" and "I have no clue what 'Allow AI features' means". In the setup flow only (checklist row, home card, sheet) the unticked checkbox is replaced by two plain lines (transcripts and notes go to Anthropic; audio stays here; Claude plan limits), plus a third line when advanced live coaching is on, a "What's sent?" popover holding the unchanged `cloudConsentText`, and one primary "Turn on AI notes" button directly under the disclosure. The button click is the explicit opt-in: `enableClaude` takes `userConfirmed`, passed true only by that button, so nothing else can enable cloud AI through the setup model; nothing is sent before the click. Settings -> AI is unchanged (full text, own toggle). Local-model setup has no consent step.
+
 ## 2026-11-10 — Short bleed duplicates on built-in speakers (narrows "never filter 1-2 words")
 
 A real call on the Mac's speakers showed the guest's "Okay." twice at the same
