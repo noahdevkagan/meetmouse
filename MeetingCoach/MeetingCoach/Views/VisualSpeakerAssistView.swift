@@ -21,7 +21,11 @@ struct VisualSpeakerAssistView: View {
                      : liveSession.visualSpeakerCapture.status)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 4)
-                if liveSession.visualSpeakerCapture.isRunning || liveSession.visualSpeakerCapture.isDiscovering {
+                if liveSession.visualSpeakerCapture.needsWindowChoice {
+                    // Discovery keeps checking; choosing pins the call now.
+                    Button("Choose…") { showConsent = true }
+                    Button("Stop") { liveSession.stopVisualSpeakerAssistance() }
+                } else if liveSession.visualSpeakerCapture.isRunning || liveSession.visualSpeakerCapture.isDiscovering {
                     Button("Stop") { liveSession.stopVisualSpeakerAssistance() }
                 } else if liveSession.visualSpeakerCapture.count < VisualSpeakerCapture.limit {
                     Button("Help name speakers…") { showConsent = true }

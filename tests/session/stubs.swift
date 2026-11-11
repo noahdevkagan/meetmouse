@@ -62,6 +62,14 @@ final class AudioCaptureManager {
     }
     func start() async throws { startTime = Date() }
     func stop() { stopped = true }
+    /// The real speaker-bleed gate, driven the way the real manager drives
+    /// it: Stop closes it (drain) and releases hand lines over synchronously.
+    let shortEchoGate = ShortEchoGate()
+    func drainHeldShortLines() -> [Utterance] { shortEchoGate.close() }
+    /// The real manager's main-thread release block.
+    func releaseHeldShortLines(now: TimeInterval) {
+        for u in shortEchoGate.release(now: now) { onUtterance?(u) }
+    }
 
     enum LanguageSwitchPhase: Sendable { case downloading, loading }
     /// Phases a switch reports before finishing, and an optional failure.

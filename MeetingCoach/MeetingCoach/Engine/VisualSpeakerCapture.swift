@@ -18,12 +18,16 @@ struct SpeakerWindowChoice: Identifiable, Sendable, Hashable {
         if MeetingWindowHeuristics.isZoomMeetingWindow(info) { return "Zoom" }
         if MeetingWindowHeuristics.isSlackHuddleWindow(info) { return "Slack" }
         if MeetingWindowHeuristics.isFaceTimeCallWindow(info) { return "FaceTime" }
+        if MeetingWindowHeuristics.isTeamsMeetingWindow(info) { return "Microsoft Teams" }
         return app
     }
 
     var highlightStyle: VisualSpeakerOCR.HighlightStyle {
         let info = WindowInfo(ownerName: app, title: title, ownerBundleID: bundleID)
-        return MeetingWindowHeuristics.isMeetTabWindow(info) ? .googleMeet : .zoom
+        if MeetingWindowHeuristics.isMeetTabWindow(info) { return .googleMeet }
+        // Teams uses neither outline colour: nothing readable yet.
+        if MeetingWindowHeuristics.isTeamsMeetingWindow(info) { return .unsupported }
+        return .zoom
     }
 }
 
@@ -48,17 +52,27 @@ final class VisualSpeakerCapture {
         /// Other tiles aligned with the user's own; nil when theirs wasn't found.
         var roster: [String]? = nil
     }
-    private enum CaptureError: Error { case windowUnavailable }
+    enum CaptureError: Error { case windowUnavailable }
     private let findWindows: @MainActor () async throws -> [SpeakerWindowChoice]
     private let snapshot: @MainActor (SpeakerWindowChoice) async throws -> Snapshot
     private let pause: @MainActor (Duration) async throws -> Void
+    private let windowExists: @MainActor (CGWindowID) -> Bool
 
     init(findWindows: @escaping @MainActor () async throws -> [SpeakerWindowChoice] = VisualSpeakerCapture.windows,
          snapshot: @escaping @MainActor (SpeakerWindowChoice) async throws -> Snapshot = VisualSpeakerCapture.captureSnapshot,
-         pause: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
+         pause: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+         windowExists: @escaping @MainActor (CGWindowID) -> Bool = VisualSpeakerCapture.windowExists) {
         self.findWindows = findWindows
         self.snapshot = snapshot
         self.pause = pause
+        self.windowExists = windowExists
+    }
+
+    /// Any window with this id, on screen or not (minimized, other Space).
+    /// Metadata only; no pixels.
+    nonisolated static func windowExists(_ id: CGWindowID) -> Bool {
+        let rows = CGWindowListCopyWindowInfo([.optionIncludingWindow], id) as? [[String: Any]] ?? []
+        return rows.contains { ($0[kCGWindowNumber as String] as? NSNumber)?.uint32Value == id }
     }
 
     nonisolated static func windows() async throws -> [SpeakerWindowChoice] {
@@ -83,6 +97,7 @@ final class VisualSpeakerCapture {
                 || MeetingWindowHeuristics.isMeetTabWindow(info)
                 || MeetingWindowHeuristics.isHangoutsTabWindow(info)
                 || MeetingWindowHeuristics.isFaceTimeCallWindow(info)
+                || MeetingWindowHeuristics.isTeamsMeetingWindow(info)
         }
     }
 
@@ -116,49 +131,163 @@ final class VisualSpeakerCapture {
         return foregroundMeetingWindow(in: windows, frontmostPID: pid, orderedWindowIDs: ids)
     }
 
+    /// Quiet re-check cadence while no unique call window exists. The session
+    /// often starts seconds before the call window does (2026-11-10); the
+    /// last delay repeats until the session ends.
+    static let discoveryDelays: [Duration] = [.seconds(2), .seconds(3), .seconds(5), .seconds(8),
+                                              .seconds(13), .seconds(20), .seconds(30)]
+
     /// Remembered opt-in authorizes discovery; ambiguity never starts capture.
+    /// Keeps re-checking until exactly one readable call window exists or the
+    /// session ends (`stop`, or `canStart` turning false).
     func startAutomatically(sessionStart: Date,
                             canStart: @escaping @MainActor () -> Bool,
                             onObservation: @escaping @MainActor () -> Void) {
         guard !isRunning, !isDiscovering, count < Self.limit, canStart() else { return }
         generation = UUID()
+        observations = []
+        rosters = []
+        discover(sessionStart: sessionStart, canStart: canStart, onObservation: onObservation)
+    }
+
+    /// Two or more readable call windows: the user is asked to choose.
+    private(set) var needsWindowChoice = false
+    /// The window being captured, and whether discovery (not the user) chose
+    /// it. Only an automatic pin may give way to the user's explicit choice.
+    private var pinned: SpeakerWindowChoice?
+    private var pinnedAutomatically = false
+    private var lastDiscoveryNote = ""
+
+    private func discover(sessionStart: Date,
+                          canStart: @escaping @MainActor () -> Bool,
+                          onObservation: @escaping @MainActor () -> Void) {
         let run = generation
         isDiscovering = true
+        needsWindowChoice = false
+        lastDiscoveryNote = ""
         status = "Finding your meeting window…"
+        // Self stays weak across the sleeps: a dropped owner ends the loop.
+        let pause = self.pause
         task = Task { [weak self] in
-            guard let self else { return }
-            do {
-                let windows = try await self.findWindows()
-                guard !Task.isCancelled, self.generation == run else { return }
-                self.isDiscovering = false
-                self.task = nil
-                guard canStart() else {
-                    self.status = "Automatic speaker snapshots skipped."
-                    return
-                }
-                guard let window = Self.suggestedWindow(in: windows) else {
-                    self.status = "Choose your call to help name speakers."
-                    return
-                }
-                self.start(window: window, sessionStart: sessionStart, onObservation: onObservation)
-            } catch {
-                guard !Task.isCancelled, self.generation == run else { return }
-                self.isDiscovering = false
-                self.finish("Couldn’t find the meeting window. Check Screen Recording permission.")
+            var attempt = 0
+            while await self?.discoveryStep(run: run, attempt: attempt, sessionStart: sessionStart,
+                                            canStart: canStart, onObservation: onObservation) == true {
+                let delays = VisualSpeakerCapture.discoveryDelays
+                do { try await pause(delays[min(attempt, delays.count - 1)]) } catch { return }
+                attempt += 1
             }
         }
     }
 
+    /// One window listing. Returns true to look again after a pause.
+    private func discoveryStep(run: UUID, attempt: Int, sessionStart: Date,
+                               canStart: @escaping @MainActor () -> Bool,
+                               onObservation: @escaping @MainActor () -> Void) async -> Bool {
+        guard !Task.isCancelled, generation == run else { return false }
+        let windows: [SpeakerWindowChoice]
+        do {
+            windows = try await findWindows()
+        } catch {
+            guard !Task.isCancelled, generation == run else { return false }
+            mclog("speaker-snapshots discovery: window list failed (attempt \(attempt + 1))")
+            endDiscovery()
+            finish("Couldn’t find the meeting window. Check Screen Recording permission.")
+            return false
+        }
+        guard !Task.isCancelled, generation == run else { return false }
+        guard canStart() else {
+            endDiscovery()
+            task = nil
+            status = "Automatic speaker snapshots skipped."
+            return false
+        }
+        let calls = Self.meetingWindows(in: windows)
+        // Counts and platform names only: titles can carry people's names.
+        let callAppOther = windows.filter { w in
+            let info = WindowInfo(ownerName: w.app, title: w.title, ownerBundleID: w.bundleID)
+            return (MeetingWindowHeuristics.isZoomOwned(info) || MeetingWindowHeuristics.isTeamsOwned(info)
+                    || MeetingWindowHeuristics.isSlackOwned(info) || MeetingWindowHeuristics.isFaceTimeOwned(info))
+                && !calls.contains(w)
+        }.count
+        // A recognized window with no name reader (Teams) is never captured,
+        // so it neither ends discovery nor competes with a readable call:
+        // Teams plus one Zoom/Meet window pins the readable one, as it did
+        // before Teams was recognized at all.
+        let readable = calls.filter { $0.highlightStyle != .unsupported }
+        let unreadable = calls.filter { $0.highlightStyle == .unsupported }
+        let reason = readable.count == 1 ? "unique" : readable.count > 1 ? "ambiguous"
+            : !unreadable.isEmpty ? "only calls without a name reader"
+            : callAppOther > 0 ? "no call window yet (call app open)" : "no call app window"
+        let note = "speaker-snapshots discovery: callWindows=\(calls.count) "
+            + "[\(calls.map(\.platformName).sorted().joined(separator: ","))] "
+            + "callAppOtherWindows=\(callAppOther) -> \(reason)"
+        if note != lastDiscoveryNote {
+            mclog("\(note) (attempt \(attempt + 1), windows=\(windows.count))")
+            lastDiscoveryNote = note
+        }
+        guard readable.count == 1, let window = readable.first else {
+            // Zero: stay quiet (or explain an unreadable call). Two or more:
+            // ask. Either way keep looking: a readable call may open later,
+            // and the question withdraws itself once only one is left.
+            needsWindowChoice = readable.count > 1
+            status = needsWindowChoice ? "Choose your call to help name speakers."
+                : unreadable.first.map { "\($0.platformName) names can’t be read yet. Click a speaker label to name them." }
+                ?? "Finding your meeting window…"
+            return true
+        }
+        endDiscovery()
+        task = nil
+        beginCapture(window: window, sessionStart: sessionStart,
+                     onObservation: onObservation, canStart: canStart)
+        return false
+    }
+
+    private func endDiscovery() {
+        isDiscovering = false
+        needsWindowChoice = false
+    }
+
+    /// The user's explicit choice. It always wins over automatic discovery:
+    /// it ends a discovery loop, and replaces a window discovery pinned while
+    /// the Choose sheet was open (same window: keep its run and evidence,
+    /// now manual). The six-shot meeting cap still holds.
     func start(window: SpeakerWindowChoice, sessionStart: Date,
                onObservation: @escaping @MainActor () -> Void) {
-        guard !isRunning, count < Self.limit else { return }
+        if isRunning, !pinnedAutomatically { return }
+        if isRunning, pinned == window {
+            pinnedAutomatically = false
+            mclog("speaker-snapshots: manual choice kept the automatic pin")
+            return
+        }
+        guard count < Self.limit else { return }
+        if isRunning { mclog("speaker-snapshots: manual choice replaced the automatic pin") }
         task?.cancel()
-        isDiscovering = false
+        task = nil
+        isRunning = false
+        endDiscovery()
         generation = UUID()
-        let run = generation
         observations = []
         rosters = []
+        guard window.highlightStyle != .unsupported else {
+            // Recognized, but nothing to read: no screenshot is worth taking.
+            mclog("speaker-snapshots: \(window.platformName) has no name reader; not capturing")
+            status = "\(window.platformName) names can’t be read yet. Click a speaker label to name them."
+            return
+        }
+        beginCapture(window: window, sessionStart: sessionStart,
+                     onObservation: onObservation, canStart: nil)
+    }
+
+    /// `canStart` is set only in automatic mode, where a pinned window that
+    /// no longer exists anywhere may hand back to discovery.
+    private func beginCapture(window: SpeakerWindowChoice, sessionStart: Date,
+                              onObservation: @escaping @MainActor () -> Void,
+                              canStart: (@MainActor () -> Bool)?) {
+        guard !isRunning, count < Self.limit else { return }
+        let run = generation
         isRunning = true
+        pinned = window
+        pinnedAutomatically = canStart != nil
         status = "Speaker snapshots 0/\(Self.limit) · on-device"
         task = Task { [weak self] in
             // Let the consent sheet disappear; never activate or move the call.
@@ -182,6 +311,18 @@ final class VisualSpeakerCapture {
                     if self.count < Self.limit { try await self.pause(.seconds(15)) }
                 } catch {
                     guard !Task.isCancelled, self.generation == run else { return }
+                    // Never swap a pinned window that still exists (retitled
+                    // tab, minimized, other Space). Only when it is closed may
+                    // automatic mode look for the next unique call window;
+                    // the six-shot budget and evidence so far carry over.
+                    if error is CaptureError, let canStart, canStart(), self.count < Self.limit,
+                       !self.windowExists(window.id) {
+                        mclog("speaker-snapshots: pinned window closed, resuming discovery")
+                        self.isRunning = false
+                        self.discover(sessionStart: sessionStart, canStart: canStart,
+                                      onObservation: onObservation)
+                        return
+                    }
                     self.finish(error is CaptureError
                         ? "Window changed or hidden. Screenshot assistance stopped."
                         : "Couldn’t read this window. Check Screen Recording permission.")
@@ -197,6 +338,7 @@ final class VisualSpeakerCapture {
 
     private func finish(_ message: String) {
         isRunning = false
+        pinned = nil
         status = message
         task = nil
     }
@@ -206,7 +348,8 @@ final class VisualSpeakerCapture {
         task?.cancel()
         task = nil
         isRunning = false
-        isDiscovering = false
+        pinned = nil
+        endDiscovery()
         observations = []
         rosters = []
         status = reset ? "" : "Screenshot assistance stopped"
@@ -255,6 +398,9 @@ enum VisualSpeakerOCR {
     enum HighlightStyle: Sendable {
         case zoom
         case googleMeet
+        /// Recognized call window with no outline adapter (Teams): never
+        /// worth a screenshot on its own.
+        case unsupported
     }
 
     struct Line {
@@ -439,6 +585,8 @@ enum VisualSpeakerOCR {
             switch style {
             case .zoom:
                 return g > 130 && g > b + 65 && (g > r + 35 || (r > 170 && abs(r - g) < 85))
+            case .unsupported:
+                return false
             case .googleMeet:
                 // Meet's light/dark blue outlines. Keep this scoped to Meet:
                 // blue UI frames in other apps are not speaker evidence.

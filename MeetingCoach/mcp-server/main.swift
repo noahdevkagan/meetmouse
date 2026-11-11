@@ -10,7 +10,11 @@ import Foundation
 // in-app search and agent search can never drift.
 //
 // Register with:  claude mcp add meetmouse -- <path-to-this-binary>
-// (the app's Advanced sidebar has a copy button for exactly that command)
+// or, for Claude Desktop (whose "Add custom connector" takes web URLs only),
+// via Settings → General → Agent access (MCP) → "Add to Claude Desktop", which
+// merges this binary's path into claude_desktop_config.json
+// (Engine/ClaudeDesktopConfig.swift). Same section has copy buttons for the
+// Claude Code command and a JSON snippet for other hosts.
 
 enum Server {
     /// The app and this helper are separate processes with separate defaults

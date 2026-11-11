@@ -850,6 +850,11 @@ final class LiveSessionViewModel {
         captureStartTask = nil
         sessionEngineLabel = captureManager?.engineLabel
         captureManager?.stop()
+        // Short mic lines still waiting out the speaker-bleed check are real
+        // until proven otherwise: in before the save, like the partials below.
+        for u in captureManager?.drainHeldShortLines() ?? [] {
+            insertUtterance(u)
+        }
         // Kept (not nil'd into oblivion) so a rename from the post-session
         // view can still reach the diarizers' collected voice clips.
         endedCaptureManager = captureManager
@@ -1265,10 +1270,13 @@ final class LiveSessionViewModel {
                                                     localSpeech: utterances)
         // Timing-aligned highlight evidence outranks the one-on-one roster.
         let owned = channelLabels[.system] ?? []
+        // Bare "Them" is not a voice: it is speech the diarizer has not
+        // labelled yet, so it neither counts as the one voice nor vetoes.
         let remote = latestRemoteLabels.union(utterances.lazy.map(\.speaker).filter {
             $0.hasPrefix("Them ") || owned.contains($0) || self.baseLabelRenames["Them"] == $0
         }).subtracting(["Them"])
-        if let roster = VisualSpeakerEvidence.rosterMatch(visualSpeakerCapture.rosters, remoteLabels: remote),
+        if let roster = VisualSpeakerEvidence.rosterMatch(visualSpeakerCapture.rosters, remoteLabels: remote,
+                                                          remoteSegments: latestSystemSegments),
            !matches.contains(where: { $0.label == roster.label }) {
             matches.append(roster)
         }
@@ -1778,8 +1786,8 @@ final class LiveSessionViewModel {
                 }
             } else {
                 reviewAIError = settings.availableModels.isEmpty
-                    ? "A basic recap is shown. For AI notes, connect Claude or choose a model in Settings → AI."
-                    : "AI is unavailable. A basic recap is shown; check Settings → AI, then retry from the saved meeting."
+                    ? "A basic recap is shown. Set up AI notes to get full summaries and follow-ups."
+                    : "The local AI model couldn't start, so a basic recap is shown. Try Regenerate from the saved meeting, or restart MeetMouse."
             }
             guard reviewGenerationID == generationID else { return }
             if let summary, !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

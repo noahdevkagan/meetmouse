@@ -2264,3 +2264,151 @@ check is a whole-string bash match (a line-wise grep let newlines through into
 $GITHUB_OUTPUT). The docs-push site deploy moved to a separate repo-level
 Pages-only token, `CLOUDFLARE_PAGES_API_TOKEN`, so the full-power
 `CLOUDFLARE_API_TOKEN` can live only in the `release` environment.
+## 2026-11-10 — AI notes setup: one flow, Claude Code installed in-app on click
+Setup is two choices (Claude account / local model) shared by onboarding, a home card
+that stays until AI works, and a sheet behind "Set up AI notes" buttons. Installing Claude
+Code runs Anthropic's documented `curl -fsSL https://claude.ai/install.sh | bash` as a fixed
+string with a scrubbed environment, only after a click, never sudo, and falls back to the docs
+link on failure; the CLI is not bundled. Consent to send meeting text stays an explicit
+unticked toggle before `enableCloudAI`. "AI ready" = cloud enabled or a local model
+installed. Not done: Settings reorganisation (out of scope), so Settings -> AI keeps its own
+Claude controls.
+
+2026-11-10 follow-up: the installer is no longer `curl | bash` in one string. It downloads to a temp file over HTTPS-only curl, checks the exit code and size, then runs bash on the file, each in its own process group that is killed whole on cancel or timeout, so a partial download never executes and cancel really stops it. `cliStatus()` throws on timeout/cancel/launch failure; only a real version below the minimum is "outdated". The local-model choice switches provider only after the download succeeds.
+
+## 2026-11-10 — First-run checklist cut to three rows
+
+Noah: the checklist was "long and confusing". It is now Microphone, Call audio, AI notes, one short line each. Removed: the Transcription engine row (downloads automatically; a slim status line shows only while downloading or after a failure), the Join a meeting row (not an action; nothing depended on it), and the Advanced live coaching toggle (still in Settings -> AI and the sidebar; this reverses the 2026-11-04 choice to show it in onboarding). The AI row shows both buttons inline; the long facts live in the consent and install steps after the click. Consent is unchanged: required and unticked.
+
+## 2026-11-10 — AI setup consent: labelled button plus short disclosure, no checkbox
+
+Noah: the consent step was "a lot of text" and "I have no clue what 'Allow AI features' means". In the setup flow only (checklist row, home card, sheet) the unticked checkbox is replaced by two plain lines (transcripts and notes go to Anthropic; audio stays here; Claude plan limits), plus a third line when advanced live coaching is on, a "What's sent?" popover holding the unchanged `cloudConsentText`, and one primary "Turn on AI notes" button directly under the disclosure. The button click is the explicit opt-in: `enableClaude` takes `userConfirmed`, passed true only by that button, so nothing else can enable cloud AI through the setup model; nothing is sent before the click. Settings -> AI is unchanged (full text, own toggle). Local-model setup has no consent step.
+
+## 2026-11-10 — Short bleed duplicates on built-in speakers (narrows "never filter 1-2 words")
+
+A real call on the Mac's speakers showed the guest's "Okay." twice at the same
+moment: You (speaker bleed into the mic) and Them (system audio), You first.
+EchoFilter never treats 1-2 word sentences as echo (both sides truly say
+"Okay."/"Yeah."), and the bleed gate cannot fire during loud bleed (2026-10-27
+entry), so the duplicate survived. This narrows the "never filter 1-2 words"
+rule: text alone is still never evidence, but the system channel is.
+
+Rule (`Engine/ShortEchoGate.swift`): only while the output route is the
+built-in speakers, system audio is captured (not degraded to mic-only) and the
+session is live, a mic line of 1-2 words in total is dropped when every
+sentence equals a Them sentence (same normalized words) within 2 s of the mic
+span. Mic copy dropped, Them copy kept. Any other route: the gate returns
+"deliver" for everything. A short line with no twin is always kept.
+
+Clock and window: both pipelines stamp spans with the wall time of the first
+and last voiced buffer minus the same session start, so the channels are
+directly comparable. Bleed is acoustically simultaneous, so real twins
+overlap; the residual is buffer delivery latency (~85 ms mic tap, tens of ms
+SCK) and the voice floors (mic 0.006 catches only the loud core of the bleed,
+system 0.002 the whole word, so the mic span sits inside the system one). 2 s
+is slack on top of that, and it is the real window: far sentences are placed
+on the far side's VOICED time (the gate records system buffers above 0.002,
+the Them pipeline's own voice floor), not on the wall-clock span. A Them chunk
+with several sentences places each by word offset over its voiced stretches
+(+-20% of the voiced time), so "Bye." before a pause does not claim a "Bye."
+the user says after it. A sentence first seen in a Them partial is placed on
+the voiced audio since the previous partial's snapshot (at most 3 s back),
+not on "the 3 s before the partial" (that made the effective window ~5 s and
+ate the user's own "Bye." said 3 s after the guest's). Partials are diffed
+in order against the previous one: unchanged sentences keep their stamp, a
+revised sentence takes the place of the text it replaced, and only trailing
+new sentences get a new time (a revision early in a long chunk used to
+restamp an old "Yeah." as just said).
+
+Hold, not retract: the mic commits after 0.9 s of silence, the system after
+2.0 s plus inference, so the mic copy usually lands first. Retracting would
+mean undoing a line that signals, talk stats, turns and possibly a nudge had
+already consumed. Instead a short mic line is held, but only when the far
+side was voiced during the line's span (+-0.5 s); far audio that starts after
+the line does not hold it. Held lines are re-checked on every Them commit and
+every new sentence in a Them partial, and released (kept, original
+timestamps, the view model inserts by time) as soon as far text arrives at
+least 1 s after the line ended without its words: that text was transcribed
+from audio including the line, so no twin is coming. Partials tick every 1 s
+while the far side talks, so a backchannel said over the guest is typically
+released 0-1 s after its mic commit (~0.5 s on average; up to 3 s when the
+far window is long and partials are throttled to every 2nd/3rd tick). 3 s is
+only the backstop. Route leaving the speakers, or system audio degrading to
+mic-only, releases held lines.
+
+Stop: lines leave the hold only on the main thread (the release block hands
+them to the session synchronously) or through the session's drain at Stop
+(also main, before the save), never through an async hop. Background threads
+only drop a line (twin found) or mark it releasable. The drain closes the
+gate atomically with submit: a line already in the hold is returned to the
+save, a line still passing through deliver is passed straight through, and
+nothing is held or released after it (a later release block finds nothing).
+A bleed partial matching a known twin is also hidden from the live pending
+line.
+
+Known cost: if both people truly say the same 1-2 words within about 2 s of
+each other on speakers while the far side is voiced, the user's copy is lost.
+A short reply said while the guest is talking appears up to ~1 s late
+(3 s worst case). A twin the recognizer only adds after the line was released
+stays as a duplicate (we prefer that to losing real words). Mixed chunks (a
+short phrase inside a longer mic utterance) are not handled; EchoFilter's
+rules still apply there. Not verified on real hardware.
+
+## 2026-11-10 — Window discovery retries; Teams is a recognized call window
+A real two-person Zoom call showed "No unique meeting window found" and never
+suggested the guest: the session started about 6 s before the Zoom meeting
+window existed, and automatic discovery listed windows exactly once. Discovery
+now re-checks on a backing-off cadence (2, 3, 5, 8, 13, 20, then every 30 s)
+until exactly one recognized call window exists or the session ends. Zero
+candidates shows no "choose your call" banner; two or more show it with a
+Choose... button and keep checking, so the question withdraws itself. A pinned
+window is never swapped automatically: automatic mode resumes discovery only when the pinned
+window no longer exists anywhere (CGWindowList by id, so a minimized or
+off-Space window counts as present and ends assistance as before); the six
+snapshot cap and collected evidence carry over. A manually chosen window never
+resumes. Consent, remembered opt-in, local-only OCR and nothing-stored are
+unchanged. Discovery logs counts, platform names and a reason to
+/tmp/mc_debug.log (only when they change), never titles.
+Teams matches by bundle id first (`com.microsoft.teams2`, `com.microsoft.teams`,
+read from the installed apps' Info.plist) and in browsers by title. The title
+rule is an allowlist, "Meeting with/in ...", "Meeting compact view", "Call with
+..." followed by "| Microsoft Teams" (unread badge stripped), English only and
+UNVERIFIED against a live call. A denylist of main-window sections was rejected:
+a false match turns every auto-stop into "ended?" and makes Zoom calls look
+ambiguous. Cost: a meeting titled only by its subject is missed (end-watch falls
+back to the 60 s mic path, same as before). Teams has no outline reader, so
+it is never screenshotted (automatic or manual) and never ends discovery: a
+Teams-only screen keeps re-checking with a "names can't be read" status, and a
+readable Zoom/Meet window that opens later is used. Teams plus exactly one
+readable call window pins the readable one rather than asking; that is what
+happened before Teams was recognized, and the Teams window could never be
+captured anyway. Two or more readable windows still ask. Teams browser tabs
+also match with Chromium's profile segment and "and N more pages" title
+decorations.
+
+Review follow-up (same day). The draft let a bare "Them" receive a roster
+suggestion; that was wrong. Bare "Them" means the diarizer has not published
+(or never will: Intel, model unavailable), so in a group call every remote
+voice is "Them" and "exactly one voice" passed by default: two snapshots of a
+tile row showing one other name would have offered that name for all remote
+speech and saved a mixed voice as one profile. Roster evidence now needs a
+numbered diarizer voice ("Them N") that is the only remote voice in audio and
+transcript with at least 20 s of its own diarized speech; bare "Them" never
+counts as the voice and never vetoes. No pre-call exception: a confirmed
+one-on-one already names remote speech through the display alias, and a
+same-name roster suggestion is suppressed, so it would only add a conflicting
+name. Manual choice wins: Allow ends discovery and replaces a window
+discovery pinned while the sheet was open (the same window keeps its run and
+evidence; the six-shot cap carries). An automatic pin is still never swapped
+silently.
+## 2026-11-09 — Claude Desktop: merge into claude_desktop_config.json, not a .mcpb extension
+Claude's "Add custom connector" dialog only accepts remote HTTPS MCP URLs, so the
+stdio helper can't go there. Settings → General → Agent access now has "Add to
+Claude Desktop", which merges `mcpServers.meetmouse.command` (the in-bundle
+`meetmouse-mcp` path) into the config file (only that key touched; one-time
+`.meetmouse-backup`; invalid JSON is never overwritten, snippet is copied instead).
+Chose this over a .mcpb Desktop Extension because an extension copies the binary
+and would not auto-update with the app; the config points at the bundle path, so
+Sparkle updates just work. The app is unsandboxed (ENABLE_APP_SANDBOX NO), so the
+direct write is allowed. Logic lives in Engine/ClaudeDesktopConfig.swift, tested by
+tests/claude-desktop (wired into push-gate).

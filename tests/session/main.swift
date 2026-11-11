@@ -141,9 +141,10 @@ func runTests() async {
             check(false, "capture manager wired (roster)"); return
         }
         capture.onUtterance?(Utterance(t: 6, speaker: "Them",
-            text: "Here is the ideal flow for self submissions.", endT: 9))
+            text: "Here is the ideal flow for self submissions.", endT: 40))
         try? await Task.sleep(for: .milliseconds(50))
-        capture.onSpeakerSegments?(.system, [SpeakerSegment(speaker: "Them 1", start: 5.8, end: 9.2)])
+        // Roster evidence needs at least 20 s of the lone voice's speech.
+        capture.onSpeakerSegments?(.system, [SpeakerSegment(speaker: "Them 1", start: 5.8, end: 40)])
         vm.startVisualSpeakerAssistance(window: .init(id: 0, pid: 0, app: "Zoom", title: "Zoom Meeting"))
         for _ in 0..<200 where rosterCapture.isRunning { await Task.yield() }
         let suggestion = vm.speakerNameSuggestions.first { $0.kind == .visualName }
@@ -151,8 +152,8 @@ func runTests() async {
               "visual: one-on-one roster suggests the remote voice's name",
               "\(vm.speakerNameSuggestions.map(\.key))")
         check(vm.utterances.map(\.speaker).contains("Them 1"), "visual: roster suggestion never renames on its own")
-        capture.onSpeakerSegments?(.system, [SpeakerSegment(speaker: "Them 1", start: 5.8, end: 9.2),
-                                             SpeakerSegment(speaker: "Them 2", start: 12, end: 14)])
+        capture.onSpeakerSegments?(.system, [SpeakerSegment(speaker: "Them 1", start: 5.8, end: 40),
+                                             SpeakerSegment(speaker: "Them 2", start: 42, end: 44)])
         check(!vm.speakerNameSuggestions.contains { $0.kind == .visualName },
               "visual: second remote voice withdraws roster suggestion")
         vm.stopLive()
@@ -217,6 +218,50 @@ func runTests() async {
               "turns empty — the pane would blank")
         check(vm.hasSession, "hasSession still true (view doesn't switch away)")
         check(capture.stopped, "capture actually stopped")
+    }
+
+    // 1b. A short mic line still held for the speaker-bleed check when Stop
+    //     is hit (ShortEchoGate) is real: it must reach utterances, the
+    //     pane and the saved file, not arrive on the main actor after the save.
+    do {
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (1b)"); return
+        }
+        capture.onUtterance?(Utterance(t: 1, speaker: "Them",
+            text: "We can wrap the pilot review here for today.", endT: 4))
+        let gate = capture.shortEchoGate
+        gate.noteFarVoiced(from: 1, to: 4)
+        let held = Utterance(t: 3.5, speaker: "You", text: "Sounds good.", endT: 3.9)
+        check(gate.submit(held, onSpeakers: true, now: 4.8) == .hold, "short line held (1b)")
+        try? await Task.sleep(for: .milliseconds(50))
+        // Its hold timer is overdue but its main block has not run yet when
+        // Stop executes (the race): the drain must still carry it.
+        vm.stopLive()
+        check(vm.utterances.filter { $0.isYou && $0.text == "Sounds good." }.count == 1,
+              "held short line committed on Stop", "utterances: \(vm.utterances.map(\.text))")
+        // The overdue release block then runs: nothing left to deliver twice.
+        capture.releaseHeldShortLines(now: 60)
+        check(vm.utterances.filter { $0.text == "Sounds good." }.count == 1,
+              "late release after Stop delivers nothing")
+        // A mic line still passing through deliver at Stop is not held.
+        let inFlight = Utterance(t: 4.0, speaker: "You", text: "Thanks.", endT: 4.3)
+        check(gate.submit(inFlight, onSpeakers: true, now: 5.2) == .deliver && gate.heldCount == 0,
+              "line in flight after the drain passes straight through")
+        check(vm.turns.contains { $0.text.contains("Sounds good") },
+              "held short line in the pane after Stop")
+        var body = ""
+        if let saved = try? FileManager.default.contentsOfDirectory(atPath: scratch.path) {
+            for file in saved where file.hasSuffix(".md") {
+                let content = (try? String(
+                    contentsOfFile: scratch.appendingPathComponent(file).path,
+                    encoding: .utf8)) ?? ""
+                if content.contains("pilot review") { body = content }
+            }
+        }
+        check(body.contains("Sounds good."), "saved session includes the held short line")
     }
 
     // 2. Committed speech before the first 5s signal tick must also stay
