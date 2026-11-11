@@ -32,6 +32,8 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/TalkStats.swift" \
   "$SRC/Engine/Mclog.swift" \
   "$SRC/Engine/MicSilenceMonitor.swift" \
+  "$SRC/Engine/ShortEchoGate.swift" \
+  "$SRC/Engine/EchoFilter.swift" \
   "$SRC/Engine/OutputRoute.swift" \
   "$SRC/Engine/DemoScript.swift" \
   "$SRC/Engine/PromptBuilder.swift" \

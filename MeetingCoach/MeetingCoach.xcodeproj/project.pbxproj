@@ -90,6 +90,7 @@
 		A1D971DC2241B73DC1713D26 /* TranscriptAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FFBE4A37EC6EEE8D7A7516D /* TranscriptAnalysis.swift */; };
 		A36D1448B1484E7ACF6E53D5 /* MeetingDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A12E30BEB51DFB2F939AE4 /* MeetingDetectionService.swift */; };
 		A4FE039B5DC3EE1C8C2793AD /* SemanticCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07506FC59991300DD4578DB0 /* SemanticCoach.swift */; };
+		A796A74458CA9CF884CFB262 /* ShortEchoGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85C0F041AC83F3FBF9A6A9E6 /* ShortEchoGate.swift */; };
 		AB4F784C20C480FD7A9CD4BD /* VoiceShareSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D5E9BDD00E23D1F8DEC8F23 /* VoiceShareSignal.swift */; };
 		AC2DFEF84296BA4652EA853B /* MissingDiscoverySignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6D95FE03A7025FB8F8EE69D /* MissingDiscoverySignal.swift */; };
 		ACF7E740CC593F7C1077E087 /* TalkStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = B97FD941E80BA5417049F9CE /* TalkStats.swift */; };
@@ -208,6 +209,7 @@
 		81D33EEE89EF224DC87FCF6E /* Utterance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utterance.swift; sourceTree = "<group>"; };
 		826E23E63EE91A96C88BA0F1 /* Trigger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Trigger.swift; sourceTree = "<group>"; };
 		85881F8DA1B5854DE7BA9F7A /* EchoFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoFilter.swift; sourceTree = "<group>"; };
+		85C0F041AC83F3FBF9A6A9E6 /* ShortEchoGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortEchoGate.swift; sourceTree = "<group>"; };
 		88673BD63F55A97082E19D05 /* InterruptionSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterruptionSignal.swift; sourceTree = "<group>"; };
 		88712FFF039CAE16780F84A4 /* ReferralLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferralLink.swift; sourceTree = "<group>"; };
 		912C009E304E68EE3CED2F6A /* UnansweredQuestionSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnansweredQuestionSignal.swift; sourceTree = "<group>"; };
@@ -371,6 +373,7 @@
 				3148143DE9DBDDDC62BC5535 /* RecapExporter.swift */,
 				A7923682551623339C11F93D /* RubricAdvisor.swift */,
 				07506FC59991300DD4578DB0 /* SemanticCoach.swift */,
+				85C0F041AC83F3FBF9A6A9E6 /* ShortEchoGate.swift */,
 				5CD2E43CC253B7430EF30361 /* SignalEngine.swift */,
 				EB68720A316FEE2207F54E4B /* SpeakerDiarizer.swift */,
 				02B06A3C2CEC6987AF46994E /* SpeakerNameInference.swift */,
@@ -747,6 +750,7 @@
 				C322C07D3607C86B929C4345 /* SettingsViewModel.swift in Sources */,
 				48D5C327203435A3F1B3194E /* ShareNotesSheet.swift in Sources */,
 				80030FE4FB83C735E3AAE232 /* SharePrompt.swift in Sources */,
+				A796A74458CA9CF884CFB262 /* ShortEchoGate.swift in Sources */,
 				5786720067BE8A950F4165ED /* SignalEngine.swift in Sources */,
 				75C0D28E8BF07978D20349B6 /* SpeakerDiarizer.swift in Sources */,
 				F94B6C352B5D69158C43E11C /* SpeakerNameInference.swift in Sources */,

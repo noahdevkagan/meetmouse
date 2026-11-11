@@ -2244,6 +2244,76 @@ compare the full saved file before writing, so another writer's changes win.
 Saved next-call prep is honored inside startLive, shared by sidebar, menu bar,
 and detection starts; unprepared last-used guests remain unconfirmed.
 
+## 2026-11-10 — Short bleed duplicates on built-in speakers (narrows "never filter 1-2 words")
+
+A real call on the Mac's speakers showed the guest's "Okay." twice at the same
+moment: You (speaker bleed into the mic) and Them (system audio), You first.
+EchoFilter never treats 1-2 word sentences as echo (both sides truly say
+"Okay."/"Yeah."), and the bleed gate cannot fire during loud bleed (2026-10-27
+entry), so the duplicate survived. This narrows the "never filter 1-2 words"
+rule: text alone is still never evidence, but the system channel is.
+
+Rule (`Engine/ShortEchoGate.swift`): only while the output route is the
+built-in speakers, system audio is captured (not degraded to mic-only) and the
+session is live, a mic line of 1-2 words in total is dropped when every
+sentence equals a Them sentence (same normalized words) within 2 s of the mic
+span. Mic copy dropped, Them copy kept. Any other route: the gate returns
+"deliver" for everything. A short line with no twin is always kept.
+
+Clock and window: both pipelines stamp spans with the wall time of the first
+and last voiced buffer minus the same session start, so the channels are
+directly comparable. Bleed is acoustically simultaneous, so real twins
+overlap; the residual is buffer delivery latency (~85 ms mic tap, tens of ms
+SCK) and the voice floors (mic 0.006 catches only the loud core of the bleed,
+system 0.002 the whole word, so the mic span sits inside the system one). 2 s
+is slack on top of that, and it is the real window: far sentences are placed
+on the far side's VOICED time (the gate records system buffers above 0.002,
+the Them pipeline's own voice floor), not on the wall-clock span. A Them chunk
+with several sentences places each by word offset over its voiced stretches
+(+-20% of the voiced time), so "Bye." before a pause does not claim a "Bye."
+the user says after it. A sentence first seen in a Them partial is placed on
+the voiced audio since the previous partial's snapshot (at most 3 s back),
+not on "the 3 s before the partial" (that made the effective window ~5 s and
+ate the user's own "Bye." said 3 s after the guest's). Partials are diffed
+in order against the previous one: unchanged sentences keep their stamp, a
+revised sentence takes the place of the text it replaced, and only trailing
+new sentences get a new time (a revision early in a long chunk used to
+restamp an old "Yeah." as just said).
+
+Hold, not retract: the mic commits after 0.9 s of silence, the system after
+2.0 s plus inference, so the mic copy usually lands first. Retracting would
+mean undoing a line that signals, talk stats, turns and possibly a nudge had
+already consumed. Instead a short mic line is held, but only when the far
+side was voiced during the line's span (+-0.5 s); far audio that starts after
+the line does not hold it. Held lines are re-checked on every Them commit and
+every new sentence in a Them partial, and released (kept, original
+timestamps, the view model inserts by time) as soon as far text arrives at
+least 1 s after the line ended without its words: that text was transcribed
+from audio including the line, so no twin is coming. Partials tick every 1 s
+while the far side talks, so a backchannel said over the guest is typically
+released 0-1 s after its mic commit (~0.5 s on average; up to 3 s when the
+far window is long and partials are throttled to every 2nd/3rd tick). 3 s is
+only the backstop. Route leaving the speakers, or system audio degrading to
+mic-only, releases held lines.
+
+Stop: lines leave the hold only on the main thread (the release block hands
+them to the session synchronously) or through the session's drain at Stop
+(also main, before the save), never through an async hop. Background threads
+only drop a line (twin found) or mark it releasable. The drain closes the
+gate atomically with submit: a line already in the hold is returned to the
+save, a line still passing through deliver is passed straight through, and
+nothing is held or released after it (a later release block finds nothing).
+A bleed partial matching a known twin is also hidden from the live pending
+line.
+
+Known cost: if both people truly say the same 1-2 words within about 2 s of
+each other on speakers while the far side is voiced, the user's copy is lost.
+A short reply said while the guest is talking appears up to ~1 s late
+(3 s worst case). A twin the recognizer only adds after the line was released
+stays as a duplicate (we prefer that to losing real words). Mixed chunks (a
+short phrase inside a longer mic utterance) are not handled; EchoFilter's
+rules still apply there. Not verified on real hardware.
+
 ## 2026-11-10 — Window discovery retries; Teams is a recognized call window
 A real two-person Zoom call showed "No unique meeting window found" and never
 suggested the guest: the session started about 6 s before the Zoom meeting
