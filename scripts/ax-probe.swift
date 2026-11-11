@@ -1,14 +1,15 @@
 // ax-probe.swift - dev-only, read-only Accessibility (AXUIElement) probe.
 // NOT part of the MeetMouse app target. See scripts/ax-probe.md.
 //
-//   swift scripts/ax-probe.swift <zoom|teams|chrome|safari|bundle-id>
+//   swift scripts/ax-probe.swift <zoom|teams|teams-classic|chrome|safari|bundle-id>
 //        [--seconds 60] [--interval 1] [--out DIR] [--redact]
-//        [--max-nodes 4000] [--max-depth 50] [--no-enable]
+//        [--max-nodes 4000] [--max-depth 50] [--no-enable] [--window TEXT]
 //
 // Passive: it only reads attributes. The single exception is the two
 // accessibility-enable flags (AXManualAccessibility, AXEnhancedUserInterface)
-// set on Chromium browsers, Teams and unknown bundle ids, restored on exit.
-// No clicks, presses, focus changes or network access.
+// set on the application element of Chromium browsers, Teams and other
+// Electron/WebView2 apps, restored on exit (including Ctrl-C, SIGTERM, SIGHUP).
+// No actions, clicks, focus or raise. No network.
 
 import Cocoa
 import ApplicationServices
@@ -24,6 +25,7 @@ struct Options {
     var maxNodes = 4000
     var maxDepth = 50
     var noEnable = false
+    var window: String?
 }
 
 func fail(_ msg: String, code: Int32 = 64) -> Never {
@@ -33,51 +35,65 @@ func fail(_ msg: String, code: Int32 = 64) -> Never {
 
 func usage() -> Never {
     fail("""
-    usage: swift scripts/ax-probe.swift <zoom|teams|chrome|safari|bundle-id> [options]
+    usage: swift scripts/ax-probe.swift <zoom|teams|teams-classic|chrome|safari|bundle-id> [options]
       --seconds N      total run time (default 60)
-      --interval N     seconds between tree walks (default 1)
-      --out DIR        output directory (default: new dir under /tmp; never inside the repo)
+      --interval N     seconds between tree walks (default 1, min 0.2)
+      --out DIR        new output directory (default: new dir under /tmp; refuses any git repo)
       --redact         replace text values with a short hash plus length
       --max-nodes N    node cap per walk (default 4000)
       --max-depth N    depth cap per walk (default 50)
       --no-enable      do not set the accessibility-enable flags
+      --window TEXT    only walk windows whose title contains TEXT (case-insensitive)
     """)
 }
 
-func dbl(_ s: String) -> Double { guard let v = Double(s) else { usage() }; return v }
-func int(_ s: String) -> Int { guard let v = Int(s) else { usage() }; return v }
-
-func parseOptions() -> Options {
+func parseOptions(_ args: [String]) -> Options {
     var o = Options()
-    var a = Array(CommandLine.arguments.dropFirst())
-    // `swift script.swift args` may include the script path first in some setups.
-    if let f = a.first, f.hasSuffix("ax-probe.swift") { a.removeFirst() }
-    var i = 0
-    func next() -> String { i += 1; if i >= a.count { usage() }; return a[i] }
-    while i < a.count {
-        switch a[i] {
-        case "--seconds": o.seconds = dbl(next())
-        case "--interval": o.interval = dbl(next())
-        case "--out": o.out = next()
+    var it = args.makeIterator()
+    func value(_ flag: String) -> String {
+        guard let v = it.next() else { fail("ax-probe: \(flag) needs a value") }
+        return v
+    }
+    func number(_ flag: String) -> Double {
+        let s = value(flag)
+        guard let d = Double(s), d.isFinite else { fail("ax-probe: \(flag) expects a number, got '\(s)'") }
+        return d
+    }
+    func count(_ flag: String) -> Int {
+        let s = value(flag)
+        guard let n = Int(s), n > 0 else { fail("ax-probe: \(flag) expects a positive integer, got '\(s)'") }
+        return n
+    }
+    while let a = it.next() {
+        switch a {
+        case "--seconds": o.seconds = number(a)
+        case "--interval": o.interval = number(a)
+        case "--out": o.out = value(a)
         case "--redact": o.redact = true
-        case "--max-nodes": o.maxNodes = int(next())
-        case "--max-depth": o.maxDepth = int(next())
+        case "--max-nodes": o.maxNodes = count(a)
+        case "--max-depth": o.maxDepth = count(a)
         case "--no-enable": o.noEnable = true
+        case "--window": o.window = value(a).lowercased()
         case "-h", "--help": usage()
         default:
-            if a[i].hasPrefix("--") || !o.target.isEmpty { usage() }
-            o.target = a[i]
+            if a.hasPrefix("-") { fail("ax-probe: unknown option \(a)") }
+            if !o.target.isEmpty { fail("ax-probe: more than one target ('\(o.target)', '\(a)')") }
+            o.target = a
         }
-        i += 1
     }
-    if o.target.isEmpty || o.interval <= 0 || o.seconds <= 0 { usage() }
+    if o.target.isEmpty { usage() }
+    if o.seconds <= 0 { fail("ax-probe: --seconds must be > 0") }
+    if o.interval < 0.2 { fail("ax-probe: --interval must be >= 0.2") }
     return o
 }
 
-let opts = parseOptions()
+// CommandLine.arguments[0] is the script (or binary) path.
+let opts = parseOptions(Array(CommandLine.arguments.dropFirst()))
 
 // MARK: - Step 1: trust check (never prompts)
 
+// AXIsProcessTrusted() never shows the system prompt (only the WithOptions
+// variant with kAXTrustedCheckOptionPrompt does).
 if !AXIsProcessTrusted() {
     let term = ProcessInfo.processInfo.environment["TERM_PROGRAM"] ?? "your terminal app"
     fail("""
@@ -93,18 +109,41 @@ if !AXIsProcessTrusted() {
     """, code: 2)
 }
 
+// Global AX messaging timeout for every element this process talks to, so an
+// unresponsive app cannot hang a walk for the 6 s default per call.
+let axTimeout: Float = 0.5
+AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), axTimeout)
+
+// MARK: - Stop flag (signal-safe)
+
+final class StopFlag {
+    private let lock = NSLock()
+    private var v = false
+    var isSet: Bool { lock.lock(); defer { lock.unlock() }; return v }
+    func set() { lock.lock(); v = true; lock.unlock() }
+}
+let stop = StopFlag()
+var sigSources: [DispatchSourceSignal] = []
+for s in [SIGINT, SIGTERM, SIGHUP] {
+    signal(s, SIG_IGN)
+    let src = DispatchSource.makeSignalSource(signal: s, queue: DispatchQueue.global())
+    src.setEventHandler { stop.set() }
+    src.resume(); sigSources.append(src)
+}
+
 // MARK: - Redaction
 
 let salt = UInt64.random(in: 1...UInt64.max)
 let statusVocab = ["unmuted", "muted", "speaking", "talking", "presenting", "presenter", "co-host", "host",
                    "pinned", "spotlight", "raised hand", "hand raised", "camera on", "camera off",
-                   "video on", "video off", "active speaker", "screen sharing", "sharing", "captions", "you"]
+                   "video on", "video off", "active speaker", "screen sharing", "sharing", "captions"]
 
 func statusTags(_ s: String) -> [String] {
     var l = s.lowercased()
     var tags: [String] = []
     if l.contains("unmuted") { tags.append("unmuted"); l = l.replacingOccurrences(of: "unmuted", with: "") }
-    for w in statusVocab where w != "unmuted" && l.contains(w) { if !(w == "host" && tags.contains("co-host")) { tags.append(w) } }
+    if l.contains("co-host") { tags.append("co-host"); l = l.replacingOccurrences(of: "co-host", with: "") }
+    for w in statusVocab where w != "unmuted" && w != "co-host" && l.contains(w) { tags.append(w) }
     return tags
 }
 
@@ -113,16 +152,21 @@ func redact(_ s: String) -> String {
     var h: UInt64 = 0xcbf29ce484222325 ^ salt
     for b in s.utf8 { h = (h ^ UInt64(b)) &* 0x100000001b3 }
     let tags = statusTags(s)
-    return String(format: "h:%06llx#%d", h & 0xffffff, s.count) + (tags.isEmpty ? "" : "[" + tags.joined(separator: ",") + "]")
+    return "h:" + String(h & 0xffffff, radix: 16) + "#\(s.count)" + (tags.isEmpty ? "" : "[" + tags.joined(separator: ",") + "]")
 }
 
-/// Text attributes get redacted; identifier/DOM id/class names are structural and kept.
-func shown(_ key: String, _ v: String) -> String {
-    guard opts.redact else { return v }
-    let keep: Set<String> = ["role", "subrole", "roleDescription", "identifier", "frame", "selected", "focused", "enabled", "_attrNames"]
-    if keep.contains(key) || key.contains("DOMClass") || key.contains("DOMIdentifier") { return v }
-    if Double(v) != nil || v == "true" || v == "false" { return v }
-    return redact(v)
+/// A simplified attribute value. Only `.text` values carry user content and get redacted;
+/// numbers, booleans and geometry are typed values from the AX API, never strings.
+enum AXV { case text(String), scalar(String) }
+
+/// Structural keys whose text is developer-set, not user content, kept under --redact.
+let keepUnredacted: Set<String> = ["role", "subrole", "roleDescription", "identifier", "AXDOMClassList", "AXDOMIdentifier"]
+
+func shown(_ key: String, _ v: AXV) -> String {
+    switch v {
+    case .scalar(let s): return s
+    case .text(let s): return (!opts.redact || keepUnredacted.contains(key)) ? s : redact(s)
+    }
 }
 
 // MARK: - Process helpers
@@ -150,6 +194,7 @@ let tbase: (Double, Double) = {
     return (Double(t.numer), Double(t.denom))
 }()
 
+/// proc_taskinfo times are mach absolute units on Apple Silicon; convert to seconds.
 func cpuSeconds(_ pid: pid_t) -> Double? {
     var ti = proc_taskinfo()
     let r = proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &ti, Int32(MemoryLayout<proc_taskinfo>.size))
@@ -184,55 +229,80 @@ func axCopy(_ el: AXUIElement, _ name: String) -> (AXError, CFTypeRef?) {
     return (e, v)
 }
 
-func simplify(_ v: CFTypeRef, depth: Int = 0) -> String? {
+func truncated(_ s: String, _ n: Int = 200) -> String { s.count > n ? String(s.prefix(n)) + "..." : s }
+
+func simplify(_ v: CFTypeRef, depth: Int = 0) -> AXV? {
     let t = CFGetTypeID(v)
-    if t == CFStringGetTypeID() { return (v as! CFString) as String }
-    if t == CFBooleanGetTypeID() { return CFBooleanGetValue((v as! CFBoolean)) ? "true" : "false" }
-    if t == CFNumberGetTypeID() { return (v as! NSNumber).stringValue }
-    if t == CFURLGetTypeID() { return (v as! CFURL as URL).absoluteString }
+    if t == CFStringGetTypeID() { return .text(truncated((v as! CFString) as String)) }
+    if t == CFAttributedStringGetTypeID() { return .text(truncated(CFAttributedStringGetString((v as! CFAttributedString)) as String)) }
+    if t == CFBooleanGetTypeID() { return .scalar(CFBooleanGetValue((v as! CFBoolean)) ? "true" : "false") }
+    if t == CFNumberGetTypeID() { return .scalar((v as! NSNumber).stringValue) }
+    if t == CFURLGetTypeID() { return .text(truncated((v as! CFURL as URL).absoluteString)) }
     if t == AXValueGetTypeID() {
-        let av = unsafeBitCast(v, to: AXValue.self)
+        let av = v as! AXValue
+        // Apps do report NaN/inf geometry; Int(_:) would trap and skip the flag restore.
+        func i(_ d: CGFloat) -> String { d.isFinite && abs(d) < 1e9 ? String(Int(d)) : "nan" }
         switch AXValueGetType(av) {
-        case .cgPoint: var p = CGPoint.zero; AXValueGetValue(av, .cgPoint, &p); return "\(Int(p.x)),\(Int(p.y))"
-        case .cgSize: var s = CGSize.zero; AXValueGetValue(av, .cgSize, &s); return "\(Int(s.width)),\(Int(s.height))"
-        case .cgRect: var r = CGRect.zero; AXValueGetValue(av, .cgRect, &r); return "\(Int(r.minX)),\(Int(r.minY)),\(Int(r.width)),\(Int(r.height))"
-        case .cfRange: var r = CFRange(); AXValueGetValue(av, .cfRange, &r); return "\(r.location)+\(r.length)"
+        case .cgPoint: var p = CGPoint.zero; AXValueGetValue(av, .cgPoint, &p); return .scalar("\(i(p.x)),\(i(p.y))")
+        case .cgSize: var s = CGSize.zero; AXValueGetValue(av, .cgSize, &s); return .scalar("\(i(s.width)),\(i(s.height))")
+        case .cgRect: var r = CGRect.zero; AXValueGetValue(av, .cgRect, &r); return .scalar("\(i(r.origin.x)),\(i(r.origin.y)),\(i(r.size.width)),\(i(r.size.height))")
+        case .cfRange: var r = CFRange(); AXValueGetValue(av, .cfRange, &r); return .scalar("\(r.location)+\(r.length)")
         default: return nil
         }
     }
+    // Arrays of simple values (e.g. AXDOMClassList). Any text element makes the whole value text.
     if t == CFArrayGetTypeID(), depth == 0 {
-        let arr = v as! CFArray
-        var parts: [String] = []
-        for i in 0..<min(CFArrayGetCount(arr), 20) {
-            guard let raw = CFArrayGetValueAtIndex(arr, i) else { continue }
-            let el = Unmanaged<CFTypeRef>.fromOpaque(raw).takeUnretainedValue()
-            guard let s = simplify(el, depth: 1) else { return nil }
-            parts.append(s)
+        let arr = v as! [AnyObject]
+        var parts: [String] = [], anyText = false
+        for el in arr.prefix(20) {
+            guard let s = simplify(el, depth: 1) else { return nil }   // element-valued arrays are skipped
+            switch s { case .text(let x): anyText = true; parts.append(x); case .scalar(let x): parts.append(x) }
         }
-        return parts.joined(separator: " ")
+        let j = truncated(parts.joined(separator: " "))
+        return anyText ? .text(j) : .scalar(j)
     }
     return nil
 }
 
-func truncated(_ s: String, _ n: Int = 200) -> String { s.count > n ? String(s.prefix(n)) + "..." : s }
-
-// Standard attributes mapped to short keys; structural/element-valued ones are never recorded.
+// Standard attributes mapped to short keys.
 let standardMap: [String: String] = [
     "AXRole": "role", "AXSubrole": "subrole", "AXTitle": "title", "AXDescription": "description",
     "AXValue": "value", "AXIdentifier": "identifier", "AXRoleDescription": "roleDescription",
     "AXSelected": "selected", "AXFocused": "focused", "AXEnabled": "enabled", "AXHelp": "help",
 ]
+// Never fetched: element-valued (would only be skipped), or expensive text-marker/range values.
+let skipFetch: Set<String> = [
+    "AXParent", "AXWindow", "AXTopLevelUIElement", "AXVisibleChildren", "AXSelectedChildren",
+    "AXChildrenInNavigationOrder", "AXRows", "AXVisibleRows", "AXSelectedRows", "AXColumns", "AXVisibleColumns",
+    "AXSelectedColumns", "AXSelectedCells", "AXVisibleCells", "AXLinkedUIElements", "AXTitleUIElement",
+    "AXServesAsTitleForUIElements", "AXLabelUIElements", "AXHeader", "AXContents", "AXTabs", "AXFocusedUIElement",
+    "AXMenuItemPrimaryUIElement", "AXOwns", "AXDetailsElements", "AXErrorMessageElements",
+    "AXStartTextMarker", "AXEndTextMarker", "AXSelectedTextMarkerRange", "AXTextMarkerRange",
+    "AXSelectedTextRanges", "AXVisibleCharacterRange", "AXSharedTextUIElements", "AXSharedCharacterRange",
+    "AXDefaultButton", "AXCancelButton", "AXCloseButton", "AXMinimizeButton", "AXZoomButton",
+    "AXFullScreenButton", "AXToolbarButton", "AXProxy", "AXGrowArea", "AXHorizontalScrollBar", "AXVerticalScrollBar",
+]
 let framePieces: Set<String> = ["AXPosition", "AXSize", "AXFrame"]
-let structural: Set<String> = ["AXChildren", "AXParent", "AXWindow", "AXTopLevelUIElement"]
 
-// MARK: - Tree model
+// MARK: - Tree model and node identity
+
+/// AX element identity: CFEqual on the AXUIElement (same remote object), the
+/// strongest key AX offers. CFHash is only the bucket, never the identity.
+struct ElKey: Hashable {
+    let el: AXUIElement
+    func hash(into h: inout Hasher) { h.combine(CFHash(el)) }
+    static func == (a: ElKey, b: ElKey) -> Bool { CFEqual(a.el, b.el) }
+}
 
 final class Node {
-    var id = ""
-    var path = ""
+    let key: ElKey
+    var id = ""                            // stable across ticks (see assignIds)
+    var path = ""                          // role[index] path, informational only
+    var sig = ""                           // structural signature, fallback identity
     var attrs: [String: String] = [:]      // display (possibly redacted) values
     var raw: [String: String] = [:]        // unredacted text, memory only, used for summary matching
     var children: [Node] = []
+    init(_ el: AXUIElement) { key = ElKey(el: el) }
     var json: [String: Any] {
         var d: [String: Any] = ["id": id, "path": path, "attrs": attrs]
         if !children.isEmpty { d["children"] = children.map { $0.json } }
@@ -244,10 +314,15 @@ struct Ctx { var inList = false; var caption = false; var participant = false }
 
 struct Tick {
     var roots: [Node] = []
-    var flat: [String: Node] = [:]
+    var order: [Node] = []          // walk order
+    var flat: [String: Node] = [:]  // id -> node, filled by assignIds
+    var byKey: [ElKey: String] = [:]
     var capped: Set<String> = []
     var nodeCount = 0
     var seconds = 0.0
+    var axErrors = 0
+    var timeouts = 0
+    var matchedElement = 0, matchedStructure = 0, fresh = 0
 }
 
 let captionWords = ["caption", "subtitle", "transcript"]
@@ -266,6 +341,10 @@ final class Collector {
     var totalChangeEvents = 0
     var maxNodesSeen = 0
     var cappedTicks = 0
+    var overrunTicks = 0
+    var maxWalk = 0.0, sumWalk = 0.0
+    var axErrors = 0, timeouts = 0
+    var matchedElement = 0, matchedStructure = 0, fresh = 0
     var ticks = 0
 }
 let col = Collector()
@@ -283,82 +362,108 @@ func looksLikeName(_ s: String) -> Bool {
 }
 
 final class Walker {
-    let maxNodes: Int, maxDepth: Int, deadline: Date
+    let maxNodes: Int, maxDepth: Int, deadline: Date, collect: Bool
     var tick = Tick()
-    init(maxNodes: Int, maxDepth: Int, deadline: Date) { self.maxNodes = maxNodes; self.maxDepth = maxDepth; self.deadline = deadline }
+    var consecutiveTimeouts = 0
+    init(maxNodes: Int, maxDepth: Int, deadline: Date, collect: Bool) {
+        self.maxNodes = maxNodes; self.maxDepth = maxDepth; self.deadline = deadline; self.collect = collect
+    }
 
-    func walk(_ el: AXUIElement, parentPath: String, index: Int, depth: Int, ctx: Ctx, pid: pid_t) -> Node? {
+    var mustStop: Bool { tick.capped.contains("nodes") || tick.capped.contains("time") || tick.capped.contains("unresponsive") || tick.capped.contains("stopped") }
+
+    func track(_ e: AXError) {
+        if e == .success || e == .noValue || e == .attributeUnsupported { consecutiveTimeouts = 0; return }
+        tick.axErrors += 1
+        if e == .cannotComplete {
+            tick.timeouts += 1; consecutiveTimeouts += 1
+            if consecutiveTimeouts >= 3 { tick.capped.insert("unresponsive") }
+        }
+    }
+
+    func walk(_ el: AXUIElement, parentPath: String, index: Int, depth: Int, ctx: Ctx) -> Node? {
+        if mustStop { return nil }
         if tick.nodeCount >= maxNodes { tick.capped.insert("nodes"); return nil }
         if Date() > deadline { tick.capped.insert("time"); return nil }
+        if stop.isSet { tick.capped.insert("stopped"); return nil }
         tick.nodeCount += 1
 
-        let n = Node()
+        let n = Node(el)
         var childEls: [AXUIElement] = []
 
         var namesRef: CFArray?
         var names: [String] = []
-        if AXUIElementCopyAttributeNames(el, &namesRef) == .success, let a = namesRef as? [String] { names = a }
+        let ne = AXUIElementCopyAttributeNames(el, &namesRef)
+        track(ne)
+        if ne == .success, let a = namesRef as? [String] { names = a }
+        let fetch = names.filter { !skipFetch.contains($0) }
 
         var out: CFArray?
-        if !names.isEmpty,
-           AXUIElementCopyMultipleAttributeValues(el, names as CFArray, AXCopyMultipleAttributeOptions(rawValue: 0), &out) == .success,
-           let vals = out {
-            var pos: String?, size: String?
-            for (i, name) in names.enumerated() where i < CFArrayGetCount(vals) {
-                guard let rawp = CFArrayGetValueAtIndex(vals, i) else { continue }
-                let v = Unmanaged<CFTypeRef>.fromOpaque(rawp).takeUnretainedValue()
-                if name == "AXChildren" {
-                    if CFGetTypeID(v) == CFArrayGetTypeID() {
-                        let arr = v as! CFArray
-                        for k in 0..<CFArrayGetCount(arr) {
-                            if let cp = CFArrayGetValueAtIndex(arr, k) {
-                                childEls.append(Unmanaged<AXUIElement>.fromOpaque(cp).takeUnretainedValue())
-                            }
+        if !fetch.isEmpty {
+            let me = AXUIElementCopyMultipleAttributeValues(el, fetch as CFArray, AXCopyMultipleAttributeOptions(rawValue: 0), &out)
+            track(me)
+            if me == .success, let vals = out as? [AnyObject] {
+                var pos: String?, size: String?
+                for (i, name) in fetch.enumerated() where i < vals.count {
+                    let v = vals[i]
+                    if name == "AXChildren" {
+                        if CFGetTypeID(v) == CFArrayGetTypeID(), let arr = v as? [AnyObject] {
+                            for c in arr where CFGetTypeID(c) == AXUIElementGetTypeID() { childEls.append(c as! AXUIElement) }
                         }
+                        continue
                     }
-                    continue
+                    guard let s = simplify(v) else { continue }
+                    if name == "AXPosition", case .scalar(let x) = s { pos = x; continue }
+                    if name == "AXSize", case .scalar(let x) = s { size = x; continue }
+                    if framePieces.contains(name) { continue }
+                    let key = standardMap[name] ?? name
+                    if case .text(let x) = s { n.raw[key] = x } else if case .scalar(let x) = s { n.raw[key] = x }
+                    n.attrs[key] = shown(key, s)
                 }
-                if structural.contains(name) { continue }
-                guard let s = simplify(v) else { continue }
-                if name == "AXPosition" { pos = s; continue }
-                if name == "AXSize" { size = s; continue }
-                if framePieces.contains(name) { continue }
-                let key = standardMap[name] ?? name
-                let val = truncated(s)
-                n.raw[key] = val
-                n.attrs[key] = shown(key, val)
+                if let p = pos, let s = size { n.attrs["frame"] = "\(p),\(s)" }
             }
-            if let p = pos, let s = size { n.attrs["frame"] = "\(p),\(s)" }
         }
-        let nonstd = names.filter { standardMap[$0] == nil && !framePieces.contains($0) && !structural.contains($0) && $0 != "AXChildren" }
-        n.attrs["_attrNames"] = names.joined(separator: ",")
-        _ = nonstd
+        let nonstd = names.filter { standardMap[$0] == nil && !framePieces.contains($0) && !skipFetch.contains($0) && $0 != "AXChildren" }
+        if !nonstd.isEmpty { n.attrs["_nonStdAttrs"] = nonstd.sorted().joined(separator: ",") }
 
         let role = n.raw["role"] ?? "?"
         n.path = parentPath + "/" + role + "[\(index)]"
-        var idKey = "\(pid):\(CFHash(el))"
-        if tick.flat[idKey] != nil { idKey += "#\(tick.nodeCount)" }
-        n.id = idKey
+        tick.order.append(n)
 
         // Context for summary heuristics.
         var c = ctx
-        let ident = [n.raw["role"], n.raw["description"], n.raw["roleDescription"], n.raw["title"], n.raw["identifier"],
-                     n.raw["AXDOMClassList"], n.raw["AXDOMIdentifier"]].compactMap { $0 }.joined(separator: " ")
-        if ["AXList", "AXTable", "AXOutline"].contains(role) { c.inList = true }
-        if containsAny(ident, captionWords) { c.caption = true; note(&col.captionHits, "[caption node] \(role) \(redactIfNeeded(n.raw["description"] ?? n.raw["title"] ?? n.raw["roleDescription"] ?? ""))") }
-        if containsAny([n.raw["description"], n.raw["title"], n.raw["roleDescription"]].compactMap { $0 }.joined(separator: " "), participantWords) { c.participant = true }
-        classify(n, role: role, ctx: ctx, own: c)
+        if collect {
+            let ident = [n.raw["role"], n.raw["description"], n.raw["roleDescription"], n.raw["title"], n.raw["identifier"],
+                         n.raw["AXDOMClassList"], n.raw["AXDOMIdentifier"]].compactMap { $0 }.joined(separator: " ")
+            if ["AXList", "AXTable", "AXOutline"].contains(role) { c.inList = true }
+            if containsAny(ident, captionWords) {
+                c.caption = true
+                note(&col.captionHits, "[caption node] \(role) \(redactIfNeeded(n.raw["description"] ?? n.raw["title"] ?? n.raw["roleDescription"] ?? ""))")
+            }
+            if containsAny([n.raw["description"], n.raw["title"], n.raw["roleDescription"]].compactMap { $0 }.joined(separator: " "), participantWords) { c.participant = true }
+            classify(n, role: role, ctx: ctx, own: c)
+        }
 
-        tick.flat[n.id] = n
         if depth >= maxDepth {
             if !childEls.isEmpty { tick.capped.insert("depth") }
         } else {
             for (i, ch) in childEls.enumerated() {
-                if let cn = walk(ch, parentPath: n.path, index: i, depth: depth + 1, ctx: c, pid: pid) { n.children.append(cn) }
-                else if tick.capped.contains("nodes") || tick.capped.contains("time") { break }
+                if mustStop { break }
+                if let cn = walk(ch, parentPath: n.path, index: i, depth: depth + 1, ctx: c) { n.children.append(cn) }
             }
         }
         return n
+    }
+
+    /// Structural signature: role, subrole and identifier down the tree, with an index that only
+    /// counts siblings of the same kind, so inserting a different kind of sibling does not shift it.
+    static func assignSigs(_ nodes: [Node], parentSig: String) {
+        var seen: [String: Int] = [:]
+        for n in nodes {
+            let k = (n.raw["role"] ?? "?") + ":" + (n.raw["subrole"] ?? "") + "#" + (n.raw["identifier"] ?? n.raw["AXDOMIdentifier"] ?? "")
+            let i = seen[k, default: 0]; seen[k] = i + 1
+            n.sig = parentSig + "/" + k + "[\(i)]"
+            assignSigs(n.children, parentSig: n.sig)
+        }
     }
 
     func note(_ d: inout [String: Int], _ k: String) { d[k, default: 0] += 1 }
@@ -366,7 +471,6 @@ final class Walker {
 
     func classify(_ n: Node, role: String, ctx: Ctx, own: Ctx) {
         let textKeys = ["title", "description", "value", "help"]
-        // name-like labels
         let label = textKeys.compactMap { n.raw[$0] }.first { !$0.isEmpty }
         if let l = label {
             if role == "AXStaticText", looksLikeName(l) {
@@ -380,7 +484,7 @@ final class Walker {
             }
         }
         // status / speaking-ish words in any text attribute (including non-standard ones)
-        for (k, v) in n.raw where k != "role" && k != "subrole" && k != "_attrNames" {
+        for (k, v) in n.raw where !["role", "subrole", "identifier", "AXDOMClassList"].contains(k) {
             let tags = statusTags(v)
             if !tags.isEmpty {
                 note(&col.statusHits, "\(role).\(k) [\(tags.joined(separator: ","))] e.g. \(redactIfNeeded(v))")
@@ -389,56 +493,50 @@ final class Walker {
     }
 }
 
-// MARK: - Enable flags
+/// Give each node of `cur` a run-stable id. First by AX element identity against the
+/// previous tick; then, for nodes whose element was re-created, by structural signature
+/// when that signature is unique in both ticks; otherwise a fresh id.
+var nextId = 0
+func assignIds(_ cur: inout Tick, prev: Tick?) {
+    var used = Set<String>()
+    var unmatched: [Node] = []
+    for n in cur.order {
+        if let p = prev, let id = p.byKey[n.key], !used.contains(id) {
+            n.id = id; used.insert(id); cur.matchedElement += 1
+        } else { unmatched.append(n) }
+    }
+    if let p = prev, !unmatched.isEmpty {
+        var prevSig: [String: [Node]] = [:]
+        for n in p.order where !used.contains(n.id) { prevSig[n.sig, default: []].append(n) }
+        var curSig: [String: Int] = [:]
+        for n in unmatched { curSig[n.sig, default: 0] += 1 }
+        var rest: [Node] = []
+        for n in unmatched {
+            if curSig[n.sig] == 1, let cands = prevSig[n.sig], cands.count == 1, !used.contains(cands[0].id) {
+                n.id = cands[0].id; used.insert(n.id); cur.matchedStructure += 1
+            } else { rest.append(n) }
+        }
+        unmatched = rest
+    }
+    for n in unmatched { nextId += 1; n.id = "n\(nextId)"; used.insert(n.id); cur.fresh += 1 }
+    for n in cur.order {
+        cur.flat[n.id] = n
+        if cur.byKey[n.key] == nil { cur.byKey[n.key] = n.id }
+    }
+}
 
-let chromiumPrefixes = ["com.google.Chrome", "com.microsoft.edgemac", "com.brave.Browser", "company.thebrowser.Browser",
-                        "org.chromium.Chromium", "com.vivaldi.Vivaldi", "com.operasoftware.Opera"]
+// MARK: - Locate the app
 
 func candidates(_ t: String) -> [String] {
     switch t.lowercased() {
     case "zoom": return ["us.zoom.xos"]
     case "teams": return ["com.microsoft.teams2", "com.microsoft.teams"]
+    case "teams-classic": return ["com.microsoft.teams"]
     case "chrome": return ["com.google.Chrome"]
     case "safari": return ["com.apple.Safari"]
     default: return [t]
     }
 }
-
-var restoreList: [(AXUIElement, String, pid_t)] = []
-
-func setFlag(_ el: AXUIElement, _ name: String, _ pid: pid_t) -> AXError {
-    let prev = axCopy(el, name)
-    var wasTrue = false
-    if prev.0 == .success, let v = prev.1, CFGetTypeID(v) == CFBooleanGetTypeID() { wasTrue = CFBooleanGetValue((v as! CFBoolean)) }
-    let e = AXUIElementSetAttributeValue(el, name as CFString, kCFBooleanTrue)
-    if e == .success && !wasTrue { restoreList.append((el, name, pid)) }
-    return e
-}
-
-func restoreFlags() {
-    for (el, name, _) in restoreList { _ = AXUIElementSetAttributeValue(el, name as CFString, kCFBooleanFalse) }
-    restoreList.removeAll()
-}
-
-func rootsFor(_ app: AXUIElement) -> [AXUIElement] {
-    var r: [AXUIElement] = []
-    let (e, v) = axCopy(app, "AXWindows")
-    if e == .success, let arr = v as? [AXUIElement] { r = arr }
-    if r.isEmpty, case let (e2, v2) = axCopy(app, "AXChildren"), e2 == .success, let arr = v2 as? [AXUIElement] { r = arr }
-    return r
-}
-
-func quickCount(_ app: AXUIElement, pid: pid_t, limit: Int = 3000) -> (Int, Int) {
-    let w = Walker(maxNodes: limit, maxDepth: opts.maxDepth, deadline: Date().addingTimeInterval(0.8))
-    let roots = rootsFor(app)
-    for (i, r) in roots.enumerated() { _ = w.walk(r, parentPath: "", index: i, depth: 0, ctx: Ctx(), pid: pid) }
-    return (w.tick.nodeCount, roots.count)
-}
-
-// MARK: - Locate the app
-
-let iso = ISO8601DateFormatter()
-iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 
 var found: NSRunningApplication?
 var bundleId = ""
@@ -451,23 +549,33 @@ guard let app = found, let bundleURL = app.bundleURL else {
 }
 let bundlePath = bundleURL.path
 let mainPid = app.processIdentifier
+
+let chromiumPrefixes = ["com.google.Chrome", "com.microsoft.edgemac", "com.brave.Browser", "company.thebrowser.Browser",
+                        "org.chromium.Chromium", "com.vivaldi.Vivaldi", "com.operasoftware.Opera"]
+let webShellFrameworks = ["Electron Framework.framework", "MSWebView2.framework", "Chromium Embedded Framework.framework"]
 let isChromium = chromiumPrefixes.contains { bundleId.hasPrefix($0) }
 let isTeams = bundleId.hasPrefix("com.microsoft.teams")
-let known = isChromium || isTeams || bundleId == "us.zoom.xos" || bundleId == "com.apple.Safari"
-let shouldEnable = !opts.noEnable && (isChromium || isTeams || !known)
+let isWebShell = webShellFrameworks.contains { FileManager.default.fileExists(atPath: bundlePath + "/Contents/Frameworks/" + $0) }
+// Flags only go to apps that need them for a web tree; Zoom, Safari and native apps are never touched.
+let shouldEnable = !opts.noEnable && (isChromium || isTeams || isWebShell)
 
-// MARK: - Output dir
+// MARK: - Output dir (never inside a git checkout)
 
-let repoRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().resolvingSymlinksInPath().path
-let stamp: String = {
+let defaultName = "ax-probe-\(opts.target.replacingOccurrences(of: "/", with: "_"))-" + {
     let f = DateFormatter(); f.dateFormat = "yyyyMMdd-HHmmss"; return f.string(from: Date())
 }()
-let outDir = URL(fileURLWithPath: opts.out ?? "/tmp/ax-probe-\(opts.target.replacingOccurrences(of: "/", with: "_"))-\(stamp)").standardizedFileURL
-let outParent = outDir.deletingLastPathComponent().resolvingSymlinksInPath().path
-if outParent == repoRoot || outParent.hasPrefix(repoRoot + "/") {
-    fail("ax-probe: refusing to write output inside the repo (\(repoRoot)). Pick a dir under /tmp.", code: 4)
-}
+let outDir = URL(fileURLWithPath: opts.out ?? "/tmp/\(defaultName)").absoluteURL.standardizedFileURL.resolvingSymlinksInPath()
 do {
+    var u = outDir
+    while u.path != "/" {
+        if FileManager.default.fileExists(atPath: u.appendingPathComponent(".git").path) {
+            fail("ax-probe: refusing to write output inside a git checkout (\(u.path)). Use a dir under /tmp.", code: 4)
+        }
+        u = u.deletingLastPathComponent()
+    }
+    if let existing = try? FileManager.default.contentsOfDirectory(atPath: outDir.path), !existing.isEmpty {
+        fail("ax-probe: \(outDir.path) already exists and is not empty. Pick a new dir.", code: 4)
+    }
     try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
 } catch { fail("ax-probe: cannot create \(outDir.path): \(error)", code: 4) }
 
@@ -475,76 +583,110 @@ var summaryLines: [String] = []
 func say(_ s: String) { print(s); summaryLines.append(s) }
 
 print("ax-probe: \(bundleId) pid \(mainPid) -> \(outDir.path)\(opts.redact ? "  (redacted)" : "  (CONTAINS REAL NAMES: do not commit or paste)")")
+setvbuf(stdout, nil, _IOLBF, 0)
 
-// Stop handling
-var stopRequested = false
-var sigSources: [DispatchSourceSignal] = []
-for s in [SIGINT, SIGTERM] {
-    signal(s, SIG_IGN)
-    let src = DispatchSource.makeSignalSource(signal: s, queue: DispatchQueue.global())
-    src.setEventHandler { stopRequested = true }
-    src.resume(); sigSources.append(src)
+// MARK: - Enable web tree (the only writes this script makes)
+
+enum Prior { case wasFalse, unknown }
+var restoreList: [(el: AXUIElement, name: String, pid: pid_t, prior: Prior)] = []
+
+/// Sets one flag to true. Remembers it for restore unless it was already readably true
+/// (another assistive app or the user turned it on; leave it as found).
+func setFlag(_ el: AXUIElement, _ name: String, _ pid: pid_t) -> AXError {
+    let (pe, pv) = axCopy(el, name)
+    var prior = Prior.unknown
+    if pe == .success, let v = pv, CFGetTypeID(v) == CFBooleanGetTypeID() {
+        if CFBooleanGetValue((v as! CFBoolean)) { return .success }
+        prior = .wasFalse
+    }
+    let e = AXUIElementSetAttributeValue(el, name as CFString, kCFBooleanTrue)
+    if e == .success { restoreList.append((el, name, pid, prior)) }
+    return e
 }
 
-// MARK: - Enable web tree
+func restoreFlags() {
+    for r in restoreList.reversed() {
+        let e = AXUIElementSetAttributeValue(r.el, r.name as CFString, kCFBooleanFalse)
+        print("restore \(r.name) on pid \(r.pid): \(e == .success ? "ok" : "failed (\(e.rawValue))")\(r.prior == .unknown ? " (prior value was unreadable; reset to false)" : "")")
+    }
+    restoreList.removeAll()
+}
+
+func rootsFor(_ app: AXUIElement) -> [AXUIElement] {
+    let (e, v) = axCopy(app, "AXWindows")
+    if e == .success, let arr = v as? [AXUIElement], !arr.isEmpty {
+        guard let want = opts.window else { return arr }
+        return arr.filter { (axCopy($0, "AXTitle").1 as? String)?.lowercased().contains(want) == true }
+    }
+    if opts.window != nil { return [] }
+    let (e2, v2) = axCopy(app, "AXChildren")
+    if e2 == .success, let arr = v2 as? [AXUIElement] { return arr }
+    return []
+}
+
+func quickCount(_ app: AXUIElement, limit: Int = 3000) -> (Int, Int) {
+    let w = Walker(maxNodes: limit, maxDepth: opts.maxDepth, deadline: Date().addingTimeInterval(1.0), collect: false)
+    let roots = rootsFor(app)
+    for (i, r) in roots.enumerated() { _ = w.walk(r, parentPath: "", index: i, depth: 0, ctx: Ctx()) }
+    return (w.tick.nodeCount, roots.count)
+}
 
 let appEl = AXUIElementCreateApplication(mainPid)
-AXUIElementSetMessagingTimeout(appEl, 0.5)
-var targetPids: [(pid: pid_t, name: String, el: AXUIElement)] = [(mainPid, "main", appEl)]
+var targets: [(pid: pid_t, name: String, el: AXUIElement)] = [(mainPid, "main", appEl)]
 var enableReport: [String] = []
-var cpuBefore = "n/a", cpuAfter = "n/a"
-let procs = pids(inBundle: bundlePath)
+var cpuBefore = "n/a (flags not set)", cpuAfter = "n/a (flags not set)"
 
 if shouldEnable {
-    let (n0, w0) = quickCount(appEl, pid: mainPid)
-    let base0 = cpuSnapshot(procs)
+    let procs0 = pids(inBundle: bundlePath)
+    let (n0, w0) = quickCount(appEl)
+    let b0 = cpuSnapshot(procs0)
     Thread.sleep(forTimeInterval: 1.5)
-    let base1 = cpuSnapshot(procs)
-    cpuBefore = String(format: "%.1f%% of one core (%d processes, 1.5 s)", cpuPercent(base0, base1, over: 1.5), procs.count)
+    let b1 = cpuSnapshot(procs0)
+    cpuBefore = String(format: "%.1f%% of one core (%d processes, 1.5 s)", cpuPercent(b0, b1, over: 1.5), procs0.count)
     enableReport.append("before enabling: \(n0) nodes in \(w0) top-level elements")
 
     var took = "neither"
-    for flag in ["AXManualAccessibility", "AXEnhancedUserInterface"] {
+    for flag in ["AXManualAccessibility", "AXEnhancedUserInterface"] where !stop.isSet {
         let e = setFlag(appEl, flag, mainPid)
         Thread.sleep(forTimeInterval: 0.5)
-        let (n1, _) = quickCount(appEl, pid: mainPid)
-        enableReport.append("\(flag): set result \(e.rawValue) (\(e == .success ? "success" : "failed")), nodes after 500 ms: \(n1)")
-        if e == .success && n1 > n0 { took = flag; break }
-        if e == .success && took == "neither" { took = flag + " (accepted, but node count did not grow)" }
-        if e == .success && n1 > 0 && n0 == 0 { took = flag; break }
+        let (n1, _) = quickCount(appEl)
+        enableReport.append("\(flag): set \(e == .success ? "accepted" : "rejected (\(e.rawValue))"), nodes after 500 ms: \(n1)")
+        if e == .success && n1 >= n0 + 10 { took = flag; break }   // web tree appeared: no fallback needed
+        if e == .success && took == "neither" { took = flag + " (accepted, tree did not grow)" }
     }
     enableReport.append("took: \(took)")
-    let a0 = cpuSnapshot(pids(inBundle: bundlePath))
+    let procs1 = pids(inBundle: bundlePath)
+    let a0 = cpuSnapshot(procs1)
     Thread.sleep(forTimeInterval: 1.5)
-    let a1 = cpuSnapshot(pids(inBundle: bundlePath))
-    cpuAfter = String(format: "%.1f%% of one core (%d processes, 1.5 s)", cpuPercent(a0, a1, over: 1.5), pids(inBundle: bundlePath).count)
+    let a1 = cpuSnapshot(procs1)
+    cpuAfter = String(format: "%.1f%% of one core (%d processes, 1.5 s)", cpuPercent(a0, a1, over: 1.5), procs1.count)
 } else {
-    enableReport.append(opts.noEnable ? "enable flags skipped (--no-enable)" : "enable flags not needed for this app")
+    enableReport.append(opts.noEnable ? "enable flags skipped (--no-enable)" : "enable flags not needed for this app (not Chromium/Electron/WebView2)")
 }
 
-// Helper processes (Teams / unknown bundles) when the main tree is empty.
-if isTeams || !known {
-    let (n, _) = quickCount(appEl, pid: mainPid)
+// Helper processes (Teams and other web-shell apps) when the main tree is near-empty.
+if (isTeams || isWebShell) && !stop.isSet {
+    let (n, _) = quickCount(appEl)
     if n < 15 {
         enableReport.append("main process tree is near-empty (\(n) nodes); trying helper processes")
-        for p in procs where p != mainPid {
+        for p in pids(inBundle: bundlePath) where p != mainPid && !stop.isSet {
             let el = AXUIElementCreateApplication(p)
-            AXUIElementSetMessagingTimeout(el, 0.5)
             if shouldEnable { _ = setFlag(el, "AXManualAccessibility", p); Thread.sleep(forTimeInterval: 0.2) }
-            let (hn, hw) = quickCount(el, pid: p)
+            let (hn, hw) = quickCount(el)
             let nm = (pidPath(p) ?? "?").split(separator: "/").last.map(String.init) ?? "?"
             enableReport.append("  helper pid \(p) \(nm): \(hn) nodes, \(hw) top-level elements")
-            if hn >= 15 { targetPids.append((p, nm, el)) }
+            if hn >= 15 { targets.append((p, nm, el)) }
         }
-        enableReport.append(targetPids.count > 1 ? "helpers with content are included in the walk" : "no helper process exposed a tree")
+        enableReport.append(targets.count > 1 ? "helpers with content are included in the walk" : "no helper process exposed a tree")
     }
 }
 
 // MARK: - Main loop
 
-func writeJSON(_ obj: Any, to name: String, pretty: Bool) {
-    let d = try? JSONSerialization.data(withJSONObject: obj, options: pretty ? [.prettyPrinted, .sortedKeys] : [.sortedKeys])
-    if let d = d { try? d.write(to: outDir.appendingPathComponent(name)) }
+func writeJSON(_ obj: Any, to name: String) {
+    if let d = try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys]) {
+        try? d.write(to: outDir.appendingPathComponent(name))
+    }
 }
 
 let logURL = outDir.appendingPathComponent("changes.jsonl")
@@ -552,44 +694,59 @@ FileManager.default.createFile(atPath: logURL.path, contents: nil)
 let logHandle = try? FileHandle(forWritingTo: logURL)
 func logLine(_ o: [String: Any]) {
     if let d = try? JSONSerialization.data(withJSONObject: o, options: [.sortedKeys]) {
-        logHandle?.write(d); logHandle?.write("\n".data(using: .utf8)!)
+        logHandle?.write(d + Data("\n".utf8))
     }
 }
 
 func walkAll(budget: TimeInterval) -> Tick {
     let start = Date()
-    let w = Walker(maxNodes: opts.maxNodes, maxDepth: opts.maxDepth, deadline: start.addingTimeInterval(budget))
-    var idx = 0
-    for t in targetPids {
-        for r in rootsFor(t.el) {
-            if let n = w.walk(r, parentPath: t.pid == mainPid ? "" : "helper\(t.pid)", index: idx, depth: 0, ctx: Ctx(), pid: t.pid) { w.tick.roots.append(n) }
-            idx += 1
+    let w = Walker(maxNodes: opts.maxNodes, maxDepth: opts.maxDepth, deadline: start.addingTimeInterval(budget), collect: true)
+    for t in targets {
+        let prefix = t.pid == mainPid ? "" : "/helper\(t.pid)"
+        var roots: [Node] = []
+        for (i, r) in rootsFor(t.el).enumerated() {
+            if let n = w.walk(r, parentPath: prefix, index: i, depth: 0, ctx: Ctx()) { roots.append(n) }
         }
+        Walker.assignSigs(roots, parentSig: prefix)
+        w.tick.roots += roots
     }
     w.tick.seconds = Date().timeIntervalSince(start)
     return w.tick
+}
+
+let iso = ISO8601DateFormatter()
+iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+func meta(_ t: Tick, _ time: Date) -> [String: Any] {
+    ["bundleId": bundleId, "pid": Int(mainPid), "time": iso.string(from: time), "redacted": opts.redact,
+     "capped": t.capped.sorted(), "nodes": t.nodeCount]
 }
 
 let runStart = Date()
 let cpuRunStart = cpuSnapshot(pids(inBundle: bundlePath))
 let selfStart = selfCPU()
 var prev: Tick?
-var last: Tick?
 var tickNo = 0
+var wroteStart = false
 
-while !stopRequested {
+while !stop.isSet {
     let t0 = Date()
-    let cur = walkAll(budget: opts.interval * 0.8)
+    var cur = walkAll(budget: opts.interval * 0.8)
+    assignIds(&cur, prev: prev)
     let ts = iso.string(from: t0)
     col.ticks += 1
     col.maxNodesSeen = max(col.maxNodesSeen, cur.nodeCount)
+    col.maxWalk = max(col.maxWalk, cur.seconds); col.sumWalk += cur.seconds
+    col.axErrors += cur.axErrors; col.timeouts += cur.timeouts
+    if cur.seconds > opts.interval { col.overrunTicks += 1 }
     if !cur.capped.isEmpty { col.cappedTicks += 1 }
+    if prev != nil { col.matchedElement += cur.matchedElement; col.matchedStructure += cur.matchedStructure; col.fresh += cur.fresh }
     var changeCount = 0
 
     if let p = prev {
         let bothComplete = cur.capped.isEmpty && p.capped.isEmpty
-        for (id, node) in cur.flat {
-            guard let old = p.flat[id] else { continue }
+        for node in cur.order {
+            guard let old = p.flat[node.id] else { continue }
             var diffs: [String: [String]] = [:]
             for k in Set(node.attrs.keys).union(old.attrs.keys) {
                 let a = old.attrs[k] ?? "<none>", b = node.attrs[k] ?? "<none>"
@@ -597,68 +754,71 @@ while !stopRequested {
             }
             if diffs.isEmpty { continue }
             changeCount += 1
-            col.changedNodes.insert(id)
+            col.changedNodes.insert(node.id)
             let role = node.raw["role"] ?? "?"
             for (k, ab) in diffs {
                 col.totalChangeEvents += 1
                 col.attrChangeCounts["\(role).\(k)", default: 0] += 1
-                let fk = id + "|" + k
+                let fk = node.id + "|" + k
                 var st = col.flipStats[fk] ?? (0, [], role, k)
                 st.changes += 1; st.values.insert(ab[0]); st.values.insert(ab[1])
                 col.flipStats[fk] = st
             }
-            logLine(["ts": ts, "tick": tickNo, "event": "changed", "id": id, "path": node.path, "role": role, "changes": diffs])
+            var line: [String: Any] = ["ts": ts, "tick": tickNo, "event": "changed", "id": node.id, "path": node.path, "role": role, "changes": diffs]
+            if p.byKey[node.key] == nil { line["matchedBy"] = "structure" }
+            logLine(line)
         }
+        // Added/removed only when both walks were complete; a capped walk is a partial tree.
         if bothComplete {
-            var emitted = 0
-            for (id, node) in cur.flat where p.flat[id] == nil {
-                if emitted >= 200 { break }
-                emitted += 1
-                logLine(["ts": ts, "tick": tickNo, "event": "added", "id": id, "path": node.path, "attrs": node.attrs])
-            }
-            for (id, node) in p.flat where cur.flat[id] == nil {
-                if emitted >= 400 { break }
-                emitted += 1
-                logLine(["ts": ts, "tick": tickNo, "event": "removed", "id": id, "path": node.path, "role": node.raw["role"] ?? "?"])
+            let added = cur.order.filter { p.flat[$0.id] == nil }
+            let removed = p.order.filter { cur.flat[$0.id] == nil }
+            for node in added.prefix(200) { logLine(["ts": ts, "tick": tickNo, "event": "added", "id": node.id, "path": node.path, "attrs": node.attrs]) }
+            for node in removed.prefix(200) { logLine(["ts": ts, "tick": tickNo, "event": "removed", "id": node.id, "path": node.path, "role": node.raw["role"] ?? "?"]) }
+            if added.count > 200 || removed.count > 200 {
+                logLine(["ts": ts, "tick": tickNo, "event": "truncated", "added": added.count, "removed": removed.count])
             }
         }
-    } else {
-        writeJSON(["meta": ["bundleId": bundleId, "pid": Int(mainPid), "time": ts, "redacted": opts.redact,
-                             "capped": Array(cur.capped), "nodes": cur.nodeCount],
-                   "tree": cur.roots.map { $0.json }], to: "snapshot-start.json", pretty: true)
+    }
+    if !wroteStart {
+        writeJSON(["meta": meta(cur, t0), "tree": cur.roots.map { $0.json }], to: "snapshot-start.json")
+        wroteStart = true
     }
 
-    print(String(format: "tick %3d  nodes %5d  changed %3d  walk %.2fs%@", tickNo, cur.nodeCount, changeCount, cur.seconds,
-                 cur.capped.isEmpty ? "" : "  CAPPED(\(cur.capped.sorted().joined(separator: ",")))"))
-    prev = cur; last = cur; tickNo += 1
+    print(String(format: "tick %3d  nodes %5d  changed %3d  walk %.2fs", tickNo, cur.nodeCount, changeCount, cur.seconds)
+          + (cur.capped.isEmpty ? "" : "  CAPPED(\(cur.capped.sorted().joined(separator: ",")))"))
+    prev = cur; tickNo += 1
 
     if Date().timeIntervalSince(runStart) >= opts.seconds { break }
     let wake = t0.addingTimeInterval(opts.interval)
-    while Date() < wake && !stopRequested { Thread.sleep(forTimeInterval: 0.05) }
+    while Date() < wake && !stop.isSet { Thread.sleep(forTimeInterval: 0.05) }
 }
 
 let runSecs = Date().timeIntervalSince(runStart)
 let cpuRunEnd = cpuSnapshot(pids(inBundle: bundlePath))
 let selfUsed = selfCPU() - selfStart
 
-if let l = last {
-    writeJSON(["meta": ["bundleId": bundleId, "pid": Int(mainPid), "time": iso.string(from: Date()), "redacted": opts.redact,
-                         "capped": Array(l.capped), "nodes": l.nodeCount],
-               "tree": l.roots.map { $0.json }], to: "snapshot-end.json", pretty: true)
+restoreFlags()   // before any file work, so a slow disk cannot delay it
+if let l = prev {
+    writeJSON(["meta": meta(l, Date()), "tree": l.roots.map { $0.json }], to: "snapshot-end.json")
 }
 try? logHandle?.close()
-restoreFlags()
 
 // MARK: - Summary
 
 func top<K>(_ d: [K: Int], _ n: Int) -> [(K, Int)] where K: Hashable {
-    Array(d.sorted { $0.value > $1.value }.prefix(n))
+    Array(d.sorted { $0.value != $1.value ? $0.value > $1.value : "\($0.key)" < "\($1.key)" }.prefix(n))
 }
+func pct(_ a: Int, _ total: Int) -> String { total > 0 ? String(format: "%.0f%%", Double(a) / Double(total) * 100) : "n/a" }
 
 say("")
 say("=== ax-probe summary: \(bundleId) ===")
-say("ticks: \(col.ticks) over \(String(format: "%.1f", runSecs)) s; nodes per walk: last \(last?.nodeCount ?? 0), max \(col.maxNodesSeen)")
-say("capped walks: \(col.cappedTicks)/\(col.ticks)\(col.cappedTicks > 0 ? "  (raise --max-nodes/--max-depth or --interval; diffs on capped ticks are partial)" : "")")
+say("ticks: \(col.ticks) over \(String(format: "%.1f", runSecs)) s; nodes per walk: last \(prev?.nodeCount ?? 0), max \(col.maxNodesSeen)")
+say(String(format: "walk time: avg %.2f s, max %.2f s; ticks over the interval: %d", col.ticks > 0 ? col.sumWalk / Double(col.ticks) : 0, col.maxWalk, col.overrunTicks))
+say("capped walks: \(col.cappedTicks)/\(col.ticks)\(col.cappedTicks > 0 ? "  (raise --interval or --max-nodes, or lower --max-depth; capped walks are partial)" : "")")
+say("AX errors: \(col.axErrors) (timeouts \(col.timeouts), \(axTimeout) s each)")
+let idTotal = col.matchedElement + col.matchedStructure + col.fresh
+say("node identity vs previous tick: \(pct(col.matchedElement, idTotal)) same AX element, \(pct(col.matchedStructure, idTotal)) re-created but structurally matched, \(pct(col.fresh, idTotal)) new"
+    + (idTotal > 0 && col.matchedElement * 2 < idTotal ? "  (LOW: this app re-creates elements; diffs lean on structure)" : ""))
 say("enable: " + enableReport.joined(separator: "\n        "))
 say("target CPU before enabling: \(cpuBefore)")
 say("target CPU after enabling:  \(cpuAfter)")
@@ -666,7 +826,7 @@ say(String(format: "target CPU over whole run (with probe walking): %.1f%% of on
 say(String(format: "probe CPU time: %.2f s (%.1f%% of one core)", selfUsed, runSecs > 0 ? selfUsed / runSecs * 100 : 0))
 say("change events: \(col.totalChangeEvents) across \(col.changedNodes.count) nodes")
 
-say("\nName-like labels / participant rows (top 12):")
+say("\nName-like labels / participant rows (top 12, count = node-ticks seen):")
 for (k, c) in top(col.labelCands, 12) { say("  \(c)x  \(k)") }
 if col.labelCands.isEmpty { say("  none found") }
 
@@ -675,9 +835,12 @@ for (k, c) in top(col.attrChangeCounts, 10) { say("  \(c)x  \(k)") }
 if col.attrChangeCounts.isEmpty { say("  no changes seen") }
 
 say("\nFlip candidates: one node, one attribute, 2-4 distinct values, 2+ changes (top 10):")
-let flips = col.flipStats.values.filter { $0.changes >= 2 && $0.values.count >= 2 && $0.values.count <= 4 && $0.attr != "frame" }
-    .sorted { $0.changes > $1.changes }.prefix(10)
-for f in flips { say("  \(f.changes)x  \(f.role).\(f.attr)  values: \(f.values.sorted().map { truncated($0, 40) }.joined(separator: " | "))") }
+let flips = col.flipStats.filter { $0.value.changes >= 2 && $0.value.values.count >= 2 && $0.value.values.count <= 4 && $0.value.attr != "frame" }
+    .sorted { $0.value.changes > $1.value.changes }.prefix(10)
+for (k, f) in flips {
+    let id = k.split(separator: "|").first.map(String.init) ?? "?"
+    say("  \(f.changes)x  \(f.role).\(f.attr) on \(id)  values: \(f.values.sorted().map { truncated($0, 40) }.joined(separator: " | "))")
+}
 if flips.isEmpty { say("  none") }
 
 say("\nStatus / speaking words in any attribute (top 10):")
@@ -689,6 +852,7 @@ for (k, c) in top(col.captionHits, 8) { say("  \(c)x  \(k)") }
 if col.captionHits.isEmpty { say("  none") }
 
 say("\noutput: \(outDir.path)")
-say(opts.redact ? "Redacted: text values are hashes (stable within this run only)." : "This output contains real names. Keep it in /tmp. Do not commit or paste it.")
+say(opts.redact ? "Redacted: text values are hashes (stable within this run only). Check before sharing anyway."
+                : "This output contains real names. Keep it in /tmp. Do not commit or paste it.")
 try? summaryLines.joined(separator: "\n").write(to: outDir.appendingPathComponent("summary.txt"), atomically: true, encoding: .utf8)
 exit(0)
