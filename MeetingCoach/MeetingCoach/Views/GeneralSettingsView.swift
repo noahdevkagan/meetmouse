@@ -288,19 +288,38 @@ struct GeneralSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Agent access (MCP)") {
+            Section("Connect to Claude") {
                 if let path = mcpHelperPath {
-                    Button(mcpCopied ? "Copied ✓" : "Copy setup command") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(
-                            "claude mcp add meetmouse -- \"\(path)\"",
-                            forType: .string)
-                        mcpCopied = true
+                    HStack {
+                        Button(mcpDesktopStatus == .done || mcpDesktopStatus == .already
+                               ? "Added to Claude Desktop ✓" : "Add to Claude Desktop") {
+                            mcpCopied = nil
+                            addToClaudeDesktop(path)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        Spacer()
+                        Menu(mcpCopied == nil ? "Other apps" : "Copied ✓") {
+                            Button("Copy Claude Code command") {
+                                copyToPasteboard("claude mcp add meetmouse -- \"\(path)\"", tag: "cli")
+                            }
+                            Button("Copy JSON config") {
+                                copyToPasteboard(ClaudeDesktopConfig.snippet(helperPath: path), tag: "json")
+                            }
+                        }
+                        .fixedSize()
+                    }
+                    switch mcpDesktopStatus {
+                    case .idle: EmptyView()
+                    case .done, .already:
+                        Text("Quit and reopen Claude — MeetMouse shows up under Connectors.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    case .failed(let message):
+                        Text(message).font(.caption).foregroundStyle(.red)
                     }
                 }
                 Text(mcpHelperPath == nil
                      ? "Agent server not found in this build."
-                     : "Lets Claude and other agents search and read your saved transcripts. The server runs locally; connected agents may send the text to their AI provider.")
+                     : "Lets Claude search and read your saved transcripts.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -373,7 +392,56 @@ struct GeneralSettingsView: View {
         .joined(separator: "\n")
     }
 
-    @State private var mcpCopied = false
+    @State private var mcpCopied: String?
+    @State private var mcpDesktopStatus: MCPDesktopStatus = .idle
+
+    private enum MCPDesktopStatus: Equatable {
+        case idle, done, already
+        case failed(String)
+    }
+
+    private func copyToPasteboard(_ text: String, tag: String, keepStatus: Bool = false) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        mcpCopied = tag
+        if !keepStatus { mcpDesktopStatus = .idle }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            if mcpCopied == tag { mcpCopied = nil }
+        }
+    }
+
+    private func addToClaudeDesktop(_ bundledPath: String) {
+        #if DEBUG
+        let isDebug = true
+        #else
+        let isDebug = false
+        #endif
+        let choice = ClaudeDesktopConfig.chooseHelperPath(
+            bundled: bundledPath,
+            installedExists: FileManager.default.isExecutableFile(atPath: ClaudeDesktopConfig.installedHelperPath),
+            isDebug: isDebug)
+        let path: String
+        switch choice {
+        case .refuse:
+            mcpDesktopStatus = .failed("Move MeetMouse to Applications first.")
+            return
+        case .use(let p): path = p
+        case .useDev(let p): path = p
+        }
+        do {
+            let status = try ClaudeDesktopConfig.install(helperPath: path)
+            mcpDesktopStatus = status == .alreadyAdded ? .already : .done
+            if case .useDev = choice {
+                mcpDesktopStatus = .failed("Added, but this is a dev build path and will break when the build moves. Quit and reopen Claude.")
+            }
+        } catch ClaudeDesktopConfig.ConfigError.invalidJSON {
+            copyToPasteboard(ClaudeDesktopConfig.snippet(helperPath: path), tag: "json", keepStatus: true)
+            mcpDesktopStatus = .failed("Claude's config file isn't valid JSON, so MeetMouse left it alone. The snippet is copied — merge it in by hand.")
+        } catch {
+            copyToPasteboard(ClaudeDesktopConfig.snippet(helperPath: path), tag: "json", keepStatus: true)
+            mcpDesktopStatus = .failed("Couldn't update Claude's config (\(error.localizedDescription)). The snippet is copied — merge it in by hand.")
+        }
+    }
 
     private var mcpHelperPath: String? {
         Bundle.main.url(forAuxiliaryExecutable: "meetmouse-mcp")?.path

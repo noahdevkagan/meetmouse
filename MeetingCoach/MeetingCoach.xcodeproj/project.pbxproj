@@ -115,6 +115,7 @@
 		DE181E8AC775C3A1A5D25586 /* ClaudeAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19B7667AB6FE7520A5EF29D1 /* ClaudeAccount.swift */; };
 		DEB20958B6B4DC26619F9B5F /* AppBundleNameMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03360FE07AA3CD101D27116 /* AppBundleNameMigration.swift */; };
 		E50CF069AE16583B2665E1BE /* AppSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F05A5F9043EE4F2C14B8D5 /* AppSupport.swift */; };
+		E5BDB75EA94A0CFBEBAD4313 /* ClaudeDesktopConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0072165053571FC9CB0E2DB1 /* ClaudeDesktopConfig.swift */; };
 		E64A1CF9A596EDF1578EA6E0 /* InterruptionSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88673BD63F55A97082E19D05 /* InterruptionSignal.swift */; };
 		E7FFC6FB0B3CCA7EA40EEFD0 /* MeetingReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 656450659BC1ACF5F68F709C /* MeetingReviewView.swift */; };
 		EB6A5F6E68FD130E49B7DEC9 /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = 06F4E4B9E736297E660D19A4 /* Credits.rtf */; };
@@ -143,6 +144,7 @@
 
 /* Begin PBXFileReference section */
 		0039986CEDE49DF43FF2342E /* MeetingWindowHeuristics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingWindowHeuristics.swift; sourceTree = "<group>"; };
+		0072165053571FC9CB0E2DB1 /* ClaudeDesktopConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeDesktopConfig.swift; sourceTree = "<group>"; };
 		02B06A3C2CEC6987AF46994E /* SpeakerNameInference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakerNameInference.swift; sourceTree = "<group>"; };
 		0302009AC6EADB2189C6E775 /* PreCallContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreCallContext.swift; sourceTree = "<group>"; };
 		06F4E4B9E736297E660D19A4 /* Credits.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = Credits.rtf; sourceTree = "<group>"; };
@@ -352,6 +354,7 @@
 				440E3EC8B273A32FED50F776 /* AIProvider.swift */,
 				169665A106EBBC6CCDA1F018 /* AudioCaptureManager.swift */,
 				19B7667AB6FE7520A5EF29D1 /* ClaudeAccount.swift */,
+				0072165053571FC9CB0E2DB1 /* ClaudeDesktopConfig.swift */,
 				8143978E87DDB116AC0D3FD8 /* DemoScript.swift */,
 				2FBAD9FDD0A26CB47962E922 /* DeterministicReview.swift */,
 				85881F8DA1B5854DE7BA9F7A /* EchoFilter.swift */,
@@ -686,6 +689,7 @@
 				E50CF069AE16583B2665E1BE /* AppSupport.swift in Sources */,
 				80A3C6A385E3EE4BE0E678BD /* AudioCaptureManager.swift in Sources */,
 				DE181E8AC775C3A1A5D25586 /* ClaudeAccount.swift in Sources */,
+				E5BDB75EA94A0CFBEBAD4313 /* ClaudeDesktopConfig.swift in Sources */,
 				47D5418F46BB2B90178F534E /* CoachingOverlayPanel.swift in Sources */,
 				831AAAE68BDAAC75DC37FB2B /* ContentView.swift in Sources */,
 				965F05D47B12F506C3B6CE55 /* DemoScript.swift in Sources */,
