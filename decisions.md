@@ -2313,3 +2313,51 @@ A short reply said while the guest is talking appears up to ~1 s late
 stays as a duplicate (we prefer that to losing real words). Mixed chunks (a
 short phrase inside a longer mic utterance) are not handled; EchoFilter's
 rules still apply there. Not verified on real hardware.
+
+## 2026-11-10 — Window discovery retries; Teams is a recognized call window
+A real two-person Zoom call showed "No unique meeting window found" and never
+suggested the guest: the session started about 6 s before the Zoom meeting
+window existed, and automatic discovery listed windows exactly once. Discovery
+now re-checks on a backing-off cadence (2, 3, 5, 8, 13, 20, then every 30 s)
+until exactly one recognized call window exists or the session ends. Zero
+candidates shows no "choose your call" banner; two or more show it with a
+Choose... button and keep checking, so the question withdraws itself. A pinned
+window is never swapped automatically: automatic mode resumes discovery only when the pinned
+window no longer exists anywhere (CGWindowList by id, so a minimized or
+off-Space window counts as present and ends assistance as before); the six
+snapshot cap and collected evidence carry over. A manually chosen window never
+resumes. Consent, remembered opt-in, local-only OCR and nothing-stored are
+unchanged. Discovery logs counts, platform names and a reason to
+/tmp/mc_debug.log (only when they change), never titles.
+Teams matches by bundle id first (`com.microsoft.teams2`, `com.microsoft.teams`,
+read from the installed apps' Info.plist) and in browsers by title. The title
+rule is an allowlist, "Meeting with/in ...", "Meeting compact view", "Call with
+..." followed by "| Microsoft Teams" (unread badge stripped), English only and
+UNVERIFIED against a live call. A denylist of main-window sections was rejected:
+a false match turns every auto-stop into "ended?" and makes Zoom calls look
+ambiguous. Cost: a meeting titled only by its subject is missed (end-watch falls
+back to the 60 s mic path, same as before). Teams has no outline reader, so
+it is never screenshotted (automatic or manual) and never ends discovery: a
+Teams-only screen keeps re-checking with a "names can't be read" status, and a
+readable Zoom/Meet window that opens later is used. Teams plus exactly one
+readable call window pins the readable one rather than asking; that is what
+happened before Teams was recognized, and the Teams window could never be
+captured anyway. Two or more readable windows still ask. Teams browser tabs
+also match with Chromium's profile segment and "and N more pages" title
+decorations.
+
+Review follow-up (same day). The draft let a bare "Them" receive a roster
+suggestion; that was wrong. Bare "Them" means the diarizer has not published
+(or never will: Intel, model unavailable), so in a group call every remote
+voice is "Them" and "exactly one voice" passed by default: two snapshots of a
+tile row showing one other name would have offered that name for all remote
+speech and saved a mixed voice as one profile. Roster evidence now needs a
+numbered diarizer voice ("Them N") that is the only remote voice in audio and
+transcript with at least 20 s of its own diarized speech; bare "Them" never
+counts as the voice and never vetoes. No pre-call exception: a confirmed
+one-on-one already names remote speech through the display alias, and a
+same-name roster suggestion is suppressed, so it would only add a conflicting
+name. Manual choice wins: Allow ends discovery and replaces a window
+discovery pinned while the sheet was open (the same window keeps its run and
+evidence; the six-shot cap carries). An automatic pin is still never swapped
+silently.
