@@ -62,6 +62,13 @@ final class AudioCaptureManager {
     }
     func start() async throws { startTime = Date() }
     func stop() { stopped = true }
+    /// Short mic lines the real manager was still holding for the
+    /// speaker-bleed check at stop (ShortEchoGate); drained before the save.
+    var heldShortLines: [Utterance] = []
+    func drainHeldShortLines() -> [Utterance] {
+        defer { heldShortLines = [] }
+        return heldShortLines
+    }
 
     enum LanguageSwitchPhase: Sendable { case downloading, loading }
     /// Phases a switch reports before finishing, and an optional failure.

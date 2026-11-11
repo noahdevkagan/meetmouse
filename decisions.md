@@ -2247,35 +2247,46 @@ and detection starts; unprepared last-used guests remain unconfirmed.
 ## 2026-11-10 — Short bleed duplicates on built-in speakers (narrows "never filter 1-2 words")
 
 A real call on the Mac's speakers showed the guest's "Okay." twice at the same
-moment: You (speaker bleed into the mic) and Them (system audio). EchoFilter
-never treats 1-2 word sentences as echo (both sides truly say "Okay."/"Yeah."),
-and the bleed gate cannot fire during loud bleed (2026-10-27 entry), so the
-duplicate survived. This narrows the "never filter 1-2 words" rule: text alone
-is still never evidence, but the system channel is.
+moment: You (speaker bleed into the mic) and Them (system audio), You first.
+EchoFilter never treats 1-2 word sentences as echo (both sides truly say
+"Okay."/"Yeah."), and the bleed gate cannot fire during loud bleed (2026-10-27
+entry), so the duplicate survived. This narrows the "never filter 1-2 words"
+rule: text alone is still never evidence, but the system channel is.
 
-Rule (`Engine/ShortEchoGate.swift`): only on the built-in-speaker route with
-system audio captured, a mic line of 1-2 words in total is dropped when every
-sentence equals a committed Them sentence (same normalized words) whose span is
-within 2 s of the mic span (overlap counts as gap 0). Mic copy dropped, Them
-copy kept. Headphones or any other route: the gate is never consulted.
-A short line with no twin is delivered unchanged.
+Rule (`Engine/ShortEchoGate.swift`): only while the output route is the
+built-in speakers, system audio is captured (not degraded to mic-only) and the
+session is live, a mic line of 1-2 words in total is dropped when every
+sentence equals a Them sentence (same normalized words) within 2 s of the mic
+span. Mic copy dropped, Them copy kept. Any other route: the gate returns
+"deliver" for everything. A short line with no twin is always kept.
 
-Window 2 s: both channels stamp spans from the same session clock (first to
-last voiced audio), so real twins overlap; 2 s absorbs system-capture latency,
-the different voice floors (0.002 vs 0.006) and a far chunk that merged
-neighbouring speech. Larger would start eating a real reply a beat after the
-guest's word.
+Clock and window: both pipelines stamp spans with the wall time of the first
+and last voiced buffer minus the same session start, so the channels are
+directly comparable. Bleed is acoustically simultaneous, so real twins
+overlap; the residual is buffer delivery latency (~85 ms mic tap, tens of ms
+SCK) and the voice floors (mic 0.006 catches only the loud core of the bleed,
+system 0.002 the whole word, so the mic span sits inside the system one). 2 s
+is slack on top of that. For a Them chunk with several sentences each
+sentence is placed by word offset (+-20% of the span), so a word early in a
+long chunk does not claim the user's same word at its end.
 
 Hold, not retract: the mic commits after 0.9 s of silence, the system after
 2.0 s plus inference, so the mic copy usually lands first. Retracting would
-mean editing the view model's utterances after signals, talk stats and the
-builder had consumed them. Instead short mic lines on speakers wait up to 4 s
-(delivered with original timestamps; the view model already inserts by time),
-and each Them commit re-checks the held lines. So nothing downstream ever sees
-the dropped copy. Cost: a 1-2 word You line on speakers appears up to 4 s late.
-Held lines are flushed on stop and when the route leaves built-in speakers.
+mean undoing a line that signals, talk stats, turns and possibly a nudge had
+already consumed. Instead a short mic line is held, but only when the system
+channel was audible at or after (line start - 0.5 s); with the far side quiet
+nothing can bleed and the line is delivered at once (so a "Yeah." after the
+guest stops is not delayed). Held lines are re-checked on every Them commit
+AND every new sentence in a Them partial (partials show the word ~1 s after
+it is said, often before the mic commit), and delivered with their original
+timestamps after 3 s if no twin shows (the view model inserts by time). On
+stop the session drains held lines synchronously before saving (an async
+emit would land after the save). Route leaving the speakers delivers held
+lines. A bleed partial matching a known twin is also hidden from the live
+pending line.
 
-Known cost: if both people truly say the same single word at the same instant
-on speakers, the user's copy is lost. Mixed chunks (a short phrase inside a
+Known cost: if both people truly say the same 1-2 words within about 2 s of
+each other on speakers, the user's copy is lost. A short reply said while the
+guest is talking appears up to 3 s late. Mixed chunks (a short phrase inside a
 longer mic utterance) are not handled; EchoFilter's rules still apply there.
 Not verified on real hardware.

@@ -175,84 +175,153 @@ do {
 }
 
 // ---- ShortEchoGate: 1-2 word bleed duplicates on built-in speakers ----
-// The capture manager only submits mic lines when the route is built-in
-// speakers; on any other route the gate is never consulted, so every short
-// line is delivered untouched (modelled below as "never submitted").
-func u(_ t: TimeInterval, _ end: TimeInterval, _ speaker: String, _ text: String) -> Utterance {
-    Utterance(t: t, speaker: speaker, text: text, endT: end)
-}
-let t0 = Date(timeIntervalSinceReferenceDate: 5_000)
+// A replay of the capture path: events arrive in the order the pipelines
+// deliver them (mic commit, Them partial, Them commit, hold timer, stop) and
+// go through the same gate calls AudioCaptureManager makes. `transcript` is
+// what reaches the session (onUtterance + the stop drain), i.e. what the UI,
+// signals, talk stats and the saved file all consume. Session-relative clock.
+final class CaptureSim {
+    let gate = ShortEchoGate()
+    var onSpeakers: Bool
+    var now: TimeInterval = 0
+    var farLoudAt: TimeInterval = -.infinity
+    var transcript: [Utterance] = []
+    private var timers: [TimeInterval] = []
 
-// Them copy first, then mic copy: dropped at once.
-do {
-    let g = ShortEchoGate()
-    g.recordFar(u(10.0, 10.4, "Them", "Okay."))
-    check("short dup dropped (Them first)",
-          g.submit(u(10.2, 10.6, "You", "Okay."), now: t0) == .drop && g.heldCount == 0)
-}
+    init(onSpeakers: Bool = true) { self.onSpeakers = onSpeakers }
 
-// Mic copy first: held, then dropped when the Them copy lands; never delivered.
-do {
-    let g = ShortEchoGate()
-    check("mic first is held", g.submit(u(10.0, 10.4, "You", "Okay."), now: t0) == .hold)
-    let dropped = g.recordFar(u(10.1, 10.5, "Them", "Okay."))
-    check("short dup dropped (mic first)", dropped.count == 1 && g.heldCount == 0)
-    check("dropped line never expires into the transcript",
-          g.expire(now: t0.addingTimeInterval(10)).isEmpty)
-}
+    /// Far audio audible over [from, to] (the system buffer RMS stamp).
+    func farAudio(_ from: TimeInterval, _ to: TimeInterval) { farLoudAt = max(farLoudAt, to) }
 
-// Different short words are kept (after the hold, with no twin).
-do {
-    let g = ShortEchoGate()
-    g.recordFar(u(10, 10.4, "Them", "Okay."))
-    check("different word is held, not dropped",
-          g.submit(u(10.2, 10.6, "You", "Yeah."), now: t0) == .hold)
-    check("different word delivered on expiry",
-          g.expire(now: t0.addingTimeInterval(ShortEchoGate.holdSeconds)).map(\.text) == ["Yeah."])
-}
-
-// Same word outside the window is kept.
-do {
-    let g = ShortEchoGate()
-    g.recordFar(u(10, 10.4, "Them", "Okay."))
-    check("same word far outside window held then kept",
-          g.submit(u(10.4 + ShortEchoGate.window + 1, 14, "You", "Okay."), now: t0) == .hold)
-    check("kept on expiry",
-          g.expire(now: t0.addingTimeInterval(ShortEchoGate.holdSeconds)).count == 1)
-    let g2 = ShortEchoGate()
-    _ = g2.submit(u(30, 30.4, "You", "Okay."), now: t0)
-    check("late Them twin outside window does not retract",
-          g2.recordFar(u(10, 10.4, "Them", "Okay.")).isEmpty && g2.heldCount == 1)
-    let g3 = ShortEchoGate()
-    g3.recordFar(u(10, 10.4, "Them", "Okay."))
-    check("gap just inside window is echo",
-          g3.submit(u(10.4 + ShortEchoGate.window - 0.1, 13, "You", "Okay."), now: t0) == .drop)
+    func mic(_ t: TimeInterval, _ end: TimeInterval, _ text: String, at: TimeInterval) {
+        advance(to: at)
+        let u = Utterance(t: t, speaker: "You", text: text, endT: end)
+        switch gate.submit(u, onSpeakers: onSpeakers, farLoudAt: farLoudAt, now: now) {
+        case .drop: break
+        case .hold: timers.append(now + ShortEchoGate.holdSeconds + 0.05)
+        case .deliver: transcript.append(u)
+        }
+    }
+    func farPartial(_ text: String, at: TimeInterval) {
+        advance(to: at)
+        _ = gate.recordFarPartial(text, now: now)
+    }
+    func far(_ t: TimeInterval, _ end: TimeInterval, _ text: String, at: TimeInterval) {
+        advance(to: at)
+        _ = gate.recordFarPartial("", now: now)   // commit clears the partial
+        _ = gate.recordFar(Utterance(t: t, speaker: "Them", text: text, endT: end))
+        farAudio(t, end)
+        transcript.append(Utterance(t: t, speaker: "Them", text: text, endT: end))
+    }
+    func advance(to t: TimeInterval) {
+        now = max(now, t)
+        let due = timers.filter { $0 <= now }
+        timers.removeAll { $0 <= now }
+        for _ in due { transcript += gate.expire(now: now) }
+    }
+    func stop() { transcript += gate.drainAll() }
+    var you: [String] { transcript.filter(\.isYou).map(\.text) }
+    var them: [String] { transcript.filter { !$0.isYou }.map(\.text) }
 }
 
-// Two-word lines and multi-sentence short lines.
-do {
-    let g = ShortEchoGate()
-    g.recordFar(u(5, 6, "Them", "Okay. Yeah."))
-    check("two sentences each matched are dropped",
-          g.submit(u(5.2, 6.1, "You", "Okay. Yeah."), now: t0) == .drop)
-    check("partly matching short line is not dropped",
-          g.submit(u(5.2, 6.1, "You", "Okay. Sure."), now: t0) == .hold)
+// Guest says "Okay." over the speakers at 10.0-10.5; it bleeds into the mic.
+// Mic commits ~0.9 s of silence later, the system channel ~2 s later.
+do {  // mic first (the field case)
+    let s = CaptureSim()
+    s.farAudio(10.0, 10.5)
+    s.mic(10.1, 10.4, "Okay.", at: 11.4)
+    s.far(10.0, 10.5, "Okay.", at: 12.6)
+    s.advance(to: 20); s.stop()
+    check("short dup dropped, mic first", s.you.isEmpty && s.them == ["Okay."])
 }
-
-// A far utterance that merely contains the word is not a twin.
-do {
-    let g = ShortEchoGate()
-    g.recordFar(u(10, 12, "Them", "Okay so let us start with the agenda."))
-    check("containing sentence is not a twin",
-          g.submit(u(10.5, 10.9, "You", "Okay."), now: t0) == .hold)
+do {  // mic first, twin proven by a Them partial before the Them commit
+    let s = CaptureSim()
+    s.farAudio(10.0, 10.5)
+    s.farPartial("Okay", at: 11.0)
+    s.mic(10.1, 10.4, "Okay.", at: 11.4)
+    check("dropped at once on partial evidence", s.gate.heldCount == 0)
+    // Guest keeps talking: the commit only comes much later.
+    s.far(10.0, 18.0, "Okay. So the plan for next week is simple.", at: 20.5)
+    s.advance(to: 30); s.stop()
+    check("short dup dropped via partial, late commit", s.you.isEmpty && s.them.count == 1)
 }
-
-// Longer mic lines are not the gate's business; EchoFilter behaviour unchanged.
-do {
-    let g = ShortEchoGate()
-    g.recordFar(u(10, 11, "Them", "That sounds right to me."))
-    check("3+ word line bypasses gate",
-          g.submit(u(10, 11, "You", "That sounds right to me."), now: t0) == .deliver)
+do {  // mic first, guest continues: twin only in partials, no commit within the hold
+    let s = CaptureSim()
+    s.farAudio(10.0, 10.5)
+    s.mic(10.1, 10.4, "Okay.", at: 11.4)
+    s.farPartial("Okay. So the", at: 12.0)
+    s.advance(to: 20)
+    check("held line dropped by later partial", s.you.isEmpty)
+}
+do {  // system first
+    let s = CaptureSim()
+    s.far(10.0, 10.5, "Okay.", at: 11.2)
+    s.mic(10.1, 10.4, "Okay.", at: 11.6)
+    s.advance(to: 20); s.stop()
+    check("short dup dropped, system first", s.you.isEmpty && s.them == ["Okay."])
+}
+do {  // two-word duplicate
+    let s = CaptureSim()
+    s.farAudio(5.0, 6.0)
+    s.mic(5.2, 5.9, "Sounds good.", at: 7.0)
+    s.far(5.0, 6.0, "Sounds good.", at: 8.2)
+    s.advance(to: 20)
+    check("two-word dup dropped", s.you.isEmpty)
+}
+do {  // different short words: both kept, mic line delivered after the hold
+    let s = CaptureSim()
+    s.farAudio(10.0, 10.5)
+    s.mic(10.1, 10.4, "Yeah.", at: 11.4)
+    s.far(10.0, 10.5, "Okay.", at: 12.6)
+    check("different word waits for the hold", s.you.isEmpty && s.gate.heldCount == 1)
+    s.advance(to: 11.4 + ShortEchoGate.holdSeconds + 0.1)
+    check("different short word kept", s.you == ["Yeah."] && s.them == ["Okay."])
+    check("kept line keeps its original time", s.transcript.first(where: \.isYou)?.t == 10.1)
+}
+do {  // same word outside the window: kept (real reply a beat later)
+    let s = CaptureSim()
+    s.far(10.0, 10.4, "Okay.", at: 12.5)
+    s.farAudio(14.0, 15.0)   // guest talking again when the user replies
+    s.mic(14.5, 14.9, "Okay.", at: 15.9)
+    s.advance(to: 30); s.stop()
+    check("same word outside window kept", s.you == ["Okay."])
+}
+do {  // user replies "Okay." after the guest went quiet: no hold at all
+    let s = CaptureSim()
+    s.far(10.0, 10.4, "Okay.", at: 12.5)
+    s.mic(13.0, 13.4, "Okay.", at: 14.4)
+    check("reply after far silence delivered immediately", s.you == ["Okay."] && s.gate.heldCount == 0)
+}
+do {  // short line while far side silent: never held, never dropped
+    let s = CaptureSim()
+    s.mic(3.0, 3.3, "Yeah.", at: 4.3)
+    check("no far audio, delivered immediately", s.you == ["Yeah."])
+}
+do {  // same word said early in a long far chunk does not claim a reply at its end
+    let s = CaptureSim()
+    s.farAudio(0, 20)
+    s.mic(19.0, 19.4, "Right.", at: 20.4)
+    s.far(0, 20, "Right. And then we looked at the numbers for the whole quarter and the team agreed the plan works.", at: 22.5)
+    s.advance(to: 30)
+    check("word early in long Them chunk does not drop late reply", s.you == ["Right."])
+}
+do {  // headphones / any non-speaker route: unchanged
+    let s = CaptureSim(onSpeakers: false)
+    s.far(10.0, 10.5, "Okay.", at: 11.2)
+    s.mic(10.1, 10.4, "Okay.", at: 11.6)
+    check("headphones: short dup kept as before", s.you == ["Okay."] && s.gate.heldCount == 0)
+    let s2 = CaptureSim(onSpeakers: false)
+    s2.farAudio(10.0, 10.5)
+    s2.mic(10.1, 10.4, "Okay.", at: 11.4)
+    check("headphones: no hold", s2.you == ["Okay."])
+    check("headphones: live partial never hidden",
+          !s.gate.hidesPartial("Okay", onSpeakers: false, now: 11.0))
+}
+do {  // longer phrases: gate never touches them, EchoFilter unchanged
+    let s = CaptureSim()
+    s.far(10, 11, "That sounds right to me.", at: 12)
+    s.mic(10, 11, "That sounds right to me.", at: 12.2)
+    check("3+ word line bypasses gate", s.you == ["That sounds right to me."])
     let f = EchoFilter()
     f.clock = { at(0) }
     f.recordFarText("that sounds right to me")
@@ -261,12 +330,27 @@ do {
     f.recordFarText("okay")
     check("EchoFilter still keeps 1-2 words", f.filter("Okay.", since: at(-3))?.text == "Okay.")
 }
-
-// Held lines are never lost on route change / stop.
-do {
-    let g = ShortEchoGate()
-    _ = g.submit(u(1, 1.4, "You", "Right."), now: t0)
-    check("flushAll returns held", g.flushAll().count == 1 && g.heldCount == 0)
+do {  // a short line that only partly matches is kept
+    let s = CaptureSim()
+    s.farAudio(5, 6)
+    s.mic(5.2, 5.9, "Okay. Sure.", at: 7)
+    s.far(5, 6, "Okay. Yeah.", at: 8)
+    s.advance(to: 20)
+    check("partly matching short line kept", s.you == ["Okay. Sure."])
+}
+do {  // stop while a line is held: it reaches the transcript before the save
+    let s = CaptureSim()
+    s.farAudio(10.0, 10.5)
+    s.mic(10.1, 10.4, "Thanks.", at: 11.4)
+    s.stop()
+    check("held line kept on stop", s.you == ["Thanks."] && s.gate.heldCount == 0)
+}
+do {  // live pending line: the bleed partial is hidden once the twin is known
+    let s = CaptureSim()
+    s.farAudio(10, 10.5)
+    s.farPartial("Okay.", at: 11)
+    check("bleed partial hidden on speakers", s.gate.hidesPartial("Okay", onSpeakers: true, now: 11.2))
+    check("other partial shown", !s.gate.hidesPartial("Yeah", onSpeakers: true, now: 11.2))
 }
 
 exit(fail ? 1 : 0)

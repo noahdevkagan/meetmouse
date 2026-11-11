@@ -850,6 +850,11 @@ final class LiveSessionViewModel {
         captureStartTask = nil
         sessionEngineLabel = captureManager?.engineLabel
         captureManager?.stop()
+        // Short mic lines still waiting out the speaker-bleed check are real
+        // until proven otherwise: in before the save, like the partials below.
+        for u in captureManager?.drainHeldShortLines() ?? [] {
+            insertUtterance(u)
+        }
         // Kept (not nil'd into oblivion) so a rename from the post-session
         // view can still reach the diarizers' collected voice clips.
         endedCaptureManager = captureManager

@@ -193,10 +193,11 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     // voice can reach the mic acoustically (speakers). Mic sentences that
     // mostly repeat concurrent "Them" speech are stripped before delivery.
     private let echoFilter = EchoFilter()
-    /// 1-2 word bleed duplicates (EchoFilter never judges those). Only active
-    /// while the output route is the built-in speakers.
+    /// 1-2 word bleed duplicates (EchoFilter never judges those). Only
+    /// consulted while the output route is the built-in speakers and system
+    /// audio is captured. See ShortEchoGate.
     private let shortEchoGate = ShortEchoGate()
-    private var outputOnBuiltInSpeakers = false
+    private var outputOnBuiltInSpeakers = false // micStateLock-guarded
 
     init(language: ResolvedMeetingLanguage) {
         self._language = language
@@ -415,8 +416,15 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         micPipeline = nil
         sysPipeline?.stop()
         sysPipeline = nil
-        // Held short mic lines are real unless proven otherwise: never lose them.
-        for u in shortEchoGate.flushAll() { emit(u) }
+        // Held short mic lines are collected synchronously by the session via
+        // drainHeldShortLines() before it saves (an emit here would land on
+        // the main actor after the save).
+    }
+
+    /// Short mic lines still waiting for a possible system twin. Real unless
+    /// proven otherwise, so the session inserts them on stop before saving.
+    func drainHeldShortLines() -> [Utterance] {
+        shortEchoGate.drainAll()
     }
 
     // MARK: - Mid-call language switch
@@ -566,10 +574,17 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                 // Feed the echo pool from partials: committed "Them" text can
                 // lag the mic commit by many seconds, partials arrive in ~1s.
                 self.echoFilter.recordFarPartial(normalized)
+                for dup in self.shortEchoGate.recordFarPartial(normalized, now: self.sessionNow) {
+                    mclog("[Capture] Dropped short bleed duplicate (held, system partial): \(dup.text.prefix(30))")
+                }
             } else if self.hasSystemAudio, !normalized.isEmpty {
                 // The live pending line should not show the far side's words.
                 display = self.echoFilter.filter(
                     normalized, since: Date().addingTimeInterval(-35))?.text ?? ""
+                if self.shortEchoGate.hidesPartial(display, onSpeakers: self.shortEchoGateOn,
+                                                   now: self.sessionNow) {
+                    display = ""
+                }
             }
             Task { @MainActor [onPartialText = self.onPartialText] in
                 onPartialText?(speaker, display)
@@ -632,21 +647,23 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                                   endT: u.t + u.duration * keptFraction)
                 }
                 // 1-2 word lines on built-in speakers: drop when the system
-                // channel has the same words at the same moment, else hold
-                // briefly for the system twin (it commits later than the mic).
-                if micStateLock.withLock({ outputOnBuiltInSpeakers }) {
-                    switch shortEchoGate.submit(u, now: Date()) {
-                    case .drop:
-                        mclog("[Capture] Dropped short bleed duplicate: \(u.text.prefix(30))")
-                        return
-                    case .hold:
-                        DispatchQueue.global().asyncAfter(deadline: .now() + ShortEchoGate.holdSeconds + 0.1) { [weak self] in
-                            self?.releaseHeldShortLines()
-                        }
-                        return
-                    case .deliver:
-                        break
+                // channel has the same words at the same moment; if the far
+                // side was audible during the line, hold it briefly for the
+                // system twin (it usually lands after the mic commit).
+                let farLoudAt = micStateLock.withLock { lastLoudSystemAt }
+                    .timeIntervalSince(startTime)
+                switch shortEchoGate.submit(u, onSpeakers: shortEchoGateOn,
+                                            farLoudAt: farLoudAt, now: sessionNow) {
+                case .drop:
+                    mclog("[Capture] Dropped short bleed duplicate: \(u.text.prefix(30))")
+                    return
+                case .hold:
+                    DispatchQueue.global().asyncAfter(deadline: .now() + ShortEchoGate.holdSeconds + 0.05) { [weak self] in
+                        self?.releaseHeldShortLines()
                     }
+                    return
+                case .deliver:
+                    break
                 }
             }
         }
@@ -661,7 +678,17 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
 
     /// Deliver held short mic lines whose wait expired with no system twin.
     private func releaseHeldShortLines() {
-        for u in shortEchoGate.expire(now: Date()) { emit(u) }
+        for u in shortEchoGate.expire(now: sessionNow) { emit(u) }
+    }
+
+    /// Session-relative seconds: the clock both pipelines stamp utterances with.
+    private var sessionNow: TimeInterval { Date().timeIntervalSince(startTime) }
+
+    /// The short-bleed gate applies only while live, dual-channel, and the
+    /// call plays through the built-in speakers. A late pipeline flush after
+    /// stop() bypasses it, so nothing is held past the session's save.
+    private var shortEchoGateOn: Bool {
+        isRunning && hasSystemAudio && micStateLock.withLock { outputOnBuiltInSpeakers }
     }
 
     // MARK: - Microphone
@@ -1332,7 +1359,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         guard speakers != reportedBuiltInSpeakers else { return }
         reportedBuiltInSpeakers = speakers
         micStateLock.withLock { outputOnBuiltInSpeakers = speakers }
-        if !speakers { for u in shortEchoGate.flushAll() { emit(u) } }
+        if !speakers { for u in shortEchoGate.drainAll() { emit(u) } }
         mclog("[Capture] Output route: \(speakers ? "built-in speakers (far side can reach the mic)" : "not built-in speakers")")
         Task { @MainActor [onOutputRoute] in
             onOutputRoute?(speakers)
@@ -1385,6 +1412,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                 sysDegraded = false
                 hasSystemAudio = true
                 mclog("[Capture] System audio back — dual pipelines active again")
+                // Route changes are not tracked while degraded: re-read it so
+                // the speakers notice and the short-bleed gate are current.
+                publishOutputRoute()
                 Task { @MainActor [onSystemAudioRestored] in
                     onSystemAudioRestored?()
                 }

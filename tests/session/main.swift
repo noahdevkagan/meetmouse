@@ -219,6 +219,37 @@ func runTests() async {
         check(capture.stopped, "capture actually stopped")
     }
 
+    // 1b. A short mic line still held for the speaker-bleed check when Stop
+    //     is hit (ShortEchoGate) is real: it must reach utterances, the
+    //     pane and the saved file, not arrive on the main actor after the save.
+    do {
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let capture = AudioCaptureManager.last else {
+            check(false, "capture manager wired (1b)"); return
+        }
+        capture.onUtterance?(Utterance(t: 1, speaker: "Them",
+            text: "We can wrap the pilot review here for today.", endT: 4))
+        capture.heldShortLines = [Utterance(t: 3.5, speaker: "You", text: "Sounds good.", endT: 3.9)]
+        try? await Task.sleep(for: .milliseconds(50))
+        vm.stopLive()
+        check(vm.utterances.contains { $0.isYou && $0.text == "Sounds good." },
+              "held short line committed on Stop", "utterances: \(vm.utterances.map(\.text))")
+        check(vm.turns.contains { $0.text.contains("Sounds good") },
+              "held short line in the pane after Stop")
+        var body = ""
+        if let saved = try? FileManager.default.contentsOfDirectory(atPath: scratch.path) {
+            for file in saved where file.hasSuffix(".md") {
+                let content = (try? String(
+                    contentsOfFile: scratch.appendingPathComponent(file).path,
+                    encoding: .utf8)) ?? ""
+                if content.contains("pilot review") { body = content }
+            }
+        }
+        check(body.contains("Sounds good."), "saved session includes the held short line")
+    }
+
     // 2. Committed speech before the first 5s signal tick must also stay
     //    visible: per-utterance evaluation builds turns immediately, and
     //    Stop must not lose them (or the final pending tail on top).

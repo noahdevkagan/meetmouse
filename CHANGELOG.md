@@ -9,7 +9,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
-- On built-in Mac speakers, a one- or two-word line from the other person (like "Okay.") no longer also shows up as something you said. Your short replies stay unless the call audio has the same words at the same moment.
+- On built-in Mac speakers, a one- or two-word line from the other person (like "Okay.") no longer also shows up as something you said. Your own short replies stay; one said while the other person is talking can appear a moment later.
 - AI notes for long meetings now include what was decided in the middle of the call. With Claude or OpenAI the whole meeting is used; on Macs with 32 GB of memory or more, local AI reads meetings up to about 90 minutes in full (was about 40).
 - Regenerating a meeting's notes now uses the goal and participants you saved for that meeting, so owners and names come out right.
 - Prepare a call before it starts, if you want to: right-click Start meeting and choose "Prepare next call" to set a goal, who's on the call and questions to cover, then Save for later or start right away. Saved prep shows as a small "Next call" card; nothing appears if you never use it. Start meeting is still one click, and your questions tick off live as you ask them. Questions to Ask moved here from Advanced.
