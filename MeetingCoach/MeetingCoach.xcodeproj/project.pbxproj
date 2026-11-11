@@ -36,6 +36,7 @@
 		359E6B061765BDA07BE4EEC3 /* AISettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A5350C0DCB7CE44CA74835F /* AISettingsView.swift */; };
 		361A0A7A35E32604279D6088 /* UsageGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 658DB01F89DD32D4D2840122 /* UsageGate.swift */; };
 		3777383CF5218E48A0B5262D /* EchoFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85881F8DA1B5854DE7BA9F7A /* EchoFilter.swift */; };
+		3B136AF29E3494D2D547C2E0 /* DiarizerIntake.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F915BBDC23DABCAFA14C631 /* DiarizerIntake.swift */; };
 		3C2ED703482E504317466F11 /* TalkTimeSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0A3778DC493524AA4D6FE0 /* TalkTimeSignal.swift */; };
 		3DD7919979773DBC30AA415A /* QuestionParkedSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9892670227218AFE8677E69 /* QuestionParkedSignal.swift */; };
 		4030F7FB23A09D09F296291C /* ParakeetTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73E93FA8D25DA2577F2827FF /* ParakeetTranscriber.swift */; };
@@ -154,6 +155,7 @@
 		0B24680F8123FEF4092933AF /* SafeElementBinding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafeElementBinding.swift; sourceTree = "<group>"; };
 		0B4B0AF697805859194CB8FB /* ProgressDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressDashboardView.swift; sourceTree = "<group>"; };
 		0F81DB4510A2BF8EF10A65C7 /* TuningTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuningTypes.swift; sourceTree = "<group>"; };
+		0F915BBDC23DABCAFA14C631 /* DiarizerIntake.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiarizerIntake.swift; sourceTree = "<group>"; };
 		14D8000DD43FC31EDFC5A989 /* bird_chirp.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = bird_chirp.wav; sourceTree = "<group>"; };
 		16524492B9725FF3E217054B /* TranscriptCleanup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptCleanup.swift; sourceTree = "<group>"; };
 		169665A106EBBC6CCDA1F018 /* AudioCaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureManager.swift; sourceTree = "<group>"; };
@@ -357,6 +359,7 @@
 				0072165053571FC9CB0E2DB1 /* ClaudeDesktopConfig.swift */,
 				8143978E87DDB116AC0D3FD8 /* DemoScript.swift */,
 				2FBAD9FDD0A26CB47962E922 /* DeterministicReview.swift */,
+				0F915BBDC23DABCAFA14C631 /* DiarizerIntake.swift */,
 				85881F8DA1B5854DE7BA9F7A /* EchoFilter.swift */,
 				679CAE424170B3184298CF5C /* GranolaImporter.swift */,
 				D5560738095EF73A5816E554 /* Mclog.swift */,
@@ -694,6 +697,7 @@
 				831AAAE68BDAAC75DC37FB2B /* ContentView.swift in Sources */,
 				965F05D47B12F506C3B6CE55 /* DemoScript.swift in Sources */,
 				0B9771217CC1244125C2B177 /* DeterministicReview.swift in Sources */,
+				3B136AF29E3494D2D547C2E0 /* DiarizerIntake.swift in Sources */,
 				A113E174C9E4738E99D17427 /* Dorado.swift in Sources */,
 				3777383CF5218E48A0B5262D /* EchoFilter.swift in Sources */,
 				7738C639EFAA02BEF8DD5765 /* FeedbackFormView.swift in Sources */,

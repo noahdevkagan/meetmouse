@@ -5,6 +5,21 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-11): Audit quick wins (branch fix/audit-quick-wins)
+
+Four fixes from a speed/accuracy audit of origin/main, one commit, not pushed:
+1. Notes at Stop get display names (`resolvedTurns()` shared with the saved file), not "Them 1".
+2. Diarizer gap backfill goes through `DiarizerIntake.silence` at the model rate; the old
+   16 kHz backfill was decimated again on 48 kHz sources (a 6 s gap counted as 2 s).
+3. Header clock is its own view (`ElapsedClock`), so `LiveTimelineView` no longer re-runs every second.
+4. Planned-question coverage reads only new or grown "You" turns (`QuestionScan`).
+Debug build passes; tests/session 451 checks (16 new), nudges, demo, echo pass. The notes-names
+check fails on the old code. Not measured: CPU before/after (no speed benchmark exists yet), and
+no live call, so the reconnect fix is covered by the intake check only.
+Audit items not done: chunked local notes for <32 GB Macs (bench/notes 1/7 facts), undetected
+context overflow in `OllamaClient.complete`, bleed gate timing, default AppSumo vocabulary,
+Parakeet never unloaded, sidebar/search reading every file on main, non-streamed notes.
+
 ## Current state (2026-11-10): AI notes setup as the main onboarding step
 
 Plan (one PR): a new install must end up with working AI notes without visiting Settings.

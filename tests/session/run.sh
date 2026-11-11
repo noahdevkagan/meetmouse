@@ -33,6 +33,7 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/Mclog.swift" \
   "$SRC/Engine/MicSilenceMonitor.swift" \
   "$SRC/Engine/ShortEchoGate.swift" \
+  "$SRC/Engine/DiarizerIntake.swift" \
   "$SRC/Engine/EchoFilter.swift" \
   "$SRC/Engine/OutputRoute.swift" \
   "$SRC/Engine/DemoScript.swift" \

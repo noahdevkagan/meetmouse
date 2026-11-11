@@ -108,6 +108,16 @@ final class LiveSessionViewModel {
     /// Indices the user unchecked by hand. Auto-coverage only ever adds, so
     /// without this pin a false-positive match would re-tick on the next turn.
     private var manuallyUncheckedQuestions: Set<Int> = []
+    /// What the planned-question pass has already read: the question list
+    /// it was built for, each question's keywords, and the text size of
+    /// every "You" turn at the time it was checked (a turn that grew is
+    /// read again).
+    private struct QuestionScan {
+        var questions: [String] = []
+        var keywords: [[String]] = []
+        var checkedSize: [UUID: Int] = [:]
+    }
+    private var questionScan = QuestionScan()
     var savedPath: String?
     var showPostSession = false
 
@@ -1075,6 +1085,7 @@ final class LiveSessionViewModel {
         reviewAIError = nil
         askedPlannedQuestions = []
         manuallyUncheckedQuestions = []
+        questionScan = QuestionScan()
         elapsedTime = 0
         backoff = NudgeBackoff()
     }
@@ -1443,13 +1454,20 @@ final class LiveSessionViewModel {
     /// alias applied BEFORE coalescing, so "Them" and "Them 1" fragments of
     /// the same person merge into one line under their real name.
     private func serializedTranscriptLines() -> [String] {
+        resolvedTurns().map { "- [\($0.formattedTime)] \($0.speaker): \($0.text)" }
+    }
+
+    /// Coalesced turns under display names. The saved file and the notes
+    /// prompt both read these, so the first notes and a later Regenerate
+    /// (which reads the file) see the same speakers.
+    private func resolvedTurns() -> [Turn] {
         var resolved = utterances
         for i in resolved.indices {
             resolved[i].speaker = displaySpeaker(resolved[i].speaker)
         }
         var builder = TurnBuilder()
         builder.rebuild(resolved)
-        return builder.turns.map { "- [\($0.formattedTime)] \($0.speaker): \($0.text)" }
+        return builder.turns
     }
 
     /// Accept an LLM name suggestion — routes through the full rename path.
@@ -1736,9 +1754,9 @@ final class LiveSessionViewModel {
         // attribute commitments and positions, which needs who-said-what,
         // and the far side commits in 1-3 word fragments that read as
         // noise line-by-line. Coalescing gives the model whole thoughts.
-        var reviewTurns = TurnBuilder()
-        reviewTurns.rebuild(utterances)
-        let labeledTranscript = reviewTurns.turns
+        // Display names, not raw labels: in a one-on-one the model must see
+        // the guest's name, not "Them 1", to attribute owners.
+        let labeledTranscript = resolvedTurns()
             .map { "\($0.speaker): \($0.text)" }
             .joined(separator: "\n")
 
@@ -1897,18 +1915,31 @@ final class LiveSessionViewModel {
     private func updatePlannedQuestionCoverage() {
         let questions = preCallContext.plannedQuestions
         guard !questions.isEmpty else { return }
-        for (i, question) in questions.enumerated()
-        where !askedPlannedQuestions.contains(i) && !manuallyUncheckedQuestions.contains(i) {
-            let keywords = Self.questionKeywords(question)
-            guard !keywords.isEmpty else { continue }
-            for turn in turns where turn.isYou {
-                let turnWords = Set(TextAnalysis.words(turn.text))
+        // A changed question list starts over: every turn is new to it.
+        if questions != questionScan.questions {
+            questionScan = QuestionScan(questions: questions,
+                                        keywords: questions.map(Self.questionKeywords))
+        }
+        let pending = questions.indices.filter {
+            !askedPlannedQuestions.contains($0) && !manuallyUncheckedQuestions.contains($0)
+                && !questionScan.keywords[$0].isEmpty
+        }
+        guard !pending.isEmpty else { return }
+        // This runs on every utterance and every few seconds. Only turns
+        // that are new or have grown since the last pass are tokenized —
+        // an unasked question used to re-read the whole meeting each time.
+        for turn in turns where turn.isYou {
+            let size = turn.text.utf8.count
+            guard questionScan.checkedSize[turn.id] != size else { continue }
+            questionScan.checkedSize[turn.id] = size
+            let turnWords = Set(TextAnalysis.words(turn.text))
+            for i in pending where !askedPlannedQuestions.contains(i) {
+                let keywords = questionScan.keywords[i]
                 let matched = keywords.filter(turnWords.contains).count
                 // ≥60% of content words (and at least one) heard in one turn.
                 if matched > 0, matched * 10 >= keywords.count * 6 {
                     askedPlannedQuestions.insert(i)
                     mclog("[Questions] Covered planned question #\(i + 1)")
-                    break
                 }
             }
         }
