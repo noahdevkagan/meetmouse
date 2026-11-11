@@ -1265,9 +1265,11 @@ final class LiveSessionViewModel {
                                                     localSpeech: utterances)
         // Timing-aligned highlight evidence outranks the one-on-one roster.
         let owned = channelLabels[.system] ?? []
-        let remote = latestRemoteLabels.union(utterances.lazy.map(\.speaker).filter {
-            $0.hasPrefix("Them ") || owned.contains($0) || self.baseLabelRenames["Them"] == $0
-        }).subtracting(["Them"])
+        let remote = VisualSpeakerEvidence.unnamedRemoteLabels(
+            latestRemoteLabels.union(utterances.lazy.map(\.speaker).filter {
+                $0 == "Them" || $0.hasPrefix("Them ") || owned.contains($0)
+                    || self.baseLabelRenames["Them"] == $0
+            }))
         if let roster = VisualSpeakerEvidence.rosterMatch(visualSpeakerCapture.rosters, remoteLabels: remote),
            !matches.contains(where: { $0.label == roster.label }) {
             matches.append(roster)

@@ -278,6 +278,33 @@ check(MeetingWindowHeuristics.evaluate(windows: [docWin], zoomRunning: true,
                                        slackRunning: false, micHolderIsBrowser: true) == nil,
       "zoom idling while the meeting is in a browser stays unknown")
 
+// Teams (2026-11-10): call windows count as presence; the main window,
+// which shares the "| Microsoft Teams" suffix, must never mask an end.
+let teamsCallWin = WindowInfo(ownerName: "Microsoft Teams", title: "Meeting with Sam Rivera | Microsoft Teams",
+                              ownerBundleID: "com.microsoft.teams2")
+let teamsChatWin = WindowInfo(ownerName: "Microsoft Teams", title: "(2) Chat | Sam Rivera | Microsoft Teams",
+                              ownerBundleID: "com.microsoft.teams2")
+let teamsSubjectWin = WindowInfo(ownerName: "Microsoft Teams", title: "Weekly sync | Microsoft Teams",
+                                 ownerBundleID: "com.microsoft.teams2")
+let teamsTabWin = WindowInfo(ownerName: "Safari", title: "Meeting with Sam Rivera | Microsoft Teams")
+check(MeetingWindowHeuristics.evaluate(windows: [teamsCallWin], zoomRunning: false,
+                                       slackRunning: false, micHolderIsBrowser: false) == true
+      && MeetingWindowHeuristics.evaluate(windows: [teamsTabWin], zoomRunning: false,
+                                          slackRunning: false, micHolderIsBrowser: true) == true,
+      "teams call window (app or browser) matches")
+check(MeetingWindowHeuristics.evaluate(windows: [teamsChatWin, teamsSubjectWin], zoomRunning: false,
+                                       slackRunning: false, micHolderIsBrowser: false) == nil,
+      "teams main and subject-only windows stay unknown")
+check(MeetingWindowHeuristics.evaluate(windows: [zoomHome7, teamsChatWin], zoomRunning: true,
+                                       slackRunning: false, micHolderIsBrowser: false) == false,
+      "an open teams main window does not mask the end of a zoom call")
+var d20 = MeetingDetector()
+d20.sessionStarted()
+let teamsChatOnly = MeetingWindowHeuristics.evaluate(windows: [teamsChatWin], zoomRunning: false,
+                                                     slackRunning: false, micHolderIsBrowser: false)
+let e20 = runEnded([(0, win(app, teamsChatOnly)), (100, win(quiet, teamsChatOnly))], detector: &d20, to: 300)
+check(e20.first == 160, "teams chat window open: mic release still ends on the 60s path", "got \(e20.prefix(3))")
+
 // FaceTime: a call window is titled with the caller's name; the idle
 // window is titled "FaceTime" and must not read as a meeting.
 let facetimeCallWin = WindowInfo(ownerName: "FaceTime", title: "Lee Abraham Biz")

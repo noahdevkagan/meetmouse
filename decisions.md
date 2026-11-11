@@ -2243,3 +2243,31 @@ existing limits. Section rewrites cancel when the detail view disappears and
 compare the full saved file before writing, so another writer's changes win.
 Saved next-call prep is honored inside startLive, shared by sidebar, menu bar,
 and detection starts; unprepared last-used guests remain unconfirmed.
+
+## 2026-11-10 — Window discovery retries; Teams is a recognized call window
+A real two-person Zoom call showed "No unique meeting window found" and never
+suggested the guest: the session started about 6 s before the Zoom meeting
+window existed, and automatic discovery listed windows exactly once. Discovery
+now re-checks on a backing-off cadence (2, 3, 5, 8, 13, 20, then every 30 s)
+until exactly one recognized call window exists or the session ends. Zero
+candidates shows no "choose your call" banner; two or more show it with a
+Choose... button and keep checking, so the question withdraws itself. A pinned
+window is never swapped: automatic mode resumes discovery only when the pinned
+window no longer exists anywhere (CGWindowList by id, so a minimized or
+off-Space window counts as present and ends assistance as before); the six
+snapshot cap and collected evidence carry over. A manually chosen window never
+resumes. Consent, remembered opt-in, local-only OCR and nothing-stored are
+unchanged. Discovery logs counts, platform names and a reason to
+/tmp/mc_debug.log (only when they change), never titles.
+Teams matches by bundle id first (`com.microsoft.teams2`, `com.microsoft.teams`,
+read from the installed apps' Info.plist) and in browsers by title. The title
+rule is an allowlist, "Meeting with/in ...", "Meeting compact view", "Call with
+..." followed by "| Microsoft Teams" (unread badge stripped), English only and
+UNVERIFIED against a live call. A denylist of main-window sections was rejected:
+a false match turns every auto-stop into "ended?" and makes Zoom calls look
+ambiguous. Cost: a meeting titled only by its subject is missed (end-watch falls
+back to the 60 s mic path, same as before). Teams has no outline reader, so
+automatic mode recognizes the window (ambiguity, end-watch) but takes no
+screenshot of it. Roster evidence also accepts a bare "Them" as the
+single remote voice when no numbered voice exists (the call site used to strip
+it); still two snapshots 10 s apart, one name, one-tap suggestion.

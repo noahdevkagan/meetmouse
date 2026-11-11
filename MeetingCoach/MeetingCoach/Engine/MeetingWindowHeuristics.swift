@@ -43,7 +43,7 @@ enum MeetingWindowHeuristics {
         for w in windows {
             if isZoomMeetingWindow(w) || isSlackHuddleWindow(w)
                 || isMeetTabWindow(w) || isHangoutsTabWindow(w)
-                || isFaceTimeCallWindow(w) {
+                || isFaceTimeCallWindow(w) || isTeamsMeetingWindow(w) {
                 return true
             }
         }
@@ -70,6 +70,64 @@ enum MeetingWindowHeuristics {
 
     static func isFaceTimeOwned(_ w: WindowInfo) -> Bool {
         owned(w, bundlePrefix: "com.apple.FaceTime", names: ["FaceTime"])
+    }
+
+    /// New Teams ("com.microsoft.teams2") and classic Teams
+    /// ("com.microsoft.teams"), both read from the installed apps'
+    /// Info.plist 2026-11-10. `owned` can't express both ids, so they are
+    /// listed here; "com.microsoft.teams2" does not have the classic id as a
+    /// dotted prefix.
+    static func isTeamsOwned(_ w: WindowInfo) -> Bool {
+        if let id = w.ownerBundleID, !id.isEmpty {
+            return id == "com.microsoft.teams2" || id == "com.microsoft.teams"
+                || id.hasPrefix("com.microsoft.teams2.") || id.hasPrefix("com.microsoft.teams.")
+        }
+        return ["Microsoft Teams", "Microsoft Teams classic",
+                "Microsoft Teams (work or school)"].contains(w.ownerName)
+    }
+
+    /// Lower-cased starts of a Teams CALL window title's first segment.
+    /// UNVERIFIED (no Teams call was available to measure, 2026-11-10): an
+    /// allowlist on purpose. The main window shares the "… | Microsoft
+    /// Teams" suffix ("Chat | Sam | Microsoft Teams", "(2) Activity | …"),
+    /// and a false match is costly: it turns every auto-stop into
+    /// "ended?" (window present, decisions 2026-10-09) and makes a Zoom
+    /// call look ambiguous to speaker snapshots. A meeting titled only by
+    /// its subject ("Weekly Sync | Microsoft Teams") is deliberately missed.
+    static let teamsCallTitlePrefixes = [
+        "meeting with ", "meeting in ", "meeting compact view", "call with ",
+    ]
+
+    /// A Teams call window title, app or browser (browser suffix removed).
+    static func isTeamsMeetingTitle(_ title: String) -> Bool {
+        var t = title.trimmingCharacters(in: .whitespaces)
+        // Unread badge, "(3) Chat | …".
+        if let badge = t.range(of: #"^\(\d+\+?\)\s*"#, options: .regularExpression) {
+            t.removeSubrange(badge)
+        }
+        let parts = t.split(separator: "|", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+        guard parts.count >= 2, parts.last == "microsoft teams", let first = parts.first
+        else { return false }
+        return teamsCallTitlePrefixes.contains { first.hasPrefix($0) }
+    }
+
+    static func isTeamsMeetingWindow(_ w: WindowInfo) -> Bool {
+        if isTeamsOwned(w) { return isTeamsMeetingTitle(w.title) }
+        // A Teams meeting tab in a browser: same title shape.
+        return browserOwners.contains(w.ownerName) && isTeamsMeetingTitle(
+            cleanedBrowserSuffix(w.title))
+    }
+
+    /// "Meeting with Sam | Microsoft Teams - Google Chrome" → without the browser.
+    private static func cleanedBrowserSuffix(_ title: String) -> String {
+        var t = title
+        for browser in browserOwners {
+            for sep in [" - ", " – ", " — "] where t.hasSuffix(sep + browser) {
+                t = String(t.dropLast(sep.count + browser.count))
+            }
+        }
+        return t
     }
 
     /// Bundle id decides when known; otherwise the owner name. A resolved

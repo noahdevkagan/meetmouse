@@ -249,9 +249,17 @@ func visualSpeakerChecks(scratch: URL) async {
           "visual: conflicting roster names veto")
     check(VisualSpeakerEvidence.rosterMatch(seen + [.init(names: [], time: 35)], remoteLabels: one)?.name == "Sam Rivera",
           "visual: unreadable snapshots do not veto")
-    check(VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: ["Them"]) == nil
+    check(VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: ["Them"]).map { "\($0.label)=\($0.name)" } == "Them=Sam Rivera"
           && VisualSpeakerEvidence.rosterMatch(seen, remoteLabels: ["Sam Rivera"]) == nil,
-          "visual: roster only names an unnamed diarized remote voice")
+          "visual: bare Them single remote voice gets a roster suggestion; named voices do not")
+    check(VisualSpeakerEvidence.unnamedRemoteLabels(["Them"]) == ["Them"]
+          && VisualSpeakerEvidence.unnamedRemoteLabels(["Them", "Them 1"]) == ["Them 1"]
+          && VisualSpeakerEvidence.unnamedRemoteLabels(["Them 1", "Them 2"]).count == 2
+          && VisualSpeakerEvidence.unnamedRemoteLabels(["Them", "Sam Rivera"]) == ["Them", "Sam Rivera"]
+          && VisualSpeakerEvidence.rosterMatch([seen[0]], remoteLabels: ["Them"]) == nil
+          && VisualSpeakerEvidence.rosterMatch(seen + [.init(names: ["Sam Rivera", "Priya"], time: 35)],
+                                               remoteLabels: ["Them"]) == nil,
+          "visual: bare Them keeps the two-snapshot, one-name and one-voice rules")
 
     // Real Vision OCR over a synthetic Zoom screen-share window: a shared
     // page with a dark bookmarks bar (same text size) must not count.
@@ -339,11 +347,158 @@ func visualSpeakerChecks(scratch: URL) async {
     let ambiguous = VisualSpeakerCapture(findWindows: { [zoom, meet] }, snapshot: { _ in
         check(false, "visual: ambiguous discovery must never capture")
         return .init(name: nil, start: Date(), end: Date())
-    }, pause: { _ in })
+    }, pause: { _ in await Task.yield() })
     ambiguous.startAutomatically(sessionStart: Date(), canStart: { true }) {}
     for _ in 0..<100 where ambiguous.isDiscovering { await Task.yield() }
     check(ambiguous.count == 0 && ambiguous.status.contains("Choose your call"),
           "visual: ambiguous automatic discovery asks for manual selection")
+    ambiguous.stop(reset: true)
+
+    // Discovery keeps trying: the call window can appear after session start.
+    var listing: [SpeakerWindowChoice] = [idle, browser]
+    var lists = 0, waits = 0, lateShots = 0
+    let late = VisualSpeakerCapture(findWindows: { lists += 1; return listing }, snapshot: { _ in
+        lateShots += 1
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in waits += 1; await Task.yield() })
+    late.startAutomatically(sessionStart: Date(), canStart: { true }) {}
+    for _ in 0..<50 where waits < 3 { await Task.yield() }
+    check(waits >= 3 && lists >= 3 && late.isDiscovering && lateShots == 0 && late.count == 0,
+          "visual: zero candidates keeps re-checking without capturing")
+    check(late.status == "Finding your meeting window…" && !late.status.contains("Choose"),
+          "visual: zero candidates shows no choose-a-window banner")
+    check(!late.needsWindowChoice, "visual: zero candidates never asks to choose")
+    listing = [idle, browser, zoom]
+    for _ in 0..<300 where lateShots < 6 { await Task.yield() }
+    check(lateShots == 6 && late.count == 6 && !late.isDiscovering,
+          "visual: window that appears after start is picked and captured (six max)")
+    let listsAfterPick = lists
+    for _ in 0..<50 { await Task.yield() }
+    check(lists == listsAfterPick, "visual: discovery stops listing windows once a call is pinned")
+
+    // The loop ends with the session: Stop, or canStart turning false.
+    var quietLists = 0
+    let quiet = VisualSpeakerCapture(findWindows: { quietLists += 1; return [idle] }, snapshot: { _ in
+        check(false, "visual: ended discovery must never capture")
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in await Task.yield() })
+    quiet.startAutomatically(sessionStart: Date(), canStart: { true }) {}
+    for _ in 0..<50 where quietLists < 3 { await Task.yield() }
+    quiet.stop()
+    let listsAtStop = quietLists
+    for _ in 0..<50 { await Task.yield() }
+    check(quietLists == listsAtStop && !quiet.isDiscovering, "visual: Stop ends the retry loop")
+    var live = true
+    var endedLists = 0
+    let ended = VisualSpeakerCapture(findWindows: { endedLists += 1; return [idle] }, snapshot: { _ in
+        check(false, "visual: discovery after session end must never capture")
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in await Task.yield() })
+    ended.startAutomatically(sessionStart: Date(), canStart: { live }) {}
+    for _ in 0..<50 where endedLists < 2 { await Task.yield() }
+    live = false
+    for _ in 0..<50 where ended.isDiscovering { await Task.yield() }
+    let listsAtEnd = endedLists
+    for _ in 0..<50 { await Task.yield() }
+    check(!ended.isDiscovering && endedLists == listsAtEnd, "visual: session end stops the retry loop")
+
+    // Two candidates ask; the question resolves itself when one closes.
+    var pair: [SpeakerWindowChoice] = [zoom, meet]
+    var pairWaits = 0, pairShots = 0
+    let resolving = VisualSpeakerCapture(findWindows: { pair }, snapshot: { _ in
+        pairShots += 1
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in pairWaits += 1; await Task.yield() })
+    resolving.startAutomatically(sessionStart: Date(), canStart: { true }) {}
+    for _ in 0..<50 where pairWaits < 3 { await Task.yield() }
+    check(resolving.status.contains("Choose your call") && resolving.needsWindowChoice
+          && pairShots == 0 && resolving.isDiscovering,
+          "visual: two candidates show the banner and keep checking")
+    pair = [meet]
+    for _ in 0..<300 where pairShots < 6 { await Task.yield() }
+    check(pairShots == 6 && !resolving.needsWindowChoice && !resolving.status.contains("Choose"),
+          "visual: ambiguity resolves itself when one call window closes")
+
+    // A closed pinned window may hand back to discovery; the cap carries over.
+    var gonePhase = 0
+    var goneShots: [CGWindowID] = []
+    let zoom2 = SpeakerWindowChoice(id: 9, pid: 1, app: "Zoom", title: "Zoom Meeting", bundleID: "us.zoom.xos")
+    let resumed = VisualSpeakerCapture(findWindows: { gonePhase == 0 ? [zoom] : [zoom2] }, snapshot: { w in
+        goneShots.append(w.id)
+        if w.id == zoom.id && goneShots.count >= 2 { gonePhase = 1; throw VisualSpeakerCapture.CaptureError.windowUnavailable }
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in await Task.yield() }, windowExists: { _ in gonePhase == 0 })
+    resumed.startAutomatically(sessionStart: Date(), canStart: { true }) {}
+    for _ in 0..<300 where goneShots.count < 6 { await Task.yield() }
+    check(goneShots == [1, 1, 9, 9, 9, 9] && resumed.count == 6 && !resumed.isRunning,
+          "visual: closed pinned window resumes discovery for a new unique window within the six-shot cap")
+
+    // A pinned window that still exists (retitled tab, minimized) is never
+    // swapped, even when another unique call window is on screen.
+    var keptShots: [CGWindowID] = []
+    let kept = VisualSpeakerCapture(findWindows: { keptShots.isEmpty ? [zoom] : [zoom2] }, snapshot: { w in
+        keptShots.append(w.id)
+        throw VisualSpeakerCapture.CaptureError.windowUnavailable
+    }, pause: { _ in await Task.yield() }, windowExists: { _ in true })
+    kept.startAutomatically(sessionStart: Date(), canStart: { true }) {}
+    for _ in 0..<100 where kept.isRunning || kept.isDiscovering { await Task.yield() }
+    check(keptShots == [1] && kept.status.contains("Window changed"),
+          "visual: an existing pinned window is never silently swapped")
+
+    // Manual choice never resumes discovery on its own.
+    var manualLists = 0
+    let manual = VisualSpeakerCapture(findWindows: { manualLists += 1; return [zoom2] }, snapshot: { _ in
+        throw VisualSpeakerCapture.CaptureError.windowUnavailable
+    }, pause: { _ in await Task.yield() }, windowExists: { _ in false })
+    manual.start(window: zoom, sessionStart: Date()) {}
+    for _ in 0..<100 where manual.isRunning { await Task.yield() }
+    check(manualLists == 0 && manual.count == 1 && !manual.isDiscovering,
+          "visual: a manually chosen window that closes ends assistance")
+
+    // Teams: bundle ids first; the main window and subject-only titles never count.
+    let teamsNew = SpeakerWindowChoice(id: 20, pid: 4, app: "Microsoft Teams",
+                                       title: "Meeting with Sam Rivera | Microsoft Teams", bundleID: "com.microsoft.teams2")
+    let teamsClassic = SpeakerWindowChoice(id: 21, pid: 5, app: "Microsoft Teams classic",
+                                           title: "Meeting in \"General\" | Microsoft Teams", bundleID: "com.microsoft.teams")
+    let teamsMain = SpeakerWindowChoice(id: 22, pid: 4, app: "Microsoft Teams",
+                                        title: "Chat | Sam Rivera | Microsoft Teams", bundleID: "com.microsoft.teams2")
+    let teamsBadged = SpeakerWindowChoice(id: 23, pid: 4, app: "Microsoft Teams",
+                                          title: "(3) Activity | Microsoft Teams", bundleID: "com.microsoft.teams2")
+    let teamsMeetingChat = SpeakerWindowChoice(id: 24, pid: 4, app: "Microsoft Teams",
+                                               title: "Chat | Meeting with Sam Rivera | Microsoft Teams",
+                                               bundleID: "com.microsoft.teams2")
+    let teamsSubject = SpeakerWindowChoice(id: 25, pid: 4, app: "Microsoft Teams",
+                                           title: "Weekly sync | Microsoft Teams", bundleID: "com.microsoft.teams2")
+    let teamsBare = SpeakerWindowChoice(id: 26, pid: 4, app: "Microsoft Teams",
+                                        title: "Microsoft Teams", bundleID: "com.microsoft.teams2")
+    let teamsTab = SpeakerWindowChoice(id: 27, pid: 2, app: "Google Chrome",
+                                       title: "Meeting with Sam Rivera | Microsoft Teams - Google Chrome")
+    let teamsTabChat = SpeakerWindowChoice(id: 28, pid: 2, app: "Google Chrome",
+                                           title: "(2) Chat | Sam Rivera | Microsoft Teams - Google Chrome")
+    let teamsNotes = SpeakerWindowChoice(id: 29, pid: 6, app: "Notes",
+                                         title: "Meeting with Sam Rivera | Microsoft Teams", bundleID: "com.apple.Notes")
+    let teamsCallApp = SpeakerWindowChoice(id: 30, pid: 4, app: "Microsoft Teams",
+                                           title: "Call with Sam Rivera | Microsoft Teams", bundleID: "com.microsoft.teams2")
+    check(VisualSpeakerCapture.meetingWindows(in: [teamsNew, teamsClassic, teamsMain, teamsBadged, teamsMeetingChat,
+                                                   teamsSubject, teamsBare, teamsTab, teamsTabChat, teamsNotes,
+                                                   teamsCallApp])
+          == [teamsNew, teamsClassic, teamsTab, teamsCallApp],
+          "visual: Teams app, classic and browser call windows recognized; main, badged, chat, bare and impostor not")
+    check(VisualSpeakerCapture.suggestedWindow(in: [teamsMain, teamsBadged, teamsNew]) == teamsNew
+          && VisualSpeakerCapture.suggestedWindow(in: [zoom, teamsMain, teamsBadged, teamsTabChat]) == zoom
+          && teamsNew.platformName == "Microsoft Teams" && teamsNew.highlightStyle == .unsupported
+          && teamsTab.platformName == "Microsoft Teams",
+          "visual: an open Teams main window never makes a Zoom call ambiguous")
+    var teamsShots = 0
+    let teamsCapture = VisualSpeakerCapture(findWindows: { [teamsNew] }, snapshot: { _ in
+        teamsShots += 1
+        return .init(name: nil, start: Date(), end: Date())
+    }, pause: { _ in })
+    teamsCapture.startAutomatically(sessionStart: Date(), canStart: { true }) {}
+    for _ in 0..<50 where teamsCapture.isDiscovering { await Task.yield() }
+    check(teamsShots == 0 && teamsCapture.count == 0 && !teamsCapture.isRunning
+          && teamsCapture.status.contains("Teams"),
+          "visual: automatic mode takes no screenshot of a window it cannot read")
 
     var foundWindows: CheckedContinuation<[SpeakerWindowChoice], Never>?
     let discovery = VisualSpeakerCapture(findWindows: {
@@ -450,6 +605,34 @@ func visualSpeakerChecks(scratch: URL) async {
         }.first { $0.contains(words) }
         check(saved?.contains("Sarah: \(words)") == true,
               "visual pipeline \(platform): confirmed name persists after Stop")
+        vm.deleteSession()
+    }
+
+    // 1:1 where the diarizer never numbers the lone remote voice: bare "Them".
+    do {
+        var shots = 0
+        let rosterCapture = VisualSpeakerCapture(findWindows: { [zoom] }, snapshot: { _ in
+            let at = (AudioCaptureManager.last?.startTime ?? Date()).addingTimeInterval(10 + Double(shots) * 15)
+            shots += 1
+            return .init(name: nil, start: at, end: at.addingTimeInterval(0.1), roster: ["Sarah"])
+        }, pause: { _ in })
+        let vm = LiveSessionViewModel(visualSpeakerCapture: rosterCapture)
+        vm.startLive(context: PreCallContext())
+        for _ in 0..<300 where rosterCapture.count < 6 || rosterCapture.isRunning { await Task.yield() }
+        if let audio = AudioCaptureManager.last {
+            audio.onUtterance?(Utterance(t: 6, speaker: "Them",
+                                         text: "A one on one with a single unnumbered remote voice here.", endT: 100))
+            try? await Task.sleep(for: .milliseconds(50))
+            let suggestion = vm.speakerNameSuggestions.first { $0.kind == .visualName }
+            check(suggestion?.label == "Them" && suggestion?.name == "Sarah",
+                  "visual pipeline bare Them: roster suggests the lone remote voice")
+            check(vm.utterances.first?.speaker == "Them", "visual pipeline bare Them: suggestion awaits confirmation")
+            audio.onSpeakerSegments?(.system, [.init(speaker: "Them 1", start: 5, end: 105),
+                                               .init(speaker: "Them 2", start: 5, end: 105)])
+            check(!vm.speakerNameSuggestions.contains { $0.kind == .visualName },
+                  "visual pipeline bare Them: a second voice withdraws it")
+        } else { check(false, "visual pipeline bare Them: audio callbacks wired") }
+        vm.stopLive()
         vm.deleteSession()
     }
 }
