@@ -16,6 +16,12 @@ Four fixes from a speed/accuracy audit of origin/main, one commit, not pushed:
 Debug build passes; tests/session 451 checks (16 new), nudges, demo, echo pass. The notes-names
 check fails on the old code. Not measured: CPU before/after (no speed benchmark exists yet), and
 no live call, so the reconnect fix is covered by the intake check only.
+Review follow-up (second commit): the intake rebuilds its decimator when the source rate changes
+(mic back at 24 kHz after a 48 kHz start), gap silence is fed in one-second chunks with an inference
+pass every 30 s of it, and a misheard-term fix clears the planned-question sizes. tests/session 455.
+Review points left open: backfill while the model is still loading can fill the preload cap; gaps
+are still patched at two restart sites, not by stamping buffers with session time; new session
+checks use fixed sleeps like the rest of the suite.
 Audit items not done: chunked local notes for <32 GB Macs (bench/notes 1/7 facts), undetected
 context overflow in `OllamaClient.complete`, bleed gate timing, default AppSumo vocabulary,
 Parakeet never unloaded, sidebar/search reading every file on main, non-streamed notes.

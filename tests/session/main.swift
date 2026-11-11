@@ -2090,7 +2090,7 @@ func runTests() async {
         for _ in 0..<100 {   // 1 s of 48 kHz capture in 10 ms buffers
             add(intake.audio([Float](repeating: 0.1, count: 480), sampleRate: 48_000))
         }
-        add(intake.silence(seconds: 6))
+        fed += Double(intake.silence(seconds: 6).samples) / intake.modelRate
         for _ in 0..<100 {
             add(intake.audio([Float](repeating: 0.1, count: 480), sampleRate: 48_000))
         }
@@ -2102,8 +2102,29 @@ func runTests() async {
         check(chunk?.rate == 44_100 && chunk?.samples.count == 4410,
               "diarizer intake: non-multiple rates pass through for the model to resample")
         let quiet = passthrough.silence(seconds: 2.5)
-        check(quiet.rate == 16_000 && quiet.samples.count == 40_000,
-              "diarizer intake: silence is sized at the model rate")
+        check(quiet.rate == 16_000 && quiet.samples == 40_000
+              && quiet.fullChunks == 2 && quiet.remainder == 8_000,
+              "diarizer intake: silence is sized at the model rate, in one-second chunks")
+        let hour = passthrough.silence(seconds: 3600)
+        check(hour.chunk == 16_000 && hour.fullChunks == 3600 && hour.remainder == 0,
+              "diarizer intake: an hour-long gap is never one allocation")
+
+        // The microphone comes back at a different rate (AirPods connect):
+        // the clock must keep real time, not reuse the first rate's factor.
+        var switching = DiarizerIntake()
+        var clock = 0.0
+        for _ in 0..<100 {
+            if let c = switching.audio([Float](repeating: 0.1, count: 480), sampleRate: 48_000) {
+                clock += Double(c.samples.count) / c.rate
+            }
+        }
+        for _ in 0..<100 {
+            if let c = switching.audio([Float](repeating: 0.1, count: 240), sampleRate: 24_000) {
+                clock += Double(c.samples.count) / c.rate
+            }
+        }
+        check(abs(clock - 2) < 0.01, "diarizer clock: a mid-call rate change keeps real time",
+              "got \(clock)")
     }
 
     // The notes written at Stop must see the same speaker names as the saved
@@ -2164,7 +2185,8 @@ func runTests() async {
         resetSeams()
         let vm = LiveSessionViewModel()
         var ctx = PreCallContext()
-        ctx.plannedQuestions = ["What is your budget for this quarter?"]
+        ctx.plannedQuestions = ["What is your budget for this quarter?",
+                                "Do you run Kubernetes clusters?"]
         vm.startLive(context: ctx)
         try? await Task.sleep(for: .milliseconds(300))
         if let capture = AudioCaptureManager.last {
@@ -2193,9 +2215,25 @@ func runTests() async {
             capture.onUtterance?(Utterance(t: 13, speaker: "Them",
                 text: "That makes sense.", endT: 14))
             try? await Task.sleep(for: .milliseconds(50))
-            check(vm.askedPlannedQuestions == [1],
+            check(vm.askedPlannedQuestions == [2],
                   "planned question: one added mid-call is checked against earlier turns",
                   "asked \(vm.askedPlannedQuestions)")
+
+            // A misheard-term fix rewrites the turn in place at the same
+            // length; the corrected text must be read again.
+            capture.onUtterance?(Utterance(t: 15, speaker: "You",
+                text: "On our side,", endT: 16))
+            capture.onUtterance?(Utterance(t: 16, speaker: "You",
+                text: "we run Kubernetis in production.", endT: 18))
+            try? await Task.sleep(for: .milliseconds(50))
+            check(vm.askedPlannedQuestions == [2], "planned question: a misheard keyword does not tick")
+            vm.fixMisheardTerm(wrote: "Kubernetis", canonical: "Kubernetes")
+            capture.onUtterance?(Utterance(t: 20, speaker: "Them",
+                text: "Good to know.", endT: 21))
+            try? await Task.sleep(for: .milliseconds(50))
+            check(vm.askedPlannedQuestions == [1, 2],
+                  "planned question: a same-length term fix is read again",
+                  "asked \(vm.askedPlannedQuestions), turn \(vm.turns.dropLast().last?.text ?? "")")
         } else {
             check(false, "capture manager wired (planned questions)")
         }

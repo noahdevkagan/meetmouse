@@ -53,7 +53,8 @@ struct Decimator {
 struct DiarizerIntake {
     let modelRate: Double
     private var decimator: Decimator?
-    private var decimatorBuilt = false
+    /// The source rate `decimator` was built for.
+    private var sourceRate: Double?
 
     init(modelRate: Double = 16_000) {
         self.modelRate = modelRate
@@ -62,22 +63,42 @@ struct DiarizerIntake {
     /// A source buffer, decimated to the model rate when the source rate is
     /// an integer multiple of it; other rates pass through for the model to
     /// resample. Nil while the FIR filter is still warming up.
+    ///
+    /// The decimator follows the source: a microphone that comes back at a
+    /// different rate after a restart (AirPods at 24 kHz after a 48 kHz
+    /// start) gets a new one. Reusing the first buffer's factor ran the
+    /// session clock slow for the rest of the call.
     mutating func audio(_ samples: [Float], sampleRate: Double) -> (samples: [Float], rate: Double)? {
-        if !decimatorBuilt {
+        if sourceRate != sampleRate {
             decimator = Decimator(inputRate: sampleRate, targetRate: modelRate)
-            decimatorBuilt = true
+            sourceRate = sampleRate
         }
-        guard decimator != nil else { return (samples, sampleRate) }
-        let out = decimator!.process(samples)
+        guard var active = decimator else { return (samples, sampleRate) }
+        let out = active.process(samples)
+        decimator = active
         return out.isEmpty ? nil : (out, modelRate)
     }
 
-    /// Silence covering `seconds` of session time. Written at the model
-    /// rate, past the decimator: sent through `audio` as 16 kHz samples, a
-    /// 48 kHz source's decimator shrank it to a third of the gap, and every
-    /// later speaker segment landed that much too early.
-    func silence(seconds: TimeInterval) -> (samples: [Float], rate: Double) {
-        let count = max(0, Int((seconds * modelRate).rounded()))
-        return ([Float](repeating: 0, count: count), modelRate)
+    /// Silence covering `seconds` of session time, as whole one-second
+    /// chunks plus a remainder, so a long gap (the Mac slept mid-call) is
+    /// never one allocation. Sized at the model rate, past the decimator:
+    /// sent through `audio` as 16 kHz samples, a 48 kHz source's decimator
+    /// shrank it to a third of the gap, and every later speaker segment
+    /// landed that much too early.
+    func silence(seconds: TimeInterval) -> SilencePlan {
+        let total = max(0, Int((seconds * modelRate).rounded()))
+        let chunk = max(1, Int(modelRate))
+        return SilencePlan(chunk: chunk, fullChunks: total / chunk,
+                           remainder: total % chunk, rate: modelRate)
+    }
+
+    struct SilencePlan: Equatable {
+        /// Samples in one full chunk (one second at the model rate).
+        let chunk: Int
+        let fullChunks: Int
+        let remainder: Int
+        let rate: Double
+
+        var samples: Int { chunk * fullChunks + remainder }
     }
 }

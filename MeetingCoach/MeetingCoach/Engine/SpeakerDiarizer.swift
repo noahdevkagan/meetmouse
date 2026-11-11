@@ -131,32 +131,54 @@ final class SpeakerDiarizer: @unchecked Sendable {
     func enqueueSilence(seconds: TimeInterval) {
         queue.async {
             guard !self.stopped else { return }
-            let (samples, rate) = self.intake.silence(seconds: seconds)
-            guard !samples.isEmpty else { return }
-            self.ingest(samples, rate: rate)
+            let plan = self.intake.silence(seconds: seconds)
+            guard plan.samples > 0 else { return }
+            let second = [Float](repeating: 0, count: plan.chunk)
+            for i in 0..<plan.fullChunks {
+                self.feed(second, rate: plan.rate)
+                // A long gap would otherwise queue all of it inside the
+                // model before one inference pass.
+                if (i + 1) % 30 == 0 { _ = try? self.diarizer?.process() }
+            }
+            if plan.remainder > 0 {
+                self.feed([Float](second.prefix(plan.remainder)), rate: plan.rate)
+            }
+            self.processIfDue()
         }
     }
 
     /// Model-ready samples (already decimated when the source needed it):
     /// ring, model, throttled inference. Queue only.
     private func ingest(_ samples: [Float], rate: Double) {
+        guard feed(samples, rate: rate) else { return }
+        processIfDue()
+    }
+
+    /// Ring + model (or the preload while the model is loading). False when
+    /// the model did not take the audio.
+    @discardableResult
+    private func feed(_ samples: [Float], rate: Double) -> Bool {
         ringAppend(samples, rate: rate)
         guard let d = diarizer else {
             if preloadSamples < preloadCap {
                 preload.append((samples, rate))
                 preloadSamples += samples.count
             }
-            return
+            return false
         }
         do {
             try d.addAudio(samples, sourceSampleRate: rate)
+            return true
         } catch {
             mclog("[Diarizer:\(labelPrefix)] addAudio failed: \(error)")
-            return
+            return false
         }
+    }
 
-        // Throttle inference + timeline reads.
-        guard Date().timeIntervalSince(lastProcess) > processInterval else { return }
+    /// Throttled inference + timeline read.
+    private func processIfDue() {
+        guard let d = diarizer,
+              Date().timeIntervalSince(lastProcess) > processInterval else { return }
         lastProcess = Date()
         do {
             _ = try d.process()

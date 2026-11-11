@@ -1512,6 +1512,9 @@ final class LiveSessionViewModel {
             var builder = TurnBuilder()
             builder.rebuild(utterances)
             turns = builder.turns
+            // A fix inside a turn keeps the turn's id and can keep its
+            // length; without this the corrected text would look unread.
+            questionScan.checkedSize = [:]
             if var engine = signalEngine {
                 engine.invalidateTurnCache()
                 signalEngine = engine
