@@ -9,6 +9,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
+- Speaker-name snapshots now keep looking for your call window if it opens after the meeting starts, instead of giving up after one check. Microsoft Teams call windows (app and browser) are recognized, though Teams names still need a click on the speaker label, and a Zoom or Meet window that opens later is still picked up. Choosing a window yourself always wins over the automatic pick.
 - AI notes for long meetings now include what was decided in the middle of the call. With Claude or OpenAI the whole meeting is used; on Macs with 32 GB of memory or more, local AI reads meetings up to about 90 minutes in full (was about 40).
 - Regenerating a meeting's notes now uses the goal and participants you saved for that meeting, so owners and names come out right.
 - Prepare a call before it starts, if you want to: right-click Start meeting and choose "Prepare next call" to set a goal, who's on the call and questions to cover, then Save for later or start right away. Saved prep shows as a small "Next call" card; nothing appears if you never use it. Start meeting is still one click, and your questions tick off live as you ask them. Questions to Ask moved here from Advanced.
