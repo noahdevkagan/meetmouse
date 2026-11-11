@@ -187,6 +187,8 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
     /// utterance with no recent far-side audio is quiet NEAR speech (e.g. a
     /// phone call heard faintly across the desk), not leakage.
     private var lastLoudSystemAt = Date.distantPast
+    /// Also the Them pipeline's voice floor and the short-bleed gate's
+    /// "far side voiced" test: one definition of "the far side spoke".
     private let sysLoudFloor: Float = 0.002
 
     // Software echo suppression: with voice processing off, the far side's
@@ -421,10 +423,14 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         // the main actor after the save).
     }
 
-    /// Short mic lines still waiting for a possible system twin. Real unless
-    /// proven otherwise, so the session inserts them on stop before saving.
+    /// Stop point for the short-bleed hold: returns every short mic line
+    /// still waiting for a possible system twin (real unless proven
+    /// otherwise, so the session inserts them before saving) and closes the
+    /// gate, so nothing is held or released asynchronously after this. Main
+    /// thread, like the release path, so the two cannot interleave.
+    @MainActor
     func drainHeldShortLines() -> [Utterance] {
-        shortEchoGate.drainAll()
+        shortEchoGate.close()
     }
 
     // MARK: - Mid-call language switch
@@ -521,7 +527,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                 old.stop()
             }
             if let old = sysPipeline {
-                let fresh = try makePipeline(speaker: "Them", voiceFloor: 0.002, commitSilence: 2.0)
+                let fresh = try makePipeline(speaker: "Them", voiceFloor: sysLoudFloor, commitSilence: 2.0)
                 fresh.start()
                 sysPipeline = fresh
                 old.stop()
@@ -577,6 +583,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                 for dup in self.shortEchoGate.recordFarPartial(normalized, now: self.sessionNow) {
                     mclog("[Capture] Dropped short bleed duplicate (held, system partial): \(dup.text.prefix(30))")
                 }
+                if self.shortEchoGate.hasReleasable { self.scheduleShortLineRelease() }
             } else if self.hasSystemAudio, !normalized.isEmpty {
                 // The live pending line should not show the far side's words.
                 display = self.echoFilter.filter(
@@ -613,9 +620,10 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                 // Remember far-side words for echo comparison (partials feed
                 // the pool too; commits catch re-transcription revisions).
                 echoFilter.recordFarText(u.text)
-                for dup in shortEchoGate.recordFar(u) {
+                for dup in shortEchoGate.recordFar(u, now: sessionNow) {
                     mclog("[Capture] Dropped short bleed duplicate (held, system twin arrived): \(dup.text.prefix(30))")
                 }
+                if shortEchoGate.hasReleasable { scheduleShortLineRelease() }
             } else {
                 // Bleed gate backstop: mic has been quiet — whatever was
                 // transcribed leaked from the speakers. Only plausible while
@@ -648,19 +656,15 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
                 }
                 // 1-2 word lines on built-in speakers: drop when the system
                 // channel has the same words at the same moment; if the far
-                // side was audible during the line, hold it briefly for the
-                // system twin (it usually lands after the mic commit).
-                let farLoudAt = micStateLock.withLock { lastLoudSystemAt }
-                    .timeIntervalSince(startTime)
-                switch shortEchoGate.submit(u, onSpeakers: shortEchoGateOn,
-                                            farLoudAt: farLoudAt, now: sessionNow) {
+                // side was voiced during the line, hold it until the far text
+                // moves past it (the system twin usually lands after the mic
+                // commit), at most holdSeconds.
+                switch shortEchoGate.submit(u, onSpeakers: shortEchoGateOn, now: sessionNow) {
                 case .drop:
                     mclog("[Capture] Dropped short bleed duplicate: \(u.text.prefix(30))")
                     return
                 case .hold:
-                    DispatchQueue.global().asyncAfter(deadline: .now() + ShortEchoGate.holdSeconds + 0.05) { [weak self] in
-                        self?.releaseHeldShortLines()
-                    }
+                    scheduleShortLineRelease(after: ShortEchoGate.holdSeconds + 0.05)
                     return
                 case .deliver:
                     break
@@ -676,9 +680,20 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         }
     }
 
-    /// Deliver held short mic lines whose wait expired with no system twin.
+    /// Deliver held short mic lines that are done waiting with no system
+    /// twin. Always on the main thread and handed to the session
+    /// synchronously: the session's Stop (also main) closes the gate before
+    /// saving, so a release runs wholly before Stop or finds nothing held.
+    /// Never via emit(): an async hop could land after the save.
+    private func scheduleShortLineRelease(after delay: TimeInterval = 0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            MainActor.assumeIsolated { self?.releaseHeldShortLines() }
+        }
+    }
+
+    @MainActor
     private func releaseHeldShortLines() {
-        for u in shortEchoGate.expire(now: sessionNow) { emit(u) }
+        for u in shortEchoGate.release(now: sessionNow) { onUtterance?(u) }
     }
 
     /// Session-relative seconds: the clock both pipelines stamp utterances with.
@@ -1189,7 +1204,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         // fragmented into 2-3 word chunks (median 3 words over a real 82-min
         // call) that transcribe with no context and clip boundary words —
         // hence the lower floor and the longer silence gap here.
-        let pipe = try makePipeline(speaker: "Them", voiceFloor: 0.002, commitSilence: 2.0)
+        let pipe = try makePipeline(speaker: "Them", voiceFloor: sysLoudFloor, commitSilence: 2.0)
         let stream = try await makeSystemStream()
 
         sysPipeline = pipe
@@ -1359,7 +1374,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         guard speakers != reportedBuiltInSpeakers else { return }
         reportedBuiltInSpeakers = speakers
         micStateLock.withLock { outputOnBuiltInSpeakers = speakers }
-        if !speakers { for u in shortEchoGate.drainAll() { emit(u) } }
+        if !speakers { shortEchoGate.releaseAll(); scheduleShortLineRelease() }
         mclog("[Capture] Output route: \(speakers ? "built-in speakers (far side can reach the mic)" : "not built-in speakers")")
         Task { @MainActor [onOutputRoute] in
             onOutputRoute?(speakers)
@@ -1440,6 +1455,9 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         guard !sysDegraded else { return }
         sysDegraded = true
         hasSystemAudio = false
+        // Mic-only now: the gate is off, so nothing held can be judged.
+        shortEchoGate.releaseAll()
+        scheduleShortLineRelease()
         mclog("[Capture] System audio not recovering — treating the session as mic-only until it returns")
         emitStatus("Can't hear the other side — reconnecting…")
         Task { @MainActor [onSystemAudioLost] in
@@ -1767,6 +1785,13 @@ extension AudioCaptureManager: SCStreamOutput {
         sysDeliveredSinceRestart = true
         if loud { lastLoudSystemAt = Date() }
         micStateLock.unlock()
+        // Same floor as the Them pipeline's voice gate: "voiced" means the
+        // far side said something the system channel can transcribe.
+        if loud {
+            let now = sessionNow
+            shortEchoGate.noteFarVoiced(
+                from: now - Double(frameCount) / max(asbd.pointee.mSampleRate, 1), to: now)
+        }
         // Mirror the mono stream into the far-side diarizer (config pins
         // this stream to 1 channel). Fed unconditionally: its timestamps
         // are relative to fed audio, so gaps would skew every segment.

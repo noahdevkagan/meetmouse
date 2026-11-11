@@ -231,11 +231,24 @@ func runTests() async {
         }
         capture.onUtterance?(Utterance(t: 1, speaker: "Them",
             text: "We can wrap the pilot review here for today.", endT: 4))
-        capture.heldShortLines = [Utterance(t: 3.5, speaker: "You", text: "Sounds good.", endT: 3.9)]
+        let gate = capture.shortEchoGate
+        gate.noteFarVoiced(from: 1, to: 4)
+        let held = Utterance(t: 3.5, speaker: "You", text: "Sounds good.", endT: 3.9)
+        check(gate.submit(held, onSpeakers: true, now: 4.8) == .hold, "short line held (1b)")
         try? await Task.sleep(for: .milliseconds(50))
+        // Its hold timer is overdue but its main block has not run yet when
+        // Stop executes (the race): the drain must still carry it.
         vm.stopLive()
-        check(vm.utterances.contains { $0.isYou && $0.text == "Sounds good." },
+        check(vm.utterances.filter { $0.isYou && $0.text == "Sounds good." }.count == 1,
               "held short line committed on Stop", "utterances: \(vm.utterances.map(\.text))")
+        // The overdue release block then runs: nothing left to deliver twice.
+        capture.releaseHeldShortLines(now: 60)
+        check(vm.utterances.filter { $0.text == "Sounds good." }.count == 1,
+              "late release after Stop delivers nothing")
+        // A mic line still passing through deliver at Stop is not held.
+        let inFlight = Utterance(t: 4.0, speaker: "You", text: "Thanks.", endT: 4.3)
+        check(gate.submit(inFlight, onSpeakers: true, now: 5.2) == .deliver && gate.heldCount == 0,
+              "line in flight after the drain passes straight through")
         check(vm.turns.contains { $0.text.contains("Sounds good") },
               "held short line in the pane after Stop")
         var body = ""
