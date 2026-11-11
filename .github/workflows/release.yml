@@ -7,6 +7,9 @@ name: Release
 # Either path builds, signs (Developer ID), notarizes, and attaches
 # MeetMouse-<ver>.dmg to a GitHub Release.
 
+# Includes the version so auto-release.yml can tell which release is in flight.
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('Release v{0}', inputs.version) || format('Release {0}', github.ref_name) }}
+
 on:
   push:
     tags:
@@ -17,8 +20,9 @@ on:
         description: "Version to release (e.g. 0.1.0) — creates tag v<version>"
         required: true
 
+# Least privilege by default; only the release job (after approval) gets write.
 permissions:
-  contents: write          # needed to create the Release + upload the .dmg
+  contents: read
 
 env:
   OLLAMA_VERSION: v0.31.1  # pinned; also keys the download cache
@@ -26,12 +30,24 @@ env:
 jobs:
   # Every release runs the full test gate first — a tag from any machine
   # (or a manual dispatch) can never ship untested.
+  # Runs repo build/test scripts BEFORE approval, so it is read-only (it only
+  # checks out code and uploads an artifact on failure).
   gate:
+    permissions:
+      contents: read
     uses: ./.github/workflows/test-gate.yml
 
   release:
     needs: gate
     runs-on: macos-14
+    permissions:
+      contents: write      # create the Release + upload the .dmg (post-approval only)
+    # Approval gate: the run pauses here until a required reviewer approves
+    # (Actions run -> Review deployments). The signing, notarization, Sparkle,
+    # releases-repo and Cloudflare secrets live in this environment, so they
+    # are not available before approval. The gate job above runs first with
+    # no environment, so approval is only requested once tests have passed.
+    environment: release
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,11 +76,21 @@ jobs:
 
       - name: Derive version
         id: ver
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
+          set -euo pipefail
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
+            VERSION="$INPUT_VERSION"
           else
             VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          # Whole-string match (a line-wise grep would let a newline through
+          # and allow injecting extra lines into $GITHUB_OUTPUT). Tags are
+          # plain vX.Y.Z.
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid version (expected X.Y.Z)" >&2
+            exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -102,7 +128,8 @@ jobs:
           key: ollama-darwin-${{ env.OLLAMA_VERSION }}
 
       # Import the Developer ID Application cert into a temporary keychain.
-      # Store your exported .p12 (base64) and its password as repo secrets.
+      # Store your exported .p12 (base64) and its password as secrets in the
+      # `release` environment (not repo-level).
       - name: Import signing certificate
         env:
           CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
@@ -211,8 +238,8 @@ jobs:
       # build-changelog.py keeps in lockstep with CHANGELOG.md) deploys
       # automatically with each release. Skips with a note — never fails
       # the release — when the Cloudflare secrets aren't configured:
-      # add CLOUDFLARE_API_TOKEN (Pages:Edit) and CLOUDFLARE_ACCOUNT_ID
-      # under Settings → Secrets and variables → Actions.
+      # CLOUDFLARE_API_TOKEN lives in the `release` environment;
+      # CLOUDFLARE_ACCOUNT_ID is a repo-level secret (not sensitive).
       - name: Deploy site (changelog page)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

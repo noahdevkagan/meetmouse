@@ -2244,6 +2244,26 @@ compare the full saved file before writing, so another writer's changes win.
 Saved next-call prep is honored inside startLive, shared by sidebar, menu bar,
 and detection starts; unprepared last-used guests remain unconfirmed.
 
+## 2026-11-10 — Releases pause for approval in a `release` environment
+A CHANGELOG.md push to main used to sign, notarize and publish an update that
+Sparkle auto-installs on every Mac, using repo-level secrets with no human in
+the loop. The `release` job now runs in a GitHub Environment with a required
+reviewer (the gate job still runs first, unapproved, so approval comes after
+green tests), and the secrets move into that environment. The dispatch version
+input goes through `env:` and is validated instead of being interpolated into
+the shell. Signing and Cloudflare deploys share one job, so the whole job is
+gated; splitting them would limit what a compromised step can reach but was
+left out of scope.
+
+Follow-ups after review: the `gate` job gets a read-only token and only
+`release` gets contents: write. `run-name` carries the version so auto-release
+can match the specific version; if a different release is in flight it fails
+loudly rather than dispatching a second one (two releases racing for one
+appcast could publish the older version last) or skipping silently. Version
+check is a whole-string bash match (a line-wise grep let newlines through into
+$GITHUB_OUTPUT). The docs-push site deploy moved to a separate repo-level
+Pages-only token, `CLOUDFLARE_PAGES_API_TOKEN`, so the full-power
+`CLOUDFLARE_API_TOKEN` can live only in the `release` environment.
 ## 2026-11-10 — AI notes setup: one flow, Claude Code installed in-app on click
 Setup is two choices (Claude account / local model) shared by onboarding, a home card
 that stays until AI works, and a sheet behind "Set up AI notes" buttons. Installing Claude

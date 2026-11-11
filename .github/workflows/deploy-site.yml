@@ -39,11 +39,13 @@ jobs:
 
       - name: Deploy docs/ to Cloudflare Pages (production branch)
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Pages-only token, repo-level. The full-power CLOUDFLARE_API_TOKEN
+          # (Workers + D1) lives only in the `release` environment.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "::error::CLOUDFLARE_API_TOKEN is not set — site NOT deployed."
+            echo "::error::CLOUDFLARE_PAGES_API_TOKEN is not set — site NOT deployed."
             exit 1
           fi
           # --branch main: production. Without it wrangler may publish a preview.
