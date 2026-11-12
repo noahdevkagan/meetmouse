@@ -212,7 +212,9 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
                 if setup > 0 { setupEnable[name] = setup }
             }
         }
-        check(enableCalls == ["AISettingsView.swift": 2, "AISetupView.swift": 1],
+        // Settings has three: the Claude account button, the API-key save
+        // button, and the model picker for an already-enabled provider.
+        check(enableCalls == ["AISettingsView.swift": 3, "AISetupView.swift": 1],
               "enableCloudAI is called only from the Settings actions and the setup model: \(enableCalls)")
         check(tokenMakers == ["AISetupView.swift": 1], "ConsentClick is created exactly once, in AISetupView: \(tokenMakers)")
         check(setupEnable == ["AISetupView.swift": 2], "setup enable is defined and called only in AISetupView: \(setupEnable)")
