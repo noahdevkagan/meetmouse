@@ -5,7 +5,13 @@ import SwiftUI
 @MainActor @Observable
 final class LiveSessionViewModel {
     var isLive = false
-    var utterances: [Utterance] = []
+    var utterances: [Utterance] = [] {
+        didSet { utteranceGeneration &+= 1 }
+    }
+    /// Bumped on every utterances write; with the segment list it keys the
+    /// diarization relabel cache (applyDiarization).
+    @ObservationIgnored private var utteranceGeneration = 0
+    @ObservationIgnored private var lastRelabelKey: [DiarizationChannel: ([SpeakerSegment], Int)] = [:]
     /// Coalesced speaker turns (built incrementally by the signal engine) —
     /// the UI renders these instead of re-joining fragments every frame.
     var turns: [Turn] = []
@@ -1128,6 +1134,20 @@ final class LiveSessionViewModel {
         // full-array scans that made this pass O(utterances × segments) —
         // it runs on the main thread on every publish of a long call.
         let maxSegDur = segments.reduce(0.0) { max($0, $1.end - $1.start) }
+
+        // The diarizer republishes its full segment list every ~2 s, even
+        // when nothing moved (silence, a long monologue already labeled).
+        // Same segments + same utterances as the last pass ⇒ same labels:
+        // skip the O(n) relabel walk on the main thread.
+        if !UIPerf.legacy, let last = lastRelabelKey[channel],
+           last.1 == utteranceGeneration, last.0 == segments {
+            if channel == .system {
+                recomputeRemoteAlias()
+                maybeSuggestMerge()
+            }
+            return
+        }
+        defer { lastRelabelKey[channel] = (segments, utteranceGeneration) }
 
         var changed = false
         var rebuilt: [Utterance] = []

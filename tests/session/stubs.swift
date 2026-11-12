@@ -9,7 +9,7 @@ import Foundation
 
 /// One finalized "who spoke when" span (real one lives in SpeakerDiarizer,
 /// which imports FluidAudio).
-struct SpeakerSegment: Sendable {
+struct SpeakerSegment: Sendable, Equatable {
     let speaker: String
     let start: TimeInterval
     let end: TimeInterval

@@ -50,6 +50,17 @@ final class CoachingOverlayPanel: NSPanel {
         hasShadow = true
         sharingType = .none  // invisible in screen shares
 
+        // Perf: stop the bubble's timelines while it is hidden or fully
+        // covered (a fullscreen call on this Space, overlay hidden).
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didChangeOcclusionStateNotification, object: self, queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            MainActor.assumeIsolated {
+                OverlayRenderState.shared.visible = self.occlusionState.contains(.visible)
+            }
+        }
+
         // A dragged position is the user telling us where the overlay
         // belongs — restore it forever after (Noah moved it repeatedly and
         // every nudge snapped it back to the main screen's top-right).
@@ -290,7 +301,12 @@ struct CoachingOverlayView: View {
     }
 
     private var compactContent: some View {
-        TimelineView(.periodic(from: .now, by: 0.2)) { context in
+        // Legacy: 5 Hz forever. Now 1 Hz (the clock shows whole seconds and
+        // the 2.5 s "speaking" timeout doesn't need more), paused while the
+        // panel is hidden or covered.
+        TimelineView(PausablePeriodicSchedule(
+            interval: UIPerf.legacy ? 0.2 : 1.0,
+            paused: !UIPerf.legacy && !OverlayRenderState.shared.visible)) { context in
             let speaking = liveSession.isLive && context.date.timeIntervalSince(liveSession.overlaySpeechAt) < 2.5
             let color: Color = !speaking || liveSession.micOnly || liveSession.overlaySpeaker == "Meeting"
                 ? .secondary : liveSession.overlaySpeaker == "You" ? Dorado.dollar : .blue
@@ -299,8 +315,11 @@ struct CoachingOverlayView: View {
             let vertical = settings.talkBubbleLayout == .vertical
             let layout = vertical ? AnyLayout(VStackLayout(spacing: 9)) : AnyLayout(HStackLayout(spacing: 11))
             layout {
-                // Only the bars redraw at 30 Hz, and only while someone is speaking.
-                TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !speaking || reduceMotion)) { bars in
+                // Legacy: the bars redraw at 30 Hz while someone is speaking
+                // (most of a meeting). Now they hold a static "speaking"
+                // shape: no per-frame redraw and WindowServer recomposite.
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0,
+                                        paused: !speaking || reduceMotion || !UIPerf.legacy)) { bars in
                     HStack(spacing: 3) {
                         ForEach(0..<5) { index in
                             Capsule()
@@ -360,7 +379,7 @@ struct CoachingOverlayView: View {
     private func barHeight(_ index: Int, speaking: Bool, at date: Date) -> CGFloat {
         guard speaking else { return 4 }
         let heights: [CGFloat] = [8, 15, 20, 12, 7]
-        guard !reduceMotion else { return heights[index] }
+        guard !reduceMotion, UIPerf.legacy else { return heights[index] }
         let phase = date.timeIntervalSinceReferenceDate * 14 + Double(index) * 1.7
         return 5 + (heights[index] - 5) * CGFloat((sin(phase) + 1) / 2)
     }
@@ -484,7 +503,9 @@ struct CoachingOverlayView: View {
         // Tint wash under the material while a nudge shows — positives get
         // an unmistakable green; corrections a lighter cue.
         .background(activeNudge.map { nudgeColor($0).opacity($0.type.isPositive ? 0.22 : 0.12) } ?? Color.clear)
-        .background(.ultraThinMaterial)
+        // Legacy: a live backdrop blur over whatever sits under the panel
+        // (usually the call's video) — re-blurred every time it changes.
+        .background { if UIPerf.legacy { Rectangle().fill(.ultraThinMaterial) } else { Dorado.surface } }
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
@@ -600,5 +621,27 @@ struct TalkMeterBar: View {
             .frame(height: 4)
         }
         .animation(.easeOut(duration: 0.4), value: share)
+    }
+}
+
+/// Whether the overlay panel is currently on screen and not fully covered.
+@MainActor @Observable
+final class OverlayRenderState {
+    static let shared = OverlayRenderState()
+    var visible = true
+}
+
+/// `.periodic` that can pause (no entries) — TimelineView has no paused
+/// flag for periodic schedules.
+struct PausablePeriodicSchedule: TimelineSchedule {
+    let interval: TimeInterval
+    let paused: Bool
+    func entries(from startDate: Date, mode: TimelineScheduleMode) -> AnyIterator<Date> {
+        if paused { return AnyIterator([startDate].makeIterator()) }
+        var next = startDate
+        return AnyIterator {
+            defer { next = next.addingTimeInterval(interval) }
+            return next
+        }
     }
 }

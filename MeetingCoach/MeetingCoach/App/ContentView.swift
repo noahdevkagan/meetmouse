@@ -476,7 +476,9 @@ struct LiveTimelineView: View {
                                     Image(systemName: "waveform.badge.mic")
                                         .font(.system(size: 28))
                                         .foregroundStyle(Dorado.dollar.opacity(0.4))
-                                        .symbolEffect(.pulse)
+                                        // Legacy: pulsed forever while live with an
+                                        // empty feed (always, with the coach off).
+                                        .symbolEffect(.pulse, isActive: UIPerf.legacy)
                                     Text("Quiet unless something's\nworth saying")
                                         .font(.caption).foregroundStyle(.tertiary)
                                         .multilineTextAlignment(.center)
@@ -1335,6 +1337,12 @@ private struct LiveTranscriptPane: View {
                     // commits leaves phantom blank space mid-list (Parakeet
                     // partials grow into full paragraphs, so the hole is big).
                     VStack(alignment: .leading, spacing: 0) {
+                        // Perf: committed turns go in a LazyVStack (only
+                        // visible rows are laid out per partial update, so
+                        // the cost no longer grows with meeting length).
+                        // The pending lines stay OUTSIDE it in this plain
+                        // VStack, so removing the tall pending row on commit
+                        // can't leave the lazy-layout hole described above.
                         if showNamingHint {
                             HStack(spacing: 8) {
                                 Image(systemName: "pencil.circle")
@@ -1363,6 +1371,7 @@ private struct LiveTranscriptPane: View {
                             }
                             .padding(.horizontal, 14).padding(.top, 10)
                         }
+                        TranscriptTurnStack(lazy: !UIPerf.legacy) {
                         ForEach(liveSession.turns) { turn in
                             TranscriptTurnRow(
                                 turn: turn,
@@ -1379,6 +1388,7 @@ private struct LiveTranscriptPane: View {
                                 })
                                 .equatable()
                                 .padding(.vertical, 14)
+                        }
                         }
                         // Live pending line(s): what the recognizer hears right
                         // now, before it's committed as a turn — dictation feel.
@@ -3202,5 +3212,18 @@ private struct CaptureWarningBanner<Actions: View>: View {
         .padding(8)
         .background(tint.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+/// Turn list container: LazyVStack unless the legacy-UI perf switch is on.
+struct TranscriptTurnStack<Content: View>: View {
+    let lazy: Bool
+    @ViewBuilder let content: Content
+    var body: some View {
+        if lazy {
+            LazyVStack(alignment: .leading, spacing: 0) { content }
+        } else {
+            VStack(alignment: .leading, spacing: 0) { content }
+        }
     }
 }
