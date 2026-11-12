@@ -3,7 +3,7 @@ import Foundation
 import FluidAudio
 
 /// One finalized "who spoke when" span, session-relative seconds.
-struct SpeakerSegment: Sendable {
+struct SpeakerSegment: Sendable, Equatable {
     let speaker: String
     let start: TimeInterval
     let end: TimeInterval

@@ -93,6 +93,7 @@
 		A36D1448B1484E7ACF6E53D5 /* MeetingDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A12E30BEB51DFB2F939AE4 /* MeetingDetectionService.swift */; };
 		A4FE039B5DC3EE1C8C2793AD /* SemanticCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07506FC59991300DD4578DB0 /* SemanticCoach.swift */; };
 		A796A74458CA9CF884CFB262 /* ShortEchoGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85C0F041AC83F3FBF9A6A9E6 /* ShortEchoGate.swift */; };
+		A7DCDF2CD43194FB5C011340 /* UIPerf.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1CA71D7BFDB93D0634D1A81 /* UIPerf.swift */; };
 		AB4F784C20C480FD7A9CD4BD /* VoiceShareSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D5E9BDD00E23D1F8DEC8F23 /* VoiceShareSignal.swift */; };
 		AC2DFEF84296BA4652EA853B /* MissingDiscoverySignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6D95FE03A7025FB8F8EE69D /* MissingDiscoverySignal.swift */; };
 		ACF7E740CC593F7C1077E087 /* TalkStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = B97FD941E80BA5417049F9CE /* TalkStats.swift */; };
@@ -229,6 +230,7 @@
 		9E3C38C1B54A15F61FEB493A /* RubricAdvisorApply.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RubricAdvisorApply.swift; sourceTree = "<group>"; };
 		9FFBE4A37EC6EEE8D7A7516D /* TranscriptAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptAnalysis.swift; sourceTree = "<group>"; };
 		A1A12E30BEB51DFB2F939AE4 /* MeetingDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetectionService.swift; sourceTree = "<group>"; };
+		A1CA71D7BFDB93D0634D1A81 /* UIPerf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIPerf.swift; sourceTree = "<group>"; };
 		A4A0318F6463431087594DA0 /* GoingQuietSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoingQuietSignal.swift; sourceTree = "<group>"; };
 		A5AE5052D754AAC4553B6E69 /* NoteDistiller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteDistiller.swift; sourceTree = "<group>"; };
 		A754A24BB56F62D6EE2963EA /* PendingProfileSaves.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingProfileSaves.swift; sourceTree = "<group>"; };
@@ -391,6 +393,7 @@
 				16524492B9725FF3E217054B /* TranscriptCleanup.swift */,
 				CA1F99166785B46F89B17133 /* TranscriptParser.swift */,
 				0F81DB4510A2BF8EF10A65C7 /* TuningTypes.swift */,
+				A1CA71D7BFDB93D0634D1A81 /* UIPerf.swift */,
 				DCEAF50FE941968271B365B5 /* VisualSpeakerCapture.swift */,
 				E4BE3007B1745028483B2303 /* VisualSpeakerEvidence.swift */,
 				CDFE946C214D3FA7737FF232 /* VoiceClipSelection.swift */,
@@ -780,6 +783,7 @@
 				646D824B1FF7ECF4F27A8229 /* TranscriptStore.swift in Sources */,
 				B1EEF82CF42D4472D319BA92 /* Trigger.swift in Sources */,
 				41742BA1758E72F5F58444E1 /* TuningTypes.swift in Sources */,
+				A7DCDF2CD43194FB5C011340 /* UIPerf.swift in Sources */,
 				16BE255C6A7E0741602AAD26 /* UnansweredQuestionSignal.swift in Sources */,
 				361A0A7A35E32604279D6088 /* UsageGate.swift in Sources */,
 				1F9054E3DCAD7089CBA0CBA2 /* Utterance.swift in Sources */,
