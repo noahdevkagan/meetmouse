@@ -77,6 +77,30 @@
   <p class="sub">What's new in MeetMouse — every release, in plain language. The app updates itself automatically.</p>
 
   <section class="release">
+    <h2>0.35.0
+      <span class="date">November 12, 2026</span></h2>
+    <ul>
+      <li>AI notes setup is now a main first-run step with two clear choices: use your own Claude account (MeetMouse can install Claude Code for you, only after you click, then you sign in) or download a local model (size shown, private, works offline). The first-run checklist is now three short rows (Microphone, Call audio, AI notes); the speech model downloads on its own and only shows a slim status line. After the first meeting, until AI notes work, home shows a one-line "AI notes" card with the same two buttons, and "Set up AI notes" buttons appear next to the basic-recap message and AI errors. After setup from a meeting's page, MeetMouse offers to write that meeting's notes.</li>
+      <li>On built-in Mac speakers, a one- or two-word line from the other person (like "Okay.") no longer also shows up as something you said. Your own short replies stay, even the same word said a few seconds later; one said while the other person is talking can appear up to a second later.</li>
+      <li>Speaker-name snapshots now keep looking for your call window if it opens after the meeting starts, instead of giving up after one check. Microsoft Teams call windows (app and browser) are recognized, though Teams names still need a click on the speaker label, and a Zoom or Meet window that opens later is still picked up. Choosing a window yourself always wins over the automatic pick.</li>
+      <li>Settings → AI is simpler: connect your Claude account or use the free local model, with API keys tucked under "Use an API key instead".</li>
+      <li>Claude Desktop can now use your meeting transcripts: Settings → General → Connect to Claude → "Add to Claude Desktop", then reopen Claude (its "Add custom connector" only takes web URLs). Claude Code and other apps: the "Other apps" menu.</li>
+      <li>AI notes for long meetings now include what was decided in the middle of the call. With Claude or OpenAI the whole meeting is used; on Macs with 32 GB of memory or more, local AI reads meetings up to about 90 minutes in full (was about 40).</li>
+      <li>Regenerating a meeting's notes now uses the goal and participants you saved for that meeting, so owners and names come out right.</li>
+      <li>Prepare a call before it starts, if you want to: right-click Start meeting and choose "Prepare next call" to set a goal, who's on the call and questions to cover, then Save for later or start right away. Saved prep shows as a small "Next call" card; nothing appears if you never use it. Start meeting is still one click, and your questions tick off live as you ask them. Questions to Ask moved here from Advanced.</li>
+      <li>A meeting's goal now applies only to that meeting instead of carrying over to the next one.</li>
+      <li>The home screen now shows what needs your attention: open follow-ups from your meeting notes from the last two weeks (tick one off right there), meetings whose notes you haven't looked at, and recent meetings with no AI notes yet. The meeting list stays in the sidebar.</li>
+      <li>Edit a meeting's notes yourself: click Edit notes on the Notes tab, fix or add anything, and save. If you later click Regenerate with AI, MeetMouse asks before replacing your edits.</li>
+      <li>Redo one section of your notes with AI (the summary, a topic, or the next steps): regenerate it, make it shorter, add anything missing, or give your own instruction. The rest of your notes stay as they are.</li>
+      <li>Recording is lighter on your Mac. The floating bubble now has a solid background instead of see-through blur and its level bars hold still, which cuts most of the screen-drawing work during a call; long transcripts also use less memory. The bubble's "speaking" colour can take up to a second to clear.</li>
+      <li>Transcription uses less processor time with microphones that run at 44.1 kHz (many Bluetooth and USB mics).</li>
+      <li>In a one-on-one, the notes written right after the call now use the other person's name for owners and who said what, the same as when you regenerate them. They used to see "Them".</li>
+      <li>Speaker names stay on the right lines after call audio or the microphone drops and reconnects mid-meeting. Before, names after the reconnect could land on the wrong lines for the rest of the call.</li>
+      <li>The live meeting screen uses less of your Mac during long calls: it no longer redraws every coaching card once a second, and questions you planned to ask are checked against new speech only.</li>
+    </ul>
+  </section>
+
+  <section class="release">
     <h2>0.34.0
       <span class="date">November 4, 2026</span></h2>
     <ul>

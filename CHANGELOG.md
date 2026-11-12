@@ -7,7 +7,7 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
-## Unreleased
+## 0.35.0 — 2026-11-12
 
 - AI notes setup is now a main first-run step with two clear choices: use your own Claude account (MeetMouse can install Claude Code for you, only after you click, then you sign in) or download a local model (size shown, private, works offline). The first-run checklist is now three short rows (Microphone, Call audio, AI notes); the speech model downloads on its own and only shows a slim status line. After the first meeting, until AI notes work, home shows a one-line "AI notes" card with the same two buttons, and "Set up AI notes" buttons appear next to the basic-recap message and AI errors. After setup from a meeting's page, MeetMouse offers to write that meeting's notes.
 - On built-in Mac speakers, a one- or two-word line from the other person (like "Okay.") no longer also shows up as something you said. Your own short replies stay, even the same word said a few seconds later; one said while the other person is talking can appear up to a second later.
