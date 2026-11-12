@@ -22,6 +22,9 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 - Redo one section of your notes with AI (the summary, a topic, or the next steps): regenerate it, make it shorter, add anything missing, or give your own instruction. The rest of your notes stay as they are.
 - Recording is lighter on your Mac. The floating bubble now has a solid background instead of see-through blur and its level bars hold still, which cuts most of the screen-drawing work during a call; long transcripts also use less memory. The bubble's "speaking" colour can take up to a second to clear.
 - Transcription uses less processor time with microphones that run at 44.1 kHz (many Bluetooth and USB mics).
+- In a one-on-one, the notes written right after the call now use the other person's name for owners and who said what, the same as when you regenerate them. They used to see "Them".
+- Speaker names stay on the right lines after call audio or the microphone drops and reconnects mid-meeting. Before, names after the reconnect could land on the wrong lines for the rest of the call.
+- The live meeting screen uses less of your Mac during long calls: it no longer redraws every coaching card once a second, and questions you planned to ask are checked against new speech only.
 
 ## 0.34.0 — 2026-11-04
 

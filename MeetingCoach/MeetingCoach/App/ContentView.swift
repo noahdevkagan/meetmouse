@@ -341,7 +341,7 @@ struct LiveTimelineView: View {
                         .frame(width: 6, height: 6)
                     Text(liveSession.isLive ? "Listening" : "Ended")
                     Text("·")
-                    Text(liveSession.elapsedFormatted).monospacedDigit()
+                    ElapsedClock(liveSession: liveSession)
                     Text(liveSession.isDemo ? "· Sample transcript" : "· On this Mac")
                     if liveSession.isLive, !liveSession.isDemo,
                        PlatformSupport.neuralModelsSupported,
@@ -834,6 +834,17 @@ struct LiveTimelineView: View {
         panel.nameFieldStringValue = "transcript_\(formatter.string(from: Date())).txt"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         try? transcriptText().write(to: url, atomically: true, encoding: .utf8)
+    }
+}
+
+/// The header's running clock, in its own view: reading the elapsed time
+/// inside LiveTimelineView's body re-ran the whole live screen (every nudge
+/// card and its transcript lookup) once a second.
+private struct ElapsedClock: View {
+    var liveSession: LiveSessionViewModel
+
+    var body: some View {
+        Text(liveSession.elapsedFormatted).monospacedDigit()
     }
 }
 

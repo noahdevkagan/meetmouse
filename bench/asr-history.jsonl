@@ -151,4 +151,6 @@
 {"corpus": "synthetic-hard", "combined": {"refWords": 288, "hypWords": 288, "errors": 10, "rate": 0.0347}, "utterances": 5, "commit": "81ba22b", "date": "2026-11-11T03:41:06Z"}
 {"corpus": "synthetic-hard", "combined": {"refWords": 288, "hypWords": 286, "errors": 13, "rate": 0.0451}, "utterances": 4, "commit": "acce5d5", "date": "2026-11-11T04:16:17Z"}
 {"corpus": "synthetic-hard", "combined": {"refWords": 288, "hypWords": 287, "errors": 9, "rate": 0.0312}, "utterances": 4, "commit": "d929067", "date": "2026-11-10T00:10:44Z"}
+{"corpus": "synthetic-hard", "combined": {"refWords": 288, "hypWords": 286, "errors": 12, "rate": 0.0417}, "utterances": 4, "commit": "9f9cd68", "date": "2026-11-12T02:13:24Z"}
 {"corpus": "synthetic-hard", "combined": {"refWords": 288, "hypWords": 285, "errors": 12, "rate": 0.0417}, "utterances": 4, "commit": "cd282c4", "date": "2026-11-11T23:43:56Z"}
+{"corpus": "synthetic-hard", "combined": {"refWords": 288, "hypWords": 286, "errors": 10, "rate": 0.0347}, "utterances": 4, "commit": "1811baf", "date": "2026-11-12T02:48:14Z"}

@@ -2077,6 +2077,170 @@ func runTests() async {
               "empty speech produces no clip")
     }
 
+    // A capture gap must advance the diarizer's clock by the whole gap. The
+    // backfill used to go in as 16 kHz samples through a 48 kHz source's
+    // decimator, so a 6 s gap counted as 2 s and later speakers landed 4 s
+    // early.
+    do {
+        var intake = DiarizerIntake()
+        var fed = 0.0
+        func add(_ chunk: (samples: [Float], rate: Double)?) {
+            if let chunk { fed += Double(chunk.samples.count) / chunk.rate }
+        }
+        for _ in 0..<100 {   // 1 s of 48 kHz capture in 10 ms buffers
+            add(intake.audio([Float](repeating: 0.1, count: 480), sampleRate: 48_000))
+        }
+        fed += Double(intake.silence(seconds: 6).samples) / intake.modelRate
+        for _ in 0..<100 {
+            add(intake.audio([Float](repeating: 0.1, count: 480), sampleRate: 48_000))
+        }
+        check(abs(fed - 8) < 0.01, "diarizer clock: 48 kHz capture with a 6 s gap counts 8 s",
+              "got \(fed)")
+
+        var passthrough = DiarizerIntake()
+        let chunk = passthrough.audio([Float](repeating: 0.1, count: 4410), sampleRate: 44_100)
+        check(chunk?.rate == 44_100 && chunk?.samples.count == 4410,
+              "diarizer intake: non-multiple rates pass through for the model to resample")
+        let quiet = passthrough.silence(seconds: 2.5)
+        check(quiet.rate == 16_000 && quiet.samples == 40_000
+              && quiet.fullChunks == 2 && quiet.remainder == 8_000,
+              "diarizer intake: silence is sized at the model rate, in one-second chunks")
+        let hour = passthrough.silence(seconds: 3600)
+        check(hour.chunk == 16_000 && hour.fullChunks == 3600 && hour.remainder == 0,
+              "diarizer intake: an hour-long gap is never one allocation")
+
+        // The microphone comes back at a different rate (AirPods connect):
+        // the clock must keep real time, not reuse the first rate's factor.
+        var switching = DiarizerIntake()
+        var clock = 0.0
+        for _ in 0..<100 {
+            if let c = switching.audio([Float](repeating: 0.1, count: 480), sampleRate: 48_000) {
+                clock += Double(c.samples.count) / c.rate
+            }
+        }
+        for _ in 0..<100 {
+            if let c = switching.audio([Float](repeating: 0.1, count: 240), sampleRate: 24_000) {
+                clock += Double(c.samples.count) / c.rate
+            }
+        }
+        check(abs(clock - 2) < 0.01, "diarizer clock: a mid-call rate change keeps real time",
+              "got \(clock)")
+    }
+
+    // The notes written at Stop must see the same speaker names as the saved
+    // file. In a confirmed one-on-one the model used to get "Them 1:".
+    do {
+        resetSeams()
+        var prompt: String?
+        LiveSessionViewModel.availableMemoryGB = { nil }
+        LiveSessionViewModel.completeReview = { _, _, user in prompt = user; return "SUMMARY\nA recap." }
+        let vm = LiveSessionViewModel()
+        let settings = liveSettings()
+        settings.usesCloudAI = true
+        settings.selectedModel = AIConfiguration(provider: .openai, model: "gpt-4.1-mini").modelReference
+        settings.availableModels = []
+        settings.ollamaReachable = true
+        let manager = OllamaManager()
+        manager.engineAvailable = false
+        var ctx = PreCallContext()
+        ctx.participants = [.init(name: "Jamie", role: "")]
+        vm.startLive(context: ctx, settings: settings, ollamaManager: manager,
+                     participantsConfirmed: true)
+        try? await Task.sleep(for: .milliseconds(500))
+        if let capture = AudioCaptureManager.last {
+            capture.onUtterance?(Utterance(t: 1, speaker: "Them",
+                text: "I will send the contract over by Friday.", endT: 3))
+            try? await Task.sleep(for: .milliseconds(50))
+            capture.onSpeakerSegments?(.system, [
+                SpeakerSegment(speaker: "Them 1", start: 0.9, end: 3.1),
+            ])
+            try? await Task.sleep(for: .milliseconds(50))
+            vm.renameSpeaker("Them 1", to: "Jamie")
+            capture.onUtterance?(Utterance(t: 5, speaker: "You",
+                text: "Perfect, thank you.", endT: 6))
+            capture.onUtterance?(Utterance(t: 8, speaker: "Them",
+                text: "Anything else you need from me?", endT: 10))
+            try? await Task.sleep(for: .milliseconds(50))
+        } else {
+            check(false, "capture manager wired (notes names)")
+        }
+        vm.stopLive()
+        vm.generateReview(ollamaManager: manager, settings: settings)
+        try? await Task.sleep(for: .milliseconds(200))
+        let sent = prompt ?? ""
+        check(sent.contains("Jamie: I will send the contract over by Friday.")
+              && sent.contains("Jamie: Anything else you need from me?"),
+              "notes prompt names the one-on-one guest", "prompt: \(sent.suffix(400))")
+        check(!sent.contains("Them 1:") && !sent.contains("Them:"),
+              "notes prompt carries no raw Them labels in a one-on-one",
+              "prompt: \(sent.suffix(400))")
+        check(sent.contains("You: Perfect, thank you."), "notes prompt keeps You as You")
+        vm.deleteSession()
+    }
+
+    // Planned questions tick off from what was said, reading each turn once:
+    // a turn that grows is read again, a hand-unticked question stays off,
+    // and a question added mid-call is checked against earlier turns.
+    do {
+        resetSeams()
+        let vm = LiveSessionViewModel()
+        var ctx = PreCallContext()
+        ctx.plannedQuestions = ["What is your budget for this quarter?",
+                                "Do you run Kubernetes clusters?"]
+        vm.startLive(context: ctx)
+        try? await Task.sleep(for: .milliseconds(300))
+        if let capture = AudioCaptureManager.last {
+            capture.onUtterance?(Utterance(t: 1, speaker: "You",
+                text: "Before we start, who signs the contract on your side?", endT: 3))
+            try? await Task.sleep(for: .milliseconds(50))
+            check(vm.askedPlannedQuestions.isEmpty, "planned question: unrelated speech ticks nothing")
+            capture.onUtterance?(Utterance(t: 4, speaker: "You",
+                text: "And tell me about the budget", endT: 5))
+            try? await Task.sleep(for: .milliseconds(50))
+            check(vm.askedPlannedQuestions.isEmpty, "planned question: half the keywords is not enough")
+            capture.onUtterance?(Utterance(t: 6, speaker: "You",
+                text: "you have set aside for this quarter.", endT: 8))
+            try? await Task.sleep(for: .milliseconds(50))
+            check(vm.turns.count == 1 && vm.askedPlannedQuestions == [0],
+                  "planned question: a turn that grows is read again",
+                  "turns \(vm.turns.count), asked \(vm.askedPlannedQuestions)")
+
+            vm.togglePlannedQuestion(0)
+            capture.onUtterance?(Utterance(t: 9, speaker: "You",
+                text: "So the budget this quarter is fixed.", endT: 11))
+            try? await Task.sleep(for: .milliseconds(50))
+            check(vm.askedPlannedQuestions.isEmpty, "planned question: a hand-unticked question stays off")
+
+            vm.preCallContext.plannedQuestions.append("Who signs the contract?")
+            capture.onUtterance?(Utterance(t: 13, speaker: "Them",
+                text: "That makes sense.", endT: 14))
+            try? await Task.sleep(for: .milliseconds(50))
+            check(vm.askedPlannedQuestions == [2],
+                  "planned question: one added mid-call is checked against earlier turns",
+                  "asked \(vm.askedPlannedQuestions)")
+
+            // A misheard-term fix rewrites the turn in place at the same
+            // length; the corrected text must be read again.
+            capture.onUtterance?(Utterance(t: 15, speaker: "You",
+                text: "On our side,", endT: 16))
+            capture.onUtterance?(Utterance(t: 16, speaker: "You",
+                text: "we run Kubernetis in production.", endT: 18))
+            try? await Task.sleep(for: .milliseconds(50))
+            check(vm.askedPlannedQuestions == [2], "planned question: a misheard keyword does not tick")
+            vm.fixMisheardTerm(wrote: "Kubernetis", canonical: "Kubernetes")
+            capture.onUtterance?(Utterance(t: 20, speaker: "Them",
+                text: "Good to know.", endT: 21))
+            try? await Task.sleep(for: .milliseconds(50))
+            check(vm.askedPlannedQuestions == [1, 2],
+                  "planned question: a same-length term fix is read again",
+                  "asked \(vm.askedPlannedQuestions), turn \(vm.turns.dropLast().last?.text ?? "")")
+        } else {
+            check(false, "capture manager wired (planned questions)")
+        }
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
     resetSeams()
 }
 
