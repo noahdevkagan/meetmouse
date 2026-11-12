@@ -20,6 +20,8 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 - The home screen now shows what needs your attention: open follow-ups from your meeting notes from the last two weeks (tick one off right there), meetings whose notes you haven't looked at, and recent meetings with no AI notes yet. The meeting list stays in the sidebar.
 - Edit a meeting's notes yourself: click Edit notes on the Notes tab, fix or add anything, and save. If you later click Regenerate with AI, MeetMouse asks before replacing your edits.
 - Redo one section of your notes with AI (the summary, a topic, or the next steps): regenerate it, make it shorter, add anything missing, or give your own instruction. The rest of your notes stay as they are.
+- Recording is lighter on your Mac. The floating bubble now has a solid background instead of see-through blur and its level bars hold still, which cuts most of the screen-drawing work during a call; long transcripts also use less memory. The bubble's "speaking" colour can take up to a second to clear.
+- Transcription uses less processor time with microphones that run at 44.1 kHz (many Bluetooth and USB mics).
 
 ## 0.34.0 — 2026-11-04
 
