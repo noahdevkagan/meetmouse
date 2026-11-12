@@ -2401,6 +2401,12 @@ name. Manual choice wins: Allow ends discovery and replaces a window
 discovery pinned while the sheet was open (the same window keeps its run and
 evidence; the six-shot cap carries). An automatic pin is still never swapped
 silently.
+## Simplified Settings → AI
+
+Settings → AI now offers two choices (Claude account or local model). On the Claude-account path the "Turn on Claude notes" button doubles as consent, with an adjacent sentence saying meeting text goes to Claude, matching onboarding, so the separate consent toggle and Test connection are gone. API-key providers moved under a collapsed "Use an API key instead" group that keeps its explicit consent toggle (keys are billed and less common); Save validates with a sample call before enabling. The data-policy paragraphs collapsed into one "About data" disclosure.
+
+After merging main (#74): when Claude Code is missing, or Connect fails with a setup problem (outdated/broken CLI), the Claude choice shows the shared "Set up AI notes" button, which opens the #74 setup sheet with the in-app installer and its own consent step; "Install it yourself" keeps the docs link. The API-key group uses the shared `cloudConsentText`, and the Claude choice adds the live-coaching line when advanced coaching is on, matching the setup sheet.
+
 ## 2026-11-09 — Claude Desktop: merge into claude_desktop_config.json, not a .mcpb extension
 Claude's "Add custom connector" dialog only accepts remote HTTPS MCP URLs, so the
 stdio helper can't go there. Settings → General → Agent access now has "Add to
