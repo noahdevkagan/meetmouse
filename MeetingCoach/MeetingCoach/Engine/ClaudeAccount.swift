@@ -30,18 +30,241 @@ enum ClaudeAccount {
     static let isolation = ["--safe-mode", "--setting-sources", "", "--strict-mcp-config",
                             "--mcp-config", "{\"mcpServers\":{}}", "--no-chrome"]
 
+    /// Errors that Set up AI notes can fix (not usage limits or timeouts).
+    static func isSetupProblem(_ message: String) -> Bool {
+        ["Install Claude Code", "Update Claude Code", "Connect your Claude subscription",
+         "Claude Code is no longer installed", "Could not start Claude Code"]
+            .contains { message.hasPrefix($0) }
+    }
+
+    /// `broken`: the file exists but could not be launched or printed something that
+    /// is not a version (e.g. an interrupted install). `slow`: it did not answer
+    /// `--version` in time, twice; that says nothing about the install, so no reinstall.
+    enum CLIStatus: Equatable { case missing, outdated, broken, slow, ready }
+
+    static let slowMessage = "Claude Code is slow to respond. Try again."
+    static let couldNotStartMessage = "Could not start Claude Code. Check its installation and try again."
+    /// The CLI did not answer in time. Own type so callers can tell it from a slow reply.
+    struct TimedOut: LocalizedError { var errorDescription: String? { "Claude timed out. Try again or use a faster model." } }
+    struct LaunchFailed: LocalizedError { var errorDescription: String? { couldNotStartMessage } }
+
+    static let minimumVersion = "2.1.280"
+
+    /// Maps `claude --version` output to a status. nil means the output was not
+    /// a version at all (a broken install), which is not the same as "too old".
+    static func classify(versionOutput text: String, exitCode: Int32) -> CLIStatus? {
+        let number = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).first.map(String.init) ?? ""
+        guard exitCode == 0, number.first?.isNumber == true else { return nil }
+        return number.compare(minimumVersion, options: .numeric) == .orderedAscending ? .outdated : .ready
+    }
+
+    /// Throws only on cancellation. A launch failure or non-version output is
+    /// `.broken`; two timeouts are `.slow`; only a version really below the minimum is `.outdated`.
+    /// `timeout` is longer right after an install: macOS scans new binaries on first launch.
+    static func cliStatus(timeout: TimeInterval = 10) async throws -> CLIStatus {
+        guard let url = executable else { return .missing }
+        let version: Output
+        do {
+            do { version = try await run(executable: url, arguments: ["--version"], timeout: timeout) }
+            catch is TimedOut {
+                // One stall on a busy Mac is common: retry once, longer.
+                version = try await run(executable: url, arguments: ["--version"], timeout: max(timeout, 30))
+            }
+        }
+        catch is TimedOut { return .slow }
+        catch is LaunchFailed { return .broken }
+        return classify(versionOutput: String(data: version.data, encoding: .utf8) ?? "",
+                        exitCode: version.code) ?? .broken
+    }
+
     static func requireCLI() async throws -> URL {
-        guard let url = executable else {
+        switch try await cliStatus() {
+        case .missing:
             throw AIError.message("Install Claude Code, then connect your Claude account here.")
+        case .broken:
+            throw AIError.message(couldNotStartMessage)
+        case .slow:
+            throw AIError.message(slowMessage)
+        case .outdated:
+            throw AIError.message("Update Claude Code to \(minimumVersion) or later to connect securely.")
+        case .ready:
+            guard let url = executable else { throw AIError.message("Claude Code is no longer installed.") }
+            return url
         }
-        let version = try await run(executable: url, arguments: ["--version"], timeout: 10)
-        let text = String(data: version.data, encoding: .utf8) ?? ""
-        let number = text.split(separator: " ").first.map(String.init) ?? ""
-        guard version.code == 0, number.first?.isNumber == true,
-              number.compare("2.1.280", options: .numeric) != .orderedAscending else {
-            throw AIError.message("Update Claude Code to 2.1.280 or later to connect securely.")
+    }
+
+    /// Anthropic's official native installer, from https://code.claude.com/docs/en/setup
+    /// (`curl -fsSL https://claude.ai/install.sh | bash`). Run in two fixed steps so
+    /// a partial download never executes: HTTPS-only curl to a temp file, then
+    /// bash on that file. Nothing user-controlled reaches either command, it
+    /// installs under the user's home (~/.local) and never needs sudo.
+    static let installerURL = "https://claude.ai/install.sh"
+    static let installDocsURL = URL(string: "https://code.claude.com/docs/en/setup")!
+    static func downloadArguments(to path: String) -> [String] {
+        ["-q", "--proto", "=https", "--proto-redir", "=https", "-fsSL", "--max-time", "180", "-o", path, installerURL]
+    }
+
+    /// Cancelled while the installer script was running: it may have partly installed.
+    struct InstallInterrupted: Error {}
+    /// Cancelled after the installer script exited 0, during the final check:
+    /// the install itself finished.
+    struct InstalledThenCancelled: Error {}
+
+    static let installerTempPrefix = "meetmouse-claude-install-"
+    /// The temp dir must be the per-user one: owned by this user, no group/other write.
+    static func isPerUserTempDirectory(_ path: String) -> Bool {
+        var info = stat()
+        guard lstat(path, &info) == 0, (info.st_mode & S_IFMT) == S_IFDIR else { return false }
+        return info.st_uid == getuid() && (info.st_mode & (S_IWGRP | S_IWOTH)) == 0
+    }
+
+    /// Removes installer scripts left by an interrupted run (app quit mid-install).
+    /// Only this app's prefix in the per-user temp dir, and only files older than
+    /// an hour so another running copy's live install is never touched.
+    static func removeStaleInstallerFiles(olderThan age: TimeInterval = 3600) {
+        let dir = FileManager.default.temporaryDirectory
+        guard isPerUserTempDirectory(dir.path),
+              let names = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
+        for name in names where name.hasPrefix(installerTempPrefix) && name.hasSuffix(".sh") {
+            let url = dir.appendingPathComponent(name)
+            guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+                  attrs[.type] as? FileAttributeType == .typeRegular,
+                  let modified = attrs[.modificationDate] as? Date,
+                  Date().timeIntervalSince(modified) > age else { continue }
+            try? FileManager.default.removeItem(at: url)
         }
-        return url
+    }
+
+    private static let installLock = NSLock()
+    nonisolated(unsafe) private static var installActive = false
+    private static func claimInstall() -> Bool {
+        installLock.lock(); defer { installLock.unlock() }
+        if installActive { return false }
+        installActive = true
+        return true
+    }
+    private static func releaseInstall() {
+        installLock.lock(); defer { installLock.unlock() }
+        installActive = false
+    }
+
+    /// Runs the installer, then confirms the result. Only call after an explicit click.
+    /// Each child runs in its own process group that is killed on cancel/timeout.
+    static func install(timeout: TimeInterval = 600) async throws {
+        guard claimInstall() else { throw AIError.message("An install is already running. Try again in a moment.") }
+        defer { releaseInstall() }
+
+        try Task.checkCancellation()
+        let script = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(installerTempPrefix)\(UUID().uuidString).sh")
+        defer { try? FileManager.default.removeItem(at: script) }
+
+        // Step 1: download. Nothing has been installed yet, so cancelling is clean.
+        let curl: Int32
+        do {
+            let pid = try spawnGrouped("/usr/bin/curl", downloadArguments(to: script.path), environment: installerEnvironment())
+            curl = try await waitGrouped(pid, timeout: 200)
+        } catch is GroupTimeout {
+            throw AIError.message("The Claude Code download took too long. Nothing was installed.")
+        }
+        let size = (try? FileManager.default.attributesOfItem(atPath: script.path)[.size] as? Int) ?? 0
+        guard curl == 0, size > 0 else {
+            throw AIError.message("Couldn't download the Claude Code installer. Check your internet connection. Nothing was installed.")
+        }
+
+        // Step 2: run the downloaded script.
+        do {
+            let pid = try spawnGrouped("/bin/bash", [script.path], environment: installerEnvironment())
+            let status = try await waitGrouped(pid, timeout: timeout)
+            guard status == 0 else {
+                throw AIError.message("The Claude Code install didn't finish. It may have been partly installed in your home folder.")
+            }
+        } catch is CancellationError {
+            throw InstallInterrupted()
+        } catch is GroupTimeout {
+            throw AIError.message("The Claude Code install took too long and was stopped. It may have been partly installed in your home folder.")
+        }
+        let final: CLIStatus
+        do {
+            try Task.checkCancellation()
+            final = try await cliStatus(timeout: 30)
+        } catch is CancellationError {
+            throw InstalledThenCancelled()
+        }
+        guard final == .ready else {
+            throw AIError.message("Claude Code installed, but this Mac still can't use it.")
+        }
+    }
+
+    private struct GroupTimeout: Error {}
+    private static var spawnFailure: AIError {
+        .message("Couldn't start the Claude Code installer. Nothing was installed.")
+    }
+
+    /// Starts a child in its own process group with stdio on /dev/null.
+    private static func spawnGrouped(_ path: String, _ arguments: [String],
+                                     environment: [String: String]) throws -> pid_t {
+        var attr: posix_spawnattr_t? = nil
+        guard posix_spawnattr_init(&attr) == 0 else { throw spawnFailure }
+        defer { posix_spawnattr_destroy(&attr) }
+        // Own process group; no inherited descriptors (CLOEXEC_DEFAULT, stdio is
+        // re-opened below); default signal dispositions and an empty signal mask.
+        var allSignals = sigset_t(); sigfillset(&allSignals)
+        var noSignals = sigset_t(); sigemptyset(&noSignals)
+        var actions: posix_spawn_file_actions_t? = nil
+        guard posix_spawn_file_actions_init(&actions) == 0 else { throw spawnFailure }
+        defer { posix_spawn_file_actions_destroy(&actions) }
+        var setup: Int32 = posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_CLOEXEC_DEFAULT
+                                                                 | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK))
+        setup |= posix_spawnattr_setpgroup(&attr, 0)
+        setup |= posix_spawnattr_setsigdefault(&attr, &allSignals)
+        setup |= posix_spawnattr_setsigmask(&attr, &noSignals)
+        for fd in Int32(0)...2 {
+            setup |= posix_spawn_file_actions_addopen(&actions, fd, "/dev/null", fd == 0 ? O_RDONLY : O_WRONLY, 0)
+        }
+        setup |= posix_spawn_file_actions_addchdir_np(&actions, FileManager.default.homeDirectoryForCurrentUser.path)
+        guard setup == 0 else { throw spawnFailure }
+        var argv: [UnsafeMutablePointer<CChar>?] = ([path] + arguments).map { strdup($0) }
+        argv.append(nil)
+        var envp: [UnsafeMutablePointer<CChar>?] = environment.map { strdup("\($0.key)=\($0.value)") }
+        envp.append(nil)
+        defer { argv.forEach { free($0) }; envp.forEach { free($0) } }
+        var pid: pid_t = 0
+        guard posix_spawn(&pid, path, &actions, &attr, argv, envp) == 0 else { throw spawnFailure }
+        return pid
+    }
+
+    /// Waits for the child; on cancel or timeout kills its whole process group
+    /// (curl, the inner shell and anything they started) and reaps it.
+    private static func waitGrouped(_ pid: pid_t, timeout: TimeInterval) async throws -> Int32 {
+        let deadline = ContinuousClock.now + .milliseconds(Int64(timeout * 1000))
+        var status: Int32 = 0
+        do {
+            while true {
+                let result = waitpid(pid, &status, WNOHANG)
+                if result == pid { return (status & 0x7f) == 0 ? (status >> 8) & 0xff : -1 }
+                if result < 0 {
+                    if errno == EINTR { continue }
+                    // Unknown wait error: never leave the group running.
+                    kill(-pid, SIGKILL)
+                    return -1
+                }
+                try Task.checkCancellation()
+                guard ContinuousClock.now < deadline else { throw GroupTimeout() }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+        } catch {
+            kill(-pid, SIGKILL)
+            while waitpid(pid, &status, 0) < 0 && errno == EINTR {}
+            throw error
+        }
+    }
+
+    static func installerEnvironment(_ source: [String: String] = ProcessInfo.processInfo.environment) -> [String: String] {
+        var env = source.filter { ["USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy"].contains($0.key) }
+        env["HOME"] = FileManager.default.homeDirectoryForCurrentUser.path
+        env["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
+        return env
     }
 
     static func isSubscription(_ data: Data) -> Bool {
@@ -138,7 +361,7 @@ enum ClaudeAccount {
         }
         _ = fcntl(stdin.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
         do { try process.run() }
-        catch { throw AIError.message("Could not start Claude Code. Check its installation and try again.") }
+        catch { throw LaunchFailed() }
         try? stdin.fileHandleForReading.close()
         try? stdout.fileHandleForWriting.close()
         let reader = Task.detached { () throws -> Data in
@@ -158,7 +381,7 @@ enum ClaudeAccount {
         do {
             while process.isRunning {
                 try Task.checkCancellation()
-                guard ContinuousClock.now < deadline else { throw AIError.message("Claude timed out. Try again or use a faster model.") }
+                guard ContinuousClock.now < deadline else { throw TimedOut() }
                 try await Task.sleep(for: .milliseconds(50))
             }
             try Task.checkCancellation()

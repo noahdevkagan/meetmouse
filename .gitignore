@@ -62,3 +62,4 @@ tests/freetier/.build/
 # convert_zoom.py default output: real meetings never belong in this public repo
 simulator/samples/zoom_meeting.txt
 bench/asr-corpus/
+tests/claude-desktop/.build/

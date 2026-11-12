@@ -146,6 +146,80 @@ final class StubHTTP: URLProtocol, @unchecked Sendable {
         check(environment["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] == "1" && environment["DISABLE_TELEMETRY"] == "1", "CLI telemetry disabled")
         check(environment["CLAUDE_CODE_DISABLE_ATTACHMENTS"] == "1", "transcript mentions cannot attach local files")
         check(environment["MAX_THINKING_TOKENS"] == "0", "thinking cannot exhaust short coaching output budgets")
+        let installer = ClaudeAccount.installerEnvironment(["ANTHROPIC_API_KEY": "secret", "CLAUDE_CODE_OAUTH_TOKEN": "secret", "PATH": "/bad", "LANG": "en_US.UTF-8"])
+        check(installer["ANTHROPIC_API_KEY"] == nil && installer["CLAUDE_CODE_OAUTH_TOKEN"] == nil && installer["PATH"] == "/usr/bin:/bin:/usr/sbin:/sbin", "installer environment excludes credentials and fixes PATH")
+        let dl = ClaudeAccount.downloadArguments(to: "/tmp/x.sh")
+        check(dl.first == "-q" && dl.contains("=https") && dl.last == "https://claude.ai/install.sh" && !dl.contains("sudo"),
+              "installer download is HTTPS-only, ignores curlrc, official URL, no sudo")
+        check(ClaudeAccount.classify(versionOutput: "2.1.280 (Claude Code)\n", exitCode: 0) == .ready, "version == minimum is ready")
+        check(ClaudeAccount.classify(versionOutput: "2.1.1000 (Claude Code)", exitCode: 0) == .ready, "version compares numerically")
+        check(ClaudeAccount.classify(versionOutput: "2.1.99 (Claude Code)", exitCode: 0) == .outdated, "older version is outdated")
+        check(ClaudeAccount.classify(versionOutput: "", exitCode: 0) == nil, "empty output is not 'outdated'")
+        check(ClaudeAccount.classify(versionOutput: "2.1.300", exitCode: 1) == nil, "failed run is not classified")
+        check(ClaudeAccount.classify(versionOutput: "command not found", exitCode: 0) == nil, "non-version text is not classified")
+        check(ClaudeAccount.isSetupProblem("Install Claude Code, then connect your Claude account here.") && ClaudeAccount.isSetupProblem("Connect your Claude subscription account first. An API-only login cannot be used here.") && !ClaudeAccount.isSetupProblem("Claude timed out. Try again or use a faster model."), "only fixable Claude problems offer setup")
+        check(ClaudeAccount.isSetupProblem(ClaudeAccount.couldNotStartMessage), "broken install offers setup")
+        check(ClaudeAccount.TimedOut().localizedDescription.contains("timed out") && !ClaudeAccount.isSetupProblem(ClaudeAccount.TimedOut().localizedDescription), "generic timeout text is not a setup problem")
+        check(ClaudeAccount.LaunchFailed().localizedDescription == ClaudeAccount.couldNotStartMessage, "launch failure uses the could-not-start text")
+        do {
+            _ = try await ClaudeAccount.run(executable: URL(fileURLWithPath: "/bin/sleep"), arguments: ["10"], timeout: 0.1)
+            check(false, "timeout must throw")
+        } catch is ClaudeAccount.TimedOut { check(true, "run timeout is a distinct TimedOut error") }
+        catch { check(false, "run timeout is a distinct TimedOut error") }
+        do {
+            _ = try await ClaudeAccount.run(executable: URL(fileURLWithPath: "/nonexistent/claude"), arguments: [], timeout: 1)
+            check(false, "missing binary must throw")
+        } catch is ClaudeAccount.LaunchFailed { check(true, "launch failure is a distinct LaunchFailed error") }
+        catch { check(false, "launch failure is a distinct LaunchFailed error") }
+        check(ClaudeAccount.slowMessage.hasPrefix("Claude Code is slow") && !ClaudeAccount.isSetupProblem(ClaudeAccount.slowMessage), "slow reply is not a setup problem (no reinstall)")
+        check(ClaudeAccount.isPerUserTempDirectory(FileManager.default.temporaryDirectory.path) && !ClaudeAccount.isPerUserTempDirectory("/tmp") && !ClaudeAccount.isPerUserTempDirectory("/nonexistent"), "per-user temp dir check")
+        // Stale installer files: only our prefix, only old ones.
+        let tmpDir = FileManager.default.temporaryDirectory
+        let stale = tmpDir.appendingPathComponent("\(ClaudeAccount.installerTempPrefix)test-stale.sh")
+        let fresh = tmpDir.appendingPathComponent("\(ClaudeAccount.installerTempPrefix)test-fresh.sh")
+        let unrelated = tmpDir.appendingPathComponent("unrelated-test-stale.sh")
+        for u in [stale, fresh, unrelated] { try Data("x".utf8).write(to: u) }
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -7200)], ofItemAtPath: stale.path)
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -7200)], ofItemAtPath: unrelated.path)
+        ClaudeAccount.removeStaleInstallerFiles()
+        check(!FileManager.default.fileExists(atPath: stale.path), "old installer script removed")
+        check(FileManager.default.fileExists(atPath: fresh.path) && FileManager.default.fileExists(atPath: unrelated.path), "fresh or unrelated files kept")
+        let staleDir = tmpDir.appendingPathComponent("\(ClaudeAccount.installerTempPrefix)test-dir.sh")
+        try FileManager.default.createDirectory(at: staleDir, withIntermediateDirectories: true)
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -7200)], ofItemAtPath: staleDir.path)
+        ClaudeAccount.removeStaleInstallerFiles()
+        check(FileManager.default.fileExists(atPath: staleDir.path), "stale cleanup never removes a directory")
+        try? FileManager.default.removeItem(at: staleDir)
+        try? FileManager.default.removeItem(at: fresh); try? FileManager.default.removeItem(at: unrelated)
+        // The setup model lives in a SwiftUI file this runner cannot link, so check
+        // its source: enabling needs the explicit flag, and only the button passes it.
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let setupSource = try String(contentsOf: root.appendingPathComponent("MeetingCoach/MeetingCoach/Views/AISetupView.swift"), encoding: .utf8)
+        // Scan every Swift file: cloud AI may only be enabled from the Settings actions
+        // and the one setup button, and the compiler-enforced token is made once.
+        var enableCalls: [String: Int] = [:], tokenMakers: [String: Int] = [:], setupEnable: [String: Int] = [:]
+        let appDir = root.appendingPathComponent("MeetingCoach/MeetingCoach")
+        if let subpaths = FileManager.default.subpaths(atPath: appDir.path) {
+            for sub in subpaths where sub.hasSuffix(".swift") {
+                let file = appDir.appendingPathComponent(sub)
+                guard let text = try? String(contentsOf: file, encoding: .utf8) else { continue }
+                let name = file.lastPathComponent
+                let calls = text.components(separatedBy: ".enableCloudAI(").count - 1
+                if calls > 0 { enableCalls[name] = calls }
+                let makers = text.components(separatedBy: "ConsentClick()").count - 1
+                if makers > 0 { tokenMakers[name] = makers }
+                let setup = text.components(separatedBy: "enableClaude(settings:").count - 1
+                if setup > 0 { setupEnable[name] = setup }
+            }
+        }
+        check(enableCalls == ["AISettingsView.swift": 2, "AISetupView.swift": 1],
+              "enableCloudAI is called only from the Settings actions and the setup model: \(enableCalls)")
+        check(tokenMakers == ["AISetupView.swift": 1], "ConsentClick is created exactly once, in AISetupView: \(tokenMakers)")
+        check(setupEnable == ["AISetupView.swift": 2], "setup enable is defined and called only in AISetupView: \(setupEnable)")
+        check(setupSource.contains("struct ConsentClick { fileprivate init() {} }") && setupSource.contains("consent: ConsentClick, onReady"),
+              "enabling requires a ConsentClick token with a fileprivate init")
+        check(setupSource.contains("the questions you ask are sent to Anthropic"), "consent line names the questions")
+        check(!setupSource.contains("Toggle(") && !setupSource.contains("AI features"), "setup consent has no checkbox or 'AI features' wording")
         let args = ClaudeAccount.arguments(model: "haiku")
         check(args.contains("--safe-mode") && args.contains("--strict-mcp-config") && args.contains("--no-session-persistence"), "customizations MCP and persistence disabled")
         check(args[args.firstIndex(of: "--tools")! + 1].isEmpty, "CLI has no tools")

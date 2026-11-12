@@ -92,6 +92,10 @@ struct AISettingsView: View {
                 .font(.caption).foregroundStyle(.secondary)
             Text("Sends meeting text, names and notes (never audio) to Claude. Uses your Claude plan’s limits.")
                 .font(.caption).foregroundStyle(.secondary)
+            if settings.semanticCoachEnabled {
+                Text("Live coaching also sends text during the call.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             if accountConnected {
                 HStack {
                     Button("Turn on Claude notes") { enableAccount() }
@@ -100,12 +104,20 @@ struct AISettingsView: View {
                     if busy { Button("Cancel") { accountTask?.cancel() } }
                 }
             } else if ClaudeAccount.executable == nil {
-                Link("Set up Claude Code ↗", destination: URL(string: "https://code.claude.com/docs/en/setup")!)
+                // In-app Claude Code install (#74) lives in the shared setup sheet.
+                HStack {
+                    SetUpAINotesButton(settings: settings, onReady: setupFinished)
+                    Link("Install it yourself ↗", destination: ClaudeAccount.installDocsURL).font(.caption)
+                }
             } else {
                 HStack {
                     Button("Connect Claude") { connectAccount() }
                         .disabled(busy)
                     if busy { Button("Cancel") { accountTask?.cancel() } }
+                    // Outdated or broken Claude Code: the setup sheet can repair it.
+                    if isError, let status, ClaudeAccount.isSetupProblem(status) {
+                        SetUpAINotesButton(settings: settings, onReady: setupFinished)
+                    }
                 }
             }
         }
@@ -159,7 +171,9 @@ struct AISettingsView: View {
                 .disabled(busy)
                 .textContentType(.password)
             Link("Get an API key ↗", destination: keyProvider.keyURL)
-            Text("Stored in this Mac’s Keychain. Billed by your provider, separately from any subscription. Meeting text, names and notes used by AI features go directly to \(keyProvider.title).")
+            Text("Stored in this Mac’s Keychain. Billed by your provider, separately from any subscription.")
+                .font(.caption).foregroundStyle(.secondary)
+            Text(settings.cloudConsentText(providerTitle: keyProvider.title))
                 .font(.caption).foregroundStyle(.secondary)
             Toggle("Allow AI features to send this text to \(keyProvider.title)", isOn: $consent)
                 .disabled(busy)
@@ -189,6 +203,12 @@ struct AISettingsView: View {
         catch { hasSavedKey = false; fail(error) }
     }
     private func fail(_ error: Error) { status = error.localizedDescription; isError = true }
+
+    /// After the shared setup sheet finishes (it enables AI itself).
+    private func setupFinished() {
+        isError = false; status = nil
+        silentAccountCheck()
+    }
 
     /// Detects an existing sign-in without a browser; sends no meeting text.
     private func silentAccountCheck() {

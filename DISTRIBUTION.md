@@ -26,8 +26,11 @@ security find-identity -v -p codesigning   # → "Developer ID Application: Noah
 At <https://appleid.apple.com> ▸ Sign-In & Security ▸ App-Specific Passwords,
 create one for "notarytool".
 
-### 3. GitHub repo secrets
-Settings ▸ Secrets and variables ▸ Actions ▸ New repository secret:
+### 3. GitHub secrets (in the `release` environment)
+Settings ▸ Environments ▸ `release` ▸ Environment secrets (not repo-level
+secrets, so nothing that signs or publishes is reachable without approval;
+see the move steps under "Approving a release").
+The environment has a required reviewer; see "Approving a release" below.
 
 | Secret | Value |
 |---|---|
@@ -60,6 +63,34 @@ DMG → notarize + staple the DMG. Stapling the app itself matters because users
 drag it out of the DMG — an offline Mac can't fetch a ticket for an unstapled app.
 It also regenerates the Xcode project from `project.yml` (source of truth) and
 asserts the Ollama runtime is present in the built bundle before signing.
+
+### Approving a release
+Every release (tag push, `workflow_dispatch`, or the auto-release from a
+CHANGELOG.md push) runs the test gate first (read-only token), then pauses
+before the `release` job. Open the run in the Actions tab, click **Review
+deployments**, tick `release`, and **Approve and deploy**. Only then are the
+secrets available. Reject to cancel. A run left waiting expires after 30 days.
+Repo admins can bypass the approval, so keep admin access tight. If a second
+version is pushed while one waits, auto-release fails loudly (it will not run
+two releases at once): approve or reject the first, then re-run the
+"Auto release" job.
+
+**The gate protects nothing until the secrets are moved.** A repo-level secret
+is readable by any workflow, so do these in order:
+1. Create the Pages-only Cloudflare token (Account / Cloudflare Pages / Edit)
+   and set it BEFORE merging: `gh secret set CLOUDFLARE_PAGES_API_TOKEN`
+   (repo level; `deploy-site.yml` uses it so docs pushes keep deploying).
+   `CLOUDFLARE_ACCOUNT_ID` stays at repo level (not sensitive).
+2. Merge this change.
+3. Copy each release secret into the environment, one at a time:
+   `gh secret set <NAME> --env release`
+4. Only after the environment copies exist, delete the repo-level ones:
+   `gh secret delete <NAME>`
+   Names (do this for each): `MACOS_CERT_P12_BASE64`, `MACOS_CERT_PASSWORD`,
+   `MACOS_KEYCHAIN_PASSWORD`, `MACOS_DEVELOPER_ID_APP`, `MACOS_TEAM_ID`,
+   `MACOS_NOTARY_APPLE_ID`, `MACOS_NOTARY_PASSWORD`, `SPARKLE_ED_PRIVATE_KEY`,
+   `RELEASES_TOKEN`, `CLOUDFLARE_API_TOKEN` (the full-power token: Worker
+   deploy, D1 migrations, and the release's site deploy).
 
 ---
 
@@ -153,8 +184,10 @@ npx wrangler pages deploy
 First time on a new machine: `npx wrangler login`. The production custom domain
 `meetmouse.com` is attached to Pages → meetcoach → Custom domains.
 
-GitHub release deploys require repository secrets `CLOUDFLARE_API_TOKEN`
-(scoped to Account / Cloudflare Pages / Edit) and `CLOUDFLARE_ACCOUNT_ID`.
+Docs-only deploys (`deploy-site.yml`) use the repo-level, Pages-only
+`CLOUDFLARE_PAGES_API_TOKEN` (Account / Cloudflare Pages / Edit) and
+`CLOUDFLARE_ACCOUNT_ID`. Release deploys use `CLOUDFLARE_API_TOKEN`, which lives
+only in the `release` environment (see "Approving a release").
 
 Keep `getmeetingcoach.com` proxied in Cloudflare DNS, then create a Cloudflare
 Bulk Redirect from `https://getmeetingcoach.com/` to `https://meetmouse.com/`:

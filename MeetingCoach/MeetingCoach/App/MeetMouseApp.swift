@@ -24,6 +24,7 @@ struct MeetMouseApp: App {
     @NSApplicationDelegateAdaptor(UnlockURLDelegate.self) private var unlockDelegate
 
     init() {
+        DispatchQueue.global(qos: .utility).async { ClaudeAccount.removeStaleInstallerFiles() }
         // First line of every run: which binary produced this log. Field
         // debugging 2026-08-10 had to fingerprint the version from log-line
         // *ordering* because nothing ever logged it.

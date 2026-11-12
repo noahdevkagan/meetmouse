@@ -2244,6 +2244,46 @@ compare the full saved file before writing, so another writer's changes win.
 Saved next-call prep is honored inside startLive, shared by sidebar, menu bar,
 and detection starts; unprepared last-used guests remain unconfirmed.
 
+## 2026-11-10 — Releases pause for approval in a `release` environment
+A CHANGELOG.md push to main used to sign, notarize and publish an update that
+Sparkle auto-installs on every Mac, using repo-level secrets with no human in
+the loop. The `release` job now runs in a GitHub Environment with a required
+reviewer (the gate job still runs first, unapproved, so approval comes after
+green tests), and the secrets move into that environment. The dispatch version
+input goes through `env:` and is validated instead of being interpolated into
+the shell. Signing and Cloudflare deploys share one job, so the whole job is
+gated; splitting them would limit what a compromised step can reach but was
+left out of scope.
+
+Follow-ups after review: the `gate` job gets a read-only token and only
+`release` gets contents: write. `run-name` carries the version so auto-release
+can match the specific version; if a different release is in flight it fails
+loudly rather than dispatching a second one (two releases racing for one
+appcast could publish the older version last) or skipping silently. Version
+check is a whole-string bash match (a line-wise grep let newlines through into
+$GITHUB_OUTPUT). The docs-push site deploy moved to a separate repo-level
+Pages-only token, `CLOUDFLARE_PAGES_API_TOKEN`, so the full-power
+`CLOUDFLARE_API_TOKEN` can live only in the `release` environment.
+## 2026-11-10 — AI notes setup: one flow, Claude Code installed in-app on click
+Setup is two choices (Claude account / local model) shared by onboarding, a home card
+that stays until AI works, and a sheet behind "Set up AI notes" buttons. Installing Claude
+Code runs Anthropic's documented `curl -fsSL https://claude.ai/install.sh | bash` as a fixed
+string with a scrubbed environment, only after a click, never sudo, and falls back to the docs
+link on failure; the CLI is not bundled. Consent to send meeting text stays an explicit
+unticked toggle before `enableCloudAI`. "AI ready" = cloud enabled or a local model
+installed. Not done: Settings reorganisation (out of scope), so Settings -> AI keeps its own
+Claude controls.
+
+2026-11-10 follow-up: the installer is no longer `curl | bash` in one string. It downloads to a temp file over HTTPS-only curl, checks the exit code and size, then runs bash on the file, each in its own process group that is killed whole on cancel or timeout, so a partial download never executes and cancel really stops it. `cliStatus()` throws on timeout/cancel/launch failure; only a real version below the minimum is "outdated". The local-model choice switches provider only after the download succeeds.
+
+## 2026-11-10 — First-run checklist cut to three rows
+
+Noah: the checklist was "long and confusing". It is now Microphone, Call audio, AI notes, one short line each. Removed: the Transcription engine row (downloads automatically; a slim status line shows only while downloading or after a failure), the Join a meeting row (not an action; nothing depended on it), and the Advanced live coaching toggle (still in Settings -> AI and the sidebar; this reverses the 2026-11-04 choice to show it in onboarding). The AI row shows both buttons inline; the long facts live in the consent and install steps after the click. Consent is unchanged: required and unticked.
+
+## 2026-11-10 — AI setup consent: labelled button plus short disclosure, no checkbox
+
+Noah: the consent step was "a lot of text" and "I have no clue what 'Allow AI features' means". In the setup flow only (checklist row, home card, sheet) the unticked checkbox is replaced by two plain lines (transcripts and notes go to Anthropic; audio stays here; Claude plan limits), plus a third line when advanced live coaching is on, a "What's sent?" popover holding the unchanged `cloudConsentText`, and one primary "Turn on AI notes" button directly under the disclosure. The button click is the explicit opt-in: `enableClaude` takes `userConfirmed`, passed true only by that button, so nothing else can enable cloud AI through the setup model; nothing is sent before the click. Settings -> AI is unchanged (full text, own toggle). Local-model setup has no consent step.
+
 ## 2026-11-10 — Short bleed duplicates on built-in speakers (narrows "never filter 1-2 words")
 
 A real call on the Mac's speakers showed the guest's "Okay." twice at the same
@@ -2364,3 +2404,17 @@ silently.
 ## Simplified Settings → AI
 
 Settings → AI now offers two choices (Claude account or local model). On the Claude-account path the "Turn on Claude notes" button doubles as consent, with an adjacent sentence saying meeting text goes to Claude, matching onboarding, so the separate consent toggle and Test connection are gone. API-key providers moved under a collapsed "Use an API key instead" group that keeps its explicit consent toggle (keys are billed and less common); Save validates with a sample call before enabling. The data-policy paragraphs collapsed into one "About data" disclosure.
+
+After merging main (#74): when Claude Code is missing, or Connect fails with a setup problem (outdated/broken CLI), the Claude choice shows the shared "Set up AI notes" button, which opens the #74 setup sheet with the in-app installer and its own consent step; "Install it yourself" keeps the docs link. The API-key group uses the shared `cloudConsentText`, and the Claude choice adds the live-coaching line when advanced coaching is on, matching the setup sheet.
+
+## 2026-11-09 — Claude Desktop: merge into claude_desktop_config.json, not a .mcpb extension
+Claude's "Add custom connector" dialog only accepts remote HTTPS MCP URLs, so the
+stdio helper can't go there. Settings → General → Agent access now has "Add to
+Claude Desktop", which merges `mcpServers.meetmouse.command` (the in-bundle
+`meetmouse-mcp` path) into the config file (only that key touched; one-time
+`.meetmouse-backup`; invalid JSON is never overwritten, snippet is copied instead).
+Chose this over a .mcpb Desktop Extension because an extension copies the binary
+and would not auto-update with the app; the config points at the bundle path, so
+Sparkle updates just work. The app is unsandboxed (ENABLE_APP_SANDBOX NO), so the
+direct write is allowed. Logic lives in Engine/ClaudeDesktopConfig.swift, tested by
+tests/claude-desktop (wired into push-gate).

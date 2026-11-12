@@ -126,6 +126,8 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     /// (serial) tick loop.
     private var tickCount = 0
     private let converter = AudioConverter()
+    /// One long-lived converter per input format (see StreamingResampler).
+    private let resampler = StreamingResampler()
     private var lastPartial = ""
     /// Voiced audio arrived after the snapshot behind `lastPartial` — when
     /// false at commit time, `lastPartial` already covers the window and the
@@ -199,7 +201,19 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
 
     /// Append audio from the tap/stream thread. Any format — resampled here.
     func append(_ buffer: AVAudioPCMBuffer) {
-        guard isRunning, let converted = try? converter.resampleBuffer(buffer) else { return }
+        guard isRunning else { return }
+        let converted: [Float]
+        if PerfFlag.legacyResampler {
+            guard let c = try? converter.resampleBuffer(buffer) else { return }
+            converted = c
+        } else if let c = resampler.process(buffer) {
+            converted = c
+        } else {
+            // >2 channels or a converter that can't be built: FluidAudio's
+            // per-buffer path handles those.
+            guard let c = try? converter.resampleBuffer(buffer) else { return }
+            converted = c
+        }
         var rms: Float = 0
         converted.withUnsafeBufferPointer { ptr in
             guard let base = ptr.baseAddress, !ptr.isEmpty else { return }
@@ -381,5 +395,82 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
         let endT = max(t, (ended ?? Date()).timeIntervalSince(sessionStart))
         mclog("[Parakeet:\(speaker)] Commit: \(trimmed.prefix(80))")
         onUtterance?(Utterance(t: t, speaker: speaker, text: trimmed, endT: endT))
+    }
+}
+
+/// Hidden debug fallback: restores FluidAudio's per-buffer resampler.
+///   MM_PERF_LEGACY_RESAMPLER=1 (env), or
+///   defaults write com.coach.MeetingCoach perfLegacyResampler -bool YES
+enum PerfFlag {
+    static let legacyResampler: Bool = {
+        if let v = ProcessInfo.processInfo.environment["MM_PERF_LEGACY_RESAMPLER"] { return v == "1" }
+        return UserDefaults.standard.bool(forKey: "perfLegacyResampler")
+    }()
+}
+
+/// Converts the capture stream to 16 kHz mono Float32 with ONE long-lived
+/// AVAudioConverter per input format.
+///
+/// FluidAudio's AudioConverter.resampleBuffer builds a fresh converter
+/// (Mastering algorithm, max quality) for every buffer, which recomputes the
+/// sinc filter coefficients each time: 0.16-0.57 ms per call at 48 kHz and
+/// 2.6-3.3 ms at 44.1 kHz, ~36% of the pipeline's busy samples in `sample`.
+/// A reused converter costs ~0.01-0.03 ms. Same algorithm and quality, and
+/// because the filter state carries across buffers there is no per-buffer
+/// edge transient either. Rebuilt only when the input format changes (mic
+/// device switch). Callers serialize append() (one tap/stream thread).
+final class StreamingResampler: @unchecked Sendable {
+    private let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16_000,
+                                       channels: 1, interleaved: false)!
+    private var converter: AVAudioConverter?
+    private var inputFormat: AVAudioFormat?
+    private var out: AVAudioPCMBuffer?
+
+    /// nil when this format needs FluidAudio's fallback (>2 channels).
+    func process(_ buffer: AVAudioPCMBuffer) -> [Float]? {
+        let fmt = buffer.format
+        let n = Int(buffer.frameLength)
+        guard n > 0 else { return [] }
+        if fmt.sampleRate == 16_000, fmt.channelCount == 1,
+           fmt.commonFormat == .pcmFormatFloat32, !fmt.isInterleaved,
+           let ch = buffer.floatChannelData?[0] {
+            // Drop any cached converter: its held-back tail is from before
+            // this stretch and must not be replayed if the format flips back
+            // (AirPods entering and leaving call mode).
+            converter = nil
+            return Array(UnsafeBufferPointer(start: ch, count: n))
+        }
+        guard fmt.channelCount <= 2 else { converter = nil; return nil }
+        if converter == nil || inputFormat != fmt {
+            guard let c = AVAudioConverter(from: fmt, to: target) else { return nil }
+            c.sampleRateConverterAlgorithm = AVSampleRateConverterAlgorithm_Mastering
+            c.sampleRateConverterQuality = AVAudioQuality.max.rawValue
+            converter = c
+            inputFormat = fmt
+        }
+        guard let converter else { return nil }
+        let capacity = AVAudioFrameCount(Double(n) * 16_000 / fmt.sampleRate) + 64
+        if out == nil || out!.frameCapacity < capacity {
+            out = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity)
+        }
+        guard let out else { return nil }
+        out.frameLength = 0
+        var fed = false
+        var error: NSError?
+        // .noDataNow (not .endOfStream) keeps the converter primed for the
+        // next buffer: its filter history spans buffer boundaries.
+        let status = converter.convert(to: out, error: &error) { _, st in
+            if fed { st.pointee = .noDataNow; return nil }
+            fed = true
+            st.pointee = .haveData
+            return buffer
+        }
+        guard status != .error, let ch = out.floatChannelData?[0] else {
+            // Don't keep a converter that failed: rebuild on the next buffer
+            // (the caller falls back to FluidAudio for this one).
+            self.converter = nil
+            return nil
+        }
+        return Array(UnsafeBufferPointer(start: ch, count: Int(out.frameLength)))
     }
 }

@@ -2,7 +2,9 @@ name: Auto release
 
 # Pushing a "## X.Y.Z" changelog section to main IS the release: if the top
 # numbered version in CHANGELOG.md has no tag yet, dispatch release.yml,
-# which runs the gate, then creates tag vX.Y.Z and ships. No local tag push
+# which runs the gate, then PAUSES for approval in the `release` environment
+# (Actions run -> Review deployments), then creates tag vX.Y.Z and ships.
+# This workflow only dispatches; it never waits on the release run. No local tag push
 # is needed (Claude Code's auto mode blocks those). Editing an already
 # released section is a no-op because its tag exists.
 #
@@ -44,14 +46,24 @@ jobs:
             echo "v$VERSION is already tagged — nothing to release."
             exit 0
           fi
-          # A release run for this version may already be in flight (tag
-          # pushed by hand, or an earlier changelog push).
-          if gh run list --workflow release.yml --limit 20 \
-               --json status,displayTitle,headBranch \
-               --jq '.[] | select(.status != "completed") | .headBranch' \
-             | grep -qx "v$VERSION"; then
-            echo "A release run for v$VERSION is already in progress."
+          # release.yml's run-name is "Release v<version>" for both tag pushes
+          # and dispatches. Runs not yet completed include ones waiting for
+          # approval in the `release` environment (status "waiting").
+          INFLIGHT="$(gh run list --workflow release.yml --limit 30 \
+            --json status,displayTitle \
+            --jq '.[] | select(.status != "completed") | .displayTitle')"
+          if printf '%s\n' "$INFLIGHT" | grep -qxF "Release v$VERSION"; then
+            echo "A release run for v$VERSION is already in progress or awaiting approval."
             exit 0
+          fi
+          # A DIFFERENT release is in flight. Dispatching a second one is unsafe
+          # (two releases racing for the same appcast; approving them out of
+          # order could publish the older version last) and silently skipping
+          # would lose this version. So fail loudly: approve or reject the
+          # in-flight run, then re-run this job (Actions -> Auto release).
+          if printf '%s\n' "$INFLIGHT" | grep -q '^Release v'; then
+            echo "::error::Another release is in flight ($(printf '%s' "$INFLIGHT" | grep '^Release v' | paste -sd, -)). v$VERSION was NOT dispatched. Approve or reject that run, then re-run this job."
+            exit 1
           fi
           echo "Releasing v$VERSION"
           gh workflow run release.yml --ref main -f version="$VERSION"

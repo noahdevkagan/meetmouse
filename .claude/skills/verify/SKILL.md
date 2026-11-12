@@ -13,6 +13,14 @@ open -n build/Build/Products/Debug/MeetMouse.app   # -n: second instance even if
 pgrep -fl "Debug/MeetMouse.app"                    # grab the PID
 ```
 
+## Preview the AI setup screens (Debug only)
+This Mac usually has AI already set up, so the setup card/sheet/checklist step never show. Launch with:
+```bash
+open -n --env MC_PREVIEW_AI_SETUP=1 --env MC_PREVIEW_CLAUDE_CLI=missing build/Build/Products/Debug/MeetMouse.app
+```
+`MC_PREVIEW_AI_SETUP=1` makes the setup UI act as if AI isn't set up (home checklist + card, error-site buttons) without touching stored settings.
+`MC_PREVIEW_CLAUDE_CLI=missing|outdated|ok` (optional) picks the Claude Code screen shown. Install/Update, sign-in, "Turn on" and the local download only show "Preview mode — nothing was changed." Compiled out of Release.
+
 ## Drive the UI without stealing the user's mouse/focus
 SwiftUI buttons expose no names — address them positionally and use AXPress
 (works on background windows; never use coordinate clicks, the user may be active):
