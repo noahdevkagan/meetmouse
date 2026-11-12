@@ -1173,7 +1173,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             // comment) — backfill the dead stretch with silence so segments
             // after the recovery stay aligned to session time.
             if let dia = diarizer, gap > 0.5 {
-                dia.enqueue([Float](repeating: 0, count: Int(gap * 16_000)), sampleRate: 16_000)
+                dia.enqueueSilence(seconds: gap)
             }
             micStateLock.lock()
             lastMicBufferAt = Date()
@@ -1419,7 +1419,7 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
             // The far-side diarizer's clock is fed-audio-relative — backfill
             // the dead stretch with silence so later segments stay aligned.
             if let dia = sysDiarizer, gap > 0.5 {
-                dia.enqueue([Float](repeating: 0, count: Int(gap * 16_000)), sampleRate: 16_000)
+                dia.enqueueSilence(seconds: gap)
             }
             sysRecovering = false
             mclog("[Capture] System audio restarted (\(reason)) after \(attempt + 1) attempt(s), \(String(format: "%.1f", gap))s gap")
