@@ -434,9 +434,13 @@ final class StreamingResampler: @unchecked Sendable {
         if fmt.sampleRate == 16_000, fmt.channelCount == 1,
            fmt.commonFormat == .pcmFormatFloat32, !fmt.isInterleaved,
            let ch = buffer.floatChannelData?[0] {
+            // Drop any cached converter: its held-back tail is from before
+            // this stretch and must not be replayed if the format flips back
+            // (AirPods entering and leaving call mode).
+            converter = nil
             return Array(UnsafeBufferPointer(start: ch, count: n))
         }
-        guard fmt.channelCount <= 2 else { return nil }
+        guard fmt.channelCount <= 2 else { converter = nil; return nil }
         if converter == nil || inputFormat != fmt {
             guard let c = AVAudioConverter(from: fmt, to: target) else { return nil }
             c.sampleRateConverterAlgorithm = AVSampleRateConverterAlgorithm_Mastering
@@ -461,7 +465,12 @@ final class StreamingResampler: @unchecked Sendable {
             st.pointee = .haveData
             return buffer
         }
-        guard status != .error, let ch = out.floatChannelData?[0] else { return nil }
+        guard status != .error, let ch = out.floatChannelData?[0] else {
+            // Don't keep a converter that failed: rebuild on the next buffer
+            // (the caller falls back to FluidAudio for this one).
+            self.converter = nil
+            return nil
+        }
         return Array(UnsafeBufferPointer(start: ch, count: Int(out.frameLength)))
     }
 }
