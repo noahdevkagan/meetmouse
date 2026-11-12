@@ -1343,10 +1343,11 @@ private struct LiveTranscriptPane: View {
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
-                    // Plain VStack, NOT LazyVStack: lazy layout caches row
-                    // positions, and removing the tall pending row when it
+                    // The outer stack stays a plain VStack: lazy layout caches
+                    // row positions, and removing the tall pending row when it
                     // commits leaves phantom blank space mid-list (Parakeet
                     // partials grow into full paragraphs, so the hole is big).
+                    // Only the committed turns inside it are lazy.
                     VStack(alignment: .leading, spacing: 0) {
                         // Perf: committed turns go in a LazyVStack (only
                         // visible rows are laid out per partial update, so
