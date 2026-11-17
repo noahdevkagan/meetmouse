@@ -193,7 +193,7 @@ struct AppSumoCodePrompt: View {
                 Text("That code didn't work. Check for typos and try again.")
                     .font(.caption).foregroundStyle(.red)
             }
-            Text("Lost it? It's on your AppSumo purchase page. You can also enter it later from the sidebar.")
+            Text("Lost it? AppSumo buyers: check your purchase page. Otherwise email support@meetmouse.com.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
