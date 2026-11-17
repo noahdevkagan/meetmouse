@@ -1,6 +1,6 @@
 # AppSumo redeem fixes — handoff
 
-Branch `appsumo-redeem-fixes` (worktree `~/dev/meetmouse-appsumo`), commit b258a77 + this note. Not pushed: `git push` was refused by the agent permission check, so no PR exists yet.
+Branch `appsumo-redeem-fixes` (worktree `~/dev/meetmouse-appsumo`), commit b258a77 + this note. PR #85 (draft). Review fixes committed on top; coordinator pushes.
 
 ## To finish
 1. `cd ~/dev/meetmouse-appsumo && git push -u origin appsumo-redeem-fixes` (push gate runs; local run result below).
@@ -9,7 +9,7 @@ Branch `appsumo-redeem-fixes` (worktree `~/dev/meetmouse-appsumo`), commit b258a
 ## What changed
 - `docs/appsumo.html`: success state shows the code in a read-only box + Copy (fallback selects text, button says "Press ⌘C"); numbered steps (1 Download…, 2 Unlock); Unlock is grey (`.pending`) until Download is clicked, still clickable. Download Model note + support email kept. No email sending.
 - `Models/UsageGate.swift`: `shouldShowAppSumoPrompt` / `markAppSumoPromptShown` (key `usage.appSumoPromptShown`); `FreeTier.showAppSumoPrompt`, `checkAppSumoPrompt(isLive:)`, `codeFocusRequest` / `requestCodeFocus()`. Unlock clears the prompt. Trial-ended notice waits while the prompt is up.
-- `App/ContentView.swift`: at launch the AppSumo prompt shows first (any non-unlocked install, once); welcome sheet follows on dismiss. Sidebar link "Enter AppSumo code…" (locked installs only).
+- `App/ContentView.swift`: welcome/rebrand sheet first; the AppSumo prompt (any non-unlocked install, once) follows on its dismiss, or at launch when nothing else shows; during the demo it waits for next launch. Limit sheet raised during the prompt is queued until it closes (review fixes on PR #85). Sidebar link "Enter AppSumo code…" (locked installs only).
 - `App/MeetMouseApp.swift`: menu bar item "Enter AppSumo Code…" (locked installs only).
 - `Views/GiveMeetMouseView.swift`: code box moved to the top ("Have an AppSumo or purchase code?"), focuses on request; new `AppSumoCodePrompt` sheet; `FreeTierCard` shows "Unlimited ✓" when unlocked (nothing showed before).
 - `tests/freetier/main.swift`: prompt once, never for unlocked/grandfathered.

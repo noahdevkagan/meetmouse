@@ -55,7 +55,12 @@ struct GiveMeetMouseView: View {
         // "Enter AppSumo code…" opens this window (or brings it forward)
         // and asks for the code field.
         .onChange(of: tier.codeFocusRequest, initial: true) { _, request in
-            if request > 0 { codeFocused = true }
+            guard request > 0 else { return }
+            // Next runloop: focus set during the window's first layout is dropped.
+            DispatchQueue.main.async {
+                codeFocused = true
+                tier.codeFocusHandled()
+            }
         }
     }
 
@@ -200,7 +205,7 @@ struct AppSumoCodePrompt: View {
         }
         .padding(18)
         .frame(width: 400)
-        .onAppear { codeFocused = true }
+        .onAppear { DispatchQueue.main.async { codeFocused = true } }
     }
 
     private func redeem() {

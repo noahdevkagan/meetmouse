@@ -10,7 +10,31 @@ struct FreeTierCheck {
         if !ok { failures += 1 }
     }
 
-    static func main() {
+    /// A start refused while the AppSumo prompt is up closes the prompt and
+    /// raises the limit sheet after it, instead of dropping it.
+    @MainActor static func checkPromptQueuesLimitSheet(suite: String) {
+        let d = UserDefaults(suiteName: suite)!
+        defer { d.removePersistentDomain(forName: suite) }
+        let now = Date()
+        d.set(now.addingTimeInterval(-30 * 86_400), forKey: "usage.installedAt")
+        d.set(UsageGate.weekStart(for: now), forKey: "usage.weekStart")
+        d.set(UsageGate.weeklyFreeMeetings, forKey: "usage.weekMeetings")
+        let tier = FreeTier(defaults: d)
+        check(tier.checkAppSumoPrompt(isLive: false) && tier.showAppSumoPrompt, "prompt raised at launch")
+        check(!tier.checkAppSumoPrompt(isLive: false), "prompt raised only once")
+        check(!tier.allowMeetingStart(), "blocked start refused while prompt is up")
+        check(!tier.showAppSumoPrompt && !tier.showLimitReached, "prompt closes first, limit sheet waits")
+        tier.appSumoPromptDismissed()
+        check(tier.showLimitReached, "limit sheet raised once the prompt has closed")
+
+        let d2 = UserDefaults(suiteName: suite + "-live")!
+        defer { d2.removePersistentDomain(forName: suite + "-live") }
+        let live = FreeTier(defaults: d2)
+        check(!live.checkAppSumoPrompt(isLive: true), "no prompt during a meeting or the demo")
+        check(live.checkAppSumoPrompt(isLive: false), "prompt still due afterwards (not marked shown)")
+    }
+
+    @MainActor static func main() {
         let suite = "freetier-check-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -72,6 +96,8 @@ struct FreeTierCheck {
               "referral code is valid and stable")
         check(link.statusURL.absoluteString == "https://meetmouse.com/r/\(link.code)/status",
               "status URL on meetmouse.com")
+
+        checkPromptQueuesLimitSheet(suite: suite + "-queue")
 
         if failures > 0 { print("FREE TIER: \(failures) failure(s)"); exit(1) }
         print("FREE TIER: all checks passed")

@@ -140,7 +140,12 @@ struct UsageGate {
 final class FreeTier {
     static let shared = FreeTier()
 
-    private(set) var gate = UsageGate(defaults: .standard)
+    private(set) var gate: UsageGate
+
+    /// Tests pass their own defaults; the app uses `.shared` on `.standard`.
+    init(defaults: UserDefaults = .standard) {
+        gate = UsageGate(defaults: defaults)
+    }
     /// Bumped on every change so views reading computed gate state re-render.
     private(set) var revision = 0
     /// Set when a start was refused; ContentView shows the unlock sheet.
@@ -149,8 +154,12 @@ final class FreeTier {
     var showTrialEnded = false
     /// Set once per install at launch: "Bought MeetMouse on AppSumo?"
     var showAppSumoPrompt = false
-    /// Bumped by "Enter AppSumo code…" so the unlock window focuses its code field.
+    /// Set by "Enter AppSumo code…" so the unlock window focuses its code
+    /// field; the window clears it once used so later opens don't refocus.
     private(set) var codeFocusRequest = 0
+    /// A start was refused while the AppSumo prompt was up: the limit sheet
+    /// is raised after the prompt closes (two sheets can't share the window).
+    private var limitReachedPending = false
 
     var isUnlocked: Bool { _ = revision; return gate.isUnlocked }
     var isInTrial: Bool { _ = revision; return gate.isInTrial }
@@ -179,7 +188,12 @@ final class FreeTier {
         guard gate.isBlocked else { return true }
         // The limit sheet says it all; don't follow it with the trial notice.
         gate.markTrialEndedNoticeShown()
-        showLimitReached = true
+        if showAppSumoPrompt {
+            limitReachedPending = true
+            showAppSumoPrompt = false
+        } else {
+            showLimitReached = true
+        }
         return false
     }
 
@@ -207,7 +221,15 @@ final class FreeTier {
         return true
     }
 
+    /// Called when the AppSumo prompt sheet has closed.
+    func appSumoPromptDismissed() {
+        guard limitReachedPending else { return }
+        limitReachedPending = false
+        if !gate.isUnlocked { showLimitReached = true }
+    }
+
     func requestCodeFocus() { codeFocusRequest += 1 }
+    func codeFocusHandled() { codeFocusRequest = 0 }
 
     func recordMeeting() {
         gate.recordMeeting()
@@ -221,6 +243,7 @@ final class FreeTier {
             showLimitReached = false
             showTrialEnded = false
             showAppSumoPrompt = false
+            limitReachedPending = false
             revision += 1
         }
         return ok

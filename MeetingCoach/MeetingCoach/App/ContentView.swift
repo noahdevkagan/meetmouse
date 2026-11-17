@@ -14,8 +14,6 @@ struct ContentView: View {
     @AppStorage("hasSeenMeetMouseRebrand") private var hasSeenMeetMouseRebrand = false
     @State private var showWelcome = false
     @State private var showRebrandAnnouncement = false
-    /// The AppSumo code prompt went first; show the welcome sheet after it.
-    @State private var welcomeAfterAppSumoPrompt = false
     @Bindable private var freeTier = FreeTier.shared
     @State private var searchQuery = ""
     /// Session open in the main pane; nil = whatever else is active.
@@ -162,23 +160,28 @@ struct ContentView: View {
             // launches — startIfNeeded coalesces the two.)
             ParakeetDownloadState.shared.startIfNeeded(
                 for: settings.resolvedMeetingLanguage.preferredEngine)
-            // One-time "Bought MeetMouse on AppSumo?" for any install that
-            // isn't unlocked. It goes first so buyers enter their code before
-            // anything else; the welcome sheet follows it.
-            let askedForCode = freeTier.checkAppSumoPrompt(isLive: liveSession.isLive)
+            // Welcome (or rebrand) sheet first; the one-time "Bought MeetMouse
+            // on AppSumo?" prompt follows when it's dismissed (see onDismiss
+            // below), or here on a launch with nothing else to show. Both are
+            // gated on persisted flags, so a closed window can't skip either:
+            // the prompt is only marked shown once it actually appears.
             if !hasSeenDemo {
                 // A fresh install has only ever known MeetMouse; don't explain
                 // a rename from a product this person never used.
                 hasSeenMeetMouseRebrand = true
-                if askedForCode { welcomeAfterAppSumoPrompt = true } else { showWelcome = true }
-            } else if askedForCode {
-                // The rebrand note can wait for the next launch.
+                showWelcome = true
             } else if !hasSeenMeetMouseRebrand {
                 showRebrandAnnouncement = true
+            } else {
+                freeTier.checkAppSumoPrompt(isLive: liveSession.isLive)
             }
             await settings.refreshModels()
         }
-        .sheet(isPresented: $showWelcome) {
+        // Watching the demo counts as live, so the AppSumo prompt then
+        // waits for the next launch instead of covering the demo.
+        .sheet(isPresented: $showWelcome, onDismiss: {
+            freeTier.checkAppSumoPrompt(isLive: liveSession.isLive)
+        }) {
             WelcomeSheet {
                 hasSeenDemo = true
                 showWelcome = false
@@ -188,7 +191,9 @@ struct ContentView: View {
                 showWelcome = false
             }
         }
-        .sheet(isPresented: $showRebrandAnnouncement) {
+        .sheet(isPresented: $showRebrandAnnouncement, onDismiss: {
+            freeTier.checkAppSumoPrompt(isLive: liveSession.isLive)
+        }) {
             RebrandAnnouncementSheet {
                 hasSeenMeetMouseRebrand = true
                 showRebrandAnnouncement = false
@@ -225,11 +230,9 @@ struct ContentView: View {
         .sheet(isPresented: $freeTier.showTrialEnded) {
             GiveMeetMouseView(trialEnded: true)
         }
+        // A limit hit while the prompt was up is raised once it has closed.
         .sheet(isPresented: $freeTier.showAppSumoPrompt, onDismiss: {
-            if welcomeAfterAppSumoPrompt {
-                welcomeAfterAppSumoPrompt = false
-                showWelcome = true
-            }
+            freeTier.appSumoPromptDismissed()
         }) {
             AppSumoCodePrompt()
         }
