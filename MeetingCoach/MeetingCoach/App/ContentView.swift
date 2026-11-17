@@ -160,6 +160,11 @@ struct ContentView: View {
             // launches — startIfNeeded coalesces the two.)
             ParakeetDownloadState.shared.startIfNeeded(
                 for: settings.resolvedMeetingLanguage.preferredEngine)
+            // Welcome (or rebrand) sheet first; the one-time "Bought MeetMouse
+            // on AppSumo?" prompt follows when it's dismissed (see onDismiss
+            // below), or here on a launch with nothing else to show. Both are
+            // gated on persisted flags, so a closed window can't skip either:
+            // the prompt is only marked shown once it actually appears.
             if !hasSeenDemo {
                 // A fresh install has only ever known MeetMouse; don't explain
                 // a rename from a product this person never used.
@@ -167,10 +172,16 @@ struct ContentView: View {
                 showWelcome = true
             } else if !hasSeenMeetMouseRebrand {
                 showRebrandAnnouncement = true
+            } else {
+                freeTier.checkAppSumoPrompt(isLive: liveSession.isLive)
             }
             await settings.refreshModels()
         }
-        .sheet(isPresented: $showWelcome) {
+        // Watching the demo counts as live, so the AppSumo prompt then
+        // waits for the next launch instead of covering the demo.
+        .sheet(isPresented: $showWelcome, onDismiss: {
+            freeTier.checkAppSumoPrompt(isLive: liveSession.isLive)
+        }) {
             WelcomeSheet {
                 hasSeenDemo = true
                 showWelcome = false
@@ -180,7 +191,9 @@ struct ContentView: View {
                 showWelcome = false
             }
         }
-        .sheet(isPresented: $showRebrandAnnouncement) {
+        .sheet(isPresented: $showRebrandAnnouncement, onDismiss: {
+            freeTier.checkAppSumoPrompt(isLive: liveSession.isLive)
+        }) {
             RebrandAnnouncementSheet {
                 hasSeenMeetMouseRebrand = true
                 showRebrandAnnouncement = false
@@ -216,6 +229,12 @@ struct ContentView: View {
         }
         .sheet(isPresented: $freeTier.showTrialEnded) {
             GiveMeetMouseView(trialEnded: true)
+        }
+        // A limit hit while the prompt was up is raised once it has closed.
+        .sheet(isPresented: $freeTier.showAppSumoPrompt, onDismiss: {
+            freeTier.appSumoPromptDismissed()
+        }) {
+            AppSumoCodePrompt()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             freeTier.checkTrialEnded(isLive: liveSession.isLive)
@@ -1770,6 +1789,18 @@ struct SidebarView: View {
 
                     FreeTierCard { openWindow(id: "give") }
                         .padding(.horizontal, 8)
+                    if !FreeTier.shared.isUnlocked {
+                        Button {
+                            openWindow(id: "give")
+                            FreeTier.shared.requestCodeFocus()
+                        } label: {
+                            Label("Enter AppSumo code…", systemImage: "ticket")
+                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 18)
+                    }
 
                     SessionsSection(searchQuery: $searchQuery,
                                 selectedSession: $selectedSession,

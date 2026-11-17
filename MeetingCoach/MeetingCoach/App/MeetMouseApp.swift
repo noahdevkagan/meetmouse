@@ -455,6 +455,13 @@ struct MenuBarView: View {
             openWindow(id: "give")
             NSApp.activate(ignoringOtherApps: true)
         }
+        if !FreeTier.shared.isUnlocked {
+            Button("Enter AppSumo Code…") {
+                openWindow(id: "give")
+                FreeTier.shared.requestCodeFocus()
+                NSApp.activate(ignoringOtherApps: true)
+            }
+        }
         Button("Send Feedback…") {
             openWindow(id: "feedback")
             NSApp.activate(ignoringOtherApps: true)

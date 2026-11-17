@@ -67,6 +67,44 @@
   }
   .dl-btn:hover { background: #4bc75b; }
   .error { color: #c0392b; margin-top: 16px; display: none; }
+  .code-label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-top: 28px; }
+  .code-row { display: flex; gap: 8px; max-width: 380px; margin: 8px auto 0; }
+  .code-row input {
+    flex: 1; min-width: 0;
+    font-size: 17px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-align: center;
+    padding: 10px 12px;
+    border: 2px solid #dedbd3;
+    border-radius: 10px;
+    background: #fbfaf6;
+    color: #242321;
+    outline: none;
+  }
+  .code-row input:focus { border-color: #2bbd3e; }
+  .copy-btn {
+    font-size: 15px; font-weight: 600;
+    padding: 10px 16px;
+    border: 2px solid #dedbd3; border-radius: 10px;
+    background: #fff; color: #242321; cursor: pointer;
+    min-width: 108px;
+  }
+  .copy-btn:hover { border-color: #b9b4a8; }
+  .unlock-steps { list-style: none; counter-reset: step; text-align: left; margin: 28px auto 0; max-width: 440px; }
+  .unlock-steps li { counter-increment: step; position: relative; padding-left: 42px; margin-top: 22px; }
+  .unlock-steps li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 2px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #242321; color: #fff;
+    font-size: 14px; font-weight: 700; line-height: 28px; text-align: center;
+  }
+  .unlock-steps .dl-btn { margin-top: 0; }
+  .unlock-steps .step-note { font-size: 14px; color: #666; margin-top: 8px; }
+  /* Unlock looks secondary until Download is clicked, but stays clickable
+     for people who already have MeetMouse installed. */
+  .dl-btn.pending { background: #ecebe6; color: #8a877f; }
+  .dl-btn.pending:hover { background: #e3e1da; }
   .steps { font-size: 14px; color: #888; margin-top: 24px; }
   a { color: #555; }
   #success { display: none; }
@@ -97,11 +135,22 @@
 
   <div id="success">
     <h1>You're in 🎉</h1>
-    <p>Your download is ready. Open the DMG and drag MeetMouse to Applications.</p>
-    <a class="dl-btn" id="dl" href="https://github.com/noahdevkagan/meeting-coach-releases/releases/latest">Download MeetMouse for Mac</a>
-    <p>Then unlock unlimited meetings:</p>
-    <a class="dl-btn" id="unlock" href="meetmouse://unlock">Unlock MeetMouse Unlimited</a>
-    <p class="steps">Click once MeetMouse is installed. Or paste your code in MeetMouse → Get MeetMouse Unlimited.<br><br>On first launch, click <strong>Download Model</strong> once (needs WiFi that one time) — everything after runs fully offline.<br><br>Need help? Email <a href="mailto:support@meetmouse.com">support@meetmouse.com</a></p>
+    <label class="code-label" for="redeemed-code">Your code</label>
+    <div class="code-row">
+      <input id="redeemed-code" readonly spellcheck="false">
+      <button type="button" class="copy-btn" id="copy">Copy</button>
+    </div>
+    <ol class="unlock-steps">
+      <li>
+        <a class="dl-btn" id="dl" href="https://github.com/noahdevkagan/meeting-coach-releases/releases/latest">Download MeetMouse for Mac</a>
+        <p class="step-note">Open the DMG, drag MeetMouse to Applications, then open MeetMouse once.</p>
+      </li>
+      <li>
+        <a class="dl-btn pending" id="unlock" href="meetmouse://unlock">Unlock MeetMouse Unlimited</a>
+        <p class="step-note">Install MeetMouse first, then click Unlock. Nothing happened? In MeetMouse open Get MeetMouse Unlimited and paste your code.</p>
+      </li>
+    </ol>
+    <p class="steps">On first launch, click <strong>Download Model</strong> once (needs WiFi that one time) — everything after runs fully offline.<br><br>Need help? Email <a href="mailto:support@meetmouse.com">support@meetmouse.com</a></p>
   </div>
 </main>
 <script>
@@ -131,11 +180,34 @@ document.getElementById("form").addEventListener("submit", async (e) => {
   const hex = await sha256(code);
   if (hashes.includes(hex)) {
     document.getElementById("unlock").href = "meetmouse://unlock?code=" + encodeURIComponent(code);
+    document.getElementById("redeemed-code").value = code;
     document.getElementById("redeem").style.display = "none";
     document.getElementById("success").style.display = "block";
   } else {
     document.getElementById("error").style.display = "block";
   }
+});
+
+// Unlock reads as the second step until Download has been clicked.
+document.getElementById("dl").addEventListener("click", () => {
+  document.getElementById("unlock").classList.remove("pending");
+});
+
+// The clipboard can be refused or missing: select the code for a manual copy.
+let copyReset = null;
+document.getElementById("copy").addEventListener("click", async () => {
+  const box = document.getElementById("redeemed-code");
+  const btn = document.getElementById("copy");
+  try {
+    await navigator.clipboard.writeText(box.value);
+    btn.textContent = "Copied";
+  } catch {
+    box.focus();
+    box.select();
+    btn.textContent = "Press ⌘C";
+  }
+  clearTimeout(copyReset);
+  copyReset = setTimeout(() => { btn.textContent = "Copy"; }, 4000);
 });
 </script>
 </body>
