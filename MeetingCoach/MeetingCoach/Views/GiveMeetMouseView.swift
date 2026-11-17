@@ -19,6 +19,7 @@ struct GiveMeetMouseView: View {
     @State private var copied = false
     @State private var code = ""
     @State private var codeRejected = false
+    @FocusState private var codeFocused: Bool
 
     init(limitReached: Bool = false, trialEnded: Bool = false) {
         self.limitReached = limitReached
@@ -36,10 +37,11 @@ struct GiveMeetMouseView: View {
                 }
                 shareBox
             } else {
+                codeSection
+                Divider()
                 inviteSection
                 Divider()
                 buySection
-                codeSection
             }
 
             HStack {
@@ -50,6 +52,11 @@ struct GiveMeetMouseView: View {
         }
         .padding(18)
         .frame(width: 440)
+        // "Enter AppSumo code…" opens this window (or brings it forward)
+        // and asks for the code field.
+        .onChange(of: tier.codeFocusRequest, initial: true) { _, request in
+            if request > 0 { codeFocused = true }
+        }
     }
 
     @ViewBuilder private var header: some View {
@@ -119,7 +126,7 @@ struct GiveMeetMouseView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Or buy it once").font(.headline)
-                Text("$20, no subscription. Also unlocks with an AppSumo code.")
+                Text("$20, no subscription.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
@@ -129,16 +136,20 @@ struct GiveMeetMouseView: View {
     }
 
     @ViewBuilder private var codeSection: some View {
-        HStack {
-            TextField("Have a code? MOUSE-… or AppSumo code", text: $code)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit(redeem)
-            Button("Unlock", action: redeem)
-                .disabled(code.trimmingCharacters(in: .whitespaces).isEmpty)
-        }
-        if codeRejected {
-            Text("That code didn't work. Check for typos and try again.")
-                .font(.caption).foregroundStyle(.red)
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Have an AppSumo or purchase code?").font(.headline)
+            HStack {
+                TextField("AppSumo or MOUSE-… code", text: $code)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($codeFocused)
+                    .onSubmit(redeem)
+                Button("Unlock", action: redeem)
+                    .disabled(code.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            if codeRejected {
+                Text("That code didn't work. Check for typos and try again.")
+                    .font(.caption).foregroundStyle(.red)
+            }
         }
     }
 
@@ -147,7 +158,67 @@ struct GiveMeetMouseView: View {
     }
 }
 
+/// One-time launch prompt for installs that aren't unlocked. AppSumo buyers
+/// often download and never enter their code, and the free week hides that
+/// until day 8, when it looks like the purchase failed.
+struct AppSumoCodePrompt: View {
+    @Environment(\.dismiss) private var dismiss
+    private var tier = FreeTier.shared
+    @State private var code = ""
+    @State private var codeRejected = false
+    @FocusState private var codeFocused: Bool
+
+    init() {}
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Bought MeetMouse on AppSumo?").font(.title3.bold())
+            Text("Enter your code to unlock MeetMouse Unlimited.")
+                .font(.callout).foregroundStyle(.secondary)
+            HStack {
+                TextField("AppSumo code", text: $code)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($codeFocused)
+                    .onSubmit(redeem)
+                Button("Unlock", action: redeem)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(code.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            if codeRejected {
+                Text("That code didn't work. Check for typos and try again.")
+                    .font(.caption).foregroundStyle(.red)
+            }
+            Text("Lost it? It's on your AppSumo purchase page. You can also enter it later from the sidebar.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Spacer()
+                Button("Not now") { dismiss() }
+                    .buttonStyle(.bordered)
+                    .keyboardShortcut(.cancelAction)
+            }
+        }
+        .padding(18)
+        .frame(width: 400)
+        .onAppear { codeFocused = true }
+    }
+
+    private func redeem() {
+        // A good code clears FreeTier.showAppSumoPrompt, which closes this sheet.
+        if tier.unlock(code: code) {
+            codeRejected = false
+            let alert = NSAlert()
+            alert.messageText = "MeetMouse Unlimited is unlocked"
+            alert.informativeText = "Record as many meetings as you like. Thanks for supporting MeetMouse."
+            alert.runModal()
+        } else {
+            codeRejected = true
+        }
+    }
+}
+
 /// Sidebar card for free users: what's left, plus the way to Unlimited.
+/// Unlocked installs get a quiet "Unlimited ✓" so buyers can see the code took.
 struct FreeTierCard: View {
     var onOpen: () -> Void
     private var tier = FreeTier.shared
@@ -173,6 +244,12 @@ struct FreeTierCard: View {
                 .cardStyle()
             }
             .buttonStyle(.plain)
+        } else {
+            Text("Unlimited ✓")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.green)
+                .padding(.horizontal, 10)
+                .help("MeetMouse Unlimited is unlocked on this Mac.")
         }
     }
 }

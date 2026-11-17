@@ -14,6 +14,8 @@ struct ContentView: View {
     @AppStorage("hasSeenMeetMouseRebrand") private var hasSeenMeetMouseRebrand = false
     @State private var showWelcome = false
     @State private var showRebrandAnnouncement = false
+    /// The AppSumo code prompt went first; show the welcome sheet after it.
+    @State private var welcomeAfterAppSumoPrompt = false
     @Bindable private var freeTier = FreeTier.shared
     @State private var searchQuery = ""
     /// Session open in the main pane; nil = whatever else is active.
@@ -160,11 +162,17 @@ struct ContentView: View {
             // launches — startIfNeeded coalesces the two.)
             ParakeetDownloadState.shared.startIfNeeded(
                 for: settings.resolvedMeetingLanguage.preferredEngine)
+            // One-time "Bought MeetMouse on AppSumo?" for any install that
+            // isn't unlocked. It goes first so buyers enter their code before
+            // anything else; the welcome sheet follows it.
+            let askedForCode = freeTier.checkAppSumoPrompt(isLive: liveSession.isLive)
             if !hasSeenDemo {
                 // A fresh install has only ever known MeetMouse; don't explain
                 // a rename from a product this person never used.
                 hasSeenMeetMouseRebrand = true
-                showWelcome = true
+                if askedForCode { welcomeAfterAppSumoPrompt = true } else { showWelcome = true }
+            } else if askedForCode {
+                // The rebrand note can wait for the next launch.
             } else if !hasSeenMeetMouseRebrand {
                 showRebrandAnnouncement = true
             }
@@ -216,6 +224,14 @@ struct ContentView: View {
         }
         .sheet(isPresented: $freeTier.showTrialEnded) {
             GiveMeetMouseView(trialEnded: true)
+        }
+        .sheet(isPresented: $freeTier.showAppSumoPrompt, onDismiss: {
+            if welcomeAfterAppSumoPrompt {
+                welcomeAfterAppSumoPrompt = false
+                showWelcome = true
+            }
+        }) {
+            AppSumoCodePrompt()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             freeTier.checkTrialEnded(isLive: liveSession.isLive)
@@ -1770,6 +1786,18 @@ struct SidebarView: View {
 
                     FreeTierCard { openWindow(id: "give") }
                         .padding(.horizontal, 8)
+                    if !FreeTier.shared.isUnlocked {
+                        Button {
+                            openWindow(id: "give")
+                            FreeTier.shared.requestCodeFocus()
+                        } label: {
+                            Label("Enter AppSumo code…", systemImage: "ticket")
+                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 18)
+                    }
 
                     SessionsSection(searchQuery: $searchQuery,
                                 selectedSession: $selectedSession,

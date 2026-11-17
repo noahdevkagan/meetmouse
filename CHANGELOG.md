@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Bought MeetMouse on AppSumo? MeetMouse now asks for your code once when you open it, and "Enter AppSumo Code…" in the menu bar and sidebar takes you straight to the code box. The code box now sits at the top of Get MeetMouse Unlimited, and the sidebar shows "Unlimited ✓" once you're unlocked.
+
 ## 0.35.0 — 2026-11-12
 
 - AI notes setup is now a main first-run step with two clear choices: use your own Claude account (MeetMouse can install Claude Code for you, only after you click, then you sign in) or download a local model (size shown, private, works offline). The first-run checklist is now three short rows (Microphone, Call audio, AI notes); the speech model downloads on its own and only shows a slim status line. After the first meeting, until AI notes work, home shows a one-line "AI notes" card with the same two buttons, and "Set up AI notes" buttons appear next to the basic-recap message and AI errors. After setup from a meeting's page, MeetMouse offers to write that meeting's notes.

@@ -2418,3 +2418,7 @@ and would not auto-update with the app; the config points at the bundle path, so
 Sparkle updates just work. The app is unsandboxed (ENABLE_APP_SANDBOX NO), so the
 direct write is allowed. Logic lives in Engine/ClaudeDesktopConfig.swift, tested by
 tests/claude-desktop (wired into push-gate).
+
+## 2026-11-17 — AppSumo code prompt goes before the welcome sheet
+
+AppSumo buyers redeemed on the site, installed, and never entered their code; the 7-day free week hid it until day 8, when the app locked and the purchase looked broken. Every install that isn't unlocked now gets a one-time "Bought MeetMouse on AppSumo?" sheet at launch, ahead of the welcome sheet (which follows on dismiss), so buyers see it first. Existing free installs see it once on their next launch too, which catches buyers already stuck in the trial. Grandfathered/unlocked installs never see it. The code box also moved to the top of Get MeetMouse Unlimited and got a direct "Enter AppSumo code…" entry in the sidebar and menu bar.

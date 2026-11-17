@@ -26,6 +26,7 @@ struct UsageGate {
         static let weekStart = "usage.weekStart"
         static let weekMeetings = "usage.weekMeetings"
         static let trialEndNoticeShown = "usage.trialEndNoticeShown"
+        static let appSumoPromptShown = "usage.appSumoPromptShown"
     }
 
     /// Runs once per install, at launch. An install that already has saved
@@ -65,6 +66,18 @@ struct UsageGate {
 
     func markTrialEndedNoticeShown() {
         defaults.set(true, forKey: Key.trialEndNoticeShown)
+    }
+
+    /// One-time "Bought MeetMouse on AppSumo? Enter your code" prompt.
+    /// AppSumo buyers often download and never enter their code; the free
+    /// week hides that until day 8. Unlocked (and grandfathered) installs
+    /// never see it.
+    var shouldShowAppSumoPrompt: Bool {
+        !isUnlocked && !defaults.bool(forKey: Key.appSumoPromptShown)
+    }
+
+    func markAppSumoPromptShown() {
+        defaults.set(true, forKey: Key.appSumoPromptShown)
     }
 
     /// True when a new meeting should be refused. A meeting already in
@@ -134,6 +147,10 @@ final class FreeTier {
     var showLimitReached = false
     /// Set once, the first time the app is opened after the free week ends.
     var showTrialEnded = false
+    /// Set once per install at launch: "Bought MeetMouse on AppSumo?"
+    var showAppSumoPrompt = false
+    /// Bumped by "Enter AppSumo code…" so the unlock window focuses its code field.
+    private(set) var codeFocusRequest = 0
 
     var isUnlocked: Bool { _ = revision; return gate.isUnlocked }
     var isInTrial: Bool { _ = revision; return gate.isInTrial }
@@ -171,10 +188,26 @@ final class FreeTier {
     /// never during a meeting.
     func checkTrialEnded(isLive: Bool) {
         revision += 1
-        guard !isLive, !showLimitReached, gate.shouldShowTrialEndedNotice else { return }
+        guard !isLive, !showLimitReached, !showAppSumoPrompt,
+              gate.shouldShowTrialEndedNotice else { return }
         gate.markTrialEndedNoticeShown()
         showTrialEnded = true
     }
+
+    /// Raises the one-time AppSumo code prompt at launch when it's due.
+    /// Returns true when it was raised. Never during a meeting or over
+    /// another free-tier sheet.
+    @discardableResult
+    func checkAppSumoPrompt(isLive: Bool) -> Bool {
+        revision += 1
+        guard !isLive, !showLimitReached, !showTrialEnded,
+              gate.shouldShowAppSumoPrompt else { return false }
+        gate.markAppSumoPromptShown()
+        showAppSumoPrompt = true
+        return true
+    }
+
+    func requestCodeFocus() { codeFocusRequest += 1 }
 
     func recordMeeting() {
         gate.recordMeeting()
@@ -187,6 +220,7 @@ final class FreeTier {
         if ok {
             showLimitReached = false
             showTrialEnded = false
+            showAppSumoPrompt = false
             revision += 1
         }
         return ok

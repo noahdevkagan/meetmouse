@@ -22,6 +22,9 @@ struct FreeTierCheck {
 
         gate.bootstrap(isExistingInstall: false)
         check(!gate.isUnlocked && gate.isInTrial, "new install starts in trial, locked")
+        check(gate.shouldShowAppSumoPrompt, "new locked install gets the AppSumo code prompt")
+        gate.markAppSumoPromptShown()
+        check(!gate.shouldShowAppSumoPrompt, "AppSumo code prompt shows only once")
         for _ in 0..<10 { gate.recordMeeting() }
         check(!gate.isBlocked, "trial week is unlimited")
         check(!gate.shouldShowTrialEndedNotice, "no trial-ended notice during the trial")
@@ -55,12 +58,14 @@ struct FreeTierCheck {
         grand.bootstrap(isExistingInstall: false)
         check(grand.isUnlocked, "bootstrap runs once")
         check(!grand.shouldShowTrialEndedNotice, "grandfathered installs never see the trial notice")
+        check(!grand.shouldShowAppSumoPrompt, "grandfathered installs never see the AppSumo prompt")
 
         let suite3 = suite + "-buy"
         let buy = UserDefaults(suiteName: suite3)!
         defer { buy.removePersistentDomain(forName: suite3) }
         check(UsageGate(defaults: buy).unlock(code: "mouse-5kc5-7eda", appSumoHashes: []),
               "purchase code from /thanks unlocks")
+        check(!UsageGate(defaults: buy).shouldShowAppSumoPrompt, "unlocked installs never see the AppSumo prompt")
 
         let link = ReferralLink(defaults: defaults)
         check(ReferralLink.isValid(link.code) && link.code == ReferralLink(defaults: defaults).code,
