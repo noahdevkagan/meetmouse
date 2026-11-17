@@ -52,7 +52,7 @@ struct GiveMeetMouseView: View {
         }
         .padding(18)
         .frame(width: 440)
-        // "Enter AppSumo code…" opens this window (or brings it forward)
+        // "Enter unlock code…" opens this window (or brings it forward)
         // and asks for the code field.
         .onChange(of: tier.codeFocusRequest, initial: true) { _, request in
             guard request > 0 else { return }
@@ -177,11 +177,11 @@ struct AppSumoCodePrompt: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Bought MeetMouse on AppSumo?").font(.title3.bold())
-            Text("Enter your code to unlock MeetMouse Unlimited.")
+            Text("Have an unlock code?").font(.title3.bold())
+            Text("From AppSumo or your $20 purchase. Enter it to unlock MeetMouse Unlimited.")
                 .font(.callout).foregroundStyle(.secondary)
             HStack {
-                TextField("AppSumo code", text: $code)
+                TextField("AppSumo or MOUSE-… code", text: $code)
                     .textFieldStyle(.roundedBorder)
                     .focused($codeFocused)
                     .onSubmit(redeem)

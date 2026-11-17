@@ -1794,7 +1794,7 @@ struct SidebarView: View {
                             openWindow(id: "give")
                             FreeTier.shared.requestCodeFocus()
                         } label: {
-                            Label("Enter AppSumo code…", systemImage: "ticket")
+                            Label("Enter unlock code…", systemImage: "ticket")
                                 .font(.system(size: 12)).foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }

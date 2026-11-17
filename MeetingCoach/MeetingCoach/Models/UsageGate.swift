@@ -154,7 +154,7 @@ final class FreeTier {
     var showTrialEnded = false
     /// Set once per install at launch: "Bought MeetMouse on AppSumo?"
     var showAppSumoPrompt = false
-    /// Set by "Enter AppSumo code…" so the unlock window focuses its code
+    /// Set by "Enter unlock code…" so the unlock window focuses its code
     /// field; the window clears it once used so later opens don't refocus.
     private(set) var codeFocusRequest = 0
     /// A start was refused while the AppSumo prompt was up: the limit sheet

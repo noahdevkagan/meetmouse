@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- The unlock code box now says "Have an unlock code?" and takes AppSumo and $20-purchase codes alike; the menu bar and sidebar item is now "Enter Unlock Code…".
+
 ## 0.36.0 — 2026-11-17
 
 - Bought MeetMouse on AppSumo? MeetMouse now asks for your code once when you open it, and "Enter AppSumo Code…" in the menu bar and sidebar takes you straight to the code box. The code box now sits at the top of Get MeetMouse Unlimited, and the sidebar shows "Unlimited ✓" once you're unlocked.
