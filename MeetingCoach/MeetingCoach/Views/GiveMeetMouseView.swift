@@ -180,6 +180,7 @@ struct AppSumoCodePrompt: View {
             Text("Have an unlock code?").font(.title3.bold())
             Text("From AppSumo or your $20 purchase. Enter it to unlock MeetMouse Unlimited.")
                 .font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             HStack {
                 TextField("AppSumo or MOUSE-… code", text: $code)
                     .textFieldStyle(.roundedBorder)
