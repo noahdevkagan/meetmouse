@@ -297,13 +297,12 @@ struct ParakeetManualDownloadHint: View {
                     .font(.caption2).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if let tag = engine.parakeetVersionTag {
+            if let command = engine.parakeetManualDownloadCommand {
                 Button(copied
                        ? "Copied. Paste it into Terminal, then press Retry."
                        : "Copy Terminal command to download it manually") {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(
-                        ParakeetDownloadRetry.terminalCommand(versionTag: tag), forType: .string)
+                    NSPasteboard.general.setString(command, forType: .string)
                     copied = true
                 }
                 .buttonStyle(.link)

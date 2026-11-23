@@ -68,14 +68,10 @@ enum ParakeetDownloadRetry {
         }
     }
 
-    /// Hugging Face repo and local folder for each Parakeet version, matching
-    /// FluidAudio's `Repo` raw value and `folderName` (not public API).
+    /// Hugging Face repo for each Parakeet version, matching FluidAudio's
+    /// `Repo` raw value (not public API; `tests/download-e2e` downloads it).
     static func repoID(versionTag: String) -> String {
         "FluidInference/parakeet-tdt-0.6b-\(versionTag)-coreml"
-    }
-
-    static func folderName(versionTag: String) -> String {
-        "parakeet-tdt-0.6b-\(versionTag)-coreml"
     }
 
     /// Fallback for networks where the app's download never gets through:
@@ -83,13 +79,22 @@ enum ParakeetDownloadRetry {
     /// resumable) into the folder the app loads from. Pressing Retry then
     /// finds it on disk, because the cache check runs before any download.
     ///
+    /// `folder` must be FluidAudio's own `AsrModels.defaultCacheDirectory`
+    /// path: it drops "-coreml" from the repo name, so a hand-built path
+    /// (an earlier draft of this command) downloaded where the app never looks.
+    ///
     /// A private venv, not `pip install --user`: Homebrew's Python refuses
     /// user installs (PEP 668), Apple's accepts both. Only the files the app
     /// loads are fetched, not every encoder variant in the repo.
     /// `tests/download-e2e` runs this with both Pythons and loads the result.
-    static func terminalCommand(versionTag: String) -> String {
+    static func terminalCommand(versionTag: String, folder absolutePath: String,
+                                home: String = NSHomeDirectory()) -> String {
         let repo = repoID(versionTag: versionTag)
-        let folder = "~/Library/Application Support/FluidAudio/Models/\(folderName(versionTag: versionTag))"
+        // "~/…" keeps the user's name out of the copied text and survives
+        // quotes in it; expanduser restores it.
+        let folder = absolutePath.hasPrefix(home + "/")
+            ? "~" + absolutePath.dropFirst(home.count)
+            : absolutePath
         let venv = "/tmp/meetmouse-hf"
         let patterns = ["Preprocessor.mlmodelc/*", "Encoder.mlmodelc/*", "Decoder.mlmodelc/*",
                         "JointDecision*.mlmodelc/*", "*.json"]

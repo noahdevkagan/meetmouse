@@ -5,8 +5,9 @@
 # WARNING: deletes and re-downloads the cached Parakeet v3 model.
 #
 # 1. before the fix: one bare AsrModels.download call fails when the
-#    connection drops 4 times mid-file ("connection lost"), as reported
-# 2. the fix: the app's ParakeetDownloadState resumes through 10 drops
+#    connection keeps dropping mid-file ("connection lost"), as reported
+# 2. the fix: the app's ParakeetDownloadState resumes through twice the drops
+#    that defeated one call
 # 3. the downloaded models load
 # 4-5. the Terminal fallback command works with Apple's and Homebrew's Python,
 #    and its files load
@@ -16,7 +17,8 @@ cd "$(dirname "$0")"
 echo "-- building rig (compiles the app's ParakeetDownloadState.swift)"
 swift build -c release 2>&1 | tail -3
 RIG=.build/release/rig
-MODELS="$HOME/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3-coreml"
+MODELS="$("$RIG" path)"   # FluidAudio's own path, not a guess
+echo "   model folder: $MODELS"
 CUT_MB=${CUT_MB:-8}
 mkdir -p .out
 fail=0
@@ -32,27 +34,31 @@ start_proxy() {  # port cuts name
 }
 stop_proxy() { kill "$PROXY" 2>/dev/null; wait "$PROXY" 2>/dev/null; echo "   proxy: $(grep -c '^CUT' ".out/proxy-$1.log") cuts"; }
 
-echo "-- 1. before the fix: single download call, 4 drops"
+echo "-- 1. before the fix: single download call, connection drops every ${CUT_MB} MB"
 reset
-start_proxy 8901 4 single
+start_proxy 8901 100000 single
 https_proxy=http://127.0.0.1:8901 "$RIG" single > .out/single.txt 2> .out/single.log
 stop_proxy single
 cat .out/single.txt
 if grep -q "RESULT single fail transient=true" .out/single.txt; then
-    pass "a single download call gives up after 4 dropped connections (the reported bug)"
+    pass "a single download call gives up after dropped connections (the reported bug)"
 else
     flunk "single call should have failed with a transient error; the cut setup isn't reproducing the bug"
 fi
 
-echo "-- 2. the fix: app download state, 10 drops"
+# Drops it took to defeat one call; the app gets two rounds' worth plus a few,
+# so rounds 1 and 2 fail the way the single call did and round 3 finishes.
+PER_CALL=$(grep -c '^CUT' .out/proxy-single.log)
+BUDGET=$((PER_CALL * 2 + 2))
+echo "-- 2. the fix: app download state, $BUDGET drops (one call gave up after $PER_CALL)"
 reset
-start_proxy 8902 10 app
+start_proxy 8902 "$BUDGET" app
 https_proxy=http://127.0.0.1:8902 "$RIG" app > .out/app.txt 2> .out/app.log
 stop_proxy app
 cat .out/app.txt
 grep "\[Parakeet\]" .out/app.log | sed 's/^/   /'
 if grep -q "RESULT app ok" .out/app.txt; then
-    pass "app download finished through 10 dropped connections"
+    pass "app download finished through $BUDGET dropped connections"
 else
     flunk "app download did not finish"
 fi

@@ -57,11 +57,18 @@ check("offline reads as offline", ParakeetDownloadRetry.summary(for: URLError(.n
 check("other errors keep their text",
       ParakeetDownloadRetry.summary(for: CocoaError(.fileWriteOutOfSpace)) == CocoaError(.fileWriteOutOfSpace).localizedDescription)
 
-// 5. Fallback command targets the folder FluidAudio loads from.
-let cmd = ParakeetDownloadRetry.terminalCommand(versionTag: "v3")
+// 5. Fallback command targets the folder FluidAudio loads from. FluidAudio
+//    drops "-coreml" from the repo name; an earlier draft hand-built
+//    ".../parakeet-tdt-0.6b-v3-coreml" and downloaded where the app never looks.
+let home = "/Users/someone"
+let folder = home + "/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3"
+let cmd = ParakeetDownloadRetry.terminalCommand(versionTag: "v3", folder: folder, home: home)
 check("command has v3 repo", cmd.contains("\"FluidInference/parakeet-tdt-0.6b-v3-coreml\""))
-check("command writes to the app's model folder",
-      cmd.contains("~/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3-coreml"))
+check("command writes to the given model folder",
+      cmd.contains("\"~/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3\""))
+check("command leaves the user's name out", !cmd.contains("someone"))
+let outside = ParakeetDownloadRetry.terminalCommand(versionTag: "v3", folder: "/Volumes/X/m", home: home)
+check("folder outside home stays absolute", outside.contains("\"/Volumes/X/m\""))
 check("command is one line", !cmd.contains("\n"))
 check("command uses a venv, not pip --user (Homebrew Python refuses it)", cmd.contains("-m venv") && !cmd.contains("--user"))
 check("command fetches only the loaded files", cmd.contains("allow_patterns"))

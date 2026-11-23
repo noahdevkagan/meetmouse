@@ -19,6 +19,14 @@ extension TranscriptionEngine {
         case .sfSpeech: nil
         }
     }
+
+    /// Terminal command that downloads this model into the exact folder
+    /// FluidAudio loads it from (see ParakeetDownloadRetry.terminalCommand).
+    var parakeetManualDownloadCommand: String? {
+        guard let version = parakeetVersion, let tag = parakeetVersionTag else { return nil }
+        return ParakeetDownloadRetry.terminalCommand(
+            versionTag: tag, folder: AsrModels.defaultCacheDirectory(for: version).path)
+    }
 }
 
 extension ResolvedMeetingLanguage {

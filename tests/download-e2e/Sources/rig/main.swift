@@ -6,6 +6,7 @@ import Foundation
 //   app      the app's real ParakeetDownloadState.prepare(for: .parakeetV3)
 //   load     load the cached v3 models (proves the files on disk are usable)
 //   command  print the Terminal fallback command shown in the app
+//   path     print the folder FluidAudio caches v3 in
 // Prints "RESULT <mode> ok|fail ..." and exits 0 on ok, 1 on fail.
 
 let mode = CommandLine.arguments.dropFirst().first ?? "app"
@@ -46,7 +47,10 @@ Task { @MainActor in
             finish(false, "load error=\(error)")
         }
     case "command":
-        print(ParakeetDownloadRetry.terminalCommand(versionTag: "v3"))
+        print(TranscriptionEngine.parakeetV3.parakeetManualDownloadCommand ?? "")
+        exit(0)
+    case "path":
+        print(AsrModels.defaultCacheDirectory(for: .v3).path)
         exit(0)
     default:
         finish(false, "unknown mode")
