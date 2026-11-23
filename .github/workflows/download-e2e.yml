@@ -36,3 +36,4 @@ jobs:
           name: download-e2e-logs
           path: tests/download-e2e/.out
           if-no-files-found: ignore
+          include-hidden-files: true

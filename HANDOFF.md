@@ -19,6 +19,13 @@ macOS 26). FluidAudio retries each file 4x then throws; its `.partial` files sur
    Retry already finds a manually installed model (cache check comes first).
 4. `tests/download` suite wired into push gate + CI test gate. No Swift on the Linux session:
    build verified only via the CI test gate run on this branch.
+Done and verified in CI (test gate on `claude/**` pushes + `.github/workflows/download-e2e.yml`):
+`tests/download-e2e` downloads real v3 from Hugging Face through `flaky_proxy.py`. A bare
+FluidAudio call gave up after 12 drops (-1005, as reported); the app's ParakeetDownloadState got
+through 26 drops, finishing in round 3; models load. The Terminal command works with Apple's
+Python 3.9 and Homebrew's, 494 MB. The e2e caught that the model folder is
+`Models/parakeet-tdt-0.6b-v3` (no `-coreml`); the command now takes FluidAudio's path.
+Open: not tried on a real Mac yet (UI text, Copy button); own-Cloudflare model mirror not built.
 
 ## Earlier state (2026-11-11): Audit quick wins (branch fix/audit-quick-wins)
 
