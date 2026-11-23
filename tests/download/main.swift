@@ -63,6 +63,8 @@ check("command has v3 repo", cmd.contains("\"FluidInference/parakeet-tdt-0.6b-v3
 check("command writes to the app's model folder",
       cmd.contains("~/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3-coreml"))
 check("command is one line", !cmd.contains("\n"))
+check("command uses a venv, not pip --user (Homebrew Python refuses it)", cmd.contains("-m venv") && !cmd.contains("--user"))
+check("command fetches only the loaded files", cmd.contains("allow_patterns"))
 check("v2 repo", ParakeetDownloadRetry.repoID(versionTag: "v2") == "FluidInference/parakeet-tdt-0.6b-v2-coreml")
 
 if fail { print("DOWNLOAD GATE FAILED"); exit(1) }

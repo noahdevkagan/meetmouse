@@ -1,0 +1,38 @@
+name: Download E2E
+
+# Real Parakeet download from Hugging Face through a proxy that drops the
+# connection mid-file (tests/download-e2e). Needs the network and ~1-2 GB of
+# transfer, so it runs only when the download code changes, not in the gate.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths:
+      - MeetingCoach/MeetingCoach/Engine/ParakeetDownload*.swift
+      - tests/download-e2e/**
+      - .github/workflows/download-e2e.yml
+
+jobs:
+  e2e:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        run: |
+          set -euo pipefail
+          XCODE_PATH="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)"
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
+
+      - name: Download end-to-end
+        run: bash tests/download-e2e/run.sh
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: download-e2e-logs
+          path: tests/download-e2e/.out
+          if-no-files-found: ignore

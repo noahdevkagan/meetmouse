@@ -82,12 +82,22 @@ enum ParakeetDownloadRetry {
     /// fetch the model with Python's Hugging Face client (its own HTTP stack,
     /// resumable) into the folder the app loads from. Pressing Retry then
     /// finds it on disk, because the cache check runs before any download.
+    ///
+    /// A private venv, not `pip install --user`: Homebrew's Python refuses
+    /// user installs (PEP 668), Apple's accepts both. Only the files the app
+    /// loads are fetched, not every encoder variant in the repo.
+    /// `tests/download-e2e` runs this with both Pythons and loads the result.
     static func terminalCommand(versionTag: String) -> String {
         let repo = repoID(versionTag: versionTag)
         let folder = "~/Library/Application Support/FluidAudio/Models/\(folderName(versionTag: versionTag))"
-        return "python3 -m pip install --user --upgrade huggingface_hub && "
-            + "python3 -c 'import os; from huggingface_hub import snapshot_download; "
-            + "snapshot_download(\"\(repo)\", local_dir=os.path.expanduser(\"\(folder)\"))'"
+        let venv = "/tmp/meetmouse-hf"
+        let patterns = ["Preprocessor.mlmodelc/*", "Encoder.mlmodelc/*", "Decoder.mlmodelc/*",
+                        "JointDecision*.mlmodelc/*", "*.json"]
+            .map { "\"\($0)\"" }.joined(separator: ",")
+        return "python3 -m venv \(venv) && \(venv)/bin/pip install -q --upgrade huggingface_hub && "
+            + "\(venv)/bin/python -c 'import os; from huggingface_hub import snapshot_download; "
+            + "snapshot_download(\"\(repo)\", local_dir=os.path.expanduser(\"\(folder)\"), "
+            + "allow_patterns=[\(patterns)]); print(\"Done. Press Retry in MeetMouse.\")'"
     }
 
     // MARK: - Digging through wrapped errors
