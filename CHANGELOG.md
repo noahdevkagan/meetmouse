@@ -9,7 +9,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## Unreleased
 
-- Long stretches of speech with no pause (30 seconds or more) no longer lose or split a word where the transcript breaks them into lines: the break now lands on the quietest moment near the end.
+- When someone talks for 30 seconds or more without stopping, the transcript now starts the new line at a short pause near the end instead of wherever it happened to fall, so the word at the break is no longer cut in half.
 
 ## 0.36.1 — 2026-11-18
 

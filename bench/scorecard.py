@@ -32,6 +32,10 @@ REPO = Path(__file__).resolve().parent.parent
 ASR_HISTORY = REPO / "bench" / "asr-history.jsonl"
 NUDGE_HISTORY = REPO / "bench" / "history.jsonl"
 CORPUS_DIR = REPO / "bench" / "asr-corpus"
+# Trend corpora replaced by another: old name -> new name. synthetic-hard
+# was the real-time rig (noisy run to run); tests/asr/hard.sh now records
+# the audio-clock series instead.
+SUPERSEDED = {"synthetic-hard": "synthetic-hard-det"}
 
 
 def load_history(path: Path) -> list[dict]:
@@ -138,8 +142,13 @@ def main() -> int:
     # tests/asr/hard.sh on the Mac — no committed capture pair to rescore
     # here, so render the latest record vs the one before it) ----
     scored_names = {r["corpus"] for r in corpora}
+    recorded = {h.get("corpus") for h in asr_history}
+    # Retired series stop showing once their replacement has a record
+    # (otherwise the old row, and any warning it carries, lingers forever).
+    retired = {old for old, new in SUPERSEDED.items() if new in recorded}
     trend_names = sorted({h["corpus"] for h in asr_history
-                          if h.get("corpus") not in scored_names and "combined" in h})
+                          if h.get("corpus") not in scored_names | retired
+                          and "combined" in h})
     for name in trend_names:
         recs = [h for h in asr_history if h.get("corpus") == name]
         curr, prev = recs[-1], (recs[-2] if len(recs) > 1 else None)

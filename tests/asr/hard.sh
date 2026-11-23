@@ -34,14 +34,25 @@ date=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 # run_series <corpus> <voice floor> <commit silence> <noise rms>
 run_series() {
-    local corpus=$1 floor=$2 silence=$3 noise=$4 run
+    local corpus=$1 floor=$2 silence=$3 noise=$4 run rc
+    local ok1=0 ok2=0
     for run in 1 2; do
+        rc=0
         RIG_CLOCK=audio RIG_VOICE_FLOOR=$floor RIG_COMMIT_SILENCE=$silence \
             RIG_NOISE_RMS=$noise \
             .build/release/rig cases/case_hard.json normal \
-            > ".out/${corpus}.${run}.txt" 2> ".out/${corpus}.${run}.log" || true
+            > ".out/${corpus}.${run}.txt" 2> ".out/${corpus}.${run}.log" || rc=$?
+        # A run counts only if the rig exited cleanly and reached DONE —
+        # a crash or failed model load must not be scored as a WER spike.
+        if [ "$rc" = "0" ] && grep -q '^DONE' ".out/${corpus}.${run}.txt"; then
+            eval "ok${run}=1"
+        fi
     done
-    if ! diff -q <(grep '^UTT' ".out/${corpus}.1.txt") \
+    if [ "$ok1" != "1" ]; then
+        echo "${corpus}: rig did not finish (see tests/asr/.out/${corpus}.1.log) — not recorded"
+        return 0
+    fi
+    if [ "$ok2" = "1" ] && ! diff -q <(grep '^UTT' ".out/${corpus}.1.txt") \
                  <(grep '^UTT' ".out/${corpus}.2.txt") > /dev/null; then
         echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         echo "!! WARNING: ${corpus} is NOT deterministic — two runs on identical"

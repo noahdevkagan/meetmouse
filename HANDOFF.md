@@ -14,7 +14,10 @@ A. `ParakeetPipeline` (Engine/ParakeetTranscriber.swift): when the 30 s window c
    not stop) triggers, `capCutIndex` picks the center of the quietest 100 ms frame in the last 5 s
    (later frame on ties); the prefix is committed (always re-transcribed, endT = cut time) and the
    rest stays open. Whole-window commit as before if the quietest point is in the last 0.3 s or no
-   voice follows the cut. Silence commits now take precedence over the cap when both are due.
+   voice follows the cut, or no frame is below the voice floor (no real pause). The cut is timed
+   from the newest buffer's arrival (`lastAppendAt`), and `flush()` waits for an in-flight tick so
+   a split's remainder can't be delivered before its prefix. Silence commits now take precedence
+   over the cap when both are due.
 B. Injectable clock (`now:`, default `Date()`), `startManual()`, internal `tick()`, `flush()`,
    `stopAndFlush()`. Rig: `RIG_CLOCK=audio`, `RIG_VOICE_FLOOR`, `RIG_COMMIT_SILENCE`,
    `RIG_NOISE_RMS` (SplitMix64, fixed seed). hard.sh records `synthetic-hard-det` / `-them` /
@@ -25,7 +28,9 @@ through the cut); hard.sh prints no determinism warning; compare -det WER with t
 `synthetic-hard` range (8-13 errors). If the determinism warning fires, CoreML output itself
 varies run to run and the series needs a tolerance instead.
 Out of scope/not done: a second noisy point above the mic floor; overlap or word-timestamp-based
-cuts; retiring the old `synthetic-hard` row from the scorecard (it still shows its last record).
+cuts. Review follow-ups done: scorecard hides `synthetic-hard` once `synthetic-hard-det` has a
+record (`SUPERSEDED` in bench/scorecard.py); hard.sh skips recording a run that crashed or never
+printed DONE.
 
 ## Current state (2026-11-11): Audit quick wins (branch fix/audit-quick-wins)
 

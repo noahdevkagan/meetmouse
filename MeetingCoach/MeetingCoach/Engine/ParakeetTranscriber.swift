@@ -124,6 +124,10 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     private var samples: [Float] = []          // 16k mono, uncommitted window
     private var chunkStartedAt: Date?          // wall clock of first voice
     private var lastVoiceAt: Date?
+    /// When the newest buffer in `samples` arrived. A window-cap cut is
+    /// timed back from here, not from the tick: the tick can land up to a
+    /// second after the last buffer (longer if system audio stalls).
+    private var lastAppendAt: Date?
     private var newAudioSinceTick = false
     private var running = false
     private var tickTask: Task<Void, Never>?
@@ -224,7 +228,11 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     func flush() async {
         // Mid-swap the model is unloaded; flush once the switch resumes
         // (it always does), not into the gap where transcribe is nil.
-        while withLock({ held }) {
+        // Also wait out a tick still transcribing: a window-cap split leaves
+        // its remainder in `samples` while the prefix is in flight, and
+        // flushing that remainder alongside could deliver the tail before
+        // the head (and both commits would touch lastPartial at once).
+        while withLock({ held || inFlight > 0 }) {
             try? await Task.sleep(for: .milliseconds(50))
         }
         await commit(force: true)
@@ -253,6 +261,7 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
 
         let arrivedAt = now()
         lock.lock()
+        lastAppendAt = arrivedAt
         if rms > voiceFloor {
             if chunkStartedAt == nil {
                 chunkStartedAt = arrivedAt.addingTimeInterval(-Double(converted.count) / 16_000)
@@ -399,9 +408,13 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     /// Where a window-cap commit should end: the center of the quietest
     /// 100 ms frame in the window's last 5 s (ties go to the later frame).
     /// Returns samples.count — commit everything, as before — when the
-    /// window is too short to search or the quietest point is in its last
-    /// 0.3 s (the speaker is already trailing off at the end).
-    static func capCutIndex(_ samples: [Float], sampleRate: Int = 16_000) -> Int {
+    /// window is too short to search, the quietest point is in its last
+    /// 0.3 s (the speaker is already trailing off at the end), or no frame
+    /// is below `quietBelow`: in fast speech with no real pause the
+    /// "quietest" frame can sit inside a word (a stop-consonant closure),
+    /// and cutting there is the split-word error this exists to avoid.
+    static func capCutIndex(_ samples: [Float], quietBelow: Float = .greatestFiniteMagnitude,
+                            sampleRate: Int = 16_000) -> Int {
         let frame = sampleRate / 10
         let span = sampleRate * 5
         let minPrefix = sampleRate
@@ -422,6 +435,7 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
                 }
             }
         }
+        guard bestRMS < quietBelow else { return n }
         let cut = bestStart + frame / 2
         return n - cut < minRemainder ? n : cut
     }
@@ -430,8 +444,11 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
         let (snapshot, started, ended, reusable): ([Float], Date?, Date?, Bool) = withLock {
             guard force || chunkStartedAt != nil else { return ([], nil, nil, false) }
             if atWindowCap, !force {
-                let cut = Self.capCutIndex(samples)
-                let cutAt = now().addingTimeInterval(-Double(samples.count - cut) / 16_000)
+                // A frame under the voice floor is a pause by this
+                // pipeline's own definition of voice.
+                let cut = Self.capCutIndex(samples, quietBelow: voiceFloor)
+                let newest = lastAppendAt ?? now()
+                let cutAt = newest.addingTimeInterval(-Double(samples.count - cut) / 16_000)
                 // Split only when voice continues after the cut: a quiet
                 // remainder alone would later be flushed as its own window
                 // (Parakeet hallucinates filler on near-silence), so a
