@@ -8,6 +8,10 @@ name: Test Gate
 on:
   workflow_dispatch:
   workflow_call:
+  # Agent branches get a macOS build + suites on every push: cloud agent
+  # sessions run on Linux (no Swift) and can't dispatch workflows.
+  push:
+    branches: ['claude/**']
 
 jobs:
   gate:
