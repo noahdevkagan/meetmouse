@@ -5,6 +5,28 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-23): ASR window-cap cut + deterministic rig (branch claude/sleepy-goldberg-nmdtt7)
+
+**NOT compiled, NOT run — written on Linux (no Swift toolchain).** Must be verified on a Mac via
+`./scripts/push-gate.sh` (or `tests/asr/run.sh` + `tests/asr/hard.sh`) before merging.
+Committed and pushed to the branch from a cloud session with the push gate not run.
+A. `ParakeetPipeline` (Engine/ParakeetTranscriber.swift): when the 30 s window cap (not silence,
+   not stop) triggers, `capCutIndex` picks the center of the quietest 100 ms frame in the last 5 s
+   (later frame on ties); the prefix is committed (always re-transcribed, endT = cut time) and the
+   rest stays open. Whole-window commit as before if the quietest point is in the last 0.3 s or no
+   voice follows the cut. Silence commits now take precedence over the cap when both are due.
+B. Injectable clock (`now:`, default `Date()`), `startManual()`, internal `tick()`, `flush()`,
+   `stopAndFlush()`. Rig: `RIG_CLOCK=audio`, `RIG_VOICE_FLOOR`, `RIG_COMMIT_SILENCE`,
+   `RIG_NOISE_RMS` (SplitMix64, fixed seed). hard.sh records `synthetic-hard-det` / `-them` /
+   `-noisy` (RMS 0.003), each run twice with a loud warning if outputs differ; score.py takes an
+   optional corpus arg. run.sh (blocking gate) still real time and unchanged.
+To check on the Mac: build passes; `tests/asr/run.sh` still passes (esp. `long`, which now goes
+through the cut); hard.sh prints no determinism warning; compare -det WER with the old
+`synthetic-hard` range (8-13 errors). If the determinism warning fires, CoreML output itself
+varies run to run and the series needs a tolerance instead.
+Out of scope/not done: a second noisy point above the mic floor; overlap or word-timestamp-based
+cuts; retiring the old `synthetic-hard` row from the scorecard (it still shows its last record).
+
 ## Current state (2026-11-11): Audit quick wins (branch fix/audit-quick-wins)
 
 Four fixes from a speed/accuracy audit of origin/main, one commit, not pushed:

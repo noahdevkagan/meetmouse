@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Score rig output against cases/refs.json and enforce the transcript gate.
 
-Usage: score.py <case> <rig-output-file>
+Usage: score.py <case> <rig-output-file> [corpus]
   case: conv | silence | cut | long | fr | hard
+  corpus: history name for the hard case's JSON line (default
+          synthetic-hard; tests/asr/hard.sh passes synthetic-hard-det etc.)
 
-Chunk boundaries shift run to run (wall-clock ticks), so the gate scores
-word error rate over the concatenated transcript plus utterance-count
-bands — never exact text.
+The blocking cases run the rig in real time, where chunk boundaries shift
+run to run (wall-clock ticks), so the gate scores word error rate over
+the concatenated transcript plus utterance-count bands — never exact text.
 
 Gates:
   conv    : 4-8 utterances, WER <= 5%
@@ -17,7 +19,8 @@ Gates:
             conversation (fast handoffs, backchannels, proper nouns,
             numbers, rate changes). Always exits 0; prints WER and a
             JSON line that tests/asr/hard.sh appends to
-            bench/asr-history.jsonl. Compare the rate across commits.
+            bench/asr-history.jsonl. Compare the rate across commits
+            within one corpus name.
 """
 import json
 import re
@@ -64,6 +67,7 @@ def wer(ref, hyp):
 
 def main():
     case, path = sys.argv[1], sys.argv[2]
+    corpus = sys.argv[3] if len(sys.argv) > 3 else "synthetic-hard"
     refs = json.load(open("cases/refs.json"))
     utts = [l.split("\t", 4)[4].strip() for l in open(path)
             if l.startswith("UTT")]
@@ -101,10 +105,10 @@ def main():
         ref = " ".join(refs[k]["text"] for k in keys)
         errors, n = wer(ref, hyp)
         rate = errors / n if n else 1.0
-        print(f"hard: {len(utts)} utterances ({len(keys)} scripted turns), "
+        print(f"{corpus}: {len(utts)} utterances ({len(keys)} scripted turns), "
               f"WER {errors}/{n} = {rate:.1%} (trend, non-blocking)")
         print("JSON\t" + json.dumps({
-            "corpus": "synthetic-hard",
+            "corpus": corpus,
             "combined": {"refWords": n, "hypWords": len(norm(hyp)),
                          "errors": errors, "rate": round(rate, 4)},
             "utterances": len(utts),

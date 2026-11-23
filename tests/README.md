@@ -38,24 +38,40 @@ Cases:
 - **cut** — `stop()` mid-speech: the tail must still flush as an
   utterance (regression test for the strong-capture flush in `stop()`)
 - **long** — 40s pause-free monologue: exercises the 30s window-cap
-  boundary; WER ≤ 5% proves no words are lost at the seam
+  boundary (the cap commits up to the quietest 100 ms of the window's
+  last 5 s and keeps the rest open); WER ≤ 5% proves no words are lost
+  at the seam
 - **fr** — four-turn French Parakeet v3 canary with a `fr` language hint;
   informational while its synthetic-voice baseline is established, and
   skipped when the Thomas macOS voice is unavailable
 
-Chunk boundaries depend on wall-clock ticks, so runs aren't
-byte-identical — that's why the gate scores WER + count bands, never
-exact text.
+These blocking cases run the rig in real time, where chunk boundaries
+depend on wall-clock ticks, so runs aren't byte-identical — that's why
+the gate scores WER + count bands, never exact text.
+
+The rig also has an **audio clock** (`RIG_CLOCK=audio`): a virtual clock
+advances by each fed buffer's duration, the pipeline ticks after every
+second of fed audio, and nothing sleeps, so identical audio gives
+identical commits, far faster than real time. Other rig knobs:
+`RIG_VOICE_FLOOR` / `RIG_COMMIT_SILENCE` (pipeline settings; the app's
+Them channel uses 0.002 / 2.0, the mic 0.006 / 0.9) and `RIG_NOISE_RMS`
+(fixed-seed white noise mixed into every fed buffer, gaps included).
 
 There is also a **non-blocking trend case**: `tests/asr/hard.sh` runs a
 ~2-minute scripted two-speaker conversation deliberately built to be
 hard — fast speaker handoffs (0.2–0.4s gaps), an interruption, one-word
 backchannels ("Mm-hmm."), numbers/currency/dates, proper nouns (Nguyen,
 Priya, Kubernetes, AppSumo), acronyms (SOC two), and speech rates from
-155 to 210 wpm — and appends the WER to `bench/asr-history.jsonl` as
-corpus `synthetic-hard`. It never fails the gate; the audio is identical
-across runs, so comparing the rate across commits shows whether an ASR
-change made transcription better or worse. The push gate runs it
+155 to 210 wpm — on the audio clock and appends the WER to
+`bench/asr-history.jsonl` as three corpora: `synthetic-hard-det` (mic
+settings), `synthetic-hard-them` (Them settings) and
+`synthetic-hard-noisy` (mic settings + noise at RMS 0.003). Each runs
+twice and a loud warning prints if the two transcripts differ. It never
+fails the gate; audio and tick timing are identical across runs, so
+comparing the rate across commits shows whether an ASR change made
+transcription better or worse. (The older `synthetic-hard` series came
+from the real-time rig and swung by several errors on the same code; it
+is no longer recorded.) The push gate runs it
 automatically whenever the full audio set runs (i.e. ASR-adjacent code
 changed, or FULL=1) and auto-commits the appended history line in
 stage 4. It can also be run by hand any time:

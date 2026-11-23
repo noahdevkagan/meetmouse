@@ -1,6 +1,7 @@
 #!/bin/bash
 # Transcript gate: run every ASR case through the real ParakeetPipeline
-# and score it. Audio feeds in real time, so this takes ~3 minutes.
+# and score it. Audio feeds in real time (the rig's default clock; the
+# trend in hard.sh uses RIG_CLOCK=audio instead), so this takes ~3 minutes.
 # FAST=1 skips the long-monologue (30s window-cap) case.
 set -euo pipefail
 cd "$(dirname "$0")"

@@ -101,7 +101,7 @@ fi
 if [ "${FULL:-0}" = "1" ] || { [ "$asr_touched" = "1" ] && [ "${FAST:-0}" != "1" ]; }; then
     echo "(full audio set — ASR code changed or FULL=1)"
     bash tests/asr/run.sh || { echo "TRANSCRIPT GATE FAILED"; exit 1; }
-    # ASR code changed → record a trend point on the fixed hard
+    # ASR code changed → record trend points on the fixed hard
     # conversation (never blocks; see tests/asr/hard.sh). Commit the
     # appended bench/asr-history.jsonl line afterwards, like the
     # stage-4 benchmark record.

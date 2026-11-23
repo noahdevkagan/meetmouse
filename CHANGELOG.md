@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Long stretches of speech with no pause (30 seconds or more) no longer lose or split a word where the transcript breaks them into lines: the break now lands on the quietest moment near the end.
+
 ## 0.36.1 — 2026-11-18
 
 - The unlock code box now says "Have an unlock code?" and takes AppSumo and $20-purchase codes alike; the menu bar and sidebar item is now "Enter Unlock Code…".

@@ -107,14 +107,19 @@ actor ParakeetEngine {
 /// RecognitionPipeline's interface. Buffers the current utterance and
 /// re-transcribes the whole window ~every 0.7s (RTF ~120x makes this cheap):
 /// partial results stream to the UI, and the window commits as an Utterance
-/// after a silence gap that ends a sentence (see endsSentence) or at the
-/// max window length.
+/// after a silence gap that ends a sentence (see endsSentence) or, at the
+/// max window length, up to the quietest point of its last seconds (see
+/// capCutIndex).
 final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     let speaker: String
     var onUtterance: ((Utterance) -> Void)?
     var onPartial: ((String) -> Void)?
 
     private let sessionStart: Date
+    /// Clock for every timing decision (voice/silence stamps, commit times).
+    /// The app uses wall time; the ASR rig injects an audio clock so the
+    /// same audio always produces the same commits.
+    private let now: @Sendable () -> Date
     private let lock = NSLock()
     private var samples: [Float] = []          // 16k mono, uncommitted window
     private var chunkStartedAt: Date?          // wall clock of first voice
@@ -123,7 +128,7 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     private var running = false
     private var tickTask: Task<Void, Never>?
     /// Tick counter for the partial-refresh throttle; touched only from the
-    /// (serial) tick loop.
+    /// (serial) tick loop, or the rig's serial manual ticks.
     private var tickCount = 0
     private let converter = AudioConverter()
     /// One long-lived converter per input format (see StreamingResampler).
@@ -155,9 +160,11 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
     /// transcribe with no context.
     init(speaker: String, sessionStart: Date,
          voiceFloor: Float = 0.006, commitSilence: TimeInterval = 0.9,
-         modelVersion: AsrModelVersion = .v2, languageHint: Language? = nil) {
+         modelVersion: AsrModelVersion = .v2, languageHint: Language? = nil,
+         now: @escaping @Sendable () -> Date = { Date() }) {
         self.speaker = speaker
         self.sessionStart = sessionStart
+        self.now = now
         self.voiceFloor = voiceFloor
         self.commitSilence = commitSilence
         self.modelVersion = modelVersion
@@ -179,24 +186,48 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
         }
     }
 
-    func stop() {
+    /// Start without the internal 1 s tick loop: the caller drives tick()
+    /// itself (the ASR rig's audio clock). The app always uses start().
+    func startManual() {
         lock.lock()
-        running = false
+        running = true
         lock.unlock()
-        tickTask?.cancel()
-        tickTask = nil
+    }
+
+    func stop() {
+        markStopped()
         // Flush whatever is pending so the transcript tail isn't lost.
         // Strong capture on purpose: the capture manager drops its reference
         // right after stop() returns, and a weak self would let the pipeline
         // deallocate before this flush ever runs.
         Task { [self] in
-            // Mid-swap the model is unloaded; flush once the switch resumes
-            // (it always does), not into the gap where transcribe is nil.
-            while withLock({ held }) {
-                try? await Task.sleep(for: .milliseconds(50))
-            }
-            await commit(force: true)
+            await flush()
         }
+    }
+
+    /// stop(), but the tail flush is awaited instead of detached — lets the
+    /// rig know every utterance has been delivered when this returns.
+    func stopAndFlush() async {
+        markStopped()
+        await flush()
+    }
+
+    private func markStopped() {
+        lock.lock()
+        running = false
+        lock.unlock()
+        tickTask?.cancel()
+        tickTask = nil
+    }
+
+    /// Forced commit of the whole pending window (the stop() tail flush).
+    func flush() async {
+        // Mid-swap the model is unloaded; flush once the switch resumes
+        // (it always does), not into the gap where transcribe is nil.
+        while withLock({ held }) {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        await commit(force: true)
     }
 
     /// Append audio from the tap/stream thread. Any format — resampled here.
@@ -220,12 +251,13 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
             vDSP_rmsqv(base, 1, &rms, vDSP_Length(ptr.count))
         }
 
+        let arrivedAt = now()
         lock.lock()
         if rms > voiceFloor {
             if chunkStartedAt == nil {
-                chunkStartedAt = Date().addingTimeInterval(-Double(converted.count) / 16_000)
+                chunkStartedAt = arrivedAt.addingTimeInterval(-Double(converted.count) / 16_000)
             }
-            lastVoiceAt = Date()
+            lastVoiceAt = arrivedAt
             // Only VOICED audio marks the window dirty. Silent buffers keep
             // appending (they belong in the final transcription) but must not
             // trigger a re-transcribe: each pass costs a full 15s-padded
@@ -287,7 +319,10 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
         return body()
     }
 
-    private func tick() async {
+    /// One pass: commit if due, else refresh the partial. The app calls it
+    /// from start()'s 1 s loop; the rig calls it per second of fed audio.
+    /// Callers must not overlap ticks.
+    func tick() async {
         // The whole tick is one pass: the held check and the in-flight count
         // are taken together, so after hold() drains, no window is cleared
         // and then handed to a model that's being swapped out.
@@ -303,7 +338,7 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
         }
         guard isRunning, hasVoice, duration > 0.3 else { return }
 
-        let silenceFor = lastVoice.map { Date().timeIntervalSince($0) } ?? 0
+        let silenceFor = lastVoice.map { now().timeIntervalSince($0) } ?? 0
         // Sentence-aware commit: a silence gap only commits when the window
         // reads as a finished sentence. Remote voices duck under the floor
         // mid-thought (meeting apps noise-gate aggressively), and committing
@@ -311,10 +346,16 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
         // with no context. A mid-sentence gap instead holds the window open
         // — up to 3× the gap — so the thought re-transcribes as one piece.
         // The window cap still bounds everything.
-        if duration > maxChunkSeconds
-            || (silenceFor > commitSilence
-                && (Self.endsSentence(lastPartial) || silenceFor > commitSilence * 3)) {
+        let silenceCommit = silenceFor > commitSilence
+            && (Self.endsSentence(lastPartial) || silenceFor > commitSilence * 3)
+        if silenceCommit {
             await commit(force: false)
+        } else if duration > maxChunkSeconds {
+            // Window cap mid-speech: commit up to the quietest point of the
+            // last few seconds and keep the rest open, instead of cutting
+            // wherever the buffer happens to end (that split the word
+            // straddling the cut).
+            await commit(force: false, atWindowCap: true)
         } else if hasNew {
             // Partial-refresh throttle: every pass re-transcribes the whole
             // window, so cost per pass grows with window age (a 25s window
@@ -355,9 +396,59 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
         return ".!?…".contains(last)
     }
 
-    private func commit(force: Bool) async {
+    /// Where a window-cap commit should end: the center of the quietest
+    /// 100 ms frame in the window's last 5 s (ties go to the later frame).
+    /// Returns samples.count — commit everything, as before — when the
+    /// window is too short to search or the quietest point is in its last
+    /// 0.3 s (the speaker is already trailing off at the end).
+    static func capCutIndex(_ samples: [Float], sampleRate: Int = 16_000) -> Int {
+        let frame = sampleRate / 10
+        let span = sampleRate * 5
+        let minPrefix = sampleRate
+        let minRemainder = sampleRate * 3 / 10
+        let n = samples.count
+        guard frame > 0, n >= span + minPrefix else { return n }
+        var bestStart = n
+        var bestRMS = Float.greatestFiniteMagnitude
+        samples.withUnsafeBufferPointer { ptr in
+            guard let base = ptr.baseAddress else { return }
+            for i in 0..<(span / frame) {
+                let start = n - span + i * frame
+                var rms: Float = 0
+                vDSP_rmsqv(base + start, 1, &rms, vDSP_Length(frame))
+                if rms <= bestRMS {
+                    bestRMS = rms
+                    bestStart = start
+                }
+            }
+        }
+        let cut = bestStart + frame / 2
+        return n - cut < minRemainder ? n : cut
+    }
+
+    private func commit(force: Bool, atWindowCap: Bool = false) async {
         let (snapshot, started, ended, reusable): ([Float], Date?, Date?, Bool) = withLock {
             guard force || chunkStartedAt != nil else { return ([], nil, nil, false) }
+            if atWindowCap, !force {
+                let cut = Self.capCutIndex(samples)
+                let cutAt = now().addingTimeInterval(-Double(samples.count - cut) / 16_000)
+                // Split only when voice continues after the cut: a quiet
+                // remainder alone would later be flushed as its own window
+                // (Parakeet hallucinates filler on near-silence), so a
+                // window that ends in a pause still commits whole.
+                if cut < samples.count, let lastVoice = lastVoiceAt, lastVoice > cutAt {
+                    let snap = Array(samples[..<cut])
+                    let s = chunkStartedAt
+                    samples.removeFirst(cut)
+                    // The remainder is live speech: it opens the next window
+                    // (lastVoiceAt stays) and must be re-transcribed.
+                    chunkStartedAt = cutAt
+                    newAudioSinceTick = true
+                    voicedSinceLastPartial = true
+                    // Never reuse the partial: it covered the remainder too.
+                    return (snap, s, cutAt, false)
+                }
+            }
             let snap = samples
             let s = chunkStartedAt
             let e = lastVoiceAt
@@ -391,8 +482,8 @@ final class ParakeetPipeline: TranscriptionPipeline, @unchecked Sendable {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        let t = max(0, (started ?? Date()).timeIntervalSince(sessionStart))
-        let endT = max(t, (ended ?? Date()).timeIntervalSince(sessionStart))
+        let t = max(0, (started ?? now()).timeIntervalSince(sessionStart))
+        let endT = max(t, (ended ?? now()).timeIntervalSince(sessionStart))
         mclog("[Parakeet:\(speaker)] Commit: \(trimmed.prefix(80))")
         onUtterance?(Utterance(t: t, speaker: speaker, text: trimmed, endT: endT))
     }
