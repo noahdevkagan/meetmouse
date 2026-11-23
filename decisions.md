@@ -2422,3 +2422,18 @@ tests/claude-desktop (wired into push-gate).
 ## 2026-11-17 — AppSumo code prompt after the welcome sheet
 
 AppSumo buyers redeemed on the site, installed, and never entered their code; the 7-day free week hid it until day 8, when the app locked and the purchase looked broken. Every install that isn't unlocked now gets a one-time "Bought MeetMouse on AppSumo?" sheet. It follows the welcome (or rebrand) sheet when that is dismissed, and waits for the next launch if the demo is running (review on PR #85: new users should meet the welcome/demo first). It is marked shown only once it actually appears, so a closed window can't skip it. Existing free installs see it once on their next launch too, which catches buyers already stuck in the trial. Grandfathered/unlocked installs never see it. A start refused while it is up closes it and raises the limit sheet afterwards. The code box also moved to the top of Get MeetMouse Unlimited and got a direct "Enter AppSumo code…" entry in the sidebar and menu bar.
+
+## 2026-11-23 — Parakeet download: resume rounds + manual fallback, not a mirror (yet)
+
+A user could download Qwen (Ollama registry) and app updates (GitHub) but Parakeet v3 always
+failed with "connection lost": the path from their network to Hugging Face's file servers kept
+dropping. FluidAudio retries each file 4x and then throws, but keeps `<file>.partial`, so calling
+`AsrModels.download` again resumes with Range. `ParakeetDownloadState` now runs up to 6 rounds on
+transient errors (3/10/20/40/60 s pauses, under 3 min total) before showing a failure. The failure
+names huggingface.co instead of the raw "network connection was lost" (which read as the user's
+own internet), and offers a copyable Terminal command (Python `huggingface_hub.snapshot_download`,
+its own HTTP stack, into `~/Library/Application Support/FluidAudio/Models/<folder>`); Retry
+then finds the files because the cache check runs first. Policy is Foundation-only in
+`Engine/ParakeetDownloadRetry.swift`, tested by `tests/download`. Not done: hosting a copy of the
+model on our own Cloudflare (`ModelRegistry.baseURL` supports it) for networks where no
+Hugging Face path works. Revisit if reports continue after this ships.

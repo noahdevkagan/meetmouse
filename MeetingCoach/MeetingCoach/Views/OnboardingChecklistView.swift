@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// First-run empty state for the main pane: three short rows (microphone,
@@ -126,11 +127,14 @@ struct OnboardingChecklistView: View {
                 case .idle, .ready, .failed:
                     EmptyView()
                 }
-            } else if download.failureMessage(for: engine) != nil {
+            } else if let message = download.failureMessage(for: engine) {
                 statusLine {
-                    HStack(spacing: 6) {
-                        Text("Speech model download failed.").foregroundStyle(.red)
-                        Button("Retry") { download.retry(for: engine) }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text("Speech model download failed.").foregroundStyle(.red)
+                            Button("Retry") { download.retry(for: engine) }
+                        }
+                        ParakeetManualDownloadHint(engine: engine, message: message)
                     }
                 }
             }
@@ -261,15 +265,50 @@ struct ParakeetProgressLine: View {
                 EmptyView()
             }
         } else if let message = download.failureMessage(for: engine) {
-            HStack(spacing: 6) {
-                Text("Download failed: \(message)")
-                    .font(.caption2).foregroundStyle(.red)
-                    .lineLimit(2)
-                Button("Retry") { download.retry(for: engine) }
-                    .font(.caption2)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text("Download failed: \(message)")
+                        .font(.caption2).foregroundStyle(.red)
+                        .lineLimit(2)
+                    Button("Retry") { download.retry(for: engine) }
+                        .font(.caption2)
+                }
+                ParakeetManualDownloadHint(engine: engine, message: nil)
             }
         } else {
             EmptyView()
+        }
+    }
+}
+
+/// Under a failed speech-model download: the reason, and a way out for
+/// networks where the in-app download never gets through. The copied command
+/// downloads into the folder the app loads from; Retry then finds it on disk.
+struct ParakeetManualDownloadHint: View {
+    let engine: TranscriptionEngine
+    /// Shown above the button; nil when the caller already shows the reason.
+    let message: String?
+    @State private var copied = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if let message {
+                Text(message)
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let tag = engine.parakeetVersionTag {
+                Button(copied
+                       ? "Copied. Paste it into Terminal, then press Retry."
+                       : "Copy Terminal command to download it manually") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(
+                        ParakeetDownloadRetry.terminalCommand(versionTag: tag), forType: .string)
+                    copied = true
+                }
+                .buttonStyle(.link)
+                .font(.caption2)
+            }
         }
     }
 }

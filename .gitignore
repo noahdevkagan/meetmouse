@@ -41,6 +41,7 @@ xcuserdata/
 tests/asr/audio/
 tests/asr/.build/
 tests/rubric/.build/
+tests/download/.build/
 tests/rubric/yamlcheck/.build/
 tests/detector/.build/
 tests/ai/.build/

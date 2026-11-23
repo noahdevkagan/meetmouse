@@ -5,7 +5,22 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-11-11): Audit quick wins (branch fix/audit-quick-wins)
+## Current state (2026-11-23): Parakeet download fails on flaky paths to Hugging Face (branch claude/laughing-davinci-nweop7)
+
+User report: Qwen and app updates download, Parakeet v3 fails with "connection lost" (German, M4,
+macOS 26). FluidAudio retries each file 4x then throws; its `.partial` files survive, so calling
+`AsrModels.download` again resumes via Range. Plan:
+1. `Engine/ParakeetDownloadRetry.swift` (Foundation-only policy): transient-error detection that
+   digs the URLError out of FluidAudio's wrapped errors, backoff schedule, plain-English summary,
+   and a Terminal fallback command for the model folder.
+2. `ParakeetDownloadState.begin`: up to 6 resume rounds on transient errors before showing failure,
+   with a "Connection dropped — resuming…" detail line.
+3. Failure UI (onboarding + progress line): readable reason, Retry, "Copy Terminal command".
+   Retry already finds a manually installed model (cache check comes first).
+4. `tests/download` suite wired into push gate + CI test gate. No Swift on the Linux session:
+   build verified only via the CI test gate run on this branch.
+
+## Earlier state (2026-11-11): Audit quick wins (branch fix/audit-quick-wins)
 
 Four fixes from a speed/accuracy audit of origin/main, one commit, not pushed:
 1. Notes at Stop get display names (`resolvedTurns()` shared with the saved file), not "Them 1".

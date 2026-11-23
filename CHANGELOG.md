@@ -7,6 +7,10 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- When the speech model download keeps losing its connection, MeetMouse now resumes it a few more times instead of failing. If it still can't get through, it explains why and gives you a Terminal command to download the model yourself.
+
 ## 0.36.1 — 2026-11-18
 
 - The unlock code box now says "Have an unlock code?" and takes AppSumo and $20-purchase codes alike; the menu bar and sidebar item is now "Enter Unlock Code…".
