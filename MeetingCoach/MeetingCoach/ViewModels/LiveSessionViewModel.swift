@@ -209,6 +209,13 @@ final class LiveSessionViewModel {
     /// are remapped through this: a publish already in flight when the user
     /// renamed still carries the old label and would revert the transcript.
     private var segmentRenames: [String: String] = [:]
+    /// Names given to single rows the diarizer had not matched to a voice
+    /// (bare "Them"/"Meeting"). The name stays on that row; when a later
+    /// pass attributes the row to an unnamed voice, that voice takes it.
+    private var unboundNames: [String: DiarizationChannel] = [:]
+    /// Utterances the user labeled one row at a time. Their label is the
+    /// user's answer, so diarization passes never relabel or split them.
+    private var userLabeledRows: Set<UUID> = []
     /// The capture manager of the just-ended session — kept so renaming a
     /// speaker from the post-session view can still save their voice clip.
     private var endedCaptureManager: AudioCaptureManager?
@@ -1061,6 +1068,8 @@ final class LiveSessionViewModel {
         channelLabels = [:]
         baseLabelRenames = [:]
         segmentRenames = [:]
+        unboundNames = [:]
+        userLabeledRows = []
         remoteAlias = nil
         latestRemoteLabels = []
         latestSystemSegments = []
@@ -1163,12 +1172,26 @@ final class LiveSessionViewModel {
         var changed = false
         var rebuilt: [Utterance] = []
         rebuilt.reserveCapacity(utterances.count)
+        // Unnamed voices that turned out to own a row the user named.
+        var bindings: [(voice: String, name: String)] = []
         for u in utterances {
             guard belongsToChannel(u.speaker, channel: channel, owned: owned) else {
                 rebuilt.append(u)
                 continue
             }
             let window = Self.overlapWindow(for: u, in: segments, maxDur: maxSegDur)
+            let unbound = unboundNames[u.speaker] == channel
+            if unbound || userLabeledRows.contains(u.id) {
+                // The user said who this row is, so its label is settled.
+                // The diarizer only gets to say which voice that was.
+                if unbound, let voice = Self.dominantSpeaker(for: u, in: window),
+                   voice.wholeMatch(of: SpeakerNameInference.unnamedPattern) != nil,
+                   !bindings.contains(where: { $0.voice == voice || $0.name == u.speaker }) {
+                    bindings.append((voice, u.speaker))
+                }
+                rebuilt.append(u)
+                continue
+            }
             if let parts = Self.splitByDiarization(u, segments: window) {
                 rebuilt.append(contentsOf: parts)
                 changed = true
@@ -1184,6 +1207,12 @@ final class LiveSessionViewModel {
             }
         }
         if changed { utterances = rebuilt }
+        for binding in bindings {
+            unboundNames[binding.name] = nil
+            mclog("[VM] \(binding.voice) owns a row named \(binding.name)")
+            renameSpeaker(binding.voice, to: binding.name)
+            changed = true
+        }
         if channel == .system {
             recomputeRemoteAlias()
             maybeSuggestMerge()
@@ -1205,9 +1234,11 @@ final class LiveSessionViewModel {
         case .mic:
             return speaker == "Meeting" || speaker.hasPrefix("Speaker ")
                 || owned.contains(speaker) || baseLabelRenames["Meeting"] == speaker
+                || unboundNames[speaker] == .mic
         case .system:
             return speaker == "Them" || speaker.hasPrefix("Them ")
                 || owned.contains(speaker) || baseLabelRenames["Them"] == speaker
+                || unboundNames[speaker] == .system
         }
     }
 
@@ -1219,6 +1250,9 @@ final class LiveSessionViewModel {
     func renameSpeaker(_ label: String, to rawName: String) {
         let name = rawName.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty, name != label else { return }
+        // What the saved file calls this speaker, read before anything moves.
+        let shown = displaySpeaker(label)
+        let nameIsVoice = channelLabels.values.contains { $0.contains(name) }
 
         // Transcript relabels immediately — the diarizer republish path
         // also covers this, but only while live, and up to a second later.
@@ -1249,10 +1283,24 @@ final class LiveSessionViewModel {
         // Chain: A→B then B→C must leave A mapping to C.
         segmentRenames = segmentRenames.mapValues { $0 == label ? name : $0 }
         segmentRenames[label] = name
+        // A bare label, or a name given to a single row, is not a voice the
+        // diarizer knows. The name waits in `unboundNames` until a pass
+        // attributes those rows to an unnamed voice, which is then renamed
+        // through here and saves the profile. Telling the diarizer "Them"
+        // directly meant slot 0, whoever that was.
+        let waiting = unboundNames.removeValue(forKey: label) ?? Self.baseChannel(label)
+        if let waiting, !nameIsVoice {
+            unboundNames[name] = waiting
+        } else {
+            // A voice carries this name now; nothing is left to bind.
+            unboundNames[name] = nil
+        }
 
         // Live timeline + voice profile. The manager survives stopLive()
         // precisely so a post-session rename can still reach the clips.
-        (captureManager ?? endedCaptureManager)?.renameSpeaker(label, to: name)
+        if waiting == nil {
+            (captureManager ?? endedCaptureManager)?.renameSpeaker(label, to: name)
+        }
 
         // The name is remembered the moment it's given — a too-short voice
         // clip must not lose the person from participant memory. Demo
@@ -1272,11 +1320,88 @@ final class LiveSessionViewModel {
         // Renaming from the post-session view: the file on disk still says
         // the old label — rewrite it or the name is gone on reopen.
         if !isLive {
-            rewriteSavedTranscript()
+            rewriteSavedTranscript(renamed: shown, to: name)
         }
 
         speakerNameSuggestions.removeAll { $0.label == label }
         mclog("[VM] Renamed speaker \(label) → \(name)")
+    }
+
+    /// Rename from a transcript row. A diarized or named label is a voice,
+    /// and renames everywhere. A bare "Them"/"Meeting" row on a channel
+    /// that already has diarized voices is speech not matched to anyone
+    /// yet: every such row shares the label, whoever spoke, so only this
+    /// row takes the name (see `unboundNames` for how its voice follows).
+    func renameSpeaker(in turn: Turn, to rawName: String) {
+        let name = rawName.trimmingCharacters(in: .whitespaces)
+        // The row may have been attributed while the popover was open: read
+        // its label now, so the name lands on the voice it turned into.
+        let start = utterances.firstIndex { $0.id == turn.id }
+        let label = start.map { utterances[$0].speaker } ?? turn.speaker
+        guard isUnmatchedSpeech(label), let channel = Self.baseChannel(label) else {
+            renameSpeaker(label, to: name)
+            return
+        }
+        guard !name.isEmpty, name != label else { return }
+
+        // The row's own utterances: the run starting at its first one.
+        var rows: [Int] = []
+        if var i = start {
+            while i < utterances.count, utterances[i].speaker == label,
+                  utterances[i].endT <= turn.endT {
+                rows.append(i)
+                i += 1
+            }
+        } else {
+            rows = utterances.indices.filter {
+                utterances[$0].speaker == label
+                    && utterances[$0].t >= turn.t && utterances[$0].endT <= turn.endT
+            }
+        }
+        guard let first = rows.first else { return }
+        let shown = displaySpeaker(label)
+        let stamp = utterances[first].formattedTime
+        for i in rows {
+            utterances[i].speaker = name
+            userLabeledRows.insert(utterances[i].id)
+        }
+        var builder = TurnBuilder()
+        builder.rebuild(utterances)
+        turns = builder.turns
+        if var engine = signalEngine {
+            engine.invalidateTurnCache()
+            signalEngine = engine
+        }
+        // A name some voice already carries is that person's label and
+        // needs no voice of its own.
+        if !channelLabels.values.contains(where: { $0.contains(name) }) {
+            unboundNames[name] = channel
+        }
+        if !isDemo {
+            ParticipantStore.remember(name: name)
+            UserDefaults.standard.set(true, forKey: "hasSeenSpeakerNamingHint")
+        }
+        recomputeRemoteAlias()
+        if !isLive {
+            rewriteSavedTranscript(renamed: shown, to: name, atStamp: stamp)
+        }
+        mclog("[VM] Named one \(label) row \(name)")
+    }
+
+    /// The channel whose undiarized speech carries this bare label.
+    private static func baseChannel(_ label: String) -> DiarizationChannel? {
+        switch label {
+        case "Them": return .system
+        case "Meeting": return .mic
+        default: return nil
+        }
+    }
+
+    /// A bare base label on a channel whose diarizer has published voices.
+    /// Naming such a row names that row only.
+    func isUnmatchedSpeech(_ label: String) -> Bool {
+        guard let channel = Self.baseChannel(label) else { return false }
+        return !(channelLabels[channel] ?? []).isEmpty
     }
 
     func startVisualSpeakerAssistance(window: SpeakerWindowChoice) {
@@ -1457,9 +1582,19 @@ final class LiveSessionViewModel {
     /// Post-session rename: atomically replace only the saved file's
     /// `## Transcript` section with freshly serialized turns. Title, notes,
     /// nudges, and any review the LLM already wrote stay byte-identical.
-    private func rewriteSavedTranscript() {
+    private func rewriteSavedTranscript(renamed old: String, to name: String,
+                                        atStamp: String? = nil) {
         guard let path = savedPath,
               let content = try? String(contentsOfFile: path, encoding: .utf8) else { return }
+        // Names were also changed on the meeting's saved page. The file is
+        // then ahead of this session's memory, so apply this one rename to
+        // it instead of writing the whole transcript over those changes.
+        if MeetingNotesFile.speakerRenamedPaths.contains(URL(fileURLWithPath: path).standardizedFileURL.path) {
+            let updated = MeetingNotesFile.renamingSpeaker(old, to: name, atStamp: atStamp, in: content)
+            try? updated.write(toFile: path, atomically: true, encoding: .utf8)
+            mclog("[VM] Renamed speaker in saved transcript: \(path)")
+            return
+        }
         var lines = content.components(separatedBy: "\n")
         guard let heading = lines.firstIndex(of: "## Transcript") else { return }
         let body = lines.index(after: heading)

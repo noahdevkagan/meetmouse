@@ -5,7 +5,39 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
-## Current state (2026-11-23): Parakeet download fails on flaky paths to Hugging Face (branch claude/laughing-davinci-nweop7)
+## Current state (2026-11-24): Speaker naming fixes from a customer email (branch claude/busy-edison-jjkl97)
+
+A customer on an M1 reported: remote speakers not told apart on Meet/Zoom; naming one speaker
+names the others too; naming a second speaker relabels the whole transcript; no way to fix
+speaker names after the call. Plan:
+1. Diarizer: a bare "Them" rename maps to slot 0 only while no voice has a label yet. It used to
+   rename slot 0 even when slot 0 already had a name, which moved every line of the first named
+   person to the new name.
+2. View model: naming an undiarized ("Them") row names that row only, and the name moves to the
+   voice once the diarizer attributes the row (`unboundNames`). Bare-label renames are not
+   forwarded to the diarizer once the channel has labels.
+3. Name inference no longer proposes a name for bare "Them" when numbered or named speakers exist.
+4. Saved meeting, Transcript tab: click a speaker to rename everywhere in that meeting or on that
+   line only (`MeetingNotesFile.renamingSpeaker`).
+Code review (8 findings) fixed in a second commit: no bare label ever goes to the diarizer (early
+names bind through `unboundNames` too), rows labeled one at a time are pinned by utterance id,
+a name a voice already carries cannot bind a second voice, the popover title follows the view
+model's row-only decision, saved-page renames are not overwritten by the session in memory, name
+suggestions are judged per channel, and Return in the saved rename popover runs once.
+Released as 0.37.0 at the user's request (PR merged to main; auto-release dispatches; the macOS
+test gate in that run is the first real build of this change; release waits for approval).
+First pass: done and pushed (one commit). Not built on macOS: this session had no Mac and could not dispatch
+`test-gate.yml` (403). Checked instead in a Linux Swift 6.0 container on a scratch copy with the
+Apple-only leaves stubbed (visual capture, keychain, NaturalLanguage, vDSP, spawn): the real view
+model and tests/session compile and the new checks pass (306 passing after the review fixes); the only failures there are 8
+language-switch checks, which need arm64. `ContentView`, `SessionDetailView` and `SpeakerDiarizer`
+were syntax-parsed only. No GUI check, no live call.
+Next: on a Mac run `./scripts/push-gate.sh`, then `/verify` the two UI paths (name a "Them" row
+mid-call with two remote voices; rename a speaker on a saved meeting's Transcript tab).
+Not addressed: whether LS-EEND separates voices on the customer's Mac. Needs their log
+(`[Diarizer:Them]` lines) to tell a failed model load from poor separation.
+
+## Also open (2026-11-23): Parakeet download fails on flaky paths to Hugging Face (branch claude/laughing-davinci-nweop7)
 
 User report: Qwen and app updates download, Parakeet v3 fails with "connection lost" (German, M4,
 macOS 26). FluidAudio retries each file 4x then throws; its `.partial` files survive, so calling
