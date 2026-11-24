@@ -141,8 +141,16 @@ codesign --verify --deep --strict --verbose=2 "$APP"
 # Notarize a file and hard-check the verdict. `notarytool submit --wait` can
 # exit 0 on an Invalid submission in some versions, so grep the status line and
 # fetch the notary log on anything but Accepted.
+#
+# Each attempt runs under a watchdog. On 2026-11-24 the DMG submission hung at
+# "initiating connection to the Apple notary service" for 2h with no
+# submission id (the app had been accepted 5 min earlier), and nothing ever
+# timed it out. A hang or a wait that ends without a verdict is retried
+# (NOTARY_ATTEMPTS, default 3); a real verdict other than Accepted fails at once.
+NOTARY_ATTEMPT_LIMIT="${NOTARY_ATTEMPT_LIMIT:-2100}"   # seconds per attempt (normal: ~5 min)
+NOTARY_ATTEMPTS="${NOTARY_ATTEMPTS:-3}"
 notarize_file() {
-  local target="$1" out status subid
+  local target="$1" out status subid attempt log pid watchdog tailer
   local -a creds
   if [ -n "${NOTARY_PROFILE:-}" ]; then
     creds=(--keychain-profile "$NOTARY_PROFILE")
@@ -151,14 +159,37 @@ notarize_file() {
     : "${APPLE_PASSWORD:?set APPLE_PASSWORD or NOTARY_PROFILE}"
     creds=(--apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$TEAM_ID")
   fi
-  out="$(xcrun notarytool submit "$target" "${creds[@]}" --wait 2>&1 | tee /dev/stderr)"
-  subid="$(printf '%s\n' "$out" | awk '/^[[:space:]]*id:/ {print $2; exit}')"
-  status="$(printf '%s\n' "$out" | awk '/^[[:space:]]*status:/ {print $2}' | tail -1)"
-  if [ "$status" != "Accepted" ]; then
-    echo "!! Notarization of $(basename "$target") failed (status: ${status:-unknown})" >&2
-    [ -n "$subid" ] && xcrun notarytool log "$subid" "${creds[@]}" >&2 || true
-    exit 1
-  fi
+  attempt=1
+  while :; do
+    log="$(mktemp)"
+    xcrun notarytool submit "$target" "${creds[@]}" --wait --timeout 30m > "$log" 2>&1 &
+    pid=$!
+    tail -f "$log" >&2 &
+    tailer=$!
+    ( sleep "$NOTARY_ATTEMPT_LIMIT"; kill -TERM "$pid" 2>/dev/null ) &
+    watchdog=$!
+    wait "$pid" 2>/dev/null || true
+    kill "$watchdog" "$tailer" 2>/dev/null || true
+    wait "$watchdog" "$tailer" 2>/dev/null || true
+    out="$(cat "$log")"
+    rm -f "$log"
+    subid="$(printf '%s\n' "$out" | awk '/^[[:space:]]*id:/ {print $2; exit}')"
+    status="$(printf '%s\n' "$out" | awk '/^[[:space:]]*status:/ {print $2}' | tail -1)"
+    case "$status" in
+      Accepted) return 0 ;;
+      Invalid|Rejected)
+        echo "!! Notarization of $(basename "$target") failed (status: $status)" >&2
+        [ -n "$subid" ] && xcrun notarytool log "$subid" "${creds[@]}" >&2 || true
+        exit 1 ;;
+    esac
+    if [ "$attempt" -ge "$NOTARY_ATTEMPTS" ]; then
+      echo "!! Notarization of $(basename "$target") got no verdict after $attempt attempts (status: ${status:-none}, id: ${subid:-none})" >&2
+      [ -n "$subid" ] && xcrun notarytool log "$subid" "${creds[@]}" >&2 || true
+      exit 1
+    fi
+    echo "!! Notarization attempt $attempt of $(basename "$target") ended without a verdict (status: ${status:-none}, id: ${subid:-none}); retrying." >&2
+    attempt=$((attempt + 1))
+  done
 }
 
 # 4) Notarize the app itself, then staple the TICKET ONTO THE APP. Users drag

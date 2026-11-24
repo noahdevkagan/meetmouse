@@ -2455,3 +2455,12 @@ manual cancel plus a re-run. Now, when the waiting same-version run is on a diff
 its `release` job hasn't started, auto-release cancels it and dispatches a fresh one on the new
 commit, so the only click left is the normal approval. A run already publishing is never
 cancelled (error instead); a different version in flight still fails loudly, as before.
+
+## 2026-11-24 — Notarization attempts get a watchdog and retries
+
+Release v0.37.0 hung for 2h: the app was notarized in 5 min, then the DMG submission stuck at
+"initiating connection to the Apple notary service" with no submission id, and nothing timed it
+out (`notarytool submit --wait` piped through tee). `notarize_file` in `scripts/package-release.sh`
+now runs each attempt under a 35-minute watchdog (`NOTARY_ATTEMPT_LIMIT`), with `--timeout 30m` on
+the wait, and retries an attempt that ends without a verdict up to `NOTARY_ATTEMPTS` (3) times.
+A real Invalid/Rejected verdict still fails at once with Apple's log.
