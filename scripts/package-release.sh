@@ -166,7 +166,7 @@ notarize_file() {
     pid=$!
     tail -f "$log" >&2 &
     tailer=$!
-    ( sleep "$NOTARY_ATTEMPT_LIMIT"; kill -TERM "$pid" 2>/dev/null ) &
+    ( sleep "$NOTARY_ATTEMPT_LIMIT"; kill -TERM "$pid" 2>/dev/null ) </dev/null >/dev/null 2>&1 &
     watchdog=$!
     wait "$pid" 2>/dev/null || true
     kill "$watchdog" "$tailer" 2>/dev/null || true
