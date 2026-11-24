@@ -37,7 +37,29 @@ mid-call with two remote voices; rename a speaker on a saved meeting's Transcrip
 Not addressed: whether LS-EEND separates voices on the customer's Mac. Needs their log
 (`[Diarizer:Them]` lines) to tell a failed model load from poor separation.
 
-## Current state (2026-11-11): Audit quick wins (branch fix/audit-quick-wins)
+## Also open (2026-11-23): Parakeet download fails on flaky paths to Hugging Face (branch claude/laughing-davinci-nweop7)
+
+User report: Qwen and app updates download, Parakeet v3 fails with "connection lost" (German, M4,
+macOS 26). FluidAudio retries each file 4x then throws; its `.partial` files survive, so calling
+`AsrModels.download` again resumes via Range. Plan:
+1. `Engine/ParakeetDownloadRetry.swift` (Foundation-only policy): transient-error detection that
+   digs the URLError out of FluidAudio's wrapped errors, backoff schedule, plain-English summary,
+   and a Terminal fallback command for the model folder.
+2. `ParakeetDownloadState.begin`: up to 6 resume rounds on transient errors before showing failure,
+   with a "Connection dropped — resuming…" detail line.
+3. Failure UI (onboarding + progress line): readable reason, Retry, "Copy Terminal command".
+   Retry already finds a manually installed model (cache check comes first).
+4. `tests/download` suite wired into push gate + CI test gate. No Swift on the Linux session:
+   build verified only via the CI test gate run on this branch.
+Done and verified in CI (test gate on `claude/**` pushes + `.github/workflows/download-e2e.yml`):
+`tests/download-e2e` downloads real v3 from Hugging Face through `flaky_proxy.py`. A bare
+FluidAudio call gave up after 12 drops (-1005, as reported); the app's ParakeetDownloadState got
+through 26 drops, finishing in round 3; models load. The Terminal command works with Apple's
+Python 3.9 and Homebrew's, 494 MB. The e2e caught that the model folder is
+`Models/parakeet-tdt-0.6b-v3` (no `-coreml`); the command now takes FluidAudio's path.
+Open: not tried on a real Mac yet (UI text, Copy button); own-Cloudflare model mirror not built.
+
+## Earlier state (2026-11-11): Audit quick wins (branch fix/audit-quick-wins)
 
 Four fixes from a speed/accuracy audit of origin/main, one commit, not pushed:
 1. Notes at Stop get display names (`resolvedTurns()` shared with the saved file), not "Them 1".

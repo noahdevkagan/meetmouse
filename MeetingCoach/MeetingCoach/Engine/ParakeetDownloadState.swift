@@ -10,6 +10,23 @@ extension TranscriptionEngine {
         case .sfSpeech: nil
         }
     }
+
+    /// "v2" / "v3", for the repo name and the Terminal fallback command.
+    var parakeetVersionTag: String? {
+        switch self {
+        case .parakeetV2: "v2"
+        case .parakeetV3: "v3"
+        case .sfSpeech: nil
+        }
+    }
+
+    /// Terminal command that downloads this model into the exact folder
+    /// FluidAudio loads it from (see ParakeetDownloadRetry.terminalCommand).
+    var parakeetManualDownloadCommand: String? {
+        guard let version = parakeetVersion, let tag = parakeetVersionTag else { return nil }
+        return ParakeetDownloadRetry.terminalCommand(
+            versionTag: tag, folder: AsrModels.defaultCacheDirectory(for: version).path)
+    }
 }
 
 extension ResolvedMeetingLanguage {
@@ -150,23 +167,53 @@ final class ParakeetDownloadState {
         failureMessages.removeValue(forKey: engine)
         phase = .downloading(fraction: 0, detail: "Starting…")
         task = Task.detached(priority: .utility) {
-            do {
-                _ = try await AsrModels.download(version: version) { progress in
-                    Task { @MainActor in
-                        ParakeetDownloadState.shared.apply(progress, for: engine)
+            // A dropped connection resumes from FluidAudio's .partial files,
+            // so a few more rounds usually get through (ParakeetDownloadRetry).
+            var round = 1
+            while true {
+                do {
+                    _ = try await AsrModels.download(version: version) { progress in
+                        Task { @MainActor in
+                            ParakeetDownloadState.shared.apply(progress, for: engine)
+                        }
                     }
-                }
-                mclog("[Parakeet] Background \(engine.rawValue) download complete")
-                await MainActor.run {
-                    ParakeetDownloadState.shared.finish(engine, error: nil)
-                }
-            } catch {
-                mclog("[Parakeet] Background \(engine.rawValue) download failed: \(error.localizedDescription)")
-                await MainActor.run {
-                    ParakeetDownloadState.shared.finish(engine, error: error)
+                    mclog("[Parakeet] Background \(engine.rawValue) download complete (round \(round))")
+                    await MainActor.run {
+                        ParakeetDownloadState.shared.finish(engine, error: nil)
+                    }
+                    return
+                } catch {
+                    let transient = ParakeetDownloadRetry.isTransient(error)
+                    mclog("[Parakeet] Background \(engine.rawValue) download round \(round) failed "
+                        + "(transient: \(transient)): \(error.localizedDescription) | \(String(describing: error))")
+                    guard transient, round < ParakeetDownloadRetry.maxRounds else {
+                        await MainActor.run {
+                            ParakeetDownloadState.shared.finish(engine, error: error)
+                        }
+                        return
+                    }
+                    let pause = ParakeetDownloadRetry.delay(afterRound: round)
+                    round += 1
+                    let nextRound = round
+                    await MainActor.run {
+                        ParakeetDownloadState.shared.noteResuming(
+                            engine, inSeconds: Int(pause), round: nextRound)
+                    }
+                    try? await Task.sleep(nanoseconds: UInt64(pause * 1_000_000_000))
                 }
             }
         }
+    }
+
+    /// Keep the bar where it was and say why it paused, so a resume round
+    /// doesn't look like a hang or a restart from 0%.
+    private func noteResuming(_ engine: TranscriptionEngine, inSeconds seconds: Int, round: Int) {
+        guard task != nil, activeEngine == engine else { return }
+        let fraction: Double
+        if case .downloading(let current, _) = phase { fraction = current } else { fraction = 0 }
+        phase = .downloading(
+            fraction: fraction,
+            detail: "connection dropped, resuming in \(seconds)s (try \(round) of \(ParakeetDownloadRetry.maxRounds))")
     }
 
     private func apply(_ progress: DownloadProgress, for engine: TranscriptionEngine) {
@@ -189,8 +236,9 @@ final class ParakeetDownloadState {
         let callbacks = completions.removeValue(forKey: engine) ?? []
         if let error {
             failedEngine = engine
-            failureMessages[engine] = error.localizedDescription
-            phase = .failed(error.localizedDescription)
+            let summary = ParakeetDownloadRetry.summary(for: error)
+            failureMessages[engine] = summary
+            phase = .failed(summary)
             // Fail-fast waiters (prepare) resolve now; retry-surviving ones
             // (the launch chain's onReady) stay registered so a successful
             // Retry still fires them.

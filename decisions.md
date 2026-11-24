@@ -2423,6 +2423,23 @@ tests/claude-desktop (wired into push-gate).
 
 AppSumo buyers redeemed on the site, installed, and never entered their code; the 7-day free week hid it until day 8, when the app locked and the purchase looked broken. Every install that isn't unlocked now gets a one-time "Bought MeetMouse on AppSumo?" sheet. It follows the welcome (or rebrand) sheet when that is dismissed, and waits for the next launch if the demo is running (review on PR #85: new users should meet the welcome/demo first). It is marked shown only once it actually appears, so a closed window can't skip it. Existing free installs see it once on their next launch too, which catches buyers already stuck in the trial. Grandfathered/unlocked installs never see it. A start refused while it is up closes it and raises the limit sheet afterwards. The code box also moved to the top of Get MeetMouse Unlimited and got a direct "Enter AppSumo code…" entry in the sidebar and menu bar.
 
+## 2026-11-23 — Parakeet download: resume rounds + manual fallback, not a mirror (yet)
+
+A user could download Qwen (Ollama registry) and app updates (GitHub) but Parakeet v3 always
+failed with "connection lost": the path from their network to Hugging Face's file servers kept
+dropping. FluidAudio retries each file 4x and then throws, but keeps `<file>.partial`, so calling
+`AsrModels.download` again resumes with Range. `ParakeetDownloadState` now runs up to 6 rounds on
+transient errors (3/10/20/40/60 s pauses, under 3 min total) before showing a failure. The failure
+names huggingface.co instead of the raw "network connection was lost" (which read as the user's
+own internet), and offers a copyable Terminal command (Python `huggingface_hub.snapshot_download` in a private venv,
+since Homebrew's Python refuses `pip --user`, into FluidAudio's own `AsrModels.defaultCacheDirectory`,
+which is `Models/parakeet-tdt-0.6b-v3` with no `-coreml`); Retry
+then finds the files because the cache check runs first. Policy is Foundation-only in
+`Engine/ParakeetDownloadRetry.swift`, tested by `tests/download` and the network e2e
+`tests/download-e2e` (real download through a connection-dropping proxy). Not done: hosting a copy of the
+model on our own Cloudflare (`ModelRegistry.baseURL` supports it) for networks where no
+Hugging Face path works. Revisit if reports continue after this ships.
+
 ## 2026-11-24 — A bare "Them" row is named on its own; the voice follows later
 
 Customer report: naming a second speaker relabeled the whole transcript as that person. Cause: the newest remote line is bare "Them" until the diarizer finalizes it, and `SpeakerDiarizer.slotFromLabel` mapped bare "Them" to slot 0 always, so naming that line renamed slot 0, which already belonged to the first named person. The 2026-08-04 slot-0 mapping stays only while no slot has a label (the early first rename it was written for). Once the channel has diarized labels, a bare label is speech nobody was matched to: the transcript row passes its `Turn`, only that row takes the name, and the name is held in `unboundNames` until a diarization pass attributes the row to an unnamed slot, which is then renamed through the normal path (profile saved). A name is never bound from weak overlap at click time, because a wrong binding saves a wrong voice profile. Name inference skips bare labels once any speaker is numbered or named, for the same reason. Saved meetings get their own rename (`MeetingNotesFile.renamingSpeaker`, transcript lines only, all lines or one), since the live view model's rename is gone once another meeting starts. Not settled: whether LS-EEND separates voices on the customer's Mac; that needs their log.
