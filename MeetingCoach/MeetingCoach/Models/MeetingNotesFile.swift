@@ -54,6 +54,34 @@ enum MeetingNotesFile {
         return updated
     }
 
+    // MARK: - Speaker names
+
+    /// Rename a speaker in a saved meeting's transcript lines: every line
+    /// by `old`, or only the line at `onlyLine` (its position among the
+    /// transcript lines the meeting page lists). Notes and nudges quote
+    /// what was written at the time and are left alone.
+    static func renamingSpeaker(_ old: String, to rawNew: String, onlyLine: Int? = nil,
+                                in content: String) -> String {
+        // ":" ends the speaker in a saved line, so a name can't hold one.
+        let new = rawNew.replacingOccurrences(of: ":", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+        guard !new.isEmpty, new != old, new.count < 40 else { return content }
+        var lines = content.components(separatedBy: "\n")
+        var section = ""
+        var index = -1
+        for i in lines.indices {
+            let line = lines[i]
+            if line.hasPrefix("## ") { section = line; continue }
+            if section.hasPrefix("## Review") || section.hasPrefix("## Nudges") { continue }
+            guard let parsed = TranscriptSearch.parseTranscriptLine(line) else { continue }
+            index += 1
+            guard parsed.speaker == old, onlyLine == nil || onlyLine == index else { continue }
+            lines[i] = "- [\(parsed.stamp)] \(new): \(parsed.text)"
+        }
+        return lines.joined(separator: "\n")
+    }
+
     // MARK: - Edited marker
 
     /// Header line written once the user edits notes by hand. Regenerating

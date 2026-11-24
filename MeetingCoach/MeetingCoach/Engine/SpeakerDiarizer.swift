@@ -405,8 +405,13 @@ final class SpeakerDiarizer: @unchecked Sendable {
     /// silently, so the user's first, most natural tag saved no profile
     /// (seen live 2026-08-04 — "Them" → Dana was a no-op and she had to
     /// be named again as "Them 1").
+    ///
+    /// Only while no voice has a label, though. Once a slot is enrolled,
+    /// published or named, the bare label is speech nobody was matched to
+    /// yet, not slot 0: naming it used to rename slot 0 again, so naming a
+    /// second person moved every line of the first to the new name.
     private func slotFromLabel(_ label: String) -> Int? {
-        if label == labelPrefix { return 0 }
+        if label == labelPrefix { return labelBySlot.isEmpty ? 0 : nil }
         guard label.hasPrefix(labelPrefix + " "),
               let n = Int(label.dropFirst(labelPrefix.count + 1)), n >= 1 else { return nil }
         return n - 1

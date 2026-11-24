@@ -45,6 +45,17 @@ final class SpeakerNameInference {
     /// would save a voice profile named "Them 2").
     static let unnamedPattern = #/^(Them|Speaker|Meeting)( \d+)?$/#
 
+    /// Placeholder labels worth asking the model about. Once any speaker is
+    /// numbered or named, a bare "Them"/"Meeting" is speech not matched to
+    /// a voice yet (the newest lines, short replies) and mixes several
+    /// people, so it is not one person to name.
+    static func nameableLabels(in speakers: [String]) -> Set<String> {
+        let unnamed = Set(speakers.filter { $0.wholeMatch(of: unnamedPattern) != nil })
+        let bare: Set<String> = ["Them", "Meeting"]
+        let toldApart = speakers.contains { !bare.contains($0) && !Utterance.isYouLabel($0) }
+        return toldApart ? unnamed.subtracting(bare) : unnamed
+    }
+
     private let client: AIClient
     private var lastRun: TimeInterval = -.infinity
     private var isAnalyzing = false
@@ -61,9 +72,7 @@ final class SpeakerNameInference {
                  rejected: Set<String>) async -> [SpeakerNameSuggestion] {
         guard !isAnalyzing, elapsed - lastRun >= Self.cooldown else { return [] }
 
-        let unnamedLabels = Set(utterances.map(\.speaker).filter {
-            $0.wholeMatch(of: Self.unnamedPattern) != nil
-        })
+        let unnamedLabels = Self.nameableLabels(in: utterances.map(\.speaker))
         guard !unnamedLabels.isEmpty else { return [] }
 
         // Names concentrate in introductions — always show the model the

@@ -22,7 +22,9 @@ struct Utterance: Identifiable, Sendable {
 
     var duration: TimeInterval { endT - t }
 
-    var isYou: Bool {
+    var isYou: Bool { Self.isYouLabel(speaker) }
+
+    static func isYouLabel(_ speaker: String) -> Bool {
         let lower = speaker.trimmingCharacters(in: .whitespaces).lowercased()
         return ["you", "me", "self"].contains(lower)
     }

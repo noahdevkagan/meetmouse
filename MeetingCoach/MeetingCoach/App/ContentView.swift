@@ -1031,7 +1031,7 @@ private struct TranscriptTurnRow: View, Equatable {
     /// genuinely multilingual, so single-language transcripts stay clean.
     var languageTag: String?
     /// Present = this speaker can be given a real name (click the label).
-    var onRename: ((String, String) -> Void)?
+    var onRename: ((Turn, String) -> Void)?
     /// Present = words are click-to-fix (wrote, shouldBe): clicking a
     /// misheard word opens the fix popover with it pre-filled; right-click
     /// covers multi-word phrases. Fixes land in the vocabulary and rewrite
@@ -1090,7 +1090,10 @@ private struct TranscriptTurnRow: View, Equatable {
 
     private var renamePopover: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Who is \(displayName)?")
+            // A bare label is speech not matched to a voice, so the name
+            // goes on this row, not on everyone showing the same label.
+            Text(displayName == "Them" || displayName == "Meeting"
+                 ? "Who said this?" : "Who is \(displayName)?")
                 .font(.caption.bold())
             TextField("Name", text: $nameField)
                 .textFieldStyle(.roundedBorder)
@@ -1277,7 +1280,7 @@ private struct TranscriptTurnRow: View, Equatable {
         let name = nameField.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
         showRenamePopover = false
-        onRename?(turn.speaker, name)
+        onRename?(turn, name)
     }
 }
 
@@ -1411,8 +1414,8 @@ private struct LiveTranscriptPane: View {
                                     ? TranscriptLanguageDetector.cachedLanguage(of: turn.text)?
                                         .rawValue.uppercased()
                                     : nil,
-                                onRename: { label, name in
-                                    liveSession.renameSpeaker(label, to: name)
+                                onRename: { turn, name in
+                                    liveSession.renameSpeaker(in: turn, to: name)
                                 },
                                 onFixTerm: { wrote, shouldBe in
                                     liveSession.fixMisheardTerm(wrote: wrote, canonical: shouldBe)

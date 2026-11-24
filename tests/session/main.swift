@@ -2241,6 +2241,126 @@ func runTests() async {
         vm.deleteSession()
     }
 
+    // Naming a second person must not move the first person's lines
+    // (customer report 2026-11-24). The newest remote line is still bare
+    // "Them" while the diarizer catches up; naming it used to rename
+    // voice slot 0, which already belonged to the first named person.
+    do {
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        try? await Task.sleep(for: .milliseconds(300))
+        if let capture = AudioCaptureManager.last {
+            capture.onUtterance?(Utterance(t: 1, speaker: "Them",
+                text: "Morning all, Riya here with the numbers.", endT: 4))
+            capture.onSpeakerSegments?(.system, [
+                SpeakerSegment(speaker: "Them 1", start: 0.9, end: 4.1),
+            ])
+            try? await Task.sleep(for: .milliseconds(50))
+            vm.renameSpeaker("Them 1", to: "Riya")
+
+            capture.onUtterance?(Utterance(t: 6, speaker: "Them",
+                text: "Thanks, Marek speaking, one question on that.", endT: 9))
+            try? await Task.sleep(for: .milliseconds(50))
+            var rows = TurnBuilder()
+            rows.rebuild(vm.utterances)
+            if let row = rows.turns.last {
+                vm.renameSpeaker(in: row, to: "Marek")
+            }
+            check(vm.utterances.map(\.speaker) == ["Riya", "Marek"],
+                  "naming an unmatched row leaves the first person's lines alone",
+                  "got \(vm.utterances.map(\.speaker))")
+            check(!capture.renames.contains { $0.0 == "Them" },
+                  "a bare label is not sent to the diarizer once voices have labels",
+                  "got \(capture.renames)")
+
+            capture.onUtterance?(Utterance(t: 11, speaker: "Them", text: "Okay.", endT: 11.4))
+            check(vm.utterances.last?.speaker == "Them",
+                  "naming one unmatched row does not name the next one")
+
+            // The diarizer catches up: the named row was a second voice.
+            capture.onSpeakerSegments?(.system, [
+                SpeakerSegment(speaker: "Them 1", start: 0.9, end: 4.1),
+                SpeakerSegment(speaker: "Them 2", start: 5.9, end: 9.1),
+            ])
+            try? await Task.sleep(for: .milliseconds(50))
+            check(capture.renames.contains { $0 == ("Them 2", "Marek") },
+                  "the voice that owns a named row takes the name",
+                  "got \(capture.renames)")
+            check(vm.utterances.map(\.speaker) == ["Riya", "Marek", "Them"],
+                  "attribution keeps the name the user gave the row",
+                  "got \(vm.utterances.map(\.speaker))")
+
+            capture.onUtterance?(Utterance(t: 13, speaker: "Them",
+                text: "Marek again with a follow up on timing.", endT: 16))
+            capture.onSpeakerSegments?(.system, [
+                SpeakerSegment(speaker: "Them 1", start: 0.9, end: 4.1),
+                SpeakerSegment(speaker: "Them 2", start: 5.9, end: 9.1),
+                SpeakerSegment(speaker: "Them 2", start: 12.9, end: 16.1),
+            ])
+            try? await Task.sleep(for: .milliseconds(50))
+            check(vm.utterances.map(\.speaker) == ["Riya", "Marek", "Them", "Marek"],
+                  "later speech from that voice carries the name",
+                  "got \(vm.utterances.map(\.speaker))")
+
+            // A label-wide bare rename (a suggestion made before the split).
+            vm.renameSpeaker("Them", to: "Lena")
+            check(vm.utterances.map(\.speaker) == ["Riya", "Marek", "Lena", "Marek"]
+                  && !capture.renames.contains { $0.0 == "Them" },
+                  "a bare-label rename touches only unmatched lines",
+                  "got \(vm.utterances.map(\.speaker)), \(capture.renames)")
+        } else {
+            check(false, "capture manager wired (second speaker naming)")
+        }
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
+    // Name suggestions: bare "Them" is one person only until voices are
+    // told apart.
+    do {
+        check(SpeakerNameInference.nameableLabels(in: ["You", "Them", "Them"]) == ["Them"],
+              "an undiarized call can still get a name suggestion")
+        check(SpeakerNameInference.nameableLabels(in: ["You", "Them", "Them 1", "Riya"]) == ["Them 1"],
+              "no name suggestion for bare Them once speakers are told apart")
+    }
+
+    // Speaker names in a saved meeting: every line or one line, transcript
+    // lines only.
+    do {
+        let file = """
+        # Weekly sync
+
+        ## Transcript
+        - [00:01] You: Hello there
+        - [00:05] Them 1: Hi, Riya here
+        - [00:09] Them 1: Marek here too
+
+        ## Nudges
+        - [00:07] Them 1: not a transcript line
+
+        ## Review
+
+        - [00:05] Them 1: quoted in the notes
+
+        """
+        let all = MeetingNotesFile.renamingSpeaker("Them 1", to: "Riya", in: file)
+        check(all.contains("- [00:05] Riya: Hi, Riya here")
+              && all.contains("- [00:09] Riya: Marek here too"),
+              "saved rename covers every line by that speaker", all)
+        check(all.contains("- [00:07] Them 1: not a transcript line")
+              && all.contains("- [00:05] Them 1: quoted in the notes"),
+              "saved rename leaves nudges and notes as written", all)
+        let one = MeetingNotesFile.renamingSpeaker("Them 1", to: "Marek", onlyLine: 2, in: file)
+        check(one.contains("- [00:05] Them 1: Hi, Riya here")
+              && one.contains("- [00:09] Marek: Marek here too"),
+              "saved rename can fix a single line", one)
+        check(MeetingNotesFile.renamingSpeaker("Them 1", to: "  ", in: file) == file,
+              "an empty name changes nothing")
+        check(MeetingNotesFile.renamingSpeaker("Them 1", to: "Riya: PM", in: file)
+                .contains("- [00:05] Riya  PM: Hi, Riya here"),
+              "a colon in a name cannot break the saved line")
+    }
+
     resetSeams()
 }
 

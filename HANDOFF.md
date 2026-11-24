@@ -5,6 +5,23 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-24): Speaker naming fixes from a customer email (branch claude/busy-edison-jjkl97)
+
+A customer on an M1 reported: remote speakers not told apart on Meet/Zoom; naming one speaker
+names the others too; naming a second speaker relabels the whole transcript; no way to fix
+speaker names after the call. Plan:
+1. Diarizer: a bare "Them" rename maps to slot 0 only while no voice has a label yet. It used to
+   rename slot 0 even when slot 0 already had a name, which moved every line of the first named
+   person to the new name.
+2. View model: naming an undiarized ("Them") row names that row only, and the name moves to the
+   voice once the diarizer attributes the row (`unboundNames`). Bare-label renames are not
+   forwarded to the diarizer once the channel has labels.
+3. Name inference no longer proposes a name for bare "Them" when numbered or named speakers exist.
+4. Saved meeting, Transcript tab: click a speaker to rename everywhere in that meeting or on that
+   line only (`MeetingNotesFile.renamingSpeaker`).
+Not addressed: whether LS-EEND separates voices on the customer's Mac. Needs their log
+(`[Diarizer:Them]` lines) to tell a failed model load from poor separation.
+
 ## Current state (2026-11-11): Audit quick wins (branch fix/audit-quick-wins)
 
 Four fixes from a speed/accuracy audit of origin/main, one commit, not pushed:
