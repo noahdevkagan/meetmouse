@@ -40,6 +40,11 @@ struct SessionDetailView: View {
     @State private var tab: Tab = .summary
     @State private var renaming = false
     @State private var renameText = ""
+    /// Transcript line whose speaker is being renamed.
+    @State private var speakerRenameLine: Int?
+    @State private var speakerNameDraft = ""
+    @State private var speakerNameCandidates: [String] = []
+    @State private var speakerRenameError: String?
     @FocusState private var renameFocused: Bool
     @State private var regenTick = 0
     @State private var regenerating = false
@@ -453,9 +458,7 @@ struct SessionDetailView: View {
                                 .frame(width: 52, alignment: .leading)
                                 .padding(.top, 3)
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(line.speaker)
-                                    .font(Dorado.barlowBold(14))
-                                    .foregroundStyle(line.speaker == "You" ? Dorado.bolt : Dorado.midnight)
+                                speakerLabel(line.speaker, at: i)
                                 highlightedText(line.text)
                                     .font(Dorado.roboto(15))
                                     .foregroundStyle(Dorado.grey800)
@@ -1178,6 +1181,101 @@ struct SessionDetailView: View {
             TranscriptSearch.matchesAllTokens($0.text, tokens: tokens)
         }) else { return }
         withAnimation { proxy.scrollTo(i, anchor: .center) }
+    }
+
+    /// The speaker name above a transcript line. Everyone but "You" is a
+    /// button: the saved file is the only copy once the call is over, so
+    /// a wrong or missing name is fixed here.
+    @ViewBuilder private func speakerLabel(_ speaker: String, at index: Int) -> some View {
+        let text = Text(speaker)
+            .font(Dorado.barlowBold(14))
+            .foregroundStyle(speaker == "You" ? Dorado.bolt : Dorado.midnight)
+        if speaker == "You" {
+            text
+        } else {
+            Button {
+                speakerNameDraft = ""
+                speakerRenameError = nil
+                speakerNameCandidates = ParticipantStore.typeaheadCandidates()
+                speakerRenameLine = index
+            } label: {
+                text.contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Click to change this speaker's name")
+            .accessibilityLabel("Rename \(speaker)")
+            .popover(isPresented: Binding(
+                get: { speakerRenameLine == index },
+                set: { if !$0, speakerRenameLine == index { speakerRenameLine = nil } }
+            ), arrowEdge: .bottom) {
+                speakerRenamePopover(speaker, at: index)
+            }
+        }
+    }
+
+    private func speakerRenamePopover(_ speaker: String, at index: Int) -> some View {
+        let draft = speakerNameDraft.trimmingCharacters(in: .whitespaces)
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Who is \(speaker)?")
+                .font(.caption.bold())
+            TextField("Name", text: $speakerNameDraft)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 200)
+                .onSubmit { renameSpeaker(speaker, onlyLine: nil) }
+                .accessibilityHint("Return renames every \(speaker) line")
+            ForEach(ParticipantStore.typeaheadMatches(speakerNameDraft, in: speakerNameCandidates),
+                    id: \.self) { name in
+                Button {
+                    speakerNameDraft = name
+                } label: {
+                    Label(name, systemImage: "person.crop.circle")
+                        .font(.caption)
+                        .frame(width: 200, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            if let speakerRenameError {
+                Text(speakerRenameError)
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(width: 200, alignment: .leading)
+            }
+            HStack(spacing: 8) {
+                Button("Every \(speaker) line") { renameSpeaker(speaker, onlyLine: nil) }
+                Button("This line only") { renameSpeaker(speaker, onlyLine: index) }
+            }
+            .disabled(draft.isEmpty || draft == speaker)
+        }
+        .padding(12)
+    }
+
+    private func renameSpeaker(_ speaker: String, onlyLine: Int?) {
+        // Return in the field and a second click both land here; the
+        // popover closing or an unusable draft makes them no-ops.
+        let draft = speakerNameDraft.trimmingCharacters(in: .whitespaces)
+        guard speakerRenameLine != nil, !draft.isEmpty, draft != speaker else { return }
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
+            speakerRenameError = "Couldn't read this meeting's file."
+            return
+        }
+        let updated = MeetingNotesFile.renamingSpeaker(speaker, to: speakerNameDraft,
+                                                       onlyLine: onlyLine, in: content)
+        guard updated != content else {
+            speakerRenameError = "That name can't be used."
+            return
+        }
+        do {
+            try updated.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            speakerRenameError = "Couldn't save the name: \(error.localizedDescription)"
+            return
+        }
+        MeetingNotesFile.speakerRenamedPaths.insert(url.standardizedFileURL.path)
+        speakerRenameLine = nil
+        load()
+        NotificationCenter.default.post(name: MeetingNotesFile.didChange, object: url)
     }
 
     private func commitRename() {

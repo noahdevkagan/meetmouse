@@ -54,6 +54,42 @@ enum MeetingNotesFile {
         return updated
     }
 
+    // MARK: - Speaker names
+
+    /// Meetings whose speaker names were changed on their saved page since
+    /// launch (standardized paths). The session that recorded one may still
+    /// be in memory and must not write its older labels back over them.
+    @MainActor static var speakerRenamedPaths: Set<String> = []
+
+    /// Rename a speaker in a saved meeting's transcript lines: every line
+    /// by `old`, or only the line at `onlyLine` (its position among the
+    /// transcript lines the meeting page lists). Notes and nudges quote
+    /// what was written at the time and are left alone.
+    /// `atStamp` instead limits it to the first line by `old` at that time.
+    static func renamingSpeaker(_ old: String, to rawNew: String, onlyLine: Int? = nil,
+                                atStamp: String? = nil, in content: String) -> String {
+        // ":" ends the speaker in a saved line, so a name can't hold one.
+        let new = rawNew.replacingOccurrences(of: ":", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+        guard !new.isEmpty, new != old, new.count < 40 else { return content }
+        var lines = content.components(separatedBy: "\n")
+        var section = ""
+        var index = -1
+        for i in lines.indices {
+            let line = lines[i]
+            if line.hasPrefix("## ") { section = line; continue }
+            if section.hasPrefix("## Review") || section.hasPrefix("## Nudges") { continue }
+            guard let parsed = TranscriptSearch.parseTranscriptLine(line) else { continue }
+            index += 1
+            guard parsed.speaker == old, onlyLine == nil || onlyLine == index,
+                  atStamp == nil || atStamp == parsed.stamp else { continue }
+            lines[i] = "- [\(parsed.stamp)] \(new): \(parsed.text)"
+            if atStamp != nil { break }
+        }
+        return lines.joined(separator: "\n")
+    }
+
     // MARK: - Edited marker
 
     /// Header line written once the user edits notes by hand. Regenerating

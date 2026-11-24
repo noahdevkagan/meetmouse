@@ -1020,6 +1020,7 @@ private struct TranscriptTurnRow: View, Equatable {
             && lhs.turn.text == rhs.turn.text
             && lhs.turn.speaker == rhs.turn.speaker
             && lhs.displayName == rhs.displayName
+            && lhs.namesRowOnly == rhs.namesRowOnly
             && lhs.languageTag == rhs.languageTag
     }
 
@@ -1027,11 +1028,14 @@ private struct TranscriptTurnRow: View, Equatable {
     /// What the speaker gutter shows — the one-on-one alias resolves here
     /// while `turn.speaker` stays the raw label renames are keyed on.
     let displayName: String
+    /// The speech on this row is not matched to a voice yet, so a name
+    /// given here lands on this row alone (the view model decides).
+    var namesRowOnly = false
     /// Short language code ("PL") — only passed when the meeting is
     /// genuinely multilingual, so single-language transcripts stay clean.
     var languageTag: String?
     /// Present = this speaker can be given a real name (click the label).
-    var onRename: ((String, String) -> Void)?
+    var onRename: ((Turn, String) -> Void)?
     /// Present = words are click-to-fix (wrote, shouldBe): clicking a
     /// misheard word opens the fix popover with it pre-filled; right-click
     /// covers multi-word phrases. Fixes land in the vocabulary and rewrite
@@ -1090,7 +1094,9 @@ private struct TranscriptTurnRow: View, Equatable {
 
     private var renamePopover: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Who is \(displayName)?")
+            // A bare label is speech not matched to a voice, so the name
+            // goes on this row, not on everyone showing the same label.
+            Text(namesRowOnly ? "Who said this?" : "Who is \(displayName)?")
                 .font(.caption.bold())
             TextField("Name", text: $nameField)
                 .textFieldStyle(.roundedBorder)
@@ -1277,7 +1283,7 @@ private struct TranscriptTurnRow: View, Equatable {
         let name = nameField.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
         showRenamePopover = false
-        onRename?(turn.speaker, name)
+        onRename?(turn, name)
     }
 }
 
@@ -1407,12 +1413,13 @@ private struct LiveTranscriptPane: View {
                             TranscriptTurnRow(
                                 turn: turn,
                                 displayName: liveSession.displaySpeaker(turn.speaker),
+                                namesRowOnly: liveSession.isUnmatchedSpeech(turn.speaker),
                                 languageTag: liveSession.languageTally.isMultilingual
                                     ? TranscriptLanguageDetector.cachedLanguage(of: turn.text)?
                                         .rawValue.uppercased()
                                     : nil,
-                                onRename: { label, name in
-                                    liveSession.renameSpeaker(label, to: name)
+                                onRename: { turn, name in
+                                    liveSession.renameSpeaker(in: turn, to: name)
                                 },
                                 onFixTerm: { wrote, shouldBe in
                                     liveSession.fixMisheardTerm(wrote: wrote, canonical: shouldBe)
