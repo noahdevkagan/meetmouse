@@ -1222,6 +1222,7 @@ struct SessionDetailView: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 200)
                 .onSubmit { renameSpeaker(speaker, onlyLine: nil) }
+                .accessibilityHint("Return renames every \(speaker) line")
             ForEach(ParticipantStore.typeaheadMatches(speakerNameDraft, in: speakerNameCandidates),
                     id: \.self) { name in
                 Button {
@@ -1243,7 +1244,6 @@ struct SessionDetailView: View {
             }
             HStack(spacing: 8) {
                 Button("Every \(speaker) line") { renameSpeaker(speaker, onlyLine: nil) }
-                    .keyboardShortcut(.defaultAction)
                 Button("This line only") { renameSpeaker(speaker, onlyLine: index) }
             }
             .disabled(draft.isEmpty || draft == speaker)
@@ -1252,6 +1252,10 @@ struct SessionDetailView: View {
     }
 
     private func renameSpeaker(_ speaker: String, onlyLine: Int?) {
+        // Return in the field and a second click both land here; the
+        // popover closing or an unusable draft makes them no-ops.
+        let draft = speakerNameDraft.trimmingCharacters(in: .whitespaces)
+        guard speakerRenameLine != nil, !draft.isEmpty, draft != speaker else { return }
         guard let content = try? String(contentsOf: url, encoding: .utf8) else {
             speakerRenameError = "Couldn't read this meeting's file."
             return
@@ -1268,6 +1272,7 @@ struct SessionDetailView: View {
             speakerRenameError = "Couldn't save the name: \(error.localizedDescription)"
             return
         }
+        MeetingNotesFile.speakerRenamedPaths.insert(url.standardizedFileURL.path)
         speakerRenameLine = nil
         load()
         NotificationCenter.default.post(name: MeetingNotesFile.didChange, object: url)

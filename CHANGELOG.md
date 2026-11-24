@@ -7,7 +7,7 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
-## Unreleased
+## 0.37.0 — 2026-11-24
 
 - Naming a second person on a call no longer renames the first person's lines. A line still labeled "Them" (the newest line, or a short reply) is now named on its own: click it, type who said it, and only that line changes; the name then follows that person's voice once MeetMouse has told it apart.
 - MeetMouse no longer suggests a name for plain "Them" lines once the people on the call have been told apart.

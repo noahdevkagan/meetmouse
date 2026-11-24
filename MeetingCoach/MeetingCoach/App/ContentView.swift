@@ -1020,6 +1020,7 @@ private struct TranscriptTurnRow: View, Equatable {
             && lhs.turn.text == rhs.turn.text
             && lhs.turn.speaker == rhs.turn.speaker
             && lhs.displayName == rhs.displayName
+            && lhs.namesRowOnly == rhs.namesRowOnly
             && lhs.languageTag == rhs.languageTag
     }
 
@@ -1027,6 +1028,9 @@ private struct TranscriptTurnRow: View, Equatable {
     /// What the speaker gutter shows — the one-on-one alias resolves here
     /// while `turn.speaker` stays the raw label renames are keyed on.
     let displayName: String
+    /// The speech on this row is not matched to a voice yet, so a name
+    /// given here lands on this row alone (the view model decides).
+    var namesRowOnly = false
     /// Short language code ("PL") — only passed when the meeting is
     /// genuinely multilingual, so single-language transcripts stay clean.
     var languageTag: String?
@@ -1092,8 +1096,7 @@ private struct TranscriptTurnRow: View, Equatable {
         VStack(alignment: .leading, spacing: 8) {
             // A bare label is speech not matched to a voice, so the name
             // goes on this row, not on everyone showing the same label.
-            Text(displayName == "Them" || displayName == "Meeting"
-                 ? "Who said this?" : "Who is \(displayName)?")
+            Text(namesRowOnly ? "Who said this?" : "Who is \(displayName)?")
                 .font(.caption.bold())
             TextField("Name", text: $nameField)
                 .textFieldStyle(.roundedBorder)
@@ -1410,6 +1413,7 @@ private struct LiveTranscriptPane: View {
                             TranscriptTurnRow(
                                 turn: turn,
                                 displayName: liveSession.displaySpeaker(turn.speaker),
+                                namesRowOnly: liveSession.isUnmatchedSpeech(turn.speaker),
                                 languageTag: liveSession.languageTally.isMultilingual
                                     ? TranscriptLanguageDetector.cachedLanguage(of: turn.text)?
                                         .rawValue.uppercased()

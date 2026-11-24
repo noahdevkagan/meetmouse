@@ -19,10 +19,17 @@ speaker names after the call. Plan:
 3. Name inference no longer proposes a name for bare "Them" when numbered or named speakers exist.
 4. Saved meeting, Transcript tab: click a speaker to rename everywhere in that meeting or on that
    line only (`MeetingNotesFile.renamingSpeaker`).
-Done and pushed (one commit). Not built on macOS: this session had no Mac and could not dispatch
+Code review (8 findings) fixed in a second commit: no bare label ever goes to the diarizer (early
+names bind through `unboundNames` too), rows labeled one at a time are pinned by utterance id,
+a name a voice already carries cannot bind a second voice, the popover title follows the view
+model's row-only decision, saved-page renames are not overwritten by the session in memory, name
+suggestions are judged per channel, and Return in the saved rename popover runs once.
+Released as 0.37.0 at the user's request (PR merged to main; auto-release dispatches; the macOS
+test gate in that run is the first real build of this change; release waits for approval).
+First pass: done and pushed (one commit). Not built on macOS: this session had no Mac and could not dispatch
 `test-gate.yml` (403). Checked instead in a Linux Swift 6.0 container on a scratch copy with the
 Apple-only leaves stubbed (visual capture, keychain, NaturalLanguage, vDSP, spawn): the real view
-model and tests/session compile and the 12 new checks pass; the only failures there are 8
+model and tests/session compile and the new checks pass (306 passing after the review fixes); the only failures there are 8
 language-switch checks, which need arm64. `ContentView`, `SessionDetailView` and `SpeakerDiarizer`
 were syntax-parsed only. No GUI check, no live call.
 Next: on a Mac run `./scripts/push-gate.sh`, then `/verify` the two UI paths (name a "Them" row

@@ -50,10 +50,15 @@ final class SpeakerNameInference {
     /// a voice yet (the newest lines, short replies) and mixes several
     /// people, so it is not one person to name.
     static func nameableLabels(in speakers: [String]) -> Set<String> {
-        let unnamed = Set(speakers.filter { $0.wholeMatch(of: unnamedPattern) != nil })
-        let bare: Set<String> = ["Them", "Meeting"]
-        let toldApart = speakers.contains { !bare.contains($0) && !Utterance.isYouLabel($0) }
-        return toldApart ? unnamed.subtracting(bare) : unnamed
+        var unnamed = Set(speakers.filter { $0.wholeMatch(of: unnamedPattern) != nil })
+        // A real name could be on either channel; a numbered label says
+        // which one was told apart.
+        let named = speakers.contains {
+            $0.wholeMatch(of: unnamedPattern) == nil && !Utterance.isYouLabel($0)
+        }
+        if named || unnamed.contains(where: { $0.hasPrefix("Them ") }) { unnamed.remove("Them") }
+        if named || unnamed.contains(where: { $0.hasPrefix("Speaker ") }) { unnamed.remove("Meeting") }
+        return unnamed
     }
 
     private let client: AIClient

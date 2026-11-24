@@ -2315,6 +2315,83 @@ func runTests() async {
         vm.deleteSession()
     }
 
+    // Review follow-ups on row naming (2026-11-24).
+    do {
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext())
+        try? await Task.sleep(for: .milliseconds(300))
+        if let capture = AudioCaptureManager.last {
+            // Named before the diarizer's first publish: the name holds and
+            // the voice that owns those lines takes it (profile path).
+            capture.onUtterance?(Utterance(t: 1, speaker: "Them",
+                text: "Hello, Dana here from the design team.", endT: 4))
+            vm.renameSpeaker("Them", to: "Dana")
+            check(!capture.renames.contains { $0.0 == "Them" },
+                  "a bare label is never sent to the diarizer", "got \(capture.renames)")
+            capture.onSpeakerSegments?(.system, [
+                SpeakerSegment(speaker: "Them 1", start: 0.9, end: 4.1),
+            ])
+            try? await Task.sleep(for: .milliseconds(50))
+            check(vm.utterances.map(\.speaker) == ["Dana"]
+                  && capture.renames.contains { $0 == ("Them 1", "Dana") },
+                  "an early name survives the first publish and reaches the voice",
+                  "got \(vm.utterances.map(\.speaker)), \(capture.renames)")
+
+            // A row given a name a voice already carries stays that way.
+            capture.onUtterance?(Utterance(t: 6, speaker: "Them", text: "Right, agreed on that.", endT: 8))
+            var rows = TurnBuilder()
+            rows.rebuild(vm.utterances)
+            if let row = rows.turns.last { vm.renameSpeaker(in: row, to: "Dana") }
+            capture.onSpeakerSegments?(.system, [
+                SpeakerSegment(speaker: "Them 1", start: 0.9, end: 4.1),
+                SpeakerSegment(speaker: "Them 2", start: 5.9, end: 8.1),
+            ])
+            try? await Task.sleep(for: .milliseconds(50))
+            check(vm.utterances.map(\.speaker) == ["Dana", "Dana"]
+                  && !capture.renames.contains { $0.0 == "Them 2" },
+                  "a row the user labeled is not relabeled by a later pass",
+                  "got \(vm.utterances.map(\.speaker)), \(capture.renames)")
+
+            // A row name that a voice is then given must not go on to
+            // claim a third voice.
+            capture.onUtterance?(Utterance(t: 10, speaker: "Them", text: "Ines speaking, quick point.", endT: 12))
+            rows.rebuild(vm.utterances)
+            if let row = rows.turns.last { vm.renameSpeaker(in: row, to: "Ines") }
+            vm.renameSpeaker("Them 2", to: "Ines")
+            capture.onSpeakerSegments?(.system, [
+                SpeakerSegment(speaker: "Them 1", start: 0.9, end: 4.1),
+                SpeakerSegment(speaker: "Them 2", start: 5.9, end: 8.1),
+                SpeakerSegment(speaker: "Them 3", start: 9.9, end: 12.1),
+            ])
+            try? await Task.sleep(for: .milliseconds(50))
+            check(!capture.renames.contains { $0.0 == "Them 3" },
+                  "a name a voice already carries does not bind a second voice",
+                  "got \(capture.renames)")
+
+            // The row was attributed while the popover was open: the name
+            // goes to the voice it became.
+            capture.onUtterance?(Utterance(t: 14, speaker: "Them", text: "And one more thing from me.", endT: 17))
+            rows.rebuild(vm.utterances)
+            let stale = rows.turns.last
+            capture.onSpeakerSegments?(.system, [
+                SpeakerSegment(speaker: "Them 1", start: 0.9, end: 4.1),
+                SpeakerSegment(speaker: "Them 2", start: 5.9, end: 8.1),
+                SpeakerSegment(speaker: "Them 3", start: 9.9, end: 12.1),
+                SpeakerSegment(speaker: "Them 4", start: 13.9, end: 17.1),
+            ])
+            try? await Task.sleep(for: .milliseconds(50))
+            if let stale { vm.renameSpeaker(in: stale, to: "Odile") }
+            check(vm.utterances.last?.speaker == "Odile"
+                  && capture.renames.contains { $0 == ("Them 4", "Odile") },
+                  "a row attributed mid-rename names the voice it became",
+                  "got \(vm.utterances.map(\.speaker)), \(capture.renames)")
+        } else {
+            check(false, "capture manager wired (row naming follow-ups)")
+        }
+        vm.stopLive()
+        vm.deleteSession()
+    }
+
     // Name suggestions: bare "Them" is one person only until voices are
     // told apart.
     do {
@@ -2322,6 +2399,8 @@ func runTests() async {
               "an undiarized call can still get a name suggestion")
         check(SpeakerNameInference.nameableLabels(in: ["You", "Them", "Them 1", "Riya"]) == ["Them 1"],
               "no name suggestion for bare Them once speakers are told apart")
+        check(SpeakerNameInference.nameableLabels(in: ["You", "Speaker 1", "Them"]) == ["Speaker 1", "Them"],
+              "numbered in-room speakers do not hide the remote side from suggestions")
     }
 
     // Speaker names in a saved meeting: every line or one line, transcript
@@ -2354,6 +2433,8 @@ func runTests() async {
         check(one.contains("- [00:05] Them 1: Hi, Riya here")
               && one.contains("- [00:09] Marek: Marek here too"),
               "saved rename can fix a single line", one)
+        let stamped = MeetingNotesFile.renamingSpeaker("Them 1", to: "Marek", atStamp: "00:09", in: file)
+        check(stamped == one, "saved rename can target a line by its time", stamped)
         check(MeetingNotesFile.renamingSpeaker("Them 1", to: "  ", in: file) == file,
               "an empty name changes nothing")
         check(MeetingNotesFile.renamingSpeaker("Them 1", to: "Riya: PM", in: file)
