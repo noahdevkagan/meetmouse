@@ -2445,3 +2445,22 @@ Hugging Face path works. Revisit if reports continue after this ships.
 Customer report: naming a second speaker relabeled the whole transcript as that person. Cause: the newest remote line is bare "Them" until the diarizer finalizes it, and `SpeakerDiarizer.slotFromLabel` mapped bare "Them" to slot 0 always, so naming that line renamed slot 0, which already belonged to the first named person. The 2026-08-04 slot-0 mapping stays only while no slot has a label (the early first rename it was written for). Once the channel has diarized labels, a bare label is speech nobody was matched to: the transcript row passes its `Turn`, only that row takes the name, and the name is held in `unboundNames` until a diarization pass attributes the row to an unnamed slot, which is then renamed through the normal path (profile saved). A name is never bound from weak overlap at click time, because a wrong binding saves a wrong voice profile. Name inference skips bare labels once any speaker is numbered or named, for the same reason. Saved meetings get their own rename (`MeetingNotesFile.renamingSpeaker`, transcript lines only, all lines or one), since the live view model's rename is gone once another meeting starts. Not settled: whether LS-EEND separates voices on the customer's Mac; that needs their log.
 
 Review follow-up, same day: the view model no longer sends a bare label to the diarizer at all. A bare rename before the first publish also waits in `unboundNames` and reaches the voice through the binding, because with an enrolled profile slot 0 is the enrolled person, not the new voice. Rows the user labeled one at a time are remembered by utterance id (`userLabeledRows`) and never relabeled or split, so typing an existing person's name on an unmatched row sticks. A rename on a saved meeting's page marks the file (`MeetingNotesFile.speakerRenamedPaths`); the session still in memory then applies its own later renames to the file line by line and does not write its whole transcript over the page's changes.
+
+## 2026-11-24 — Auto release replaces a stale same-version run instead of skipping
+
+0.37.0's release run was dispatched, then the download fix was folded into the still-untagged
+0.37.0 section. Auto release saw "Release v0.37.0" already waiting and skipped, but that run was
+pinned to the older commit: approving it would have shipped and tagged the old code. It took a
+manual cancel plus a re-run. Now, when the waiting same-version run is on a different commit and
+its `release` job hasn't started, auto-release cancels it and dispatches a fresh one on the new
+commit, so the only click left is the normal approval. A run already publishing is never
+cancelled (error instead); a different version in flight still fails loudly, as before.
+
+## 2026-11-24 — Notarization attempts get a watchdog and retries
+
+Release v0.37.0 hung for 2h: the app was notarized in 5 min, then the DMG submission stuck at
+"initiating connection to the Apple notary service" with no submission id, and nothing timed it
+out (`notarytool submit --wait` piped through tee). `notarize_file` in `scripts/package-release.sh`
+now runs each attempt under a 35-minute watchdog (`NOTARY_ATTEMPT_LIMIT`), with `--timeout 30m` on
+the wait, and retries an attempt that ends without a verdict up to `NOTARY_ATTEMPTS` (3) times.
+A real Invalid/Rejected verdict still fails at once with Apple's log.

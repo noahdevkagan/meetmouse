@@ -18,7 +18,7 @@ on:
 
 permissions:
   contents: read
-  actions: write           # gh workflow run
+  actions: write           # gh workflow run, gh run cancel (stale same-version run)
 
 concurrency:
   group: auto-release
@@ -49,12 +49,39 @@ jobs:
           # release.yml's run-name is "Release v<version>" for both tag pushes
           # and dispatches. Runs not yet completed include ones waiting for
           # approval in the `release` environment (status "waiting").
-          INFLIGHT="$(gh run list --workflow release.yml --limit 30 \
-            --json status,displayTitle \
-            --jq '.[] | select(.status != "completed") | .displayTitle')"
-          if printf '%s\n' "$INFLIGHT" | grep -qxF "Release v$VERSION"; then
-            echo "A release run for v$VERSION is already in progress or awaiting approval."
-            exit 0
+          RUNS="$(gh run list --workflow release.yml --limit 30 \
+            --json databaseId,status,displayTitle,headSha \
+            --jq '.[] | select(.status != "completed") | [.databaseId, .displayTitle, .headSha] | @tsv')"
+          INFLIGHT="$(printf '%s\n' "$RUNS" | cut -f2)"
+          # Same version already in flight. On this commit: nothing to do.
+          # On an older commit (more work was folded into the still-untagged
+          # version, as with 0.37.0 on 2026-11-24): approving it would ship
+          # the old commit and tag it, and this commit would never ship. So
+          # replace it, unless its `release` job has already started
+          # (signing/publishing is past the point of a safe cancel).
+          SAME="$(printf '%s\n' "$RUNS" | awk -F'\t' -v t="Release v$VERSION" '$2 == t')"
+          if [ -n "$SAME" ]; then
+            if printf '%s\n' "$SAME" | cut -f3 | grep -qxF "$GITHUB_SHA"; then
+              echo "A release run for v$VERSION on this commit is already in progress or awaiting approval."
+              exit 0
+            fi
+            for ID in $(printf '%s\n' "$SAME" | cut -f1); do
+              STARTED="$(gh run view "$ID" --json jobs \
+                --jq '[.jobs[] | select(.name == "release" and .status != "queued" and .status != "waiting")] | length')"
+              if [ "$STARTED" != "0" ]; then
+                echo "::error::Release v$VERSION run $ID (older commit) is already publishing; not cancelling it. Let it finish, then ship this commit as the next version."
+                exit 1
+              fi
+              echo "Cancelling release run $ID: v$VERSION from an older commit, not yet approved."
+              gh run cancel "$ID"
+              for _ in $(seq 1 30); do
+                [ "$(gh run view "$ID" --json status --jq .status)" = "completed" ] && break
+                sleep 5
+              done
+            done
+            INFLIGHT="$(gh run list --workflow release.yml --limit 30 \
+              --json status,displayTitle \
+              --jq '.[] | select(.status != "completed") | .displayTitle')"
           fi
           # A DIFFERENT release is in flight. Dispatching a second one is unsafe
           # (two releases racing for the same appcast; approving them out of
