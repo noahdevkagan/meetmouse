@@ -152,12 +152,31 @@ test("expired notes disappear and the sweep removes them", async t => {
   await worker.scheduled({}, f.env, { waitUntil: promise => pending.push(promise) });
   await Promise.all(pending);
   assert.equal(f.db.prepare("SELECT count(*) AS n FROM team_notes").get().n, 0);
+  // The now-empty team is young, so it stays; an old empty one is dropped,
+  // and an old team that still holds a note is kept.
+  assert.equal(f.db.prepare("SELECT count(*) AS n FROM teams").get().n, 1);
+  f.db.exec("UPDATE teams SET created_at = 1");
+  await f.put(idFor(2), notePayload("Ana", "Fresh call", "2026-08-01T10:00:00Z"));
+  const sweep = async () => {
+    const jobs = [];
+    await worker.scheduled({}, f.env, { waitUntil: promise => jobs.push(promise) });
+    await Promise.all(jobs);
+  };
+  await sweep();
+  assert.equal(f.db.prepare("SELECT count(*) AS n FROM teams").get().n, 1);
+  f.db.exec("DELETE FROM team_notes");
+  await sweep();
+  assert.equal(f.db.prepare("SELECT count(*) AS n FROM teams").get().n, 0);
+  assert.equal((await f.req(`/api/teams/${teamID}`)).status, 404);
 });
 
 test("rate limits and the team size cap are enforced", async t => {
   const f = fixture(t);
   await f.create();
   f.env.CREATE_RATE_LIMITER.limit = async ({ key }) => ({ success: key !== `team:${teamID}` });
+  assert.equal((await f.put(idFor(1), notePayload("Ana", "Call"))).status, 429);
+  // Writes also count against the client, whatever team they go to.
+  f.env.CREATE_RATE_LIMITER.limit = async ({ key }) => ({ success: key !== "local-development" });
   assert.equal((await f.put(idFor(1), notePayload("Ana", "Call"))).status, 429);
   f.env.CREATE_RATE_LIMITER.limit = async () => ({ success: true });
   const insert = f.db.prepare(

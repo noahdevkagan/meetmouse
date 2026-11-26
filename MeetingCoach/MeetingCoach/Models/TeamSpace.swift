@@ -183,6 +183,36 @@ struct TeamStore: Sendable {
     func clear() {
         try? FileManager.default.removeItem(at: storageURL)
     }
+
+    // Teams this Mac was on before. Leaving or switching keeps the old
+    // membership here, so the invite link isn't lost and re-joining gets
+    // back the same member id and the list of what was shared (without it,
+    // earlier notes could no longer be updated or removed from the app).
+
+    private var archiveURL: URL {
+        storageURL.deletingLastPathComponent().appendingPathComponent(
+            storageURL.deletingPathExtension().lastPathComponent + "-previous.json")
+    }
+
+    func archived() -> [TeamMembership] {
+        guard let data = try? Data(contentsOf: archiveURL) else { return [] }
+        return (try? JSONDecoder().decode([TeamMembership].self, from: data)) ?? []
+    }
+
+    func archived(teamID: String, secret: String) -> TeamMembership? {
+        archived().first { $0.teamID == teamID && $0.secret == secret }
+    }
+
+    func archive(_ membership: TeamMembership) {
+        var all = archived().filter { $0.teamID != membership.teamID }
+        all.append(membership)
+        guard let data = try? JSONEncoder().encode(all) else { return }
+        try? FileManager.default.createDirectory(at: archiveURL.deletingLastPathComponent(),
+                                                 withIntermediateDirectories: true)
+        try? data.write(to: archiveURL, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600],
+                                               ofItemAtPath: archiveURL.path)
+    }
 }
 
 enum TeamError: Error, LocalizedError, Equatable, Sendable {

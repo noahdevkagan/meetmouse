@@ -130,8 +130,18 @@ struct TeamTests {
               "the invite link is the team page link")
         let mode = (try? FileManager.default.attributesOfItem(atPath: store.storageURL.path))?[.posixPermissions] as? NSNumber
         check(mode?.intValue == 0o600, "membership file is readable by the user only")
+        store.archive(membership)
         store.clear()
-        check(store.load() == nil, "leaving forgets the team")
+        check(store.load() == nil, "leaving takes this Mac off the team")
+        check(store.archived(teamID: teamID, secret: secretText) == membership,
+              "a team that was left can be restored with its shared list")
+        check(store.archived(teamID: teamID, secret: "other") == nil,
+              "a different secret does not restore it")
+        var renamed = membership
+        renamed.teamName = "Acme Growth"
+        store.archive(renamed)
+        check(store.archived().count == 1 && store.archived().first?.teamName == "Acme Growth",
+              "archiving the same team again replaces its entry")
 
         exit(failed ? 1 : 0)
     }

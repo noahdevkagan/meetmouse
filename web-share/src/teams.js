@@ -177,8 +177,13 @@ async function listNotes(request, teamID, env, reply, url) {
 async function putNote(request, teamID, noteID, env, reply) {
   const { failure } = await member(request, teamID, env, reply);
   if (failure) return failure;
-  const limit = await env.CREATE_RATE_LIMITER.limit({ key: `team:${teamID}` });
-  if (!limit.success) return reply.error("Too many notes at once. Try again shortly.", 429);
+  // Per client as well as per team, so making more teams doesn't buy more
+  // write capacity. The IP is used by the limiter only and never stored.
+  const clientKey = request.headers.get("cf-connecting-ip") ?? "local-development";
+  for (const key of [clientKey, `team:${teamID}`]) {
+    const limit = await env.CREATE_RATE_LIMITER.limit({ key });
+    if (!limit.success) return reply.error("Too many notes at once. Try again shortly.", 429);
+  }
   const { body, failure: badBody } = await readJSON(request, reply);
   if (badBody) return badBody;
   const invalid = validateNote(body);
@@ -201,9 +206,14 @@ async function putNote(request, teamID, noteID, env, reply) {
   if (Number(count?.n ?? 0) >= MAX_TEAM_NOTES) {
     return reply.error(`This team page is full (${MAX_TEAM_NOTES} notes). Remove old notes to add more.`, 409);
   }
+  // Two first shares of the same note can race past the lookup above; the
+  // upsert makes the later one an update instead of a failed insert.
   await env.DB.prepare(
     `INSERT INTO team_notes (team_id, id, nonce, ciphertext, created_at, updated_at, expires_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?6)`,
+     VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?6)
+     ON CONFLICT (team_id, id) DO UPDATE SET
+       nonce = excluded.nonce, ciphertext = excluded.ciphertext,
+       updated_at = excluded.updated_at, expires_at = excluded.expires_at`,
   ).bind(teamID, noteID, body.nonce, body.ciphertext, now, now + TEAM_NOTE_LIFETIME_SECONDS).run();
   return reply.json({ id: noteID, updated: false }, 201);
 }
@@ -227,6 +237,15 @@ export async function handleTeam(route, request, env, url, reply) {
   return null;
 }
 
-export function sweepExpiredTeamNotes(env, now) {
-  return env.DB.prepare("DELETE FROM team_notes WHERE expires_at <= ?1").bind(now).run();
+export const EMPTY_TEAM_LIFETIME_SECONDS = 90 * 24 * 60 * 60;
+
+// Daily: drop expired notes, then teams that hold no notes and are older
+// than 90 days (never used, or everything on them expired), so abandoned
+// teams don't accumulate.
+export async function sweepExpiredTeamNotes(env, now) {
+  await env.DB.prepare("DELETE FROM team_notes WHERE expires_at <= ?1").bind(now).run();
+  await env.DB.prepare(
+    `DELETE FROM teams WHERE created_at <= ?1
+       AND NOT EXISTS (SELECT 1 FROM team_notes WHERE team_notes.team_id = teams.id)`,
+  ).bind(now - EMPTY_TEAM_LIFETIME_SECONDS).run();
 }

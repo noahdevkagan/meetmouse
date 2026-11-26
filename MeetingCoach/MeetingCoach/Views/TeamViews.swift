@@ -40,24 +40,44 @@ final class TeamSpace {
     }
 
     private func join(_ invite: TeamInvite, memberName: String) async throws {
-        var joined = try await service.join(invite, memberName: memberName)
-        // Re-joining the same team keeps the record of what was shared.
-        if let current = membership, current.teamID == joined.teamID, current.secret == joined.secret {
-            joined = TeamMembership(teamID: current.teamID, secret: current.secret,
+        let checked = try await service.join(invite, memberName: memberName)
+        try commit(checked)
+    }
+
+    /// Makes a membership the server has confirmed the current one.
+    private func commit(_ checked: TeamMembership) throws {
+        var joined = checked
+        // Re-joining a team (still on it, or one this Mac left) keeps the
+        // member id and the record of what was shared.
+        let known = [membership, store.archived(teamID: joined.teamID, secret: joined.secret)]
+            .compactMap { $0 }
+            .first { $0.teamID == joined.teamID && $0.secret == joined.secret }
+        if let known {
+            joined = TeamMembership(teamID: known.teamID, secret: known.secret,
                                     teamName: joined.teamName, memberName: joined.memberName,
-                                    memberID: current.memberID, shared: current.shared,
+                                    memberID: known.memberID, shared: known.shared,
                                     apiBaseURL: joined.apiBaseURL, pageBaseURL: joined.pageBaseURL)
         }
+        if let current = membership, current.teamID != joined.teamID { store.archive(current) }
         try store.save(joined)
         membership = joined
         FreeTier.shared.unlockViaTeam()
     }
 
-    /// Forgets the team on this Mac. Notes already on the team page stay
-    /// there for the team; remove them first to take them down.
+    /// Takes this Mac off the team. Notes already on the team page stay
+    /// there for the team; remove them first to take them down. The
+    /// membership is kept aside so joining again restores it.
     func leave() {
+        if let membership { store.archive(membership) }
         store.clear()
         membership = nil
+    }
+
+    /// A deleted meeting's team copy comes down with it (best effort): its
+    /// only "Remove from team page" control is on the meeting being deleted.
+    func meetingDeleted(_ sessionURL: URL) {
+        guard isShared(sessionURL) else { return }
+        Task { try? await self.unshare(sessionURL: sessionURL) }
     }
 
     func isShared(_ sessionURL: URL) -> Bool {
@@ -106,18 +126,23 @@ final class TeamSpace {
                   "Open a meeting and click Share with team to add its notes.")
             return
         }
-        let confirm = NSAlert()
-        confirm.messageText = "Join this MeetMouse team?"
-        confirm.informativeText = membership == nil
-            ? "Notes you choose to share will appear on the team page. Nothing is shared until you click Share with team on a meeting."
-            : "This Mac will switch to the new team. Notes you already shared stay on the old team's page."
-        confirm.addButton(withTitle: "Join")
-        confirm.addButton(withTitle: "Cancel")
-        guard confirm.runModal() == .alertFirstButtonReturn else { return }
+        // Look the team up first so the question can name it: a link can be
+        // opened by any web page, and joining decides where notes go.
         Task {
             do {
-                try await self.join(invite, memberName: Self.defaultMemberName)
-                self.alert("You joined \(self.membership?.teamName ?? "the team")",
+                let checked = try await self.service.join(invite, memberName: Self.defaultMemberName)
+                let confirm = NSAlert()
+                confirm.messageText = "Join the team \u{201C}\(checked.teamName)\u{201D}?"
+                if let current = self.membership {
+                    confirm.informativeText = "This Mac is on \u{201C}\(current.teamName)\u{201D} now and will switch: Share with team will send notes to \u{201C}\(checked.teamName)\u{201D} instead. Only join a team you were invited to by someone you know."
+                } else {
+                    confirm.informativeText = "Notes you choose to share will appear on this team's page. Nothing is shared until you click Share with team on a meeting. Only join a team you were invited to by someone you know."
+                }
+                confirm.addButton(withTitle: "Join")
+                confirm.addButton(withTitle: "Cancel")
+                guard confirm.runModal() == .alertFirstButtonReturn else { return }
+                try self.commit(checked)
+                self.alert("You joined \(checked.teamName)",
                            "MeetMouse is unlocked on this Mac. Open a meeting and click Share with team to add its notes.")
             } catch {
                 self.alert("Couldn't join the team", error.localizedDescription)
@@ -169,7 +194,7 @@ struct TeamSettingsSection: View {
                     }
                     Button("Cancel", role: .cancel) {}
                 } message: {
-                    Text("This Mac forgets the team. Notes you already shared stay on the team page; remove them from each meeting first if you want them gone.")
+                    Text("This Mac leaves the team. Notes you already shared stay on the team page; remove them from each meeting first if you want them gone. Joining again with the invite link brings your shared list back.")
                 }
                 statusLine
                 Text("To share a meeting, open it and click Share with team. Teammates get the notes (summary, topics, next steps), never the transcript or coaching. Notes are encrypted on this Mac and stay on the team page for a year. Anyone with the invite link can read and add notes.")

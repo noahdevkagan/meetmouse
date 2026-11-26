@@ -18,18 +18,20 @@ Plan:
    encrypted on the Mac with a key derived from the team secret; the server sees ciphertext and a
    hash of the access token. App: Settings -> Team (create, join by invite link, copy invite,
    leave), "Share with team" on a meeting, `meetmouse://team?...` join links.
-3. Team license, honor-based like the rest: creating a team needs an unlocked install; joining a
-   team unlocks the member's install. Price and seat count are Noah's call (not built).
-Status: all three built and pushed. Worker: `npm test` passes (30) and `node test/e2e-team.mjs`
-drove the team page in Chromium against an in-memory database (decrypt, search, paging, error
-states). Swift was written on Linux with no compiler; the macOS test gate on this branch is the
-only build (see the latest run for this branch). Not done: no GUI check of Settings -> Team or
-Share with team, no run against the deployed Worker (migration 0003 and the new routes go out
-with the next release, or `cd web-share && npm run db:remote && npm run deploy`), and the
-Fireflies import has never talked to the real Fireflies API (no key; docs host was blocked).
-Next: on a Mac, `/verify` create team -> copy invite -> join on a second Mac or user account ->
-Share with team -> open the team page; then import with a real Fireflies key.
-Open for Noah: team price and seat limit; whether sharing should be automatic for team members.
+3. Team license: $40 once, unlimited seats (Noah's price). meetmouse.com/team sells it (PayPal),
+   /team-thanks shows the team code; the code allows Create team, joining unlocks teammates.
+Status: built, code-reviewed (fixes in decisions.md, 2026-11-26), merged and released as 0.38.0
+at Noah's request (release run waits for approval in the `release` environment; it deploys the
+Worker with migration 0003 and the site). Checked: Worker `npm test`, the team page in Chromium
+(`node web-share/test/e2e-team.mjs`), macOS test gate (build + tests/team, tests/fireflies,
+tests/freetier). Not checked: no Mac was available, so nobody has clicked Settings -> Team or
+Share with team; no end-to-end run against the deployed Worker; the PayPal $40 button was not
+paid through; the Fireflies import has never talked to the real Fireflies API (no key; docs
+host blocked, field names confirmed through search results only).
+Next: after the release is approved, on a Mac: enter the team code, create a team, join from a
+second Mac or user account, Share with team, open the team page. Then import with a real
+Fireflies key.
+Open: whether team sharing should be automatic for members (today it is a button).
 
 ## Current state (2026-11-24): Speaker naming fixes from a customer email (branch claude/busy-edison-jjkl97)
 

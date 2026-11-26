@@ -2504,3 +2504,28 @@ an unlocked install; joining with a valid invite (checked against the Worker) un
 member's install (`UsageGate.unlockViaTeam`). No seat limit or team price is enforced in code:
 those are Noah's to set, and a seat cap would need the server to count members.
 
+## 2026-11-26 — Team license is $40 once, unlimited seats, by a team code
+
+Noah set the price: $40, unlimited seats. This replaces "creating a team needs an unlocked
+install" from earlier today. The buyer pays on meetmouse.com/team (same PayPal form as the $20
+purchase) and lands on /team-thanks, which carries the team code (SHA-256 in
+`UsageGate.teamCodeHash`). Entering it unlocks that Mac and sets `usage.teamLicense`, which is
+what allows Create team. Teammates never see a code: joining unlocks them, with no seat count.
+A $20, AppSumo or referral unlock does not allow creating a team, and joining a team does not
+either. Still honor-based: the code is one shared code in a public page, and the Worker cannot
+tell a licensed creator from an unlicensed one, same as every other MeetMouse unlock.
+
+## 2026-11-26 — Team space review fixes
+
+From a code review before release. Worker: note writes are rate-limited per client IP as well
+as per team (more teams no longer buys more write capacity), the first write is an upsert, and
+the daily sweep drops teams older than 90 days that hold no notes. App: a `meetmouse://team`
+link looks the team up and names it in the question before joining (any web page can open such
+a link); leaving or switching keeps the old membership in `team-previous.json`, so re-joining
+restores the member id and shared list; deleting a meeting removes its team copy (best effort),
+because its only removal control was on the deleted meeting. Fireflies: a meeting with no
+transcript or summary yet is not written (it would have been marked imported and stayed empty),
+a reply with both data and errors uses the data, numeric ids are accepted, speaker names are
+cut to 39 characters (the transcript parser's limit), and a 429 is waited out (20 s, 4 tries)
+before the run stops. Fireflies' documented limits are now 500 requests/day on Free.
+

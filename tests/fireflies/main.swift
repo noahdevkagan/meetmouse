@@ -1,8 +1,8 @@
 import Foundation
 
 var failures = 0
-func check(_ name: String, _ ok: Bool) {
-    print("fireflies \(name): \(ok ? "PASS" : "FAIL")")
+func check(_ name: String, _ ok: Bool, _ detail: String = "") {
+    print("fireflies \(name): \(ok ? "PASS" : "FAIL \(detail)")")
     if !ok { failures += 1 }
 }
 
@@ -175,6 +175,48 @@ let waited = try await FirefliesImporter.importAll(apiKey: "good", into: burst, 
 }, rateLimitWait: 0)
 check("a short rate limit is waited out and the import finishes",
       waited.imported == 22 && !waited.stoppedByRateLimit)
+
+// 3c. A meeting Fireflies hasn't processed yet is left for a later run, a
+//     partial error doesn't cost the page, and odd names stay parseable.
+let odds = tempDir()
+defer { try? FileManager.default.removeItem(at: odds) }
+let processing: [String: Any] = ["id": "ff-processing", "title": "Still processing",
+                                 "date": 1_785_598_200_000.0]
+let longName = String(repeating: "Very Long Name ", count: 5)
+let longSentence: [String: Any] = ["speaker_name": longName, "text": "Hello.", "start_time": 1.0]
+let numericID: [String: Any] = ["id": 4242, "title": "Line one\nline two",
+                                "date": 1_785_598_200_000.0,
+                                "sentences": [longSentence]]
+let oddMeetings: [[String: Any]] = [processing, numericID]
+let oddReport = try await FirefliesImporter.importAll(apiKey: "good", into: odds, transport: { body in
+    let request = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] ?? [:]
+    let wantsContent = (request["query"] as? String ?? "").contains("sentences")
+    var rows: [Any] = []
+    for meeting in oddMeetings {
+        if wantsContent {
+            rows.append(meeting)
+        } else {
+            let idOnly: [String: Any] = ["id": meeting["id"] ?? ""]
+            rows.append(idOnly)
+        }
+    }
+    if wantsContent { rows.append(NSNull()) }
+    let failure: [String: String] = ["message": "Cannot read summary of one transcript"]
+    let reply: [String: Any] = ["data": ["transcripts": rows], "errors": [failure]]
+    return (try JSONSerialization.data(withJSONObject: reply), 200)
+}, rateLimitWait: 0)
+check("a meeting with nothing in it yet is not written",
+      oddReport.imported == 1 && oddReport.skippedEmpty == 1)
+check("the summary says it wasn't ready", oddReport.summary.contains("not ready in Fireflies yet"))
+let oddFile = TranscriptSearch.sessionFiles(in: odds).first
+let oddBody = oddFile.flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
+check("a numeric id still gets its marker", oddBody.contains("**Imported-From:** fireflies:4242"))
+check("a line break in a title can't split the header", oddBody.contains("**Title:** Line one line two"))
+let oddSpeaker = oddBody.components(separatedBy: "\n")
+    .first { $0.hasPrefix("- [00:01] ") }?
+    .dropFirst("- [00:01] ".count).components(separatedBy: ": ").first ?? ""
+check("a very long speaker name is cut to what the transcript parser accepts",
+      !oddSpeaker.isEmpty && oddSpeaker.count < 40, oddSpeaker)
 
 // 4. Errors people will actually hit.
 do {

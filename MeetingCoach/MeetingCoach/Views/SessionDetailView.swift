@@ -145,7 +145,7 @@ struct SessionDetailView: View {
             Button("Delete meeting", role: .destructive) { deleteMeeting() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This permanently deletes the local transcript, notes, and saved chat. Shared links stay active; manage them in Meetings → Shared links.")
+            Text("This permanently deletes the local transcript, notes, and saved chat. Shared links stay active; manage them in Meetings → Shared links. If you shared it with your team, its copy on the team page is removed.")
         }
         .alert("Couldn't delete meeting", isPresented: Binding(
             get: { deleteError != nil },
@@ -256,6 +256,7 @@ struct SessionDetailView: View {
         guard !meetingIsBusy else { return }
         do {
             try TranscriptStore.deleteMeeting(at: url)
+            TeamSpace.shared.meetingDeleted(url)
             onClose()
         } catch {
             deleteError = "Some files couldn't be removed. Please try again. \(error.localizedDescription)"

@@ -7,9 +7,9 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
-## Unreleased
+## 0.38.0 — 2026-11-26
 
-- Teams: create a team in Settings and send the invite link to your teammates. Everyone's shared meeting notes live on one private team page. Open a meeting and click "Share with team" to add its notes; the transcript and coaching stay on your Mac. Notes are encrypted before they leave your Mac, and joining a team unlocks MeetMouse for that teammate.
+- Teams: one private page for your team's meeting notes. One person buys a team license ($40 once, unlimited seats, at meetmouse.com/team), creates the team in Settings → Team, and sends the invite link. Joining unlocks MeetMouse on each teammate's Mac. Open a meeting and click "Share with team" to add its notes to the team page; the transcript and coaching stay on your Mac, and nothing is shared automatically. Notes are encrypted before they leave your Mac.
 - Import from Fireflies: paste your Fireflies API key in Settings and MeetMouse brings your Fireflies meetings (notes and transcripts) over as regular meetings. The key is used once and not saved.
 
 ## 0.37.0 — 2026-11-24

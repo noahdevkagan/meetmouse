@@ -23,6 +23,9 @@ enum FirefliesImporter {
         var imported = 0
         var skippedExisting = 0
         var skippedNoDate = 0
+        /// Meetings Fireflies has no notes or transcript for yet (still
+        /// processing). Not written, so a later run picks them up.
+        var skippedEmpty = 0
         /// Fireflies stopped answering (daily request limit) before the
         /// whole account was read. Running the import again continues.
         var stoppedByRateLimit = false
@@ -31,6 +34,7 @@ enum FirefliesImporter {
             var parts = ["Imported \(imported) meeting\(imported == 1 ? "" : "s")"]
             if skippedExisting > 0 { parts.append("\(skippedExisting) already imported") }
             if skippedNoDate > 0 { parts.append("\(skippedNoDate) skipped (no date)") }
+            if skippedEmpty > 0 { parts.append("\(skippedEmpty) not ready in Fireflies yet") }
             var text = parts.joined(separator: " · ")
             if stoppedByRateLimit {
                 text += ". Fireflies' request limit was reached before the rest could be read. Import again later to continue; meetings already imported are skipped."
@@ -120,8 +124,10 @@ enum FirefliesImporter {
             let page = try await query(
                 "query($limit:Int,$skip:Int){transcripts(limit:$limit,skip:$skip){id}}",
                 variables: ["limit": idPageSize, "skip": ids.count], send: send)
-            ids.append(contentsOf: page.compactMap { $0["id"] as? String })
-            if page.count < idPageSize { break }
+            let pageIDs = page.compactMap { string($0["id"]) }.filter { !$0.isEmpty }
+            ids.append(contentsOf: pageIDs)
+            // A full page that adds nothing would otherwise repeat forever.
+            if page.count < idPageSize || pageIDs.isEmpty { break }
         }
 
         var existing = Set(GranolaImporter.existingImportMarkers(in: dir).keys)
@@ -149,6 +155,7 @@ enum FirefliesImporter {
             let pageReport = write(meetings, into: dir, existing: &existing)
             report.imported += pageReport.imported
             report.skippedNoDate += pageReport.skippedNoDate
+            report.skippedEmpty += pageReport.skippedEmpty
         }
         return report
     }
@@ -180,7 +187,13 @@ enum FirefliesImporter {
             }
             let transcript = transcriptLines(meeting.sentences)
             let notes = notesBody(meeting)
-            guard !meeting.title.isEmpty || !notes.isEmpty || !transcript.isEmpty else { continue }
+            // A title alone means Fireflies is still processing the meeting.
+            // Writing it now would mark it imported and it would stay empty.
+            guard !transcript.isEmpty || !meeting.overview.isEmpty
+                    || !meeting.bullets.isEmpty || !meeting.actionItems.isEmpty else {
+                report.skippedEmpty += 1
+                continue
+            }
             guard let date = meeting.date else {
                 // A wrong date in a date-keyed archive is worse than absence.
                 report.skippedNoDate += 1
@@ -235,7 +248,9 @@ enum FirefliesImporter {
             .replacingOccurrences(of: ":", with: " ")
             .replacingOccurrences(of: "\n", with: " ")
             .trimmingCharacters(in: .whitespaces)
-        return cleaned.isEmpty ? "Speaker" : cleaned
+        // The transcript parser only accepts speaker labels under 40 characters.
+        return cleaned.isEmpty ? "Speaker" : String(cleaned.prefix(39))
+            .trimmingCharacters(in: .whitespaces)
     }
 
     static func notesBody(_ meeting: Meeting) -> String {
@@ -262,7 +277,9 @@ enum FirefliesImporter {
         let minutes = number(object["duration"])
         return Meeting(
             id: id,
-            title: (string(object["title"]) ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+            title: (string(object["title"]) ?? "")
+                .components(separatedBy: .newlines).joined(separator: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines),
             date: date(epochMillis: object["date"], iso: object["dateString"]),
             duration: minutes.flatMap { $0 > 0 ? $0 * 60 : nil },
             participants: participants(object["participants"]),
@@ -342,6 +359,12 @@ enum FirefliesImporter {
         if status == 401 || status == 403
             || codes.contains(where: { ["auth_failed", "unauthenticated", "forbidden", "invalid_api_key"].contains($0) }) {
             throw ImportError.badKey
+        }
+        // A reply can carry both data and errors (one meeting's field failed).
+        // Use the meetings that did come back.
+        if let dataObject = json?["data"] as? [String: Any],
+           let list = dataObject["transcripts"] as? [Any] {
+            return list.compactMap { $0 as? [String: Any] }
         }
         if let first = errors.first {
             let message = (first["message"] as? String) ?? "unknown error"
