@@ -104,8 +104,10 @@ struct FreeTierCheck {
         let teamDefaults = UserDefaults(suiteName: teamSuite)!
         defer { teamDefaults.removePersistentDomain(forName: teamSuite) }
         var teamGate = UsageGate(defaults: teamDefaults)
-        teamGate.now = { install.addingTimeInterval(8 * 86_400) }
+        var teamClock = install
+        teamGate.now = { teamClock }
         teamGate.bootstrap(isExistingInstall: false)
+        teamClock = install.addingTimeInterval(8 * 86_400) // trial over
         for _ in 0..<UsageGate.weeklyFreeMeetings { teamGate.recordMeeting() }
         check(teamGate.isBlocked, "a free install past its weekly limit is blocked")
         teamGate.unlockViaTeam()
