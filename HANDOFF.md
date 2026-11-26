@@ -5,6 +5,22 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-26): Fireflies import + team space (branch claude/confident-galileo-44k2ep)
+
+Two asks from Noah: a customer wants a team license so notes are shared, and a Fireflies import.
+Plan:
+1. Fireflies import (`Engine/FirefliesImporter.swift`): the user pastes their Fireflies API key in
+   Settings; the app pages through `api.fireflies.ai/graphql` and writes ordinary session files
+   with a `fireflies:<id>` dedupe marker (same writer as the Granola import). The key is used for
+   that run only and never stored. `tests/fireflies` covers parsing/writing with a canned response.
+2. Team space, "centralized place" = one private team page. Worker: `teams` + `team_notes` tables
+   (migration 0003), `/api/teams/*`, and the page at `meetmouse.com/t/<id>#<secret>`. Notes are
+   encrypted on the Mac with a key derived from the team secret; the server sees ciphertext and a
+   hash of the access token. App: Settings -> Team (create, join by invite link, copy invite,
+   leave), "Share with team" on a meeting, `meetmouse://team?...` join links.
+3. Team license, honor-based like the rest: creating a team needs an unlocked install; joining a
+   team unlocks the member's install. Price and seat count are Noah's call (not built).
+
 ## Current state (2026-11-24): Speaker naming fixes from a customer email (branch claude/busy-edison-jjkl97)
 
 A customer on an M1 reported: remote speakers not told apart on Meet/Zoom; naming one speaker

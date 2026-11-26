@@ -52,6 +52,7 @@ struct GeneralSettingsView: View {
     @State private var isImporting = false
     @State private var importResult: String?
     @State private var importResultIsError = false
+    @State private var fireflies = FirefliesImportModel()
 
 
     var body: some View {
@@ -123,6 +124,29 @@ struct GeneralSettingsView: View {
                         .foregroundStyle(importResultIsError ? .red : .secondary)
                 }
                 Text("In Granola, enable data export and download your meetings as a CSV, then pick that file here. Your notes become MeetMouse sessions — searchable, on this Mac, in your transcripts folder.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Import from Fireflies") {
+                HStack {
+                    SecureField("Fireflies API key", text: $fireflies.apiKey)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(fireflies.isRunning)
+                        .onSubmit { fireflies.start() }
+                    Button("Import") { fireflies.start() }
+                        .disabled(fireflies.isRunning
+                                  || fireflies.apiKey.trimmingCharacters(in: .whitespaces).isEmpty)
+                    if fireflies.isRunning {
+                        ProgressView().controlSize(.small)
+                    }
+                }
+                if let status = fireflies.status {
+                    Text(status)
+                        .font(.caption)
+                        .foregroundStyle(fireflies.statusIsError ? .red : .secondary)
+                }
+                Text("In Fireflies, open Integrations \u{2192} Fireflies API and copy your API key. MeetMouse uses it once to download your meetings (notes and transcripts) from Fireflies straight to this Mac, and doesn't save the key. Large accounts can take a few runs because Fireflies limits requests per day; meetings already imported are skipped.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -488,5 +512,40 @@ struct GeneralSettingsView: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         AppSupport.setSessionsDir(url)
         sessionsPath = url.path
+    }
+}
+
+/// State for the Fireflies import row. A class, not view state, so the
+/// importer's progress callback can report from a background task.
+@MainActor @Observable
+final class FirefliesImportModel {
+    var apiKey = ""
+    private(set) var isRunning = false
+    private(set) var status: String?
+    private(set) var statusIsError = false
+
+    func start() {
+        guard !isRunning else { return }
+        let key = apiKey
+        isRunning = true
+        status = nil
+        statusIsError = false
+        Task {
+            do {
+                let report = try await FirefliesImporter.importAll(apiKey: key, progress: { [weak self] message in
+                    Task { @MainActor in
+                        guard let self, self.isRunning else { return }
+                        self.status = message
+                    }
+                })
+                status = report.summary
+                // The key is for this run only; don't leave it in the field.
+                if !report.stoppedByRateLimit { apiKey = "" }
+            } catch {
+                status = error.localizedDescription
+                statusIsError = true
+            }
+            isRunning = false
+        }
     }
 }

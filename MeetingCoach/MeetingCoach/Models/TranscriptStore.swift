@@ -105,8 +105,8 @@ enum TranscriptStore {
         var startedAt: Date
         var durationMin: Double
         var participants: [String]
-        /// "meetingcoach" for live-coached sessions, "granola-import" for
-        /// meetings brought over from a Granola export.
+        /// "meetingcoach" for live-coached sessions, "granola-import" or
+        /// "fireflies-import" for meetings brought over from another tool.
         var source: String
     }
 
@@ -174,7 +174,7 @@ enum TranscriptStore {
                     }
                     .filter { !$0.isEmpty }
             } else if line.hasPrefix("**Imported-From:**") {
-                source = "granola-import"
+                source = line.contains("fireflies:") ? "fireflies-import" : "granola-import"
             }
         }
         return Metadata(title: TranscriptSearch.headerTitle(in: content),
