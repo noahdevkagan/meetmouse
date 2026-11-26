@@ -149,7 +149,7 @@ let limited = tempDir()
 defer { try? FileManager.default.removeItem(at: limited) }
 let partial = try await FirefliesImporter.importAll(
     apiKey: "good", into: limited,
-    transport: transport(meetings: meetings, failContentFromSkip: 10))
+    transport: transport(meetings: meetings, failContentFromSkip: 10), rateLimitWait: 0)
 check("a rate limit mid-import keeps what was imported",
       partial.imported == 9 && partial.stoppedByRateLimit)
 check("the summary says to import again", partial.summary.contains("Import again later"))
@@ -158,6 +158,23 @@ let resumed = try await FirefliesImporter.importAll(
 check("the next run imports the rest", resumed.imported == 13 && !resumed.stoppedByRateLimit)
 check("everything is there after resuming",
       TranscriptSearch.sessionFiles(in: limited).count == 22)
+
+// 3b. A per-minute limit (HTTP 429 twice, then fine) is waited out, not fatal.
+final class Counter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    func next() -> Int { lock.lock(); defer { lock.unlock() }; count += 1; return count }
+}
+let burst = tempDir()
+defer { try? FileManager.default.removeItem(at: burst) }
+let counter = Counter()
+let waited = try await FirefliesImporter.importAll(apiKey: "good", into: burst, transport: { body in
+    let call = counter.next()
+    if call == 2 || call == 3 { return (Data("{}".utf8), 429) }
+    return try await inner(body)
+}, rateLimitWait: 0)
+check("a short rate limit is waited out and the import finishes",
+      waited.imported == 22 && !waited.stoppedByRateLimit)
 
 // 4. Errors people will actually hit.
 do {
@@ -178,7 +195,7 @@ do {
 do {
     _ = try await FirefliesImporter.importAll(
         apiKey: "good", into: tempDir(),
-        transport: transport(meetings: meetings, failContentFromSkip: 0))
+        transport: transport(meetings: meetings, failContentFromSkip: 0), rateLimitWait: 0)
     check("a rate limit before anything imports is an error", false)
 } catch {
     check("a rate limit before anything imports is an error",

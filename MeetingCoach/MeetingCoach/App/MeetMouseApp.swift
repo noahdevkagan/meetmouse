@@ -609,11 +609,16 @@ final class UnlockURLDelegate: NSObject, NSApplicationDelegate {
                     TeamSpace.shared.handleInvite(url)
                     continue
                 }
+                let hadTeamLicense = FreeTier.shared.hasTeamLicense
                 let ok = FreeTier.shared.handle(url: url)
+                let teamLicense = ok && !hadTeamLicense && FreeTier.shared.hasTeamLicense
                 NSApp.activate(ignoringOtherApps: true)
                 let alert = NSAlert()
-                alert.messageText = ok ? "MeetMouse Unlimited is unlocked" : "That unlock link didn't work"
-                alert.informativeText = ok
+                alert.messageText = teamLicense ? "Your team license is on"
+                    : ok ? "MeetMouse Unlimited is unlocked" : "That unlock link didn't work"
+                alert.informativeText = teamLicense
+                    ? "Open Settings, go to Team, create your team and send the invite link to your teammates. Joining unlocks MeetMouse on their Macs."
+                    : ok
                     ? "Record as many meetings as you like. Thanks for supporting MeetMouse."
                     : "Open MeetMouse Unlimited from the menu bar and paste your code instead."
                 alert.runModal()

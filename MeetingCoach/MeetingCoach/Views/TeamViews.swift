@@ -22,9 +22,11 @@ final class TeamSpace {
         return name.isEmpty ? NSUserName() : name
     }
 
-    /// A team license is bought once and covers the team: the buyer (an
-    /// unlocked install) creates the team, members unlock by joining.
-    var canCreateTeam: Bool { FreeTier.shared.isUnlocked }
+    /// A team license ($40 once, unlimited seats) is bought by one person:
+    /// their team code lets this Mac create the team, members unlock by joining.
+    var canCreateTeam: Bool { FreeTier.shared.hasTeamLicense }
+
+    static let buyURL = URL(string: "https://meetmouse.com/team")!
 
     func create(teamName: String, memberName: String) async throws {
         let created = try await service.create(teamName: teamName, memberName: memberName)
@@ -138,6 +140,7 @@ struct TeamSettingsSection: View {
     @State private var memberName = TeamSpace.defaultMemberName
     @State private var teamName = ""
     @State private var inviteLink = ""
+    @State private var teamCode = ""
     @State private var busy = false
     @State private var message: String?
     @State private var messageIsError = false
@@ -174,11 +177,20 @@ struct TeamSettingsSection: View {
                     .foregroundStyle(.secondary)
             } else {
                 TextField("Your name", text: $memberName)
-                HStack {
-                    TextField("Team name", text: $teamName)
-                    Button("Create team") { create() }
-                        .disabled(busy || !team.canCreateTeam || trimmed(teamName).isEmpty
-                                  || trimmed(memberName).isEmpty)
+                if team.canCreateTeam {
+                    HStack {
+                        TextField("Team name", text: $teamName)
+                        Button("Create team") { create() }
+                            .disabled(busy || trimmed(teamName).isEmpty || trimmed(memberName).isEmpty)
+                    }
+                } else {
+                    HStack {
+                        TextField("Team code (TEAM-…)", text: $teamCode)
+                            .onSubmit { redeemTeamCode() }
+                        Button("Unlock") { redeemTeamCode() }
+                            .disabled(trimmed(teamCode).isEmpty)
+                        Button("Buy a team license: $40") { NSWorkspace.shared.open(TeamSpace.buyURL) }
+                    }
                 }
                 HStack {
                     TextField("Invite link from a teammate", text: $inviteLink)
@@ -190,7 +202,7 @@ struct TeamSettingsSection: View {
                 statusLine
                 Text(team.canCreateTeam
                      ? "A team gets one private page where everyone's shared meeting notes live. Create the team, then send the invite link to your teammates; joining unlocks MeetMouse on their Macs. Nothing is shared until someone clicks Share with team on a meeting."
-                     : "A team gets one private page where everyone's shared meeting notes live. Creating a team needs MeetMouse Unlimited on this Mac. Joining with a teammate's invite link unlocks it.")
+                     : "A team gets one private page where everyone's shared meeting notes live. Starting a team takes a team license: $40 once, unlimited seats, bought by one person. Teammates don't need a code; joining with the invite link unlocks MeetMouse on their Macs.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -213,6 +225,16 @@ struct TeamSettingsSection: View {
     private func show(_ text: String, isError: Bool = false) {
         message = text
         messageIsError = isError
+    }
+
+    private func redeemTeamCode() {
+        guard !trimmed(teamCode).isEmpty else { return }
+        if FreeTier.shared.unlock(code: teamCode), team.canCreateTeam {
+            teamCode = ""
+            show("Team license is on. Name your team and click Create team.")
+        } else {
+            show("That isn't a team code. It starts with TEAM- and is on the page you saw after paying.", isError: true)
+        }
     }
 
     private func create() {

@@ -148,7 +148,7 @@ struct GeneralSettingsView: View {
                         .font(.caption)
                         .foregroundStyle(fireflies.statusIsError ? .red : .secondary)
                 }
-                Text("In Fireflies, open Integrations \u{2192} Fireflies API and copy your API key. MeetMouse uses it once to download your meetings (notes and transcripts) from Fireflies straight to this Mac, and doesn't save the key. Large accounts can take a few runs because Fireflies limits requests per day; meetings already imported are skipped.")
+                Text("In Fireflies, open Integrations \u{2192} Fireflies API and copy your API key. MeetMouse uses it once to download your meetings (notes and transcripts) from Fireflies straight to this Mac, and doesn't save the key. Fireflies limits how fast its data can be read, so a large account can take a few minutes, or a second run; meetings already imported are skipped.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

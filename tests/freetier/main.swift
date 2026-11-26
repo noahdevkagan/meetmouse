@@ -112,6 +112,12 @@ struct FreeTierCheck {
         check(teamGate.isBlocked, "a free install past its weekly limit is blocked")
         teamGate.unlockViaTeam()
         check(teamGate.isUnlocked && !teamGate.isBlocked, "joining a team unlocks the install")
+        check(!teamGate.hasTeamLicense, "joining a team does not grant a team license")
+        check(gate.isUnlocked && !gate.hasTeamLicense, "a $20 or AppSumo unlock is not a team license")
+        check(UsageGate.sha256(UsageGate.normalize(" team-d644-gzte ")) == UsageGate.teamCodeHash,
+              "the team code on /team-thanks matches the bundled hash")
+        check(teamGate.unlock(code: "team-d644-gzte", appSumoHashes: []) && teamGate.hasTeamLicense,
+              "the team code grants a team license")
 
         if failures > 0 { print("FREE TIER: \(failures) failure(s)"); exit(1) }
         print("FREE TIER: all checks passed")

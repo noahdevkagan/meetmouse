@@ -91,10 +91,25 @@ enum FirefliesImporter {
     static func importAll(apiKey: String,
                           into dir: URL = AppSupport.sessionsDir,
                           transport: Transport? = nil,
+                          rateLimitWait: TimeInterval = 20,
+                          rateLimitRetries: Int = 4,
                           progress: (@Sendable (String) -> Void)? = nil) async throws -> Report {
         let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { throw ImportError.missingKey }
-        let send = transport ?? liveTransport(apiKey: key)
+        let transport = transport ?? liveTransport(apiKey: key)
+        // Fireflies limits requests per minute as well as per day. A short
+        // wait clears the per-minute limit; if it doesn't, stop and let a
+        // later run continue.
+        let send: Transport = { body in
+            var attempt = 0
+            while true {
+                let reply = try await transport(body)
+                guard isRateLimited(reply), attempt < rateLimitRetries else { return reply }
+                attempt += 1
+                progress?("Fireflies asked for a pause. Continuing in a few seconds…")
+                try await Task.sleep(nanoseconds: UInt64(max(0, rateLimitWait) * 1_000_000_000))
+            }
+        }
 
         // Pass 1: ids only. Cheap, and it tells us which pages still hold
         // something new, so a re-run doesn't spend the request quota
@@ -322,11 +337,8 @@ enum FirefliesImporter {
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
         // GraphQL reports failures in `errors`, often with HTTP 200.
         let errors = json?["errors"] as? [[String: Any]] ?? []
-        let codes = errors.flatMap { error -> [String] in
-            let extensions = error["extensions"] as? [String: Any]
-            return [error["code"] as? String, extensions?["code"] as? String].compactMap { $0 }
-        }.map { $0.lowercased() }
-        if status == 429 || codes.contains("too_many_requests") { throw ImportError.rateLimited }
+        let codes = errorCodes(json)
+        if isRateLimited(reply) { throw ImportError.rateLimited }
         if status == 401 || status == 403
             || codes.contains(where: { ["auth_failed", "unauthenticated", "forbidden", "invalid_api_key"].contains($0) }) {
             throw ImportError.badKey
@@ -347,6 +359,20 @@ enum FirefliesImporter {
             throw ImportError.unexpectedResponse("no meeting list in the reply")
         }
         return list
+    }
+
+    private static func errorCodes(_ json: [String: Any]?) -> [String] {
+        let errors = json?["errors"] as? [[String: Any]] ?? []
+        return errors.flatMap { error -> [String] in
+            let extensions = error["extensions"] as? [String: Any]
+            return [error["code"] as? String, extensions?["code"] as? String].compactMap { $0 }
+        }.map { $0.lowercased() }
+    }
+
+    static func isRateLimited(_ reply: (Data, Int)) -> Bool {
+        if reply.1 == 429 { return true }
+        let json = (try? JSONSerialization.jsonObject(with: reply.0)) as? [String: Any]
+        return errorCodes(json).contains("too_many_requests")
     }
 
     private static func liveTransport(apiKey: String) -> Transport {
