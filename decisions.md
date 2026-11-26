@@ -2529,3 +2529,17 @@ a reply with both data and errors uses the data, numeric ids are accepted, speak
 cut to 39 characters (the transcript parser's limit), and a 429 is waited out (20 s, 4 tries)
 before the run stops. Fireflies' documented limits are now 500 requests/day on Free.
 
+## 2026-11-26 — Team sharing is on by default, with an opt-out
+
+Noah: "Have team setting. So opt out and it's default in and make easy to add people." This
+reverses, for team members only, the click-to-share choice made earlier today and the
+2026-10-20 "never post for the user" rule (which still holds for private links). Joining a team
+is the consent: the join question and Settings say that notes for new meetings are shared. When
+a meeting's AI notes are written (live review finished, or notes generated on a saved meeting),
+the app posts `MeetMouse.meetingNotesReady` and `TeamSpace.autoShare` uploads the curated notes.
+Limits kept on purpose: only meetings dated after `joinedAt` (older and imported meetings are
+never sent on their own), never a meeting the member took off the page (`excluded`), never the
+transcript or coaching, and one toggle in Settings -> Team turns it off. A failed automatic
+upload is silent; the Share with team button remains. Adding people: Settings has an
+"Invite people…" share button (system share sheet) beside Copy invite link.
+

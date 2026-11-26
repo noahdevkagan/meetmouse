@@ -1994,6 +1994,11 @@ final class LiveSessionViewModel {
         if let title = review.title, let path = savedPath {
             TranscriptSearch.adoptGeneratedTitle(title, for: URL(fileURLWithPath: path))
         }
+        // Team members share notes by default; TeamSpace listens for this.
+        if let path = savedPath {
+            NotificationCenter.default.post(name: Notification.Name("MeetMouse.meetingNotesReady"),
+                                            object: nil, userInfo: ["path": path])
+        }
     }
 
     /// Toggle one Suggested Next Step's checkbox and persist immediately —

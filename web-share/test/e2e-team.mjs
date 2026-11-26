@@ -103,7 +103,7 @@ await call("/api/teams/create", "POST", createBody(secret, emptyID, "New Team"))
 const empty = await browser.newPage();
 await empty.goto(`${origin}/t/${emptyID}#${b64u(secret)}`);
 await empty.waitForSelector("#content:not([hidden])");
-assert.match(await empty.textContent("#empty"), /Share with team/);
+assert.match(await empty.textContent("#empty"), /finish meetings in MeetMouse/);
 if (shots) await empty.screenshot({ path: `${shots}/team-page-empty.png` });
 
 // 403/404 answers are expected console noise for the error-state tabs only.

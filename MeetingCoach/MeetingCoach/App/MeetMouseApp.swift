@@ -45,6 +45,7 @@ struct MeetMouseApp: App {
         // Free tier: stamp the install date once; installs already in use
         // before the free tier (paid-only era) are unlocked for good.
         FreeTier.shared.bootstrap()
+        _ = TeamSpace.shared   // starts listening for finished notes (team sharing)
 
         let badge = UpdateBadgeModel()
         _updateBadge = StateObject(wrappedValue: badge)

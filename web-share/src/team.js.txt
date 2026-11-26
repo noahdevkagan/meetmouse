@@ -197,7 +197,7 @@ function applySearch() {
     if (match) shown += 1;
   }
   if (loaded.length === 0) {
-    emptyNode.textContent = "No notes yet. In MeetMouse, open a meeting and click Share with team.";
+    emptyNode.textContent = "No notes yet. They appear here as teammates finish meetings in MeetMouse.";
   } else {
     emptyNode.textContent = nextCursor
       ? "No match in the notes loaded so far. Load older notes to search further back."

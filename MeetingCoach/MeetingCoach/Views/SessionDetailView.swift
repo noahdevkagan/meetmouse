@@ -1131,6 +1131,10 @@ struct SessionDetailView: View {
         if let title = parsed.title {
             TranscriptSearch.adoptGeneratedTitle(title, for: url)
         }
+        // Team members share notes by default; TeamSpace listens for this
+        // (it only acts on meetings recorded after joining the team).
+        NotificationCenter.default.post(name: TeamSpace.notesReady, object: nil,
+                                        userInfo: ["path": url.path])
     }
 
     private func persistReview(_ r: MeetingReview) {

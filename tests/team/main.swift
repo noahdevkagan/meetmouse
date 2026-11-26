@@ -130,6 +130,38 @@ struct TeamTests {
               "the invite link is the team page link")
         let mode = (try? FileManager.default.attributesOfItem(atPath: store.storageURL.path))?[.posixPermissions] as? NSNumber
         check(mode?.intValue == 0o600, "membership file is readable by the user only")
+        // Default-on sharing: only meetings after joining, never ones the
+        // member took down, and not once the member turns it off.
+        let joined = Date(timeIntervalSince1970: 1_790_000_000)
+        var auto = TeamMembership(teamID: teamID, secret: secretText, teamName: "Acme",
+                                  memberName: "Ana Lopez", memberID: "member-1",
+                                  apiBaseURL: "https://meetmouse.com/api/teams",
+                                  pageBaseURL: "https://meetmouse.com/t", joinedAt: joined)
+        let after = joined.addingTimeInterval(86_400)
+        check(auto.sharesAutomatically, "team sharing is on by default")
+        check(auto.shouldAutoShare(sessionFile: "new.md", sessionDate: after),
+              "a meeting after joining is shared automatically")
+        check(!auto.shouldAutoShare(sessionFile: "old.md", sessionDate: joined.addingTimeInterval(-7 * 86_400)),
+              "a meeting from before joining is never shared automatically")
+        check(!auto.shouldAutoShare(sessionFile: "undated.md", sessionDate: nil),
+              "a meeting without a date is not shared automatically")
+        auto.shared["new.md"] = "note"
+        check(!auto.shouldAutoShare(sessionFile: "new.md", sessionDate: after),
+              "a meeting already on the team page is not sent again")
+        auto.shared["new.md"] = nil
+        auto.excluded = ["new.md"]
+        check(!auto.shouldAutoShare(sessionFile: "new.md", sessionDate: after),
+              "a meeting the member took down is not put back")
+        auto.excluded = nil
+        auto.autoShare = false
+        check(!auto.shouldAutoShare(sessionFile: "new.md", sessionDate: after),
+              "opting out stops automatic sharing")
+        check(!membership.shouldAutoShare(sessionFile: "new.md", sessionDate: after),
+              "a membership with no join date shares nothing automatically")
+        let legacy = Data(#"{"teamID":"TEAMabcdefghijklmnopqr","secret":"s","teamName":"Acme","memberName":"Ana","memberID":"m","shared":{},"apiBaseURL":"a","pageBaseURL":"p"}"#.utf8)
+        check((try? JSONDecoder().decode(TeamMembership.self, from: legacy))?.sharesAutomatically == true,
+              "a membership file without the new fields still loads")
+
         store.archive(membership)
         store.clear()
         check(store.load() == nil, "leaving takes this Mac off the team")

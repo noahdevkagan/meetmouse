@@ -15,6 +15,44 @@ final class TeamSpace {
         self.store = store
         self.service = service
         membership = store.load()
+        // Posted when a meeting's notes are written (live review finished,
+        // or notes generated on a saved meeting). See `autoShare`.
+        NotificationCenter.default.addObserver(
+            forName: Self.notesReady, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let path = note.userInfo?["path"] as? String else { return }
+            Task { @MainActor [weak self] in
+                await self?.autoShare(sessionURL: URL(fileURLWithPath: path))
+            }
+        }
+    }
+
+    /// Same name the live session and the meeting page post (kept as a raw
+    /// string there so they don't depend on this file).
+    static let notesReady = Notification.Name("MeetMouse.meetingNotesReady")
+
+    /// Team sharing is default-on: when a meeting recorded after joining
+    /// gets its AI notes, they go to the team page. Quiet on failure; the
+    /// Share with team button on the meeting stays available.
+    func autoShare(sessionURL: URL) async {
+        guard let current = membership,
+              current.shouldAutoShare(sessionFile: sessionURL.lastPathComponent,
+                                      sessionDate: TranscriptSearch.sessionDate(for: sessionURL)),
+              let content = try? String(contentsOf: sessionURL, encoding: .utf8),
+              let review = MeetingNotesFile.review(in: content),
+              let meta = TranscriptStore.metadataByParsing(sessionURL),
+              let payload = SharedNotePayload.make(
+                  title: meta.title ?? "Meeting notes", date: meta.startedAt,
+                  durationMinutes: Int(meta.durationMin.rounded()), review: review)
+        else { return }
+        try? await share(payload, sessionURL: sessionURL)
+    }
+
+    func setAutoShare(_ on: Bool) {
+        guard var current = membership else { return }
+        current.autoShare = on
+        try? store.save(current)
+        membership = current
     }
 
     static var defaultMemberName: String {
@@ -56,7 +94,10 @@ final class TeamSpace {
             joined = TeamMembership(teamID: known.teamID, secret: known.secret,
                                     teamName: joined.teamName, memberName: joined.memberName,
                                     memberID: known.memberID, shared: known.shared,
-                                    apiBaseURL: joined.apiBaseURL, pageBaseURL: joined.pageBaseURL)
+                                    apiBaseURL: joined.apiBaseURL, pageBaseURL: joined.pageBaseURL,
+                                    autoShare: known.autoShare,
+                                    joinedAt: known.joinedAt ?? joined.joinedAt,
+                                    excluded: known.excluded)
         }
         if let current = membership, current.teamID != joined.teamID { store.archive(current) }
         try store.save(joined)
@@ -92,6 +133,7 @@ final class TeamSpace {
         guard membership?.teamID == current.teamID else { return }
         current = membership ?? current
         current.shared[file] = noteID
+        current.excluded?.removeAll { $0 == file }
         try store.save(current)
         membership = current
     }
@@ -104,6 +146,10 @@ final class TeamSpace {
         guard membership?.teamID == current.teamID else { return }
         current = membership ?? current
         current.shared[file] = nil
+        // Taken down on purpose: automatic sharing must not put it back.
+        if !(current.excluded ?? []).contains(file) {
+            current.excluded = (current.excluded ?? []) + [file]
+        }
         try store.save(current)
         membership = current
     }
@@ -123,7 +169,7 @@ final class TeamSpace {
         }
         if let current = membership, current.teamID == invite.teamID {
             alert("You're already on \(current.teamName)",
-                  "Open a meeting and click Share with team to add its notes.")
+                  "Nothing to do. Manage sharing in Settings, under Team.")
             return
         }
         // Look the team up first so the question can name it: a link can be
@@ -134,16 +180,16 @@ final class TeamSpace {
                 let confirm = NSAlert()
                 confirm.messageText = "Join the team \u{201C}\(checked.teamName)\u{201D}?"
                 if let current = self.membership {
-                    confirm.informativeText = "This Mac is on \u{201C}\(current.teamName)\u{201D} now and will switch: Share with team will send notes to \u{201C}\(checked.teamName)\u{201D} instead. Only join a team you were invited to by someone you know."
+                    confirm.informativeText = "This Mac is on \u{201C}\(current.teamName)\u{201D} now and will switch: notes for your meetings from now on will go to \u{201C}\(checked.teamName)\u{201D} instead. You can turn automatic sharing off in Settings. Only join a team you were invited to by someone you know."
                 } else {
-                    confirm.informativeText = "Notes you choose to share will appear on this team's page. Nothing is shared until you click Share with team on a meeting. Only join a team you were invited to by someone you know."
+                    confirm.informativeText = "From now on, the notes MeetMouse writes for your meetings (summary, topics, next steps) are shared to this team's page. Transcripts and coaching stay on this Mac. You can turn this off in Settings, or take any meeting off the page. Only join a team you were invited to by someone you know."
                 }
                 confirm.addButton(withTitle: "Join")
                 confirm.addButton(withTitle: "Cancel")
                 guard confirm.runModal() == .alertFirstButtonReturn else { return }
                 try self.commit(checked)
                 self.alert("You joined \(checked.teamName)",
-                           "MeetMouse is unlocked on this Mac. Open a meeting and click Share with team to add its notes.")
+                           "MeetMouse is unlocked on this Mac. Notes for your meetings from now on are shared with the team; change that in Settings, under Team.")
             } catch {
                 self.alert("Couldn't join the team", error.localizedDescription)
             }
@@ -176,7 +222,17 @@ struct TeamSettingsSection: View {
             if let membership = team.membership {
                 LabeledContent("Team") { Text(membership.teamName) }
                 LabeledContent("Sharing as") { Text(membership.memberName) }
+                Toggle("Share my meeting notes with the team automatically", isOn: Binding(
+                    get: { team.membership?.sharesAutomatically ?? true },
+                    set: { team.setAutoShare($0) }))
                 HStack {
+                    if let url = membership.pageURL {
+                        ShareLink(item: url,
+                                  subject: Text("Join \(membership.teamName) on MeetMouse"),
+                                  message: Text("Join our MeetMouse team so our meeting notes land in one place. Open this link and click Open in MeetMouse (it also unlocks MeetMouse on your Mac):")) {
+                            Label("Invite people…", systemImage: "person.badge.plus")
+                        }
+                    }
                     Button("Copy invite link") {
                         team.copyInviteLink()
                         show("Invite link copied. Send it only to your team.")
@@ -197,7 +253,7 @@ struct TeamSettingsSection: View {
                     Text("This Mac leaves the team. Notes you already shared stay on the team page; remove them from each meeting first if you want them gone. Joining again with the invite link brings your shared list back.")
                 }
                 statusLine
-                Text("To share a meeting, open it and click Share with team. Teammates get the notes (summary, topics, next steps), never the transcript or coaching. Notes are encrypted on this Mac and stay on the team page for a year. Anyone with the invite link can read and add notes.")
+                Text("While this is on, notes for meetings you record from now on go to the team page as soon as they're written. Teammates get the notes (summary, topics, next steps), never the transcript or coaching. Take any meeting off the page from its Shared with team menu, and share older meetings with Share with team. Notes are encrypted on this Mac and stay on the team page for a year. Anyone with the invite link can read and add notes, and joining unlocks MeetMouse for them.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -226,7 +282,7 @@ struct TeamSettingsSection: View {
                 }
                 statusLine
                 Text(team.canCreateTeam
-                     ? "A team gets one private page where everyone's shared meeting notes live. Create the team, then send the invite link to your teammates; joining unlocks MeetMouse on their Macs. Nothing is shared until someone clicks Share with team on a meeting."
+                     ? "A team gets one private page where everyone's meeting notes live. Create the team, then invite your teammates; joining unlocks MeetMouse on their Macs. Once on a team, notes for new meetings are shared automatically (you can turn that off)."
                      : "A team gets one private page where everyone's shared meeting notes live. Starting a team takes a team license: $40 once, unlimited seats, bought by one person. Teammates don't need a code; joining with the invite link unlocks MeetMouse on their Macs.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -269,7 +325,7 @@ struct TeamSettingsSection: View {
             do {
                 try await team.create(teamName: teamName, memberName: memberName)
                 team.copyInviteLink()
-                show("Team created and the invite link is copied. Send it to your teammates.")
+                show("Team created and the invite link is copied. Paste it to your teammates, or click Invite people.")
                 teamName = ""
             } catch {
                 show(error.localizedDescription, isError: true)
@@ -285,7 +341,7 @@ struct TeamSettingsSection: View {
         Task {
             do {
                 try await team.join(link: inviteLink, memberName: memberName)
-                show("You're on the team. Open a meeting and click Share with team.")
+                show("You're on the team. Notes for your meetings from now on are shared with it; turn that off above if you prefer.")
                 inviteLink = ""
             } catch {
                 show(error.localizedDescription, isError: true)
@@ -313,6 +369,7 @@ struct TeamShareControl: View {
                 if team.isShared(sessionURL) {
                     Menu {
                         Button("Update team copy") { share() }
+                        Button("Copy team invite link") { team.copyInviteLink() }
                         Button("Open team page") {
                             if let url = membership.pageURL { NSWorkspace.shared.open(url) }
                         }

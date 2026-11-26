@@ -9,7 +9,7 @@ Keep bullets short and user-facing — what changed for *them*, not how.
 
 ## 0.38.0 — 2026-11-26
 
-- Teams: one private page for your team's meeting notes. One person buys a team license ($40 once, unlimited seats, at meetmouse.com/team), creates the team in Settings → Team, and sends the invite link. Joining unlocks MeetMouse on each teammate's Mac. Open a meeting and click "Share with team" to add its notes to the team page; the transcript and coaching stay on your Mac, and nothing is shared automatically. Notes are encrypted before they leave your Mac.
+- Teams: one private page for your team's meeting notes. One person buys a team license ($40 once, unlimited seats, at meetmouse.com/team), creates the team in Settings → Team, and sends the invite link. Joining unlocks MeetMouse on each teammate's Mac. Once you're on a team, the notes for your new meetings (summary, topics, next steps) go to the team page on their own; turn that off in Settings → Team, take any meeting off the page from its "Shared with team" menu, or add an older one with "Share with team". Transcripts and coaching stay on your Mac, and notes are encrypted before they leave it. "Invite people…" in Settings sends the invite link by Mail, Messages or anything else.
 - Import from Fireflies: paste your Fireflies API key in Settings and MeetMouse brings your Fireflies meetings (notes and transcripts) over as regular meetings. The key is used once and not saved.
 
 ## 0.37.0 — 2026-11-24

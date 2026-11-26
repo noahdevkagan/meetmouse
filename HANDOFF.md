@@ -25,13 +25,14 @@ at Noah's request (release run waits for approval in the `release` environment; 
 Worker with migration 0003 and the site). Checked: Worker `npm test`, the team page in Chromium
 (`node web-share/test/e2e-team.mjs`), macOS test gate (build + tests/team, tests/fireflies,
 tests/freetier). Not checked: no Mac was available, so nobody has clicked Settings -> Team or
-Share with team; no end-to-end run against the deployed Worker; the PayPal $40 button was not
+Share with team, and automatic sharing after a real meeting has never run; no end-to-end run against the deployed Worker; the PayPal $40 button was not
 paid through; the Fireflies import has never talked to the real Fireflies API (no key; docs
 host blocked, field names confirmed through search results only).
 Next: after the release is approved, on a Mac: enter the team code, create a team, join from a
 second Mac or user account, Share with team, open the team page. Then import with a real
 Fireflies key.
-Open: whether team sharing should be automatic for members (today it is a button).
+Team sharing is on by default for members (Noah's call): notes for meetings after joining
+upload when written; opt-out toggle and "Invite people…" are in Settings -> Team.
 
 ## Current state (2026-11-24): Speaker naming fixes from a customer email (branch claude/busy-edison-jjkl97)
 

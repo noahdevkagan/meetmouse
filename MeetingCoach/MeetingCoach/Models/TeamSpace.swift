@@ -12,9 +12,11 @@ import Foundation
 // runs in the team page's script (web-share/src/team.js.txt) and is pinned
 // by shared test vectors (tests/team, web-share/test/teams.test.mjs).
 //
-// Nothing is uploaded on its own: a note reaches the team page only when
-// its owner clicks Share with team, and it is the same curated payload as a
-// private link (no transcript, coaching or talk stats).
+// What reaches the team page is the same curated payload as a private link
+// (no transcript, coaching or talk stats). Joining a team opts the member
+// in: notes for meetings recorded after joining are shared when they are
+// ready. The member can turn that off in Settings, take any meeting off the
+// page, and share older meetings by hand.
 
 // MARK: - Invite link
 
@@ -148,6 +150,27 @@ struct TeamMembership: Codable, Equatable, Sendable {
     var shared: [String: String] = [:]
     var apiBaseURL: String
     var pageBaseURL: String
+    /// Team sharing is on by default: notes for meetings recorded after
+    /// joining go to the team page when they're ready. nil means on; the
+    /// member turns it off in Settings → Team.
+    var autoShare: Bool? = nil
+    /// When this Mac joined. Older meetings are never shared automatically.
+    var joinedAt: Date? = nil
+    /// Meetings the member took off the team page (or chose not to share):
+    /// automatic sharing leaves these alone.
+    var excluded: [String]? = nil
+
+    var sharesAutomatically: Bool { autoShare ?? true }
+
+    /// Whether this meeting's notes should go to the team page on their own.
+    func shouldAutoShare(sessionFile: String, sessionDate: Date?) -> Bool {
+        guard sharesAutomatically, shared[sessionFile] == nil,
+              !(excluded ?? []).contains(sessionFile),
+              let joinedAt, let sessionDate else { return false }
+        // The file's date is its start, to the minute; allow a meeting that
+        // was already running when this Mac joined.
+        return sessionDate >= joinedAt.addingTimeInterval(-4 * 3600)
+    }
 
     var secretData: Data { WebShareCrypto.dataFromBase64URL(secret) ?? Data() }
 
@@ -349,7 +372,8 @@ struct TeamService: Sendable {
         TeamMembership(teamID: teamID, secret: secret, teamName: teamName,
                        memberName: memberName.trimmingCharacters(in: .whitespacesAndNewlines),
                        memberID: WebShareCrypto.base64URL(TeamCrypto.randomBytes(count: 12)),
-                       apiBaseURL: apiBaseURL.absoluteString, pageBaseURL: pageBaseURL)
+                       apiBaseURL: apiBaseURL.absoluteString, pageBaseURL: pageBaseURL,
+                       joinedAt: Date())
     }
 
     private func send(_ original: URLRequest, secret: Data?,
