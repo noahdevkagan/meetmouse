@@ -114,11 +114,11 @@ final class TeamSpace {
         guard confirm.runModal() == .alertFirstButtonReturn else { return }
         Task {
             do {
-                try await join(invite, memberName: Self.defaultMemberName)
-                alert("You joined \(membership?.teamName ?? "the team")",
-                      "MeetMouse is unlocked on this Mac. Open a meeting and click Share with team to add its notes.")
+                try await self.join(invite, memberName: Self.defaultMemberName)
+                self.alert("You joined \(self.membership?.teamName ?? "the team")",
+                           "MeetMouse is unlocked on this Mac. Open a meeting and click Share with team to add its notes.")
             } catch {
-                alert("Couldn't join the team", error.localizedDescription)
+                self.alert("Couldn't join the team", error.localizedDescription)
             }
         }
     }

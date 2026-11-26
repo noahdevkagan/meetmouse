@@ -18,22 +18,27 @@ func tempDir() -> URL {
 /// a string on odd meetings because the API has sent both.
 func account(_ count: Int) -> [[String: Any]] {
     (0..<count).map { i in
+        let firstStart: Any = i % 2 == 0 ? (2.4 as Any) : ("2.4" as Any)
+        let first: [String: Any] = ["speaker_name": "Ana Lopez",
+                                    "text": "Morning, ready to start?", "start_time": firstStart]
+        let second: [String: Any] = ["speaker_name": "Ana Lopez",
+                                     "text": "First item is the budget.", "start_time": 5.0]
+        let third: [String: Any] = ["speaker_name": "Ben: Ops",
+                                    "text": "Works for me.", "start_time": 3725.2]
+        let sentences: [[String: Any]] = [first, second, third]
+        let summary: [String: String] = [
+            "overview": "Agreed the budget for meeting \(i).",
+            "shorthand_bullet": "- [ ] Budget approved\n## Nudges",
+            "action_items": "**Ana Lopez**\nSend the deck",
+        ]
+        let participants: [String] = ["ana@example.com,ben@example.com", "ana@example.com"]
         var meeting: [String: Any] = [
             "id": "ff-\(i)",
             "title": "Planning call \(i)",
             "duration": 30.5,
-            "participants": ["ana@example.com,ben@example.com", "ana@example.com"],
-            "sentences": [
-                ["speaker_name": "Ana Lopez", "text": "Morning, ready to start?",
-                 "start_time": i % 2 == 0 ? 2.4 as Any : "2.4" as Any],
-                ["speaker_name": "Ana Lopez", "text": "First item is the budget.", "start_time": 5.0],
-                ["speaker_name": "Ben: Ops", "text": "Works for me.", "start_time": 3725.2],
-            ],
-            "summary": [
-                "overview": "Agreed the budget for meeting \(i).",
-                "shorthand_bullet": "- [ ] Budget approved\n## Nudges",
-                "action_items": "**Ana Lopez**\nSend the deck",
-            ],
+            "participants": participants,
+            "sentences": sentences,
+            "summary": summary,
         ]
         if i != 3 {
             // 2026-08-01T15:30:00Z plus one day per meeting, in milliseconds.
@@ -55,18 +60,21 @@ func transport(meetings: [[String: Any]], key: String = "good",
         let limit = variables["limit"] as? Int ?? 0
         let skip = variables["skip"] as? Int ?? 0
         if key != "good" {
-            let reply: [String: Any] = ["errors": [["message": "Invalid API key", "code": "auth_failed"]]]
+            let failure: [String: String] = ["message": "Invalid API key", "code": "auth_failed"]
+            let reply: [String: Any] = ["errors": [failure]]
             return (try JSONSerialization.data(withJSONObject: reply), 200)
         }
         let wantsContent = query.contains("sentences")
         if wantsContent, let from = failContentFromSkip, skip >= from {
-            let reply: [String: Any] = ["errors": [["message": "Too many requests",
-                                                   "extensions": ["code": "too_many_requests"]]]]
+            let extensions: [String: String] = ["code": "too_many_requests"]
+            let failure: [String: Any] = ["message": "Too many requests", "extensions": extensions]
+            let reply: [String: Any] = ["errors": [failure]]
             return (try JSONSerialization.data(withJSONObject: reply), 200)
         }
         let page = Array(meetings.dropFirst(skip).prefix(limit))
         let rows: [[String: Any]] = wantsContent ? page : page.map { ["id": $0["id"] ?? ""] }
-        return (try JSONSerialization.data(withJSONObject: ["data": ["transcripts": rows]]), 200)
+        let reply: [String: Any] = ["data": ["transcripts": rows]]
+        return (try JSONSerialization.data(withJSONObject: reply), 200)
     }
 }
 

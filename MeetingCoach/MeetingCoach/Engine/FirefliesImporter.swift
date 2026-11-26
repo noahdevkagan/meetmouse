@@ -308,8 +308,8 @@ enum FirefliesImporter {
     /// Runs one GraphQL query and returns the `transcripts` list.
     static func query(_ query: String, variables: [String: Any],
                       send: Transport) async throws -> [[String: Any]] {
-        let body = try JSONSerialization.data(
-            withJSONObject: ["query": query, "variables": variables])
+        let payload: [String: Any] = ["query": query, "variables": variables]
+        let body = try JSONSerialization.data(withJSONObject: payload)
         let reply: (Data, Int)
         do {
             reply = try await send(body)

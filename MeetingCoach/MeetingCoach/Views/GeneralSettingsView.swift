@@ -535,19 +535,19 @@ final class FirefliesImportModel {
         Task {
             do {
                 let report = try await FirefliesImporter.importAll(apiKey: key, progress: { [weak self] message in
-                    Task { @MainActor in
+                    Task { @MainActor [weak self] in
                         guard let self, self.isRunning else { return }
                         self.status = message
                     }
                 })
-                status = report.summary
+                self.status = report.summary
                 // The key is for this run only; don't leave it in the field.
-                if !report.stoppedByRateLimit { apiKey = "" }
+                if !report.stoppedByRateLimit { self.apiKey = "" }
             } catch {
-                status = error.localizedDescription
-                statusIsError = true
+                self.status = error.localizedDescription
+                self.statusIsError = true
             }
-            isRunning = false
+            self.isRunning = false
         }
     }
 }
