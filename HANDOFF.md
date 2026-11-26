@@ -20,6 +20,16 @@ Plan:
    leave), "Share with team" on a meeting, `meetmouse://team?...` join links.
 3. Team license, honor-based like the rest: creating a team needs an unlocked install; joining a
    team unlocks the member's install. Price and seat count are Noah's call (not built).
+Status: all three built and pushed. Worker: `npm test` passes (30) and `node test/e2e-team.mjs`
+drove the team page in Chromium against an in-memory database (decrypt, search, paging, error
+states). Swift was written on Linux with no compiler; the macOS test gate on this branch is the
+only build (see the latest run for this branch). Not done: no GUI check of Settings -> Team or
+Share with team, no run against the deployed Worker (migration 0003 and the new routes go out
+with the next release, or `cd web-share && npm run db:remote && npm run deploy`), and the
+Fireflies import has never talked to the real Fireflies API (no key; docs host was blocked).
+Next: on a Mac, `/verify` create team -> copy invite -> join on a second Mac or user account ->
+Share with team -> open the team page; then import with a real Fireflies key.
+Open for Noah: team price and seat limit; whether sharing should be automatic for team members.
 
 ## Current state (2026-11-24): Speaker naming fixes from a customer email (branch claude/busy-edison-jjkl97)
 
