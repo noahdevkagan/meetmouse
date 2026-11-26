@@ -429,7 +429,19 @@ struct SessionDetailView: View {
                 .buttonStyle(.plain)
             }
             Spacer()
-            shareControl.padding(.bottom, 10)
+            HStack(spacing: 8) {
+                TeamShareControl(
+                    sessionURL: url,
+                    payload: review.flatMap {
+                        SharedNotePayload.make(
+                            title: title,
+                            date: TranscriptSearch.sessionDate(for: url) ?? Date(),
+                            durationMinutes: durationMinutes,
+                            review: $0)
+                    })
+                shareControl
+            }
+            .padding(.bottom, 10)
         }
         .overlay(alignment: .bottom) { Dorado.divider.frame(height: 1) }
     }

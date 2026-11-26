@@ -107,6 +107,13 @@ struct UsageGate {
         return true
     }
 
+    /// A team license covers its members: joining a team (the invite was
+    /// checked against the team page) unlocks this install. Honor-based
+    /// like the codes above.
+    func unlockViaTeam() {
+        defaults.set(true, forKey: Key.unlocked)
+    }
+
     /// Same normalization as the website's AppSumo redeem form.
     static func normalize(_ code: String) -> String {
         code.uppercased().filter { !$0.isWhitespace }
@@ -247,6 +254,15 @@ final class FreeTier {
             revision += 1
         }
         return ok
+    }
+
+    func unlockViaTeam() {
+        gate.unlockViaTeam()
+        showLimitReached = false
+        showTrialEnded = false
+        showAppSumoPrompt = false
+        limitReachedPending = false
+        revision += 1
     }
 
     /// meetmouse://unlock?code=… from the /thanks, /appsumo and referral status pages.

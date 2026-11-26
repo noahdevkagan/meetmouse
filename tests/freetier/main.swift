@@ -99,6 +99,18 @@ struct FreeTierCheck {
 
         checkPromptQueuesLimitSheet(suite: suite + "-queue")
 
+        // Team license: joining a team unlocks a blocked install.
+        let teamSuite = "freetier-team-\(UUID().uuidString)"
+        let teamDefaults = UserDefaults(suiteName: teamSuite)!
+        defer { teamDefaults.removePersistentDomain(forName: teamSuite) }
+        var teamGate = UsageGate(defaults: teamDefaults)
+        teamGate.now = { install.addingTimeInterval(8 * 86_400) }
+        teamGate.bootstrap(isExistingInstall: false)
+        for _ in 0..<UsageGate.weeklyFreeMeetings { teamGate.recordMeeting() }
+        check(teamGate.isBlocked, "a free install past its weekly limit is blocked")
+        teamGate.unlockViaTeam()
+        check(teamGate.isUnlocked && !teamGate.isBlocked, "joining a team unlocks the install")
+
         if failures > 0 { print("FREE TIER: \(failures) failure(s)"); exit(1) }
         print("FREE TIER: all checks passed")
     }

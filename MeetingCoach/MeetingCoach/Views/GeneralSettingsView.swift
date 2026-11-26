@@ -110,6 +110,8 @@ struct GeneralSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            TeamSettingsSection()
+
             Section("Import from Granola") {
                 HStack {
                     Button("Import Granola export (CSV)…") { importGranolaCSV() }

@@ -603,6 +603,12 @@ final class UnlockURLDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         MainActor.assumeIsolated {
             for url in urls where url.scheme == "meetmouse" {
+                // meetmouse://team?id=…&key=… from a team page's "Open in MeetMouse".
+                if url.host == "team" {
+                    NSApp.activate(ignoringOtherApps: true)
+                    TeamSpace.shared.handleInvite(url)
+                    continue
+                }
                 let ok = FreeTier.shared.handle(url: url)
                 NSApp.activate(ignoringOtherApps: true)
                 let alert = NSAlert()

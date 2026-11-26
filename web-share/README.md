@@ -62,3 +62,19 @@ reservation until expiry so a delayed create cannot resurrect a cancelled link.
 This uses the existing schema and needs no migration. The recipient page uses the
 app's Dorado colors, native system typography, and automatic light/dark appearance.
 Versioned v4 assets prevent the earlier page styling being reused.
+
+## Team space
+
+The same Worker serves `/t/<id>` (the team page) and `/api/teams/*`. A team's
+secret lives only in the link fragment (`/t/<id>#<secret>`); the app and the
+page derive an access token and the notes key from it with HMAC-SHA256
+(labels `meetmouse-team-access-v1` and `meetmouse-team-notes-v1`). D1 stores
+`teams` (hash of the access token, encrypted name) and `team_notes`
+(ciphertext, one-year expiry, 1000 per team); migration `0003_teams.sql`.
+
+`npm test` covers the API and pins the derivation with the same vectors as
+`tests/team` (Swift). `node test/e2e-team.mjs` drives the page in Chromium
+against an in-memory database (needs Playwright; not part of `npm test`).
+Point a dev build at a local Worker with `MC_TEAM_API_BASE_URL` and
+`MC_TEAM_PAGE_BASE_URL`.
+

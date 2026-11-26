@@ -7,6 +7,11 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Teams: create a team in Settings and send the invite link to your teammates. Everyone's shared meeting notes live on one private team page. Open a meeting and click "Share with team" to add its notes; the transcript and coaching stay on your Mac. Notes are encrypted before they leave your Mac, and joining a team unlocks MeetMouse for that teammate.
+- Import from Fireflies: paste your Fireflies API key in Settings and MeetMouse brings your Fireflies meetings (notes and transcripts) over as regular meetings. The key is used once and not saved.
+
 ## 0.37.0 — 2026-11-24
 
 - Naming a second person on a call no longer renames the first person's lines. A line still labeled "Them" (the newest line, or a short reply) is now named on its own: click it, type who said it, and only that line changes; the name then follows that person's voice once MeetMouse has told it apart.
