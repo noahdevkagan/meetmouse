@@ -1,10 +1,14 @@
 import viewerHTML from "./viewer.html";
 import viewerCSS from "./viewer.css";
 import viewerJS from "./viewer.js.txt";
+import teamHTML from "./team.html";
+import teamCSS from "./team.css";
+import teamJS from "./team.js.txt";
 import { shareIDFromPath, sha256Base64URL, validateCreateBody } from "./core.js";
 import {
   appSumoUrl, landingHTML, latestDMG, recordReferralClick, referralCount, referralRoute, statusHTML,
 } from "./referrals.js";
+import { handleTeam, isTeamPagePath, sweepExpiredTeamNotes, teamRoute } from "./teams.js";
 
 export { shareIDFromPath, sha256Base64URL, validateCreateBody } from "./core.js";
 
@@ -206,8 +210,26 @@ function serveViewerAsset(pathname) {
       "Content-Type": "text/javascript; charset=utf-8",
     });
   }
+  if (pathname === "/t/assets/team-v1.css") {
+    return response(teamCSS, 200, {
+      "Cache-Control": "public, max-age=3600",
+      "Content-Type": "text/css; charset=utf-8",
+    });
+  }
+  if (pathname === "/t/assets/team-v1.js") {
+    return response(teamJS, 200, {
+      "Cache-Control": "public, max-age=3600",
+      "Content-Type": "text/javascript; charset=utf-8",
+    });
+  }
   return null;
 }
+
+const teamReply = {
+  json,
+  error,
+  empty: () => response(null, 204, { "Cache-Control": "no-store" }),
+};
 
 export default {
   async fetch(request, env) {
@@ -222,6 +244,18 @@ export default {
           "Content-Security-Policy": contentSecurityPolicy,
           "Content-Type": "text/html; charset=utf-8",
         });
+      }
+      if (request.method === "GET" && isTeamPagePath(url.pathname)) {
+        return response(teamHTML, 200, {
+          "Cache-Control": "no-store",
+          "Content-Security-Policy": contentSecurityPolicy,
+          "Content-Type": "text/html; charset=utf-8",
+        });
+      }
+      const team = teamRoute(url.pathname);
+      if (team) {
+        const handled = await handleTeam(team, request, env, url, teamReply);
+        if (handled) return handled;
       }
       // "Download free" buttons go through /get so new installs are
       // countable in Cloudflare analytics (Sparkle updates never hit it).
@@ -249,5 +283,6 @@ export default {
         .bind(now)
         .run(),
     );
+    context.waitUntil(sweepExpiredTeamNotes(env, now));
   },
 };

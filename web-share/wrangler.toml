@@ -53,6 +53,15 @@ zone_name = "meetmouse.com"
 pattern = "meetmouse.com/get"
 zone_name = "meetmouse.com"
 
+# Team space: the team page (/t/<id>, secret in the fragment) and its API.
+[[routes]]
+pattern = "meetmouse.com/t/*"
+zone_name = "meetmouse.com"
+
+[[routes]]
+pattern = "meetmouse.com/api/teams/*"
+zone_name = "meetmouse.com"
+
 # Legacy host: links created before 0.32 (and their revocation tokens) live
 # here. Keep path-specific so the existing rhinovoice.app Worker continues to
 # own every other page.

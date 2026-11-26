@@ -3,13 +3,8 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { sha256Base64URL } from '../src/core.js';
-let source = readFileSync(new URL('../src/index.js', import.meta.url), 'utf8');
-for (const [name, path] of [['viewerHTML','viewer.html'],['viewerCSS','viewer.css'],['viewerJS','viewer.js.txt']]) {
-  source = source.replace(`import ${name} from "./${path}";`, `const ${name} = ${JSON.stringify(readFileSync(new URL('../src/'+path, import.meta.url),'utf8'))};`);
-}
-source = source.replaceAll('"./core.js"', JSON.stringify(new URL('../src/core.js', import.meta.url).href));
-source = source.replaceAll('"./referrals.js"', JSON.stringify(new URL('../src/referrals.js', import.meta.url).href));
-const { default: worker } = await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+import { loadWorker } from './harness.mjs';
+const worker = await loadWorker();
 const id = 'abcdefghijklmnopqrstuv', token = 'owner-token-with-at-least-20-characters';
 const body = {schemaVersion:1,id,nonce:'AAAAAAAAAAAAAAAA',ciphertext:'AAAAAAAAAAAAAAAAAAAAAAAA',revokeHash:await sha256Base64URL(token)};
 function fixture(t) {
