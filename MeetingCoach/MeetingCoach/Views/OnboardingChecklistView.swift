@@ -175,7 +175,7 @@ struct OnboardingChecklistView: View {
                     .buttonStyle(.plain)
                 Text("·").foregroundStyle(Dorado.grey500)
             }
-            Button("Import from Granola") { openSettings() }
+            Button("Import from Granola or Fireflies") { openSettings() }
                 .buttonStyle(.plain)
         }
         .font(Dorado.roboto(12))

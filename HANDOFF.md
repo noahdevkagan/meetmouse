@@ -5,6 +5,35 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-26): Fireflies import + team space (branch claude/confident-galileo-44k2ep)
+
+Two asks from Noah: a customer wants a team license so notes are shared, and a Fireflies import.
+Plan:
+1. Fireflies import (`Engine/FirefliesImporter.swift`): the user pastes their Fireflies API key in
+   Settings; the app pages through `api.fireflies.ai/graphql` and writes ordinary session files
+   with a `fireflies:<id>` dedupe marker (same writer as the Granola import). The key is used for
+   that run only and never stored. `tests/fireflies` covers parsing/writing with a canned response.
+2. Team space, "centralized place" = one private team page. Worker: `teams` + `team_notes` tables
+   (migration 0003), `/api/teams/*`, and the page at `meetmouse.com/t/<id>#<secret>`. Notes are
+   encrypted on the Mac with a key derived from the team secret; the server sees ciphertext and a
+   hash of the access token. App: Settings -> Team (create, join by invite link, copy invite,
+   leave), "Share with team" on a meeting, `meetmouse://team?...` join links.
+3. Team license: $40 once, unlimited seats (Noah's price). meetmouse.com/team sells it (PayPal),
+   /team-thanks shows the team code; the code allows Create team, joining unlocks teammates.
+Status: built, code-reviewed (fixes in decisions.md, 2026-11-26), merged and released as 0.38.0
+at Noah's request (release run waits for approval in the `release` environment; it deploys the
+Worker with migration 0003 and the site). Checked: Worker `npm test`, the team page in Chromium
+(`node web-share/test/e2e-team.mjs`), macOS test gate (build + tests/team, tests/fireflies,
+tests/freetier). Not checked: no Mac was available, so nobody has clicked Settings -> Team or
+Share with team, and automatic sharing after a real meeting has never run; no end-to-end run against the deployed Worker; the PayPal $40 button was not
+paid through; the Fireflies import has never talked to the real Fireflies API (no key; docs
+host blocked, field names confirmed through search results only).
+Next: after the release is approved, on a Mac: enter the team code, create a team, join from a
+second Mac or user account, Share with team, open the team page. Then import with a real
+Fireflies key.
+Team sharing is on by default for members (Noah's call): notes for meetings after joining
+upload when written; opt-out toggle and "Invite people…" are in Settings -> Team.
+
 ## Current state (2026-11-24): Speaker naming fixes from a customer email (branch claude/busy-edison-jjkl97)
 
 A customer on an M1 reported: remote speakers not told apart on Meet/Zoom; naming one speaker

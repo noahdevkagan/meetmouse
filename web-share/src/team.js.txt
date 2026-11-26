@@ -1,0 +1,293 @@
+const loading = document.querySelector("#loading");
+const errorBox = document.querySelector("#error");
+const content = document.querySelector("#content");
+const notesNode = document.querySelector("#notes");
+const emptyNode = document.querySelector("#empty");
+const statusNode = document.querySelector("#status");
+const searchField = document.querySelector("#search");
+const moreButton = document.querySelector("#moreButton");
+
+const teamID = location.pathname.split("/").filter(Boolean).at(-1);
+const secretText = location.hash.slice(1);
+const encoder = new TextEncoder();
+let accessToken = "";
+let notesKey = null;
+let nextCursor = null;
+// Decrypted notes on this page: { id, author, note, node, haystack }.
+const loaded = [];
+
+function base64URLBytes(value) {
+  const base64 = value.replaceAll("-", "+").replaceAll("_", "/")
+    + "=".repeat((4 - value.length % 4) % 4);
+  const binary = atob(base64);
+  return Uint8Array.from(binary, character => character.charCodeAt(0));
+}
+
+function bytesBase64URL(bytes) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+// Both the access token and the notes key come from the team secret with
+// HMAC-SHA256 under a fixed label, the same derivation the Mac app uses.
+async function derive(secret, label) {
+  const key = await crypto.subtle.importKey("raw", secret, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(label)));
+}
+
+async function unseal(nonce, ciphertext, context) {
+  const plaintext = await crypto.subtle.decrypt({
+    name: "AES-GCM",
+    iv: base64URLBytes(nonce),
+    additionalData: encoder.encode(`meetmouse-team-v1:${teamID}:${context}`),
+    tagLength: 128,
+  }, notesKey, base64URLBytes(ciphertext));
+  return JSON.parse(new TextDecoder().decode(plaintext));
+}
+
+function api(path) {
+  return fetch(`/api/teams/${encodeURIComponent(teamID)}${path}`, {
+    cache: "no-store",
+    credentials: "omit",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+function showError(title, message) {
+  loading.hidden = true;
+  content.hidden = true;
+  errorBox.hidden = false;
+  document.querySelector("#errorTitle").textContent = title;
+  document.querySelector("#errorMessage").textContent = message;
+}
+
+function element(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function sectionNode(icon, title) {
+  const node = element("section");
+  const row = element("div", "section-heading");
+  row.append(element("span", "section-icon", icon), element("h2", "", title));
+  node.append(row);
+  return node;
+}
+
+function formatDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return "";
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function formatNote(note, author) {
+  const parts = [note.title || "Meeting notes"];
+  if (author) parts.push(`Notes by ${author}`);
+  if (note.summary) parts.push(note.summary);
+  for (const topic of note.sections || []) {
+    parts.push([topic.heading, ...(topic.bullets || []).map(text => `- ${text}`)].join("\n"));
+  }
+  if (note.nextSteps?.length) {
+    parts.push("Next steps\n" + note.nextSteps
+      .map(action => `- [${action.isDone ? "x" : " "}] ${action.text}`).join("\n"));
+  }
+  return parts.join("\n\n");
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch { /* Try the user-initiated legacy copy path below. */ }
+  }
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.opacity = "0";
+  document.body.append(field);
+  field.select();
+  const copied = document.execCommand("copy");
+  field.remove();
+  if (!copied) throw new Error("copy unavailable");
+}
+
+function noteBody(note, author) {
+  const body = element("div", "team-body");
+  if (note.summary) {
+    const node = sectionNode("S", "Summary");
+    node.append(element("p", "summary", note.summary));
+    body.append(node);
+  }
+  if (Array.isArray(note.sections) && note.sections.length > 0) {
+    const node = sectionNode("#", "Notes");
+    for (const topic of note.sections) {
+      const topicNode = element("div", "topic");
+      const list = element("ul");
+      for (const bullet of Array.isArray(topic.bullets) ? topic.bullets : []) {
+        list.append(element("li", "", bullet));
+      }
+      topicNode.append(element("h3", "", topic.heading), list);
+      node.append(topicNode);
+    }
+    body.append(node);
+  }
+  if (Array.isArray(note.nextSteps) && note.nextSteps.length > 0) {
+    const node = sectionNode("✓", "Next steps");
+    const list = element("ul", "actions");
+    for (const action of note.nextSteps) {
+      const row = element("li", action.isDone ? "done" : "");
+      row.append(element("span", "check", action.isDone ? "✓" : ""), element("span", "", action.text));
+      list.append(row);
+    }
+    node.append(list);
+    body.append(node);
+  }
+  const tools = element("div", "team-tools");
+  const copy = element("button", "share-button", "Copy notes");
+  copy.type = "button";
+  const copied = element("span", "share-status");
+  copy.addEventListener("click", async () => {
+    try {
+      await copyText(formatNote(note, author));
+      copied.textContent = "Copied";
+    } catch {
+      copied.textContent = "Couldn't copy. Select the text instead.";
+    }
+  });
+  tools.append(copy, copied);
+  body.append(tools);
+  return body;
+}
+
+function noteNode(entry) {
+  const { note, author } = entry;
+  const details = element("details", "team-note");
+  const summary = element("summary");
+  summary.append(element("span", "team-title", note.title || "Meeting notes"));
+  summary.append(element("span", "team-when", formatDate(note.meetingDate)));
+  const by = [author || "A teammate"];
+  if (note.durationMinutes) by.push(`${note.durationMinutes} min`);
+  summary.append(element("span", "team-by", by.join(" · ")));
+  details.append(summary);
+  // The body is built on first open so a long page stays light.
+  details.addEventListener("toggle", () => {
+    if (details.open && details.childElementCount === 1) details.append(noteBody(note, author));
+  });
+  return details;
+}
+
+function haystack(note, author) {
+  return [note.title, author, note.summary,
+    ...(note.sections || []).flatMap(topic => [topic.heading, ...(topic.bullets || [])]),
+    ...(note.nextSteps || []).map(action => action.text),
+  ].filter(Boolean).join("\n").toLowerCase();
+}
+
+function applySearch() {
+  const query = searchField.value.trim().toLowerCase();
+  let shown = 0;
+  for (const entry of loaded) {
+    const match = !query || entry.haystack.includes(query);
+    entry.node.hidden = !match;
+    if (match) shown += 1;
+  }
+  if (loaded.length === 0) {
+    emptyNode.textContent = "No notes yet. They appear here as teammates finish meetings in MeetMouse.";
+  } else {
+    emptyNode.textContent = nextCursor
+      ? "No match in the notes loaded so far. Load older notes to search further back."
+      : "No notes match that search.";
+  }
+  emptyNode.hidden = shown > 0;
+}
+
+// Newest meeting first, whoever shared it and whenever.
+function redraw() {
+  loaded.sort((a, b) => String(b.note.meetingDate).localeCompare(String(a.note.meetingDate)));
+  notesNode.replaceChildren(...loaded.map(entry => entry.node));
+  moreButton.hidden = !nextCursor;
+  applySearch();
+}
+
+async function loadPage() {
+  const response = await api(`/notes${nextCursor ? `?before=${encodeURIComponent(nextCursor)}` : ""}`);
+  if (!response.ok) throw new Error("service unavailable");
+  const page = await response.json();
+  for (const row of page.notes || []) {
+    try {
+      const payload = await unseal(row.nonce, row.ciphertext, row.id);
+      if (payload.schemaVersion !== 1 || !payload.note) continue;
+      const entry = { id: row.id, author: payload.author || "", note: payload.note };
+      entry.haystack = haystack(entry.note, entry.author);
+      entry.node = noteNode(entry);
+      loaded.push(entry);
+    } catch { /* A note that doesn't decrypt is skipped, not fatal. */ }
+  }
+  nextCursor = page.next || null;
+  redraw();
+}
+
+async function openTeam() {
+  if (!secretText) {
+    showError("This team link is incomplete", "Ask a teammate to copy the complete invite link again.");
+    return;
+  }
+  try {
+    const secret = base64URLBytes(secretText);
+    if (secret.length !== 32) throw new Error("bad secret");
+    accessToken = bytesBase64URL(await derive(secret, "meetmouse-team-access-v1"));
+    notesKey = await crypto.subtle.importKey(
+      "raw", await derive(secret, "meetmouse-team-notes-v1"), "AES-GCM", false, ["decrypt"]);
+    const response = await api("");
+    if (response.status === 404) {
+      showError("This team page was not found", "The link may be mistyped. Ask a teammate for the invite link again.");
+      return;
+    }
+    if (response.status === 401 || response.status === 403) {
+      showError("This team link doesn't match", "Part of the link is missing or changed. Ask a teammate to copy the complete invite link again.");
+      return;
+    }
+    if (!response.ok) throw new Error("service unavailable");
+    const team = await response.json();
+    const info = await unseal(team.nameNonce, team.nameCiphertext, "name");
+    const name = info.name || "Team notes";
+    document.querySelector("#teamName").textContent = name;
+    document.title = `${name} · team notes`;
+    const meta = document.querySelector("#meta");
+    meta.append(element("span", "", `${team.noteCount} shared note${team.noteCount === 1 ? "" : "s"}`));
+    meta.append(element("span", "", "Notes stay here for a year"));
+    document.querySelector("#openApp").href =
+      `meetmouse://team?id=${encodeURIComponent(teamID)}&key=${encodeURIComponent(secretText)}`;
+    await loadPage();
+    loading.hidden = true;
+    content.hidden = false;
+  } catch {
+    showError("This team page could not be opened", "The link may be incomplete or damaged, or the service is temporarily unavailable.");
+  }
+}
+
+document.querySelector("#inviteButton").addEventListener("click", async () => {
+  try {
+    await copyText(location.href);
+    statusNode.textContent = "Invite link copied";
+  } catch {
+    statusNode.textContent = "Couldn't copy. Use the browser address bar.";
+  }
+});
+searchField.addEventListener("input", applySearch);
+moreButton.addEventListener("click", async () => {
+  moreButton.disabled = true;
+  try {
+    await loadPage();
+  } catch {
+    statusNode.textContent = "Couldn't load older notes. Try again.";
+  }
+  moreButton.disabled = false;
+});
+
+openTeam();

@@ -17,12 +17,18 @@ struct UsageGate {
     /// SHA-256 of the normalized code shown on meetmouse.com/thanks after purchase.
     static let purchaseCodeHash = "7939292c747f50bc22870eea0bdc9819a6f1d7a613e9bb2077663c57fbaea678"
 
+    /// SHA-256 of the normalized team code shown on meetmouse.com/team-thanks
+    /// after the $40 team purchase. It unlocks this install and lets it
+    /// create a team; teammates unlock by joining (unlimited seats).
+    static let teamCodeHash = "2fd13c50f467468c4dc822843ed2c68332594540aec7827b8a9157c1d6a847f1"
+
     let defaults: UserDefaults
     var now: () -> Date = Date.init
 
     private enum Key {
         static let installedAt = "usage.installedAt"
         static let unlocked = "usage.unlocked"
+        static let teamLicense = "usage.teamLicense"
         static let weekStart = "usage.weekStart"
         static let weekMeetings = "usage.weekMeetings"
         static let trialEndNoticeShown = "usage.trialEndNoticeShown"
@@ -39,6 +45,9 @@ struct UsageGate {
     }
 
     var isUnlocked: Bool { defaults.bool(forKey: Key.unlocked) }
+
+    /// True once the team code was entered on this Mac: it may create a team.
+    var hasTeamLicense: Bool { defaults.bool(forKey: Key.teamLicense) }
 
     var trialEndsAt: Date? {
         guard let installedAt = defaults.object(forKey: Key.installedAt) as? Date else { return nil }
@@ -102,9 +111,21 @@ struct UsageGate {
         let normalized = Self.normalize(code)
         guard !normalized.isEmpty else { return false }
         let digest = Self.sha256(normalized)
-        guard digest == Self.purchaseCodeHash || appSumoHashes.contains(digest) else { return false }
+        let isTeamCode = digest == Self.teamCodeHash
+        guard isTeamCode || digest == Self.purchaseCodeHash || appSumoHashes.contains(digest) else {
+            return false
+        }
         defaults.set(true, forKey: Key.unlocked)
+        if isTeamCode { defaults.set(true, forKey: Key.teamLicense) }
         return true
+    }
+
+    /// A team license covers its members, with no seat limit: joining a
+    /// team (the invite was checked against the team page) unlocks this
+    /// install. It does not let the member create further teams.
+    /// Honor-based like the codes above.
+    func unlockViaTeam() {
+        defaults.set(true, forKey: Key.unlocked)
     }
 
     /// Same normalization as the website's AppSumo redeem form.
@@ -162,6 +183,7 @@ final class FreeTier {
     private var limitReachedPending = false
 
     var isUnlocked: Bool { _ = revision; return gate.isUnlocked }
+    var hasTeamLicense: Bool { _ = revision; return gate.hasTeamLicense }
     var isInTrial: Bool { _ = revision; return gate.isInTrial }
     var isBlocked: Bool { _ = revision; return gate.isBlocked }
     var meetingsLeftThisWeek: Int { _ = revision; return gate.meetingsLeftThisWeek }
@@ -247,6 +269,15 @@ final class FreeTier {
             revision += 1
         }
         return ok
+    }
+
+    func unlockViaTeam() {
+        gate.unlockViaTeam()
+        showLimitReached = false
+        showTrialEnded = false
+        showAppSumoPrompt = false
+        limitReachedPending = false
+        revision += 1
     }
 
     /// meetmouse://unlock?code=… from the /thanks, /appsumo and referral status pages.

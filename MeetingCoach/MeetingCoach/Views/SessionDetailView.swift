@@ -145,7 +145,7 @@ struct SessionDetailView: View {
             Button("Delete meeting", role: .destructive) { deleteMeeting() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This permanently deletes the local transcript, notes, and saved chat. Shared links stay active; manage them in Meetings → Shared links.")
+            Text("This permanently deletes the local transcript, notes, and saved chat. Shared links stay active; manage them in Meetings → Shared links. If you shared it with your team, its copy on the team page is removed.")
         }
         .alert("Couldn't delete meeting", isPresented: Binding(
             get: { deleteError != nil },
@@ -256,6 +256,7 @@ struct SessionDetailView: View {
         guard !meetingIsBusy else { return }
         do {
             try TranscriptStore.deleteMeeting(at: url)
+            TeamSpace.shared.meetingDeleted(url)
             onClose()
         } catch {
             deleteError = "Some files couldn't be removed. Please try again. \(error.localizedDescription)"
@@ -429,7 +430,19 @@ struct SessionDetailView: View {
                 .buttonStyle(.plain)
             }
             Spacer()
-            shareControl.padding(.bottom, 10)
+            HStack(spacing: 8) {
+                TeamShareControl(
+                    sessionURL: url,
+                    payload: review.flatMap {
+                        SharedNotePayload.make(
+                            title: title,
+                            date: TranscriptSearch.sessionDate(for: url) ?? Date(),
+                            durationMinutes: durationMinutes,
+                            review: $0)
+                    })
+                shareControl
+            }
+            .padding(.bottom, 10)
         }
         .overlay(alignment: .bottom) { Dorado.divider.frame(height: 1) }
     }
@@ -1118,6 +1131,10 @@ struct SessionDetailView: View {
         if let title = parsed.title {
             TranscriptSearch.adoptGeneratedTitle(title, for: url)
         }
+        // Team members share notes by default; TeamSpace listens for this
+        // (it only acts on meetings recorded after joining the team).
+        NotificationCenter.default.post(name: TeamSpace.notesReady, object: nil,
+                                        userInfo: ["path": url.path])
     }
 
     private func persistReview(_ r: MeetingReview) {

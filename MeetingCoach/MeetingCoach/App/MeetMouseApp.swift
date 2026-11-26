@@ -45,6 +45,7 @@ struct MeetMouseApp: App {
         // Free tier: stamp the install date once; installs already in use
         // before the free tier (paid-only era) are unlocked for good.
         FreeTier.shared.bootstrap()
+        _ = TeamSpace.shared   // starts listening for finished notes (team sharing)
 
         let badge = UpdateBadgeModel()
         _updateBadge = StateObject(wrappedValue: badge)
@@ -603,11 +604,22 @@ final class UnlockURLDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         MainActor.assumeIsolated {
             for url in urls where url.scheme == "meetmouse" {
+                // meetmouse://team?id=…&key=… from a team page's "Open in MeetMouse".
+                if url.host == "team" {
+                    NSApp.activate(ignoringOtherApps: true)
+                    TeamSpace.shared.handleInvite(url)
+                    continue
+                }
+                let hadTeamLicense = FreeTier.shared.hasTeamLicense
                 let ok = FreeTier.shared.handle(url: url)
+                let teamLicense = ok && !hadTeamLicense && FreeTier.shared.hasTeamLicense
                 NSApp.activate(ignoringOtherApps: true)
                 let alert = NSAlert()
-                alert.messageText = ok ? "MeetMouse Unlimited is unlocked" : "That unlock link didn't work"
-                alert.informativeText = ok
+                alert.messageText = teamLicense ? "Your team license is on"
+                    : ok ? "MeetMouse Unlimited is unlocked" : "That unlock link didn't work"
+                alert.informativeText = teamLicense
+                    ? "Open Settings, go to Team, create your team and send the invite link to your teammates. Joining unlocks MeetMouse on their Macs."
+                    : ok
                     ? "Record as many meetings as you like. Thanks for supporting MeetMouse."
                     : "Open MeetMouse Unlimited from the menu bar and paste your code instead."
                 alert.runModal()

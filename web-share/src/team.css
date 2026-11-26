@@ -1,0 +1,25 @@
+/* Additions to viewer-v4.css for the team page. Same Dorado tokens. */
+a.share-button { text-decoration: none; }
+.team-search { display: block; width: 100%; margin-top: 18px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); font: inherit; font-size: 14px; }
+.team-search:focus-visible { outline: 2px solid var(--green-text); outline-offset: 2px; }
+.team-list { padding: 0 28px; }
+.team-note { border-bottom: 1px solid var(--line); }
+.team-note:last-child { border-bottom: 0; }
+.team-note > summary { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; padding: 16px 0; cursor: pointer; list-style: none; }
+.team-note > summary::-webkit-details-marker { display: none; }
+.team-note > summary:focus-visible { outline: 2px solid var(--green-text); outline-offset: 2px; border-radius: 6px; }
+.team-title { color: var(--ink); font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.team-when { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.team-by { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+.team-note[open] > summary .team-title { color: var(--green-text); }
+.team-body { padding: 0 0 20px; }
+.team-body section { padding: 14px 0; border-bottom: 0; }
+.team-body section:first-child { padding-top: 0; }
+.team-tools { display: flex; align-items: center; gap: 12px; padding-top: 6px; }
+.team-empty { margin: 0; padding: 40px 28px; color: var(--muted); text-align: center; font-size: 14px; }
+.team-more { padding: 16px 28px 24px; text-align: center; }
+.team-more:has([hidden]) { padding: 0 0 8px; }
+@media (max-width: 660px) {
+  .team-list { padding: 0 20px; }
+  .team-note > summary { grid-template-columns: 1fr; }
+}

@@ -2464,3 +2464,82 @@ out (`notarytool submit --wait` piped through tee). `notarize_file` in `scripts/
 now runs each attempt under a 35-minute watchdog (`NOTARY_ATTEMPT_LIMIT`), with `--timeout 30m` on
 the wait, and retries an attempt that ends without a verdict up to `NOTARY_ATTEMPTS` (3) times.
 A real Invalid/Rejected verdict still fails at once with Apple's log.
+
+## 2026-11-26 — Fireflies import goes through Fireflies' API with a pasted key
+
+Noah asked for a Fireflies import. Fireflies has no single-file export of every meeting (its
+account export is a zip by email request, format not documented in detail), so the import reads
+`api.fireflies.ai/graphql` with the user's API key. This is a new, explicit network exception:
+the request goes from the Mac to Fireflies only when the user clicks Import, the key is held in
+memory for that run and never stored, and nothing goes to MeetMouse. Files are ordinary sessions
+written by the shared import writer with `**Imported-From:** fireflies:<id>`. Because Free/Pro
+keys are limited per day, the import lists ids first (50 per request) and only downloads pages
+that hold a meeting not yet imported, 10 full meetings per request; a rate limit mid-run keeps
+what was imported and says to run again. Sentences are joined into speaker turns. Not verified
+against a live Fireflies account: field names come from Fireflies' API docs (the docs host was
+blocked in the build session, so they were checked through search results only).
+
+## 2026-11-26 — Team space: one encrypted team page, joined by a link
+
+A customer asked for a team license so notes are shared; Noah asked whether a centralized place
+was wanted and said to build it. Decided: a team is one private page,
+`meetmouse.com/t/<id>#<secret>`, on the existing share Worker. The link is the invite, the page,
+and the key. From the 32-byte secret, HMAC-SHA256 derives an access token (Bearer; the server
+stores its SHA-256) and the AES-GCM key for notes and the team name, so D1 holds only ciphertext.
+A note is the same curated payload as a private link plus the author's name; nothing is shared
+until the owner clicks Share with team on a meeting (no automatic upload, consistent with the
+2026-10-20 "never post for the user" rule). Sharing again replaces the note (id derived from
+member + session file). Notes expire after a year and a team holds 1000; the original always
+stays on the author's Mac. Reading happens on the web page, not in the app, so teammates
+can read from any device and the app needed no second notes viewer.
+Trade-offs accepted: anyone holding the link can read, add and remove notes, there are no
+per-member accounts or removal of one member (make a new team), and leaving is local.
+A shared synced folder was the alternative; rejected because it needs every member to set up the
+same Drive/Dropbox folder and gives a team license nothing to deliver.
+
+## 2026-11-26 — Team license is honor-based: joining a team unlocks
+
+Same model as the purchase and AppSumo codes (local, no license server). Creating a team needs
+an unlocked install; joining with a valid invite (checked against the Worker) unlocks the
+member's install (`UsageGate.unlockViaTeam`). No seat limit or team price is enforced in code:
+those are Noah's to set, and a seat cap would need the server to count members.
+
+## 2026-11-26 — Team license is $40 once, unlimited seats, by a team code
+
+Noah set the price: $40, unlimited seats. This replaces "creating a team needs an unlocked
+install" from earlier today. The buyer pays on meetmouse.com/team (same PayPal form as the $20
+purchase) and lands on /team-thanks, which carries the team code (SHA-256 in
+`UsageGate.teamCodeHash`). Entering it unlocks that Mac and sets `usage.teamLicense`, which is
+what allows Create team. Teammates never see a code: joining unlocks them, with no seat count.
+A $20, AppSumo or referral unlock does not allow creating a team, and joining a team does not
+either. Still honor-based: the code is one shared code in a public page, and the Worker cannot
+tell a licensed creator from an unlicensed one, same as every other MeetMouse unlock.
+
+## 2026-11-26 — Team space review fixes
+
+From a code review before release. Worker: note writes are rate-limited per client IP as well
+as per team (more teams no longer buys more write capacity), the first write is an upsert, and
+the daily sweep drops teams older than 90 days that hold no notes. App: a `meetmouse://team`
+link looks the team up and names it in the question before joining (any web page can open such
+a link); leaving or switching keeps the old membership in `team-previous.json`, so re-joining
+restores the member id and shared list; deleting a meeting removes its team copy (best effort),
+because its only removal control was on the deleted meeting. Fireflies: a meeting with no
+transcript or summary yet is not written (it would have been marked imported and stayed empty),
+a reply with both data and errors uses the data, numeric ids are accepted, speaker names are
+cut to 39 characters (the transcript parser's limit), and a 429 is waited out (20 s, 4 tries)
+before the run stops. Fireflies' documented limits are now 500 requests/day on Free.
+
+## 2026-11-26 — Team sharing is on by default, with an opt-out
+
+Noah: "Have team setting. So opt out and it's default in and make easy to add people." This
+reverses, for team members only, the click-to-share choice made earlier today and the
+2026-10-20 "never post for the user" rule (which still holds for private links). Joining a team
+is the consent: the join question and Settings say that notes for new meetings are shared. When
+a meeting's AI notes are written (live review finished, or notes generated on a saved meeting),
+the app posts `MeetMouse.meetingNotesReady` and `TeamSpace.autoShare` uploads the curated notes.
+Limits kept on purpose: only meetings dated after `joinedAt` (older and imported meetings are
+never sent on their own), never a meeting the member took off the page (`excluded`), never the
+transcript or coaching, and one toggle in Settings -> Team turns it off. A failed automatic
+upload is silent; the Share with team button remains. Adding people: Settings has an
+"Invite people…" share button (system share sheet) beside Copy invite link.
+

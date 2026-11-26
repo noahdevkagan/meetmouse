@@ -125,7 +125,9 @@ bash tests/ai/run.sh || { echo "AI PROVIDER GATE FAILED"; exit 1; }
 bash tests/session/run.sh || { echo "SESSION GATE FAILED"; exit 1; }
 bash tests/demo/run.sh || { echo "DEMO GATE FAILED"; exit 1; }
 bash tests/granola/run.sh || { echo "GRANOLA GATE FAILED"; exit 1; }
+bash tests/fireflies/run.sh || { echo "FIREFLIES GATE FAILED"; exit 1; }
 bash tests/sharing/run.sh || { echo "WEB SHARING GATE FAILED"; exit 1; }
+bash tests/team/run.sh || { echo "TEAM SPACE GATE FAILED"; exit 1; }
 bash tests/freetier/run.sh || { echo "FREE TIER GATE FAILED"; exit 1; }
 bash tests/claude-desktop/run.sh || { echo "CLAUDE DESKTOP CONFIG GATE FAILED"; exit 1; }
 

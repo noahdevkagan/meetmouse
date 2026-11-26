@@ -232,10 +232,14 @@ enum GranolaImporter {
         return out
     }
 
-    private static func write(marker: String, title: String, date: Date,
-                              duration: TimeInterval?, notes: String,
-                              transcript: [String], attendees: [String],
-                              into dir: URL) {
+    /// Shared by every importer (Granola CSV, Fireflies): `engine` is the
+    /// header line people see, `source` the machine-readable sidecar value.
+    static func write(marker: String, title: String, date: Date,
+                      duration: TimeInterval?, notes: String,
+                      transcript: [String], attendees: [String],
+                      into dir: URL,
+                      engine: String = "Granola import",
+                      source: String = "granola-import") {
         let stampFormatter = DateFormatter()
         stampFormatter.dateFormat = "yyyy-MM-dd_HH-mm"
 
@@ -257,7 +261,7 @@ enum GranolaImporter {
         }
         lines.append("**Utterances:** \(transcript.count)")
         lines.append("**Nudges:** 0")
-        lines.append("**Engine:** Granola import")
+        lines.append("**Engine:** \(engine)")
         lines.append("**Imported-From:** \(marker)")
         lines.append("")
 
@@ -281,7 +285,7 @@ enum GranolaImporter {
                                      startedAt: date,
                                      durationMin: (duration ?? 0) / 60,
                                      participants: attendees,
-                                     source: "granola-import"),
+                                     source: source),
             for: file)
     }
 
@@ -318,7 +322,7 @@ enum GranolaImporter {
     /// Dedupe markers already present in the sessions folder (marker → its
     /// session file, so re-imports can heal transcript-less shells) — read
     /// from the header block only (first 12 lines) to keep scans fast.
-    private static func existingImportMarkers(in dir: URL) -> [String: URL] {
+    static func existingImportMarkers(in dir: URL) -> [String: URL] {
         var markers: [String: URL] = [:]
         for file in TranscriptSearch.sessionFiles(in: dir) {
             guard let content = try? String(contentsOf: file, encoding: .utf8) else { continue }
