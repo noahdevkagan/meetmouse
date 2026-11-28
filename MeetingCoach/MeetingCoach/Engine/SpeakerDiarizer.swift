@@ -82,9 +82,9 @@ final class SpeakerDiarizer: @unchecked Sendable {
     private var finalPassDone = false
     private var finalPassWaiters: [@Sendable ([SpeakerSegment]?) -> Void] = []
     private var finalResult: [SpeakerSegment]?
-    /// Clustering threshold override for the offline pipeline; nil keeps
-    /// FluidAudio's preset. Set by the test rig to compare settings.
-    nonisolated(unsafe) static var finalPassThreshold: Double?
+    /// Settings for the offline pipeline. The test rig swaps this to compare
+    /// alternatives against the shipped one.
+    nonisolated(unsafe) static var finalPassConfig = OfflineDiarizerConfig.default
 
     var onSegments: (@Sendable ([SpeakerSegment]) -> Void)?
 
@@ -313,9 +313,7 @@ final class SpeakerDiarizer: @unchecked Sendable {
     }
 
     private static func offlineSpans(archive url: URL) async throws -> [FinalSpeakerPass.ClusterSpan] {
-        let config = finalPassThreshold.map { OfflineDiarizerConfig(clusteringThreshold: $0) }
-            ?? OfflineDiarizerConfig.default
-        let manager = OfflineDiarizerManager(config: config)
+        let manager = OfflineDiarizerManager(config: finalPassConfig)
         try await manager.prepareModels()
         let source = try MappedSamples(url: url)
         let result = try await manager.process(audioSource: source, audioLoadingSeconds: 0)

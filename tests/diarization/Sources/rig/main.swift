@@ -1,4 +1,5 @@
 import AVFoundation
+import FluidAudio
 import Foundation
 
 // Who-said-what check on a scripted three-person call.
@@ -149,8 +150,8 @@ struct Outcome {
     var finalSeconds = 0.0
 }
 
-func diarize(threshold: Double?) async -> Outcome {
-    SpeakerDiarizer.finalPassThreshold = threshold
+func diarize(_ config: OfflineDiarizerConfig) async -> Outcome {
+    SpeakerDiarizer.finalPassConfig = config
     let diarizer = SpeakerDiarizer(labelPrefix: "Them")
     let latest = Box<[SpeakerSegment]>([])
     diarizer.onSegments = { latest.set($0) }
@@ -185,20 +186,36 @@ func diarize(threshold: Double?) async -> Outcome {
 
 func percent(_ value: Double) -> String { String(format: "%.1f%%", value * 100) }
 
+// The shipped settings first (the only row that can fail the check), then
+// alternatives for comparison. "exactly 3" is the ceiling: what the models
+// can do when told the answer.
+let shipped = SpeakerDiarizer.finalPassConfig
+var fine = OfflineDiarizerConfig(segmentationStepRatio: 0.1, minSegmentDuration: 0)
+fine.clustering = shipped.clustering
+let configs: [(String, OfflineDiarizerConfig)] = [
+    ("shipped", shipped),
+    ("threshold 0.45", OfflineDiarizerConfig(clusteringThreshold: 0.45)),
+    ("threshold 0.8", OfflineDiarizerConfig(clusteringThreshold: 0.8)),
+    ("threshold 1.0", OfflineDiarizerConfig(clusteringThreshold: 1.0)),
+    ("step 0.1, no minimum segment", fine),
+    ("at least 3 speakers", OfflineDiarizerConfig.default.withSpeakers(min: 3)),
+    ("exactly 3 speakers", OfflineDiarizerConfig.default.withSpeakers(exactly: 3)),
+]
 var rows: [String] = []
 var failed = false
-for threshold in [Double?.none, 0.7] {
-    let outcome = await diarize(threshold: threshold)
-    let name = threshold.map { "final pass, threshold \($0)" } ?? "final pass, preset"
-    rows.append("| live (LS-EEND) | \(outcome.liveVoices) | \(percent(outcome.live)) | |")
+for (index, entry) in configs.enumerated() {
+    let outcome = await diarize(entry.1)
+    if index == 0 {
+        rows.append("| live (LS-EEND) | \(outcome.liveVoices) | \(percent(outcome.live)) | |")
+    }
+    let name = "final pass, \(entry.0)"
     if let final = outcome.final {
         rows.append("| \(name) | \(outcome.finalVoices) | \(percent(final)) | "
                     + String(format: "%.1fs for %.0fs of audio", outcome.finalSeconds, seconds) + " |")
-        // The shipped configuration (preset) is the one that must hold.
-        if threshold == nil, final > max(0.15, outcome.live + 0.02) { failed = true }
+        if index == 0, final > max(0.15, outcome.live + 0.02) { failed = true }
     } else {
         rows.append("| \(name) | did not run | | |")
-        if threshold == nil { failed = true }
+        if index == 0 { failed = true }
     }
 }
 
