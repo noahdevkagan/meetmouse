@@ -22,6 +22,15 @@ struct SpeakerSegment: Sendable, Equatable {
 /// temp file the call's audio is kept in meanwhile. `SpeakerDiarizer` owns
 /// the model.
 enum FinalSpeakerPass {
+    /// Off unless the user turns it on (Settings → General → Speaker names).
+    /// Measured 2026-11-28 on a scripted three-voice call it was only a
+    /// little better than the live labels (32% vs 37% of speech on the wrong
+    /// person, both merging two voices) and took about 25 s per two minutes
+    /// of audio on a CI runner, so it is not yet something to run on every
+    /// call. With it off no call audio is written to disk.
+    static let enabledKey = "finalSpeakerPass"
+    static var isEnabled: Bool { UserDefaults.standard.bool(forKey: enabledKey) }
+
     /// Shorter recordings keep their live labels: too little speech to
     /// cluster, and nothing a second pass would fix.
     static let minSeconds: TimeInterval = 45

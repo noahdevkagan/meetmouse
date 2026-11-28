@@ -2613,3 +2613,20 @@ hand-edited notes, never a local model beside a live meeting, setup problems (CL
 signed in) are not queued because retrying cannot fix them. Not confirmed with the customer's
 log which of the two causes he hit.
 
+## 2026-11-28 (later): the final speaker pass ships off by default
+
+`tests/diarization` ran on the macOS CI runner with the real models (three distinct `say` voices,
+129 s, 38 turns): live LS-EEND found 2 voices and put 37% of speech on the wrong person; the
+final pass found 2 voices and 32%. Clustering threshold 0.45 to 1.0, a speaker-count minimum and
+"exactly 3" all gave the same 2 voices and 32%; step 0.1 with no minimum segment found 3 voices
+but 33%. Time: 18 to 30 s for 129 s of audio on the runner (embedding about 140 ms per window),
+which is minutes for an hour-long call there; unknown on a real M1 with the Neural Engine. So the
+pass works end to end and is not worse, but it does not separate the third voice, and synthetic
+voices may be a poor stand-in for people either way. It therefore ships behind
+`FinalSpeakerPass.enabledKey` ("Re-check who said what after the call (experimental)" in
+Settings -> General), default off, and no audio is archived while it is off. The multi-speaker
+attribution complaint is NOT fixed by this release. Next: record or obtain a real multi-person
+call with known speakers (bench/asr-corpus style, kept out of the public repo), score live vs
+final on it on real hardware, and only then decide between turning the pass on, a different
+embedding model, or per-speaker enrollment from the final clusters.
+

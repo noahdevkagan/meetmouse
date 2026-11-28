@@ -27,6 +27,20 @@ Plan:
    is retried later (`Engine/NotesBackfill.swift`).
 4. Team sharing default: Noah's call from 2026-11-26 stands until he says otherwise; answer in
    the reply (toggle in Settings -> Team, "Remove from team page" on a meeting).
+Status: built and pushed; not released (notes are under `## Unreleased`). The macOS test gate on
+this branch is green: app builds, tests/session passes including the new cases.
+- (1) is NOT solved. The final pass runs end to end with the real models, but on the scripted
+  three-voice call in `tests/diarization` it scored 32% of speech on the wrong person against 37%
+  live, both merging two voices, whatever the clustering settings. It ships off by default
+  (Settings -> General -> "Re-check who said what after the call (experimental)"). See
+  decisions.md 2026-11-28 (later).
+- (2) and (3) are done as planned, except that the one-on-one roster match stays a suggestion.
+- Not checked: no Mac, so nothing was clicked or run on a real call; the settings toggle, the
+  snapshot loop past six shots and the launch-time notes retry have only been compiled.
+- A Gmail draft replies to the customer on his thread (not sent).
+Next: get a real multi-person recording with known speakers, score live vs final on a real Mac
+(`tests/diarization` shows how), and ask the customer whether his labels read "Speaker N"
+(mic-only: Screen Recording off) or "Them N". Decide the team-sharing default with Noah.
 
 ## Current state (2026-11-26): Fireflies import + team space (branch claude/confident-galileo-44k2ep)
 

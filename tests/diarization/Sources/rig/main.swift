@@ -213,12 +213,10 @@ func percent(_ value: Double) -> String { String(format: "%.1f%%", value * 100) 
 // The shipped settings first (the only row that can fail the check), then
 // alternatives for comparison. "exactly 3" is the ceiling: what the models
 // can do when told the answer.
+UserDefaults.standard.set(true, forKey: FinalSpeakerPass.enabledKey)
 let shipped = SpeakerDiarizer.finalPassConfig
-var fine = OfflineDiarizerConfig(segmentationStepRatio: 0.1, minSegmentDuration: 0)
-fine.clustering = shipped.clustering
 let configs: [(String, OfflineDiarizerConfig)] = [
     ("shipped", shipped),
-    ("step 0.1, no minimum segment", fine),
     ("exactly 3 speakers", OfflineDiarizerConfig.default.withSpeakers(exactly: 3)),
 ]
 var rows: [String] = []

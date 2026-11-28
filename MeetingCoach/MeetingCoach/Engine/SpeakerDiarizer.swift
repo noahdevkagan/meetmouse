@@ -16,7 +16,8 @@ import FluidAudio
 /// collected from the finalized segments — naming a speaker saves that clip
 /// as their profile for every future session.
 ///
-/// Those live labels are a draft. At stop, the whole call goes through the
+/// With the final speaker pass turned on (off by default, see
+/// `FinalSpeakerPass.enabledKey`): at stop, the whole call goes through the
 /// offline clustering pipeline once (`FinalSpeakerPass`); `finalSegments()`
 /// hands back the result and the saved transcript is relabeled from it.
 final class SpeakerDiarizer: @unchecked Sendable {
@@ -105,7 +106,9 @@ final class SpeakerDiarizer: @unchecked Sendable {
             }
             return
         }
-        queue.async { self.archive = SpeakerAudioArchive() }
+        if FinalSpeakerPass.isEnabled {
+            queue.async { self.archive = SpeakerAudioArchive() }
+        }
         Task {
             do {
                 // .dihard3: in-the-wild conversations — right for room audio
