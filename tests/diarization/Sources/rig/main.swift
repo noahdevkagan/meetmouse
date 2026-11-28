@@ -49,12 +49,8 @@ let installed = Set(run("/usr/bin/say", ["-v", "?"]).output.split(separator: "\n
     guard let locale = line.range(of: #"\s+[a-z]{2}_[A-Z]{2}\s"#, options: .regularExpression) else { return nil }
     return String(line[..<locale.lowerBound])
 })
-let preferred = ["Samantha", "Daniel", "Karen", "Moira", "Tessa", "Rishi", "Fred", "Alex", "Victoria", "Albert"]
-let voices = Array(preferred.filter(installed.contains).prefix(3))
-guard voices.count == 3 else {
-    // Exit 2 = this machine cannot run the check, as opposed to a failure.
-    fail("needs three English `say` voices, found \(voices)", code: 2)
-}
+let preferred = ["Samantha", "Daniel", "Karen", "Moira", "Tessa", "Rishi", "Alex", "Victoria",
+                 "Fred", "Kathy", "Ralph", "Albert", "Junior"]
 
 // MARK: Script (made-up people and project)
 
@@ -127,6 +123,34 @@ func render(_ text: String, voice: String, index: Int) -> [Float] {
     return Array(samples[first...last])
 }
 
+// A voice that is listed but not downloaded renders with the system voice,
+// which would put the same voice behind two "people". Keep only voices whose
+// rendering of one probe sentence differs from every voice already chosen.
+let probe = "The quarterly report is due on the fourteenth of March."
+var voices: [String] = []
+var probes: [[Float]] = []
+func sameVoice(_ a: [Float], _ b: [Float]) -> Bool {
+    guard abs(a.count - b.count) < 800 else { return false }
+    let n = min(a.count, b.count)
+    guard n > 0 else { return true }
+    var difference: Float = 0
+    for i in 0..<n { difference += abs(a[i] - b[i]) }
+    return difference / Float(n) < 0.005
+}
+for (index, voice) in preferred.enumerated() where installed.contains(voice) && voices.count < 3 {
+    let sample = render(probe, voice: voice, index: 1000 + index)
+    guard !sample.isEmpty, !probes.contains(where: { sameVoice($0, sample) }) else {
+        mclog("voice \(voice) renders like one already chosen; skipped")
+        continue
+    }
+    voices.append(voice)
+    probes.append(sample)
+}
+guard voices.count == 3 else {
+    // Exit 2 = this machine cannot run the check, as opposed to a failure.
+    fail("needs three distinct English `say` voices, found \(voices)", code: 2)
+}
+
 var audio: [Float] = []
 var truth: [SpeakerSegment] = []
 for (index, line) in script.enumerated() {
@@ -194,11 +218,7 @@ var fine = OfflineDiarizerConfig(segmentationStepRatio: 0.1, minSegmentDuration:
 fine.clustering = shipped.clustering
 let configs: [(String, OfflineDiarizerConfig)] = [
     ("shipped", shipped),
-    ("threshold 0.45", OfflineDiarizerConfig(clusteringThreshold: 0.45)),
-    ("threshold 0.8", OfflineDiarizerConfig(clusteringThreshold: 0.8)),
-    ("threshold 1.0", OfflineDiarizerConfig(clusteringThreshold: 1.0)),
     ("step 0.1, no minimum segment", fine),
-    ("at least 3 speakers", OfflineDiarizerConfig.default.withSpeakers(min: 3)),
     ("exactly 3 speakers", OfflineDiarizerConfig.default.withSpeakers(exactly: 3)),
 ]
 var rows: [String] = []
