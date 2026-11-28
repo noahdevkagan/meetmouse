@@ -2588,8 +2588,9 @@ picked up. They were only ever suggested (2026-10-06: "screenshots provide evide
 and only from six snapshots in the first 90 seconds, when most people on a group call have not
 spoken yet. With the automatic preference on: a match that passes the existing evidence rules (the
 same name on the highlighted tile in two snapshots at least 10 s apart while only that voice is
-talking, no competing name or voice; or the one-on-one roster rule) is applied through
-`renameSpeaker` without a card; after the first six, a snapshot is taken every 30 s while any
+talking, no competing name or voice) is applied through `renameSpeaker` without a card (the
+one-on-one roster rule stays a suggestion: it says who is present, not who is talking, and the
+live model undercounting voices is this customer's case); after the first six, a snapshot is taken every 30 s while any
 remote voice is still unnamed, up to 40 per meeting; and after the final speaker pass the
 highlighted-tile sightings are matched again against the final voices. Manual (per-meeting Allow)
 mode keeps six snapshots and one-tap suggestions. Cost accepted: a wrong match now also saves a

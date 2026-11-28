@@ -1560,7 +1560,10 @@ final class LiveSessionViewModel {
             let suggestion = SpeakerNameSuggestion(label: match.label, name: match.name,
                                                    confidence: 0.8, kind: .visualName)
             guard !rejectedNameSuggestions.contains(suggestion.key) else { continue }
-            if automatic {
+            // Only a name tied to a voice by timing. The one-on-one roster
+            // says who is present, not who is talking, and a second voice
+            // can still turn up: that one stays a suggestion.
+            if automatic && match.timed {
                 mclog("[VM] Speaker snapshots name \(match.label) as \(match.name)")
                 renameSpeaker(match.label, to: match.name)
             } else {
@@ -1574,10 +1577,12 @@ final class LiveSessionViewModel {
     /// the single other name on screen. Names someone already carries are
     /// left out.
     private func visualNameMatches(observations: [VisualSpeakerObservation],
-                                   rosters: [VisualRosterObservation]) -> [(label: String, name: String)] {
+                                   rosters: [VisualRosterObservation])
+        -> [(label: String, name: String, timed: Bool)] {
         var matches = VisualSpeakerEvidence.matches(observations,
                                                     segments: latestSystemSegments,
                                                     localSpeech: utterances)
+            .map { (label: $0.label, name: $0.name, timed: true) }
         // Timing-aligned highlight evidence outranks the one-on-one roster.
         let owned = channelLabels[.system] ?? []
         // Bare "Them" is not a voice: it is speech the diarizer has not
@@ -1588,7 +1593,7 @@ final class LiveSessionViewModel {
         if let roster = VisualSpeakerEvidence.rosterMatch(rosters, remoteLabels: remote,
                                                           remoteSegments: latestSystemSegments),
            !matches.contains(where: { $0.label == roster.label }) {
-            matches.append(roster)
+            matches.append((label: roster.label, name: roster.name, timed: false))
         }
         let taken = Array(Set(utterances.map(\.speaker))) + [remoteAlias].compactMap { $0 }
         return matches.filter { match in
