@@ -219,6 +219,8 @@ final class LiveSessionViewModel {
     /// The capture manager of the just-ended session — kept so renaming a
     /// speaker from the post-session view can still save their voice clip.
     private var endedCaptureManager: AudioCaptureManager?
+    /// Speaker-snapshot sightings of the meeting that just ended.
+    private var endedVisualObservations: [VisualSpeakerObservation] = []
     /// One-on-one alias: the sole remote participant's name, applied to
     /// "Them"-family labels at DISPLAY time only (see displaySpeaker) —
     /// stored utterance labels stay raw, so a second remote voice showing
@@ -701,6 +703,11 @@ final class LiveSessionViewModel {
                     return self.isLive && !self.isDemo && !self.micOnly
                         && self.currentSessionID == sessionID
                         && UserDefaults.standard.bool(forKey: VisualSpeakerCapture.automaticDefaultsKey)
+                }, wantsMore: { [weak self] in
+                    // Keep sampling while a remote voice has no name yet.
+                    self?.latestRemoteLabels.contains {
+                        $0.wholeMatch(of: SpeakerNameInference.unnamedPattern) != nil
+                    } ?? false
                 }, onObservation: { [weak self] in
                     self?.refreshVisualSpeakerSuggestions()
                 })
@@ -861,6 +868,8 @@ final class LiveSessionViewModel {
     }
 
     func stopLive() {
+        // Kept for the final speaker pass: stopping clears the capture's own.
+        endedVisualObservations = visualSpeakerCapture.observations
         stopVisualSpeakerAssistance()
         isLive = false
         // Invalidate the session before anything else: an activation still
@@ -953,17 +962,125 @@ final class LiveSessionViewModel {
         nextCallPrepared = false
 
         showPostSession = true
+        finishAfterStop()
+    }
 
-        // Auto-recap: every session ends with a summary, no button. The
-        // no-model path gets the instant deterministic review inside
-        // generateReview, so this never blocks on an engine.
-        if let settings = lastSettings, let ollamaManager = lastOllamaManager {
-            generateReview(ollamaManager: ollamaManager, settings: settings)
-        } else {
-            // No recap will run, so nothing else will free the model.
+    /// After Stop: the whole-call speaker pass relabels the transcript, then
+    /// the notes are written from it. Auto-recap: every session ends with a
+    /// summary, no button. The no-model path gets the instant deterministic
+    /// review inside generateReview, so this never blocks on an engine.
+    private func finishAfterStop() {
+        let settings = lastSettings, ollamaManager = lastOllamaManager
+        guard !utterances.isEmpty, let manager = endedCaptureManager else {
+            if let settings, let ollamaManager {
+                generateReview(ollamaManager: ollamaManager, settings: settings)
+            } else {
+                // No recap will run, so nothing else will free the model.
+                let ended = sessionModelState
+                sessionModelState = nil
+                Task { [weak self] in await self?.releaseSessionModel(ended) }
+            }
+            return
+        }
+        // Identifies this ended meeting until the next one starts.
+        let generation = reviewGenerationID
+        let endedPath = savedPath
+        let pass = Task { [weak self] in
+            let finals = await manager.finalSpeakerPass()
+            guard let self else { return }
+            guard self.reviewGenerationID == generation else {
+                if !finals.isEmpty {
+                    mclog("[VM] Final speaker pass finished after the next meeting started; saved transcript keeps its live labels")
+                }
+                return
+            }
+            self.applyFinalSpeakerPass(finals)
+        }
+        guard let settings, let ollamaManager else {
             let ended = sessionModelState
             sessionModelState = nil
             Task { [weak self] in await self?.releaseSessionModel(ended) }
+            return
+        }
+        // The notes spinner covers the speaker pass too.
+        isGeneratingSummary = true
+        Task { [weak self] in
+            await Self.wait(for: pass, upTo: FinalSpeakerPass.notesWaitSeconds)
+            guard let self else { return }
+            guard self.reviewGenerationID == generation else {
+                // The next meeting started first. This one's notes are
+                // written from its saved file instead of being dropped.
+                if let endedPath { NotesBackfill.enqueue(endedPath) }
+                self.runNotesBackfill()
+                return
+            }
+            self.isGeneratingSummary = false
+            self.generateReview(ollamaManager: ollamaManager, settings: settings)
+        }
+    }
+
+    /// Wait for `task`, but no longer than `seconds`.
+    private static func wait(for task: Task<Void, Never>, upTo seconds: TimeInterval) async {
+        final class Once: @unchecked Sendable { var fired = false }
+        let once = Once()
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            Task { @MainActor in
+                await task.value
+                if !once.fired { once.fired = true; continuation.resume() }
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(seconds))
+                if !once.fired { once.fired = true; continuation.resume() }
+            }
+        }
+    }
+
+    /// The whole-call pass's speakers replace the live ones: transcript,
+    /// turns and the saved file. Names read from speaker snapshots are
+    /// matched again, since the voices they were matched to have changed.
+    private func applyFinalSpeakerPass(_ finals: [(channel: DiarizationChannel, segments: [SpeakerSegment])]) {
+        guard !finals.isEmpty, !isLive else { return }
+        let before = utterances.map(\.speaker)
+        let countBefore = utterances.count
+        for pass in finals {
+            applyDiarization(pass.segments, channel: pass.channel, final: true)
+        }
+        if UserDefaults.standard.bool(forKey: VisualSpeakerCapture.automaticDefaultsKey) {
+            for match in visualNameMatches(observations: endedVisualObservations, rosters: []) {
+                mclog("[VM] Speaker snapshots name \(match.label) as \(match.name) after the final pass")
+                renameSpeaker(match.label, to: match.name)
+            }
+        }
+        guard utterances.count != countBefore || utterances.map(\.speaker) != before else { return }
+        var builder = TurnBuilder()
+        builder.rebuild(utterances)
+        turns = builder.turns
+        talkStats.update(turns: turns, elapsed: elapsedTime)
+        rewriteSavedTranscript()
+        mclog("[VM] Final speaker pass relabeled the transcript")
+    }
+
+    /// Retry AI notes for meetings that were left with the basic recap.
+    func runNotesBackfill() {
+        guard let settings = lastSettings, let ollamaManager = lastOllamaManager else { return }
+        Task { [weak self] in
+            await NotesBackfill.run(settings: settings, ollamaManager: ollamaManager,
+                                    meetingInProgress: { self?.isLive ?? false },
+                                    onWritten: { path, review in
+                guard let self, path == self.savedPath, !self.isGeneratingSummary else { return }
+                self.meetingReview = review
+                self.reviewAIError = nil
+            })
+        }
+    }
+
+    /// A failed automatic generation is retried shortly, then later.
+    private func scheduleNotesRetries() {
+        for delay in NotesBackfill.quickRetries {
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(delay))
+                self?.runNotesBackfill()
+            }
         }
     }
 
@@ -1047,6 +1164,7 @@ final class LiveSessionViewModel {
                 self.error = "Couldn't delete meeting: \(error.localizedDescription)"
                 return
             }
+            NotesBackfill.resolve(path)
             savedPath = nil
         }
         resetSessionState()
@@ -1077,6 +1195,7 @@ final class LiveSessionViewModel {
         participantsConfirmedForSession = false
         endedSessionContext = nil
         endedCaptureManager = nil
+        endedVisualObservations = []
         micOnly = false
         appleCallCapture = false
         micWarning = nil
@@ -1128,9 +1247,12 @@ final class LiveSessionViewModel {
     /// split at the segment boundaries — a single dominant label for a
     /// back-and-forth exchange hands every word to one person, which was
     /// the main source of attribution errors (measured ~12% of words).
-    private func applyDiarization(_ segments: [SpeakerSegment], channel: DiarizationChannel) {
-        // Remap stale labels from publishes that raced a rename.
-        let segments = segments.map { seg in
+    private func applyDiarization(_ segments: [SpeakerSegment], channel: DiarizationChannel,
+                                  final: Bool = false) {
+        // Remap stale labels from publishes that raced a rename. Not for the
+        // final pass: its labels already carry every rename, and one of its
+        // new voices may reuse a slot label that was renamed earlier.
+        let segments = final ? segments : segments.map { seg in
             segmentRenames[seg.speaker].map {
                 SpeakerSegment(speaker: $0, start: seg.start, end: seg.end)
             } ?? seg
@@ -1215,13 +1337,16 @@ final class LiveSessionViewModel {
         }
         if channel == .system {
             recomputeRemoteAlias()
-            maybeSuggestMerge()
+            if !final { maybeSuggestMerge() }
         }
         guard changed else { return }
         if var engine = signalEngine {
             engine.invalidateTurnCache()
             signalEngine = engine
         }
+        // After Stop nothing evaluates: no nudge may fire into a meeting
+        // that has ended. The caller rebuilds turns.
+        guard isLive else { return }
         runSignalEvaluation()
     }
 
@@ -1421,7 +1546,33 @@ final class LiveSessionViewModel {
         guard isLive, !isDemo, !micOnly else { return }
         // Rebuild rather than keeping a stale match after diarization refines.
         speakerNameSuggestions.removeAll { $0.kind == .visualName }
-        var matches = VisualSpeakerEvidence.matches(visualSpeakerCapture.observations,
+        // With automatic snapshots on, a name that passes the evidence rules
+        // is applied: the user asked for names to be picked up, and a card to
+        // confirm each one is not that. A wrong one is one click to rename.
+        let automatic = UserDefaults.standard.bool(forKey: VisualSpeakerCapture.automaticDefaultsKey)
+        for match in visualNameMatches(observations: visualSpeakerCapture.observations,
+                                       rosters: visualSpeakerCapture.rosters) {
+            guard !speakerNameSuggestions.contains(where: { $0.label == match.label }),
+                  segmentRenames[match.label] == nil else { continue }
+            let suggestion = SpeakerNameSuggestion(label: match.label, name: match.name,
+                                                   confidence: 0.8, kind: .visualName)
+            guard !rejectedNameSuggestions.contains(suggestion.key) else { continue }
+            if automatic {
+                mclog("[VM] Speaker snapshots name \(match.label) as \(match.name)")
+                renameSpeaker(match.label, to: match.name)
+            } else {
+                speakerNameSuggestions.append(suggestion)
+            }
+        }
+    }
+
+    /// Unnamed remote voices the snapshots can name: a highlighted tile's
+    /// name seen twice while only that voice was talking, or (one-on-one)
+    /// the single other name on screen. Names someone already carries are
+    /// left out.
+    private func visualNameMatches(observations: [VisualSpeakerObservation],
+                                   rosters: [VisualRosterObservation]) -> [(label: String, name: String)] {
+        var matches = VisualSpeakerEvidence.matches(observations,
                                                     segments: latestSystemSegments,
                                                     localSpeech: utterances)
         // Timing-aligned highlight evidence outranks the one-on-one roster.
@@ -1431,20 +1582,14 @@ final class LiveSessionViewModel {
         let remote = latestRemoteLabels.union(utterances.lazy.map(\.speaker).filter {
             $0.hasPrefix("Them ") || owned.contains($0) || self.baseLabelRenames["Them"] == $0
         }).subtracting(["Them"])
-        if let roster = VisualSpeakerEvidence.rosterMatch(visualSpeakerCapture.rosters, remoteLabels: remote,
+        if let roster = VisualSpeakerEvidence.rosterMatch(rosters, remoteLabels: remote,
                                                           remoteSegments: latestSystemSegments),
            !matches.contains(where: { $0.label == roster.label }) {
             matches.append(roster)
         }
         let taken = Array(Set(utterances.map(\.speaker))) + [remoteAlias].compactMap { $0 }
-        for match in matches {
-            guard !taken.contains(where: { VoiceProfileStore.samePerson($0, match.name) }),
-                  !speakerNameSuggestions.contains(where: { $0.label == match.label }),
-                  segmentRenames[match.label] == nil else { continue }
-            let suggestion = SpeakerNameSuggestion(label: match.label, name: match.name,
-                                                   confidence: 0.8, kind: .visualName)
-            guard !rejectedNameSuggestions.contains(suggestion.key) else { continue }
-            speakerNameSuggestions.append(suggestion)
+        return matches.filter { match in
+            !taken.contains(where: { VoiceProfileStore.samePerson($0, match.name) })
         }
     }
 
@@ -1595,6 +1740,16 @@ final class LiveSessionViewModel {
             mclog("[VM] Renamed speaker in saved transcript: \(path)")
             return
         }
+        rewriteSavedTranscript()
+    }
+
+    /// Write this session's transcript over the saved file's. Not when names
+    /// were changed on the meeting's saved page: the file is then ahead of
+    /// this session's memory.
+    private func rewriteSavedTranscript() {
+        guard let path = savedPath,
+              !MeetingNotesFile.speakerRenamedPaths.contains(URL(fileURLWithPath: path).standardizedFileURL.path),
+              let content = try? String(contentsOfFile: path, encoding: .utf8) else { return }
         var lines = content.components(separatedBy: "\n")
         guard let heading = lines.firstIndex(of: "## Transcript") else { return }
         let body = lines.index(after: heading)
@@ -1602,7 +1757,7 @@ final class LiveSessionViewModel {
         lines.replaceSubrange(body..<end, with: serializedTranscriptLines() + [""])
         try? lines.joined(separator: "\n")
             .write(toFile: path, atomically: true, encoding: .utf8)
-        mclog("[VM] Rewrote saved transcript after rename: \(path)")
+        mclog("[VM] Rewrote saved transcript: \(path)")
     }
 
     /// The saved file's transcript body: coalesced turns with the display
@@ -1920,6 +2075,9 @@ final class LiveSessionViewModel {
 
         let reviewNudges = nudges
         let reviewContext = self.reviewContext
+        // The file these notes belong to. If the next meeting starts while
+        // they are being written, they still go there (see NotesBackfill).
+        let notesPath = savedPath
         let reviewLanguage = (settings.notesLanguage).notesLanguageName(
             meetingLanguage: singleSessionLanguage,
             detected: languageTally.dominant)
@@ -1936,7 +2094,10 @@ final class LiveSessionViewModel {
             } else {
                 ready = await settings.prepareAI(ollamaManager: ollamaManager)
             }
-            guard reviewGenerationID == generationID else { return }
+            guard reviewGenerationID == generationID else {
+                handOffNotes(path: notesPath, summary: nil)
+                return
+            }
             let reviewModel = pinnedModel ?? settings.effectiveModel
             if ready {
                 // Give a notes-only model the same ownership as a live model,
@@ -1956,8 +2117,19 @@ final class LiveSessionViewModel {
                 do {
                     summary = try await Self.completeReview(reviewModel, system, user)
                 } catch {
-                    guard reviewGenerationID == generationID else { return }
-                    reviewAIError = "\(error.localizedDescription) A basic recap is shown; retry from the saved meeting."
+                    guard reviewGenerationID == generationID else {
+                        handOffNotes(path: notesPath, summary: nil)
+                        return
+                    }
+                    // Anything but a setup problem may pass by itself (a busy
+                    // CLI, a usage limit, the network): retry without asking.
+                    if !ClaudeAccount.isSetupProblem(error.localizedDescription), let notesPath {
+                        NotesBackfill.enqueue(notesPath)
+                        scheduleNotesRetries()
+                        reviewAIError = "\(error.localizedDescription) A basic recap is shown for now; MeetMouse will retry the AI notes automatically."
+                    } else {
+                        reviewAIError = "\(error.localizedDescription) A basic recap is shown; retry from the saved meeting."
+                    }
                     mclog("[Review] AI unavailable; using instant review")
                 }
             } else {
@@ -1965,7 +2137,10 @@ final class LiveSessionViewModel {
                     ? "A basic recap is shown. Set up AI notes to get full summaries and follow-ups."
                     : "The local AI model couldn't start, so a basic recap is shown. Try Regenerate from the saved meeting, or restart MeetMouse."
             }
-            guard reviewGenerationID == generationID else { return }
+            guard reviewGenerationID == generationID else {
+                handOffNotes(path: notesPath, summary: summary)
+                return
+            }
             if let summary, !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 finishReview(MeetingReview.parse(llmText: summary,
                                                  talkShare: talkStats.sessionShare))
@@ -1981,6 +2156,19 @@ final class LiveSessionViewModel {
             sessionModelState = nil
             await releaseSessionModel(ended)
         }
+    }
+
+    /// The session moved on to another meeting while this one's notes were
+    /// being written. Finished notes are saved to its file; unfinished ones
+    /// are queued and written from the file.
+    private func handOffNotes(path: String?, summary: String?) {
+        guard let path else { return }
+        if let summary, NotesBackfill.save(summary, toPath: path) {
+            mclog("[Review] Notes finished after the next meeting started; saved to the file")
+            return
+        }
+        NotesBackfill.enqueue(path)
+        runNotesBackfill()
     }
 
     /// Single epilogue for every review path: publish, stop the spinner,

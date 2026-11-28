@@ -92,6 +92,16 @@ jobs:
           bash tests/micsilence/run.sh
           bash tests/download/run.sh
 
+      # Who-said-what on a scripted three-voice call, through the real
+      # diarizer models: live labels vs the whole-call final pass, written
+      # to the job summary. Informational: it downloads FluidAudio's models
+      # and runs CoreML on a virtualized runner, neither of which the
+      # release should hang on. tests/session covers the logic around it.
+      - name: Speaker attribution (live vs final pass, informational)
+        continue-on-error: true
+        timeout-minutes: 25
+        run: bash tests/diarization/run.sh
+
       # The compare-before-you-ship report: transcription accuracy + Them
       # turn shape per committed corpus and nudge quality, each against the
       # previous recorded run. Rendered into the job summary so every

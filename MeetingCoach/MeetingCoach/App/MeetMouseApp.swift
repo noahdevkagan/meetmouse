@@ -25,6 +25,9 @@ struct MeetMouseApp: App {
 
     init() {
         DispatchQueue.global(qos: .utility).async { ClaudeAccount.removeStaleInstallerFiles() }
+        // Call audio kept for the final speaker pass is deleted when the pass
+        // ends; this clears what a crash or force-quit left behind.
+        DispatchQueue.global(qos: .utility).async { SpeakerAudioArchive.removeLeftovers() }
         // First line of every run: which binary produced this log. Field
         // debugging 2026-08-10 had to fingerprint the version from log-line
         // *ordering* because nothing ever logged it.
@@ -228,6 +231,13 @@ struct MenuBarLabel: View {
                 // one session but not the app.
                 liveSession.meetingTitleProvider = { [weak detection] in
                     detection?.detectedMeetingTitle
+                }
+                // Meetings left with the basic recap (AI failed, or the app
+                // quit before their notes were written) get AI notes now.
+                Task {
+                    try? await Task.sleep(for: .seconds(20))
+                    await NotesBackfill.run(settings: settings, ollamaManager: ollamaManager,
+                                            meetingInProgress: { liveSession.isLive })
                 }
                 // Downloads start at launch, not first use — this label is
                 // the app's only always-alive view, so login/menu-bar-only

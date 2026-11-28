@@ -43,6 +43,15 @@ final class VisualSpeakerCapture {
     private var task: Task<Void, Never>?
     private var generation = UUID()
     static let limit = 6
+    /// Automatic mode keeps sampling past the first six while the session
+    /// says a remote voice is still unnamed (`wantsMore`): on a call with
+    /// several people, the first ninety seconds rarely show each of them
+    /// talking. Every 30 s, so a two-hour call still stays under this.
+    static let extendedLimit = 40
+    private var wantsMore: (@MainActor () -> Bool)?
+    private var budget: Int {
+        wantsMore != nil && pinnedAutomatically ? Self.extendedLimit : Self.limit
+    }
     static let automaticDefaultsKey = "automaticSpeakerSnapshots"
 
     struct Snapshot: Sendable {
@@ -142,8 +151,10 @@ final class VisualSpeakerCapture {
     /// session ends (`stop`, or `canStart` turning false).
     func startAutomatically(sessionStart: Date,
                             canStart: @escaping @MainActor () -> Bool,
+                            wantsMore: (@MainActor () -> Bool)? = nil,
                             onObservation: @escaping @MainActor () -> Void) {
         guard !isRunning, !isDiscovering, count < Self.limit, canStart() else { return }
+        self.wantsMore = wantsMore
         generation = UUID()
         observations = []
         rosters = []
@@ -283,7 +294,7 @@ final class VisualSpeakerCapture {
     private func beginCapture(window: SpeakerWindowChoice, sessionStart: Date,
                               onObservation: @escaping @MainActor () -> Void,
                               canStart: (@MainActor () -> Bool)?) {
-        guard !isRunning, count < Self.limit else { return }
+        guard !isRunning, count < max(Self.limit, budget) else { return }
         let run = generation
         isRunning = true
         pinned = window
@@ -292,7 +303,12 @@ final class VisualSpeakerCapture {
         task = Task { [weak self] in
             // Let the consent sheet disappear; never activate or move the call.
             do { try await self?.pause(.seconds(3)) } catch { return }
-            while !Task.isCancelled, let self, self.generation == run, self.count < Self.limit {
+            while !Task.isCancelled, let self, self.generation == run, self.count < self.budget {
+                // Past the first six: only while someone is still unnamed.
+                if self.count >= Self.limit, self.wantsMore?() != true {
+                    do { try await self.pause(.seconds(30)) } catch { return }
+                    continue
+                }
                 do {
                     // Count requests, including failures: the meeting cap is hard.
                     self.count += 1
@@ -307,15 +323,19 @@ final class VisualSpeakerCapture {
                         self.rosters.append(.init(names: roster, time: snapshot.start.timeIntervalSince(sessionStart)))
                         if !roster.isEmpty { onObservation() }
                     }
-                    self.status = "Speaker snapshots \(self.count)/\(Self.limit) · on-device"
-                    if self.count < Self.limit { try await self.pause(.seconds(15)) }
+                    self.status = self.count <= Self.limit
+                        ? "Speaker snapshots \(self.count)/\(Self.limit) · on-device"
+                        : "Speaker snapshots · on-device"
+                    if self.count < self.budget {
+                        try await self.pause(.seconds(self.count < Self.limit ? 15 : 30))
+                    }
                 } catch {
                     guard !Task.isCancelled, self.generation == run else { return }
                     // Never swap a pinned window that still exists (retitled
                     // tab, minimized, other Space). Only when it is closed may
                     // automatic mode look for the next unique call window;
                     // the six-shot budget and evidence so far carry over.
-                    if error is CaptureError, let canStart, canStart(), self.count < Self.limit,
+                    if error is CaptureError, let canStart, canStart(), self.count < self.budget,
                        !self.windowExists(window.id) {
                         mclog("speaker-snapshots: pinned window closed, resuming discovery")
                         self.isRunning = false
@@ -353,7 +373,10 @@ final class VisualSpeakerCapture {
         observations = []
         rosters = []
         status = reset ? "" : "Screenshot assistance stopped"
-        if reset { count = 0 }
+        if reset {
+            count = 0
+            wantsMore = nil
+        }
     }
 
     nonisolated private static func captureSnapshot(window: SpeakerWindowChoice) async throws -> Snapshot {

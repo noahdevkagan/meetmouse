@@ -7,14 +7,6 @@ import Foundation
 // view model calls; a compile error here means the VM grew a dependency
 // and the stub should grow with it.
 
-/// One finalized "who spoke when" span (real one lives in SpeakerDiarizer,
-/// which imports FluidAudio).
-struct SpeakerSegment: Sendable, Equatable {
-    let speaker: String
-    let start: TimeInterval
-    let end: TimeInterval
-}
-
 /// Which audio source a diarization result describes (real one lives in
 /// AudioCaptureManager).
 enum DiarizationChannel: String, Sendable {
@@ -88,6 +80,15 @@ final class AudioCaptureManager {
         return target.preferredEngine
     }
     func renameSpeaker(_ label: String, to name: String) { renames.append((label, name)) }
+    /// What the whole-call speaker pass returns after Stop (the real one
+    /// runs FluidAudio's offline pipeline in each channel's diarizer), and
+    /// how long it takes.
+    var finalPass: [(channel: DiarizationChannel, segments: [SpeakerSegment])] = []
+    var finalPassDelay: Duration?
+    func finalSpeakerPass() async -> [(channel: DiarizationChannel, segments: [SpeakerSegment])] {
+        if let finalPassDelay { try? await Task.sleep(for: finalPassDelay) }
+        return finalPass
+    }
 }
 
 /// Minimal rubric: stock tuning, no custom signals.

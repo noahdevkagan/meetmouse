@@ -5,6 +5,29 @@ Auto-injected into every Claude session in this repo (SessionStart hook in
 Keep it short: current state, outstanding work, and the prompt to start from.
 The durable "why" behind choices goes in `decisions.md`, not here.
 
+## Current state (2026-11-28): speaker attribution, automatic names, automatic AI notes (branch claude/lucid-cannon-f4nonp)
+
+Same customer as 2026-11-24 wrote back after 0.37/0.38: (1) two named remote people still get each
+other's lines, (2) "Automatically take speaker-name screenshots" does not name anyone by itself,
+(3) with a Claude account, AI notes appear for some meetings only (Regenerate works), (4) does the
+team option share every meeting with everyone. He quotes "Speaker 2/3" labels, which only exist in
+mic-only sessions (no Screen Recording, so no system audio and no screenshots): ask him.
+Plan:
+1. Final speaker pass (`Engine/FinalSpeakerPass.swift`, `SpeakerDiarizer.finish`): the diarizer
+   keeps the call's 16 kHz audio in a temp file; at Stop FluidAudio's offline pipeline (pyannote
+   community-1 + VBx, about half LS-EEND's error) re-diarizes the whole call, its clusters are
+   mapped onto the live names, and the transcript is relabeled before it is saved and before notes
+   are written. Any failure keeps the live labels. `tests/diarization` (macOS, real models,
+   `say` voices) reports live vs final attribution; CI runs it non-blocking.
+2. Screenshots in automatic mode: names that pass the existing evidence rules are applied without
+   a tap, sampling continues through the call while a remote voice is unnamed, and the final pass
+   is matched against the same observations.
+3. Notes: a generation is tied to the saved file, not the live session, so starting the next
+   meeting no longer drops it; transient AI failures retry; a meeting left with the basic recap
+   is retried later (`Engine/NotesBackfill.swift`).
+4. Team sharing default: Noah's call from 2026-11-26 stands until he says otherwise; answer in
+   the reply (toggle in Settings -> Team, "Remove from team page" on a meeting).
+
 ## Current state (2026-11-26): Fireflies import + team space (branch claude/confident-galileo-44k2ep)
 
 Two asks from Noah: a customer wants a team license so notes are shared, and a Fireflies import.

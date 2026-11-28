@@ -25,6 +25,8 @@ swiftc -O -o "$OUT/sessioncheck" \
   "$SRC/Engine/VisualSpeakerCapture.swift" \
   "$SRC/Engine/MeetingWindowHeuristics.swift" \
   "$SRC/Engine/VisualSpeakerEvidence.swift" \
+  "$SRC/Engine/FinalSpeakerPass.swift" \
+  "$SRC/Engine/NotesBackfill.swift" \
   "$SRC/Engine/OllamaClient.swift" \
   "$SRC/Engine/AIProvider.swift" \
   "$SRC/Engine/AIClient.swift" \

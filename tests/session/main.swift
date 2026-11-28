@@ -2442,6 +2442,229 @@ func runTests() async {
               "a colon in a name cannot break the saved line")
     }
 
+    // Final speaker pass: mapping the offline clusters onto live names.
+    do {
+        func seg(_ who: String, _ a: Double, _ b: Double) -> SpeakerSegment {
+            SpeakerSegment(speaker: who, start: a, end: b)
+        }
+        func span(_ c: String, _ a: Double, _ b: Double) -> FinalSpeakerPass.ClusterSpan {
+            .init(cluster: c, start: a, end: b)
+        }
+        // Two named people whose lines the live model mixed up: cluster A is
+        // really Jonas, cluster B really Petra.
+        let live = [seg("Jonas", 0, 30), seg("Petra", 30, 40), seg("Jonas", 40, 50),
+                    seg("Petra", 50, 80), seg("Jonas", 80, 90)]
+        let offline = [span("A", 0, 40), span("B", 40, 90)]
+        let fixed = FinalSpeakerPass.relabel(offline: offline, live: live, labelPrefix: "Them")
+        check(fixed == [seg("Jonas", 0, 40), seg("Petra", 40, 90)],
+              "final pass: each voice keeps the name it mostly carried", "\(String(describing: fixed))")
+
+        // A voice the live model never told apart gets the next free slot,
+        // not a slot label that is already in use.
+        let oneLive = [seg("Jonas", 0, 60), seg("Them 2", 60, 61)]
+        let twoVoices = FinalSpeakerPass.relabel(offline: [span("A", 0, 35), span("B", 35, 60)],
+                                                 live: oneLive, labelPrefix: "Them")
+        check(twoVoices == [seg("Jonas", 0, 35), seg("Them 1", 35, 60)],
+              "final pass: a newly separated voice takes a free slot label", "\(String(describing: twoVoices))")
+
+        // A voice the live model invented disappears.
+        let phantom = [seg("Jonas", 0, 20), seg("Them 2", 20, 24), seg("Jonas", 24, 60)]
+        let merged = FinalSpeakerPass.relabel(offline: [span("A", 0, 60)], live: phantom, labelPrefix: "Them")
+        check(merged == [seg("Jonas", 0, 60)], "final pass: a phantom live voice is dropped")
+
+        check(FinalSpeakerPass.relabel(offline: [], live: live, labelPrefix: "Them") == nil
+              && FinalSpeakerPass.relabel(offline: [span("A", 0, 5)], live: live, labelPrefix: "Them") == nil,
+              "final pass: an empty or thin result keeps the live labels")
+        check(FinalSpeakerPass.relabel(offline: [span("A", 0, 50), span("B", 50, 70)], live: [],
+                                       labelPrefix: "Speaker")?.map(\.speaker) == ["Speaker 1", "Speaker 2"],
+              "final pass: works when the live model produced nothing")
+
+        let truth = [seg("a", 0, 40), seg("b", 40, 90)]
+        check(FinalSpeakerPass.confusion(truth: truth, hypothesis: fixed ?? []) < 0.01,
+              "confusion: a relabeling with other names scores zero")
+        let liveScore = FinalSpeakerPass.confusion(truth: truth, hypothesis: live)
+        check(liveScore > 0.3 && liveScore < 0.36, "confusion: swapped stretches are counted", "\(liveScore)")
+    }
+
+    // The call's audio archive: clock in seconds, whatever the source rate.
+    do {
+        let dir = scratch.appendingPathComponent("archive")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        if let archive = SpeakerAudioArchive(directory: dir) {
+            archive.append([Float](repeating: 0.1, count: 16_000), rate: 16_000)
+            archive.append([Float](repeating: 0.1, count: 44_100), rate: 44_100)
+            archive.append([Float](repeating: 0.1, count: 24_000), rate: 24_000)
+            check(abs(archive.seconds - 3) < 0.001, "archive: seconds follow the audio at any rate",
+                  "\(archive.seconds)")
+            archive.close()
+            let size = (try? FileManager.default.attributesOfItem(atPath: archive.url.path)[.size] as? Int) ?? 0
+            check(size == archive.samples * 4, "archive: 16 kHz Float32 on disk", "\(size)")
+            SpeakerAudioArchive.removeLeftovers(in: dir)
+            check(FileManager.default.fileExists(atPath: archive.url.path),
+                  "archive: a recent file is not treated as a leftover")
+            SpeakerAudioArchive.removeLeftovers(in: dir, now: Date().addingTimeInterval(24 * 3600))
+            check(!FileManager.default.fileExists(atPath: archive.url.path),
+                  "archive: an old leftover is removed")
+        } else {
+            check(false, "archive: temp file can be created")
+        }
+    }
+
+    // After Stop the whole-call pass relabels the transcript, the saved
+    // file, and what the notes are written from.
+    do {
+        resetSeams()
+        var prompt = ""
+        LiveSessionViewModel.completeReview = { _, _, user in prompt = user; return "SUMMARY:\nFinal pass notes." }
+        let settings = liveSettings()
+        settings.semanticCoachEnabled = false
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: OllamaManager())
+        try? await Task.sleep(for: .milliseconds(150))
+        if let capture = AudioCaptureManager.last {
+            capture.onUtterance?(Utterance(t: 1, speaker: "Them", text: "The budget is approved for next quarter.", endT: 5))
+            capture.onUtterance?(Utterance(t: 6, speaker: "Them", text: "I will send the contract on Friday.", endT: 10))
+            capture.onUtterance?(Utterance(t: 11, speaker: "Them", text: "Thanks, that works for our team.", endT: 15))
+            // Live: everything lands on one voice, which the user names.
+            capture.onSpeakerSegments?(.system, [SpeakerSegment(speaker: "Them 1", start: 0.5, end: 15.5)])
+            try? await Task.sleep(for: .milliseconds(50))
+            vm.renameSpeaker("Them 1", to: "Jonas")
+            check(vm.utterances.map(\.speaker) == ["Jonas", "Jonas", "Jonas"], "live labels before the final pass")
+            // Final pass: the middle line was someone else.
+            capture.finalPass = [(.system, [
+                SpeakerSegment(speaker: "Jonas", start: 0.5, end: 5.5),
+                SpeakerSegment(speaker: "Them 1", start: 5.6, end: 10.4),
+                SpeakerSegment(speaker: "Jonas", start: 10.6, end: 15.5),
+            ])]
+            capture.finalPassDelay = .milliseconds(60)
+            vm.stopLive()
+            check(vm.isGeneratingSummary && prompt.isEmpty, "notes wait for the final speaker pass")
+            try? await Task.sleep(for: .milliseconds(400))
+            check(vm.utterances.map(\.speaker) == ["Jonas", "Them 1", "Jonas"],
+                  "final pass relabels the transcript (a reused slot label is not the renamed voice)",
+                  "got \(vm.utterances.map(\.speaker))")
+            check(vm.turns.map(\.speaker) == ["Jonas", "Them 1", "Jonas"], "final pass rebuilds the turns",
+                  "got \(vm.turns.map(\.speaker))")
+            let saved = vm.savedPath.flatMap { try? String(contentsOfFile: $0, encoding: .utf8) } ?? ""
+            check(saved.contains("Them 1: I will send the contract on Friday.")
+                  && saved.contains("Jonas: The budget is approved"),
+                  "final pass rewrites the saved transcript", saved)
+            check(prompt.contains("Them 1: I will send the contract on Friday.")
+                  && !vm.isGeneratingSummary && vm.meetingReview != nil,
+                  "notes are written from the final speakers", prompt)
+            check(vm.nudges.isEmpty || !vm.isLive, "no nudge fires from a relabel after Stop")
+        } else {
+            check(false, "capture manager wired (final pass)")
+        }
+        vm.deleteSession()
+    }
+
+    // The next meeting starting must not drop the previous meeting's notes.
+    do {
+        resetSeams()
+        let gate = AsyncStream<Void>.makeStream()
+        LiveSessionViewModel.completeReview = { _, _, _ in
+            var iterator = gate.stream.makeAsyncIterator()
+            _ = await iterator.next()
+            return "SUMMARY:\nNotes for the first meeting."
+        }
+        let settings = liveSettings()
+        settings.semanticCoachEnabled = false
+        let manager = OllamaManager()
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(150))
+        AudioCaptureManager.last?.onUtterance?(Utterance(t: 1, speaker: "You", text: "First meeting, ship it Tuesday.", endT: 3))
+        vm.stopLive()
+        let firstPath = vm.savedPath
+        try? await Task.sleep(for: .milliseconds(100))
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: manager)
+        try? await Task.sleep(for: .milliseconds(100))
+        gate.continuation.yield(())
+        gate.continuation.finish()
+        try? await Task.sleep(for: .milliseconds(150))
+        let first = firstPath.flatMap { try? String(contentsOfFile: $0, encoding: .utf8) } ?? ""
+        check(first.contains("## Review") && first.contains("Notes for the first meeting."),
+              "notes still land in a meeting's file after the next meeting starts", first)
+        check(vm.meetingReview == nil, "and never become the new meeting's notes")
+        vm.stopLive()
+        vm.deleteSession()
+        if let firstPath { try? FileManager.default.removeItem(atPath: firstPath) }
+    }
+
+    // A failed automatic generation is queued and retried from the file.
+    do {
+        resetSeams()
+        var failing = true
+        LiveSessionViewModel.completeReview = { _, _, _ in
+            if failing { throw NSError(domain: "test", code: 1) }
+            return "SUMMARY:\nNotes from the automatic retry."
+        }
+        let settings = liveSettings()
+        settings.semanticCoachEnabled = false
+        let vm = LiveSessionViewModel()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: OllamaManager())
+        try? await Task.sleep(for: .milliseconds(150))
+        AudioCaptureManager.last?.onUtterance?(Utterance(t: 1, speaker: "You", text: "Send the proposal tomorrow.", endT: 3))
+        vm.stopLive()
+        try? await Task.sleep(for: .milliseconds(200))
+        let path = vm.savedPath ?? ""
+        check(vm.reviewAIError?.contains("retry the AI notes automatically") == true
+              && NotesBackfill.entries()[path] != nil,
+              "a failed automatic generation is queued", "\(String(describing: vm.reviewAIError))")
+        failing = false
+        vm.runNotesBackfill()
+        try? await Task.sleep(for: .milliseconds(200))
+        let saved = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+        check(saved.contains("Notes from the automatic retry.") && NotesBackfill.entries()[path] == nil,
+              "the retry writes AI notes into the saved meeting", saved)
+        check(vm.meetingReview?.recapMarkdown.contains("Notes from the automatic retry.") == true
+              && vm.reviewAIError == nil,
+              "the session showing that meeting takes the retried notes")
+        vm.deleteSession()
+    }
+
+    // What the retry reads out of a saved meeting.
+    do {
+        let file = """
+        # MeetMouse Session — 2026-11-02_10-00
+        **Duration:** 1:02:30
+        **Language:** en
+
+        ## Transcript
+        - [00:01] You: Hello there
+        - [00:05] Riya: Hi, the launch is on Monday
+
+        ## Nudges
+        - [00:07] **talk_time** (low): not a transcript line
+
+        ## Review
+
+        - [00:05] Riya: quoted in the notes
+        """
+        let source = NotesBackfill.source(in: file)
+        check(source?.transcript == "You: Hello there\nRiya: Hi, the launch is on Monday"
+              && source?.durationMinutes == 62 && source?.languageCode == "en",
+              "backfill reads transcript lines, duration and language", "\(String(describing: source))")
+        check(NotesBackfill.source(in: "# Empty\n\n## Transcript\n") == nil,
+              "backfill skips a meeting with no transcript")
+        check(NotesBackfill.minutes("32:10") == 32 && NotesBackfill.minutes("0:20") == 1
+              && NotesBackfill.minutes("45 min") == 45, "backfill duration parsing")
+        let defaults = UserDefaults(suiteName: "mc-backfill-test")!
+        defaults.removePersistentDomain(forName: "mc-backfill-test")
+        NotesBackfill.enqueue("/tmp/a.md", defaults: defaults)
+        NotesBackfill.enqueue("/tmp/a.md", defaults: defaults)
+        check(NotesBackfill.due(defaults: defaults) == ["/tmp/a.md"], "a queued meeting is due at once")
+        defaults.set(["/tmp/a.md": ["attempts": 1.0, "last": Date().timeIntervalSince1970]],
+                     forKey: NotesBackfill.defaultsKey)
+        check(NotesBackfill.due(defaults: defaults).isEmpty
+              && NotesBackfill.due(now: Date().addingTimeInterval(50), defaults: defaults) == ["/tmp/a.md"],
+              "a failed attempt waits before the next one")
+        NotesBackfill.resolve("/tmp/a.md", defaults: defaults)
+        check(NotesBackfill.entries(defaults: defaults).isEmpty, "resolved meetings leave the queue")
+        defaults.removePersistentDomain(forName: "mc-backfill-test")
+    }
+
     resetSeams()
 }
 

@@ -2,13 +2,6 @@ import Accelerate
 import Foundation
 import FluidAudio
 
-/// One finalized "who spoke when" span, session-relative seconds.
-struct SpeakerSegment: Sendable, Equatable {
-    let speaker: String
-    let start: TimeInterval
-    let end: TimeInterval
-}
-
 /// On-device streaming speaker diarization (FluidAudio LS-EEND, CoreML).
 ///
 /// Feed it mono buffers from one audio source; it periodically publishes the
@@ -22,6 +15,10 @@ struct SpeakerSegment: Sendable, Equatable {
 /// labels. While the session runs, a short clip of each distinct speaker is
 /// collected from the finalized segments — naming a speaker saves that clip
 /// as their profile for every future session.
+///
+/// Those live labels are a draft. At stop, the whole call goes through the
+/// offline clustering pipeline once (`FinalSpeakerPass`); `finalSegments()`
+/// hands back the result and the saved transcript is relabeled from it.
 final class SpeakerDiarizer: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.coach.diarizer", qos: .utility)
     private var diarizer: LSEENDDiarizer?
@@ -75,6 +72,19 @@ final class SpeakerDiarizer: @unchecked Sendable {
     /// full-transcript relabel pass.
     private var publishedCount = -1
     private var publishedLastEnd: Float = -1
+    /// The last segment list handed to `onSegments`.
+    private var lastSegments: [SpeakerSegment] = []
+
+    // MARK: Final pass (all on `queue`)
+
+    /// The call's audio, kept for the whole-call pass at stop.
+    private var archive: SpeakerAudioArchive?
+    private var finalPassDone = false
+    private var finalPassWaiters: [@Sendable ([SpeakerSegment]?) -> Void] = []
+    private var finalResult: [SpeakerSegment]?
+    /// Clustering threshold override for the offline pipeline; nil keeps
+    /// FluidAudio's preset. Set by the test rig to compare settings.
+    nonisolated(unsafe) static var finalPassThreshold: Double?
 
     var onSegments: (@Sendable ([SpeakerSegment]) -> Void)?
 
@@ -89,9 +99,13 @@ final class SpeakerDiarizer: @unchecked Sendable {
         // drop audio instead of accumulating a preload no model will read.
         guard PlatformSupport.neuralModelsSupported else {
             mclog("[Diarizer:\(labelPrefix)] Skipped — diarization unavailable on Intel Macs")
-            queue.async { self.stopped = true }
+            queue.async {
+                self.stopped = true
+                self.finishFinalPass()
+            }
             return
         }
+        queue.async { self.archive = SpeakerAudioArchive() }
         Task {
             do {
                 // .dihard3: in-the-wild conversations — right for room audio
@@ -111,6 +125,14 @@ final class SpeakerDiarizer: @unchecked Sendable {
             } catch {
                 mclog("[Diarizer:\(self.labelPrefix)] Unavailable: \(error.localizedDescription)")
             }
+        }
+    }
+
+    /// Whether the live model has loaded. Audio fed before that is held and
+    /// replayed, so the app never needs to ask; the test rig does.
+    func isReady() async -> Bool {
+        await withCheckedContinuation { continuation in
+            queue.async { continuation.resume(returning: self.diarizer != nil) }
         }
     }
 
@@ -190,6 +212,7 @@ final class SpeakerDiarizer: @unchecked Sendable {
 
     func stop() {
         queue.async {
+            guard !self.stopped else { return }
             self.stopped = true
             if let d = self.diarizer {
                 try? d.finalizeSession()
@@ -203,6 +226,126 @@ final class SpeakerDiarizer: @unchecked Sendable {
             self.diarizer = nil
             self.preload = []
             self.ring = []
+            self.runFinalPass()
+        }
+    }
+
+    /// The whole-call pass's segments, once it has finished: nil when it was
+    /// skipped or failed and the live labels stand. Returns immediately if
+    /// that is already known. Call after `stop()`.
+    func finalSegments() async -> [SpeakerSegment]? {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                if self.finalPassDone {
+                    continuation.resume(returning: self.finalResult)
+                } else {
+                    self.finalPassWaiters.append { continuation.resume(returning: $0) }
+                }
+            }
+        }
+    }
+
+    private func finishFinalPass(_ segments: [SpeakerSegment]? = nil) {
+        archive?.discard()
+        archive = nil
+        finalResult = segments
+        finalPassDone = true
+        let waiters = finalPassWaiters
+        finalPassWaiters = []
+        waiters.forEach { $0(segments) }
+    }
+
+    /// Re-diarize the whole call with the offline clustering pipeline and
+    /// put its segments under the live labels. Every way this can fail
+    /// (no network for the first model download, a model error, an odd
+    /// result) leaves the live labels as they are.
+    private func runFinalPass() {
+        guard let archive else { return finishFinalPass() }
+        archive.close()
+        let seconds = archive.seconds
+        guard !archive.overflowed, seconds >= FinalSpeakerPass.minSeconds else {
+            mclog("[Diarizer:\(labelPrefix)] Final pass skipped ("
+                  + (archive.overflowed ? "recording incomplete" : String(format: "%.0fs of audio", seconds)) + ")")
+            return finishFinalPass()
+        }
+        let url = archive.url
+        let live = lastSegments
+        let labelsAtStop = labelBySlot
+        let prefix = labelPrefix
+        let started = Date()
+        Task.detached(priority: .userInitiated) {
+            var found: [FinalSpeakerPass.ClusterSpan]?
+            var failure = ""
+            do {
+                found = try await Self.offlineSpans(archive: url)
+            } catch {
+                failure = error.localizedDescription
+            }
+            let offline = found
+            let reason = failure
+            self.queue.async {
+                var result: [SpeakerSegment]?
+                defer { self.finishFinalPass(result) }
+                guard let spans = offline else {
+                    mclog("[Diarizer:\(prefix)] Final pass failed, live labels kept: \(reason)")
+                    return
+                }
+                // A speaker named while the pass ran: carry the new name.
+                var renamed: [String: String] = [:]
+                for (slot, old) in labelsAtStop {
+                    if let now = self.labelBySlot[slot], now != old { renamed[old] = now }
+                }
+                let current = renamed.isEmpty ? live : live.map {
+                    SpeakerSegment(speaker: renamed[$0.speaker] ?? $0.speaker, start: $0.start, end: $0.end)
+                }
+                guard let segments = FinalSpeakerPass.relabel(offline: spans, live: current,
+                                                              labelPrefix: prefix) else {
+                    mclog("[Diarizer:\(prefix)] Final pass found too little speech, live labels kept")
+                    return
+                }
+                mclog("[Diarizer:\(prefix)] Final pass: \(Set(segments.map(\.speaker)).count) voice(s) over "
+                      + String(format: "%.0fs in %.1fs", seconds, Date().timeIntervalSince(started))
+                      + " (live had \(Set(current.map(\.speaker)).count))")
+                self.lastSegments = segments
+                result = segments
+            }
+        }
+    }
+
+    private static func offlineSpans(archive url: URL) async throws -> [FinalSpeakerPass.ClusterSpan] {
+        let config = finalPassThreshold.map { OfflineDiarizerConfig(clusteringThreshold: $0) }
+            ?? OfflineDiarizerConfig.default
+        let manager = OfflineDiarizerManager(config: config)
+        try await manager.prepareModels()
+        let source = try MappedSamples(url: url)
+        let result = try await manager.process(audioSource: source, audioLoadingSeconds: 0)
+        return result.segments.map {
+            FinalSpeakerPass.ClusterSpan(cluster: $0.speakerId,
+                                         start: TimeInterval($0.startTimeSeconds),
+                                         end: TimeInterval($0.endTimeSeconds))
+        }
+    }
+
+    /// The archive file, memory-mapped: the pipeline reads windows out of it
+    /// without the whole call being loaded.
+    private struct MappedSamples: AudioSampleSource {
+        private let data: Data
+        let sampleCount: Int
+
+        init(url: URL) throws {
+            data = try Data(contentsOf: url, options: .alwaysMapped)
+            sampleCount = data.count / MemoryLayout<Float>.stride
+        }
+
+        func copySamples(into destination: UnsafeMutablePointer<Float>, offset: Int, count: Int) throws {
+            let offset = max(0, offset)
+            guard count > 0, offset < sampleCount else { return }
+            let available = min(sampleCount - offset, count)
+            data.withUnsafeBytes { raw in
+                guard let base = raw.baseAddress else { return }
+                memcpy(destination, base.advanced(by: offset * MemoryLayout<Float>.stride),
+                       available * MemoryLayout<Float>.stride)
+            }
         }
     }
 
@@ -321,6 +464,7 @@ final class SpeakerDiarizer: @unchecked Sendable {
         flushProfileSaves(final: false)
         guard !segments.isEmpty else { return }
         segments.sort { $0.start < $1.start }
+        lastSegments = segments
         onSegments?(segments)
     }
 
@@ -371,6 +515,7 @@ final class SpeakerDiarizer: @unchecked Sendable {
 
     private func ringAppend(_ samples: [Float], rate: Double) {
         guard rate > 0, !samples.isEmpty else { return }
+        archive?.append(samples, rate: rate)
         ring.append((start: fedSeconds, rate: rate, samples: samples))
         fedSeconds += Double(samples.count) / rate
         let cutoff = fedSeconds - ringSeconds

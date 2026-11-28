@@ -192,6 +192,13 @@ struct SessionDetailView: View {
             title = TranscriptSearch.displayTitle(for: url)
             if let content = try? String(contentsOf: url, encoding: .utf8) { rawContent = content }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NotesBackfill.didWrite)) { notification in
+            // AI notes written by the automatic retry while this page is open.
+            guard notification.object as? URL == url, !regenerating else { return }
+            reviewError = nil
+            load()
+            refreshSharePrompt()
+        }
         .onChange(of: reviewRevision) { _, _ in load(); refreshSharePrompt() }
         .onChange(of: reviewInProgress) { _, inProgress in
             load()
@@ -1121,6 +1128,8 @@ struct SessionDetailView: View {
         let parsed = MeetingReview.parse(llmText: text, talkShare: talkShareValue)
         review = parsed
         persistReview(parsed)
+        // These are the AI notes now; nothing is left for the automatic retry.
+        NotesBackfill.resolve(url.path)
         if notesEdited, let content = try? String(contentsOf: url, encoding: .utf8) {
             // Replaced on purpose: the notes are the AI's again.
             let cleared = MeetingNotesFile.settingEdited(false, in: content)

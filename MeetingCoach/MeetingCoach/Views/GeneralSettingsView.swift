@@ -298,10 +298,10 @@ struct GeneralSettingsView: View {
 
             Section("Speaker names") {
                 Toggle("Automatically take speaker-name screenshots", isOn: $automaticSpeakerSnapshots)
-                Text("For future meetings, detect the meeting window and take up to six silent snapshots. Names are read on this Mac; images are discarded, never saved or sent to AI. Suggested names still need your confirmation. You can stop snapshots in the live transcript.")
+                Text("For future meetings, detect the meeting window and take silent snapshots: six in the first minutes, then one every 30 seconds while someone on the call is still unnamed. Names are read on this Mac; images are discarded, never saved or sent to AI. A name seen twice on the highlighted speaker while that voice is talking is applied by itself; click a name in the transcript to change it. You can stop snapshots in the live transcript.")
                     .font(.caption).foregroundStyle(.secondary)
                 TextField("Your name on calls", text: $speakerSelfName, prompt: Text(NSFullUserName()))
-                Text("Requires visible participant names. In Zoom, enable “Keep participant names visible” under Meetings & webinars. Zoom’s green/yellow outline or Google Meet’s blue outline helps match the speaker. In one-on-one Zoom calls without an outline, MeetMouse finds your tile by this name and suggests the other one. If several meeting windows are open, choose one in the live transcript.")
+                Text("Requires visible participant names. In Zoom, enable “Keep participant names visible” under Meetings & webinars. Zoom’s green/yellow outline or Google Meet’s blue outline helps match the speaker. In one-on-one Zoom calls without an outline, MeetMouse finds your tile by this name and uses the other one. If several meeting windows are open, choose one in the live transcript.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 

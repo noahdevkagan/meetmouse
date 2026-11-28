@@ -107,6 +107,9 @@ if [ "${FULL:-0}" = "1" ] || { [ "$asr_touched" = "1" ] && [ "${FAST:-0}" != "1"
     # stage-4 benchmark record.
     echo "(hard-conversation ASR trend — informational)"
     bash tests/asr/hard.sh || echo "hard trend case failed (non-blocking)"
+    # Speaker attribution on a scripted three-voice call: live labels vs
+    # the whole-call final pass (never blocks; see tests/diarization).
+    bash tests/diarization/run.sh || echo "speaker attribution check failed (non-blocking)"
 else
     echo "(short audio set — ASR code untouched; FULL=1 for everything)"
     FAST=1 bash tests/asr/run.sh || { echo "TRANSCRIPT GATE FAILED"; exit 1; }

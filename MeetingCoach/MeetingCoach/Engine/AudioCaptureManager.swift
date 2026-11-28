@@ -376,6 +376,16 @@ final class AudioCaptureManager: NSObject, @unchecked Sendable {
         }
     }
 
+    /// After `stop()`: each channel's whole-call speaker segments, once its
+    /// final pass is done. A channel whose pass was skipped or failed is
+    /// left out, and its live labels stand.
+    func finalSpeakerPass() async -> [(channel: DiarizationChannel, segments: [SpeakerSegment])] {
+        var result: [(channel: DiarizationChannel, segments: [SpeakerSegment])] = []
+        if let segments = await diarizer?.finalSegments() { result.append((.mic, segments)) }
+        if let segments = await sysDiarizer?.finalSegments() { result.append((.system, segments)) }
+        return result
+    }
+
     func stop() {
         isRunning = false
 

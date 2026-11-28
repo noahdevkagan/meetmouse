@@ -66,3 +66,5 @@ tests/freetier/.build/
 simulator/samples/zoom_meeting.txt
 bench/asr-corpus/
 tests/claude-desktop/.build/
+
+tests/diarization/.build/
