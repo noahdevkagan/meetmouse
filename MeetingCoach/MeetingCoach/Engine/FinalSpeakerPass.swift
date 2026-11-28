@@ -22,14 +22,16 @@ struct SpeakerSegment: Sendable, Equatable {
 /// temp file the call's audio is kept in meanwhile. `SpeakerDiarizer` owns
 /// the model.
 enum FinalSpeakerPass {
-    /// Off unless the user turns it on (Settings → General → Speaker names).
-    /// Measured 2026-11-28 on a scripted three-voice call it was only a
-    /// little better than the live labels (32% vs 37% of speech on the wrong
-    /// person, both merging two voices) and took about 25 s per two minutes
-    /// of audio on a CI runner, so it is not yet something to run on every
-    /// call. With it off no call audio is written to disk.
+    /// On unless the user turns it off (Settings → General → Speaker names).
+    /// Measured 2026-11-28 on the first 8 minutes of three real four-person
+    /// meetings (AMI headset mix, `tests/diarization`): speech given to the
+    /// wrong person went from 47/43/31% with the live labels to 12/13/9%.
+    /// With it off no call audio is written to disk.
     static let enabledKey = "finalSpeakerPass"
-    static var isEnabled: Bool { UserDefaults.standard.bool(forKey: enabledKey) }
+    static var isEnabled: Bool {
+        UserDefaults.standard.object(forKey: enabledKey) == nil
+            || UserDefaults.standard.bool(forKey: enabledKey)
+    }
 
     /// Shorter recordings keep their live labels: too little speech to
     /// cluster, and nothing a second pass would fix.
@@ -37,7 +39,7 @@ enum FinalSpeakerPass {
 
     /// How long notes wait for the pass before going ahead with live labels.
     /// The pass still finishes and relabels the saved transcript after that.
-    static let notesWaitSeconds: TimeInterval = 120
+    static let notesWaitSeconds: TimeInterval = 300
 
     /// A span from the offline pass: `cluster` is an arbitrary id that only
     /// means "the same voice as other spans with this id".

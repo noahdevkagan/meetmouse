@@ -2630,3 +2630,28 @@ call with known speakers (bench/asr-corpus style, kept out of the public repo), 
 final on it on real hardware, and only then decide between turning the pass on, a different
 embedding model, or per-speaker enrollment from the final clusters.
 
+## 2026-11-28 (evening): real meetings in the rig; final pass on by default; live model is callhome
+
+The scripted `say` call could not tell settings apart, so `tests/diarization` now also scores the
+first 8 minutes of three AMI test meetings (four people, headset mix, hand-made RTTM; downloaded
+at run time, CC BY 4.0, never committed). Share of speech on the wrong person, macOS CI runner:
+
+| call | live dihard3 | live ami | live callhome | final pass |
+|---|---|---|---|---|
+| scripted, 3 voices | 37.2% | 64.7% | 33.3% | 32.3% |
+| ES2004a | 46.9% | 27.6% | 30.8% | 12.3% |
+| IS1009a | 42.6% | 35.1% | 35.3% | 12.6% |
+| TS3003a | 31.4% | 4.6% | 7.7% | 9.4% |
+
+So on real speech the final pass cuts wrong attribution from 31-47% to 9-13%, and it is now on by
+default (`FinalSpeakerPass.isEnabled`; the Settings toggle turns it off). This reverses the
+"(later)" entry above, which rested on synthetic voices only. Time was about 60 s per 8 minutes
+on the runner; notes now wait up to 300 s for it, and on a longer call than that covers, notes
+are written from live labels and the transcript is corrected afterwards. Real-Mac timing is still
+unmeasured.
+
+Live model: `.callhome` instead of `.dihard3`. It was better on all four calls. `.ami` was best on
+the AMI meetings but it was trained on that corpus, and it collapsed the scripted call to one
+voice, so it is not the pick. callhome tracks 7 speakers, dihard3 10. Caveat: three meetings and
+one scripted call is a small sample, and none is a compressed Zoom/Meet stream.
+

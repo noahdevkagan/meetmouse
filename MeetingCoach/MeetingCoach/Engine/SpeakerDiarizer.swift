@@ -16,7 +16,7 @@ import FluidAudio
 /// collected from the finalized segments — naming a speaker saves that clip
 /// as their profile for every future session.
 ///
-/// With the final speaker pass turned on (off by default, see
+/// With the final speaker pass on (the default, see
 /// `FinalSpeakerPass.enabledKey`): at stop, the whole call goes through the
 /// offline clustering pipeline once (`FinalSpeakerPass`); `finalSegments()`
 /// hands back the result and the saved transcript is relabeled from it.
@@ -84,7 +84,7 @@ final class SpeakerDiarizer: @unchecked Sendable {
     private var finalPassWaiters: [@Sendable ([SpeakerSegment]?) -> Void] = []
     private var finalResult: [SpeakerSegment]?
     /// The live model variant. The test rig swaps it to compare.
-    nonisolated(unsafe) static var liveVariant: LSEENDVariant = .dihard3
+    nonisolated(unsafe) static var liveVariant: LSEENDVariant = .callhome
     /// Settings for the offline pipeline. The test rig swaps this to compare
     /// alternatives against the shipped one.
     nonisolated(unsafe) static var finalPassConfig = OfflineDiarizerConfig.default
@@ -113,9 +113,8 @@ final class SpeakerDiarizer: @unchecked Sendable {
         }
         Task {
             do {
-                // .dihard3: in-the-wild conversations — right for room audio
-                // (in-person meetings, phone-on-speaker near the Mac) and
-                // holds up on compressed meeting-app streams.
+                // callhome: better than dihard3 on every call in
+                // tests/diarization (decisions.md, 2026-11-28 evening).
                 let d = try await LSEENDDiarizer(variant: Self.liveVariant)
                 self.queue.async {
                     guard !self.stopped else { return }

@@ -31,7 +31,7 @@ struct GeneralSettingsView: View {
     @State private var autoInstallUpdates = true
     @AppStorage(OpenWindowShortcut.defaultsKey) private var openShortcutEnabled = true
     @AppStorage(VisualSpeakerCapture.automaticDefaultsKey) private var automaticSpeakerSnapshots = false
-    @AppStorage(FinalSpeakerPass.enabledKey) private var finalSpeakerPass = false
+    @AppStorage(FinalSpeakerPass.enabledKey) private var finalSpeakerPass = true
     @AppStorage(VisualSpeakerOCR.selfNameDefaultsKey) private var speakerSelfName = ""
 
     /// Custom transcription vocabulary — same store the live pipeline and
@@ -301,7 +301,7 @@ struct GeneralSettingsView: View {
                 Toggle("Automatically take speaker-name screenshots", isOn: $automaticSpeakerSnapshots)
                 Text("For future meetings, detect the meeting window and take silent snapshots: six in the first minutes, then one every 30 seconds while someone on the call is still unnamed. Names are read on this Mac; images are discarded, never saved or sent to AI. A name seen twice on the highlighted speaker while that voice is talking is applied by itself; click a name in the transcript to change it. You can stop snapshots in the live transcript.")
                     .font(.caption).foregroundStyle(.secondary)
-                Toggle("Re-check who said what after the call (experimental)", isOn: $finalSpeakerPass)
+                Toggle("Re-check who said what after the call", isOn: $finalSpeakerPass)
                 Text("When a meeting ends, go over the whole recording once more to tell the voices apart, then fix the saved transcript and write the notes from that. The call's audio is kept in a temporary file on this Mac during the meeting and deleted when the check is done. Notes can take longer to appear.")
                     .font(.caption).foregroundStyle(.secondary)
                 TextField("Your name on calls", text: $speakerSelfName, prompt: Text(NSFullUserName()))

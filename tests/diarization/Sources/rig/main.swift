@@ -295,8 +295,8 @@ func percent(_ value: Double) -> String { String(format: "%.1f%%", value * 100) 
 var rows: [String] = []
 var failed = false
 for (index, call) in calls.enumerated() {
-    let shipped = await diarize(call, variant: .dihard3, finalPass: true)
-    rows.append("| \(call.name) | live, dihard3 (shipped) | \(shipped.liveVoices) of \(call.people) | \(percent(shipped.live)) | |")
+    let shipped = await diarize(call, variant: .callhome, finalPass: true)
+    rows.append("| \(call.name) | live, callhome (shipped) | \(shipped.liveVoices) of \(call.people) | \(percent(shipped.live)) | |")
     if let final = shipped.final {
         rows.append("| | final pass | \(shipped.finalVoices) of \(call.people) | \(percent(final)) | "
                     + String(format: "%.0fs for %.0fs of audio", shipped.finalSeconds, call.seconds) + " |")
@@ -304,7 +304,7 @@ for (index, call) in calls.enumerated() {
         rows.append("| | final pass | did not run | | |")
         if index == 0 { failed = true }
     }
-    for (name, variant) in [("ami", LSEENDVariant.ami), ("callhome", .callhome)] {
+    for (name, variant) in [("dihard3", LSEENDVariant.dihard3), ("ami", .ami)] {
         let other = await diarize(call, variant: variant, finalPass: false)
         rows.append("| | live, \(name) | \(other.liveVoices) of \(call.people) | \(percent(other.live)) | |")
     }
