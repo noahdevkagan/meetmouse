@@ -2543,3 +2543,72 @@ transcript or coaching, and one toggle in Settings -> Team turns it off. A faile
 upload is silent; the Share with team button remains. Adding people: Settings has an
 "Invite people…" share button (system share sheet) beside Copy invite link.
 
+## 2026-11-28: The saved record gets a whole-call speaker pass; live labels are a draft
+
+The same customer wrote back after 0.37: with two remote people named, each still gets some of the
+other's lines. The naming fixes of 2026-11-24 were about which voice a name lands on; this is the
+voices themselves. Live labels come from LS-EEND, a streaming model that commits within a fraction
+of a second, works at 8 kHz, and by FluidAudio's own numbers is about twice as wrong as its offline
+pipeline (AMI: 20.7% DER vs 10.6%, speaker error 5.9% vs 3.3%). No tuning of the streaming model
+closes that. So the saved transcript no longer depends on it: `SpeakerDiarizer` keeps the audio it
+was fed (16 kHz mono) and at Stop runs `OfflineDiarizerManager` (pyannote community-1 segmentation,
+WeSpeaker embeddings, VBx clustering) over the whole call. `FinalSpeakerPass.relabel` maps each
+cluster to the live label it shares the most speech with, one cluster per label, so names given
+during the call carry over; a voice the live model never separated gets the next free slot label
+and a live voice no cluster claims is dropped. The view model applies the result through the same
+`applyDiarization` path (without the stale-rename remap, because a new voice may reuse a slot label
+the user renamed earlier), rewrites the saved transcript, and only then writes the notes. Notes
+wait at most 120 s for it; the pass still finishes and fixes the file after that.
+
+Choices: the audio goes to a temp file, not memory (an hour is 230 MB beside Parakeet), mode 0600,
+deleted when the pass ends, leftovers older than 12 h removed at launch (the temp dir is shared
+with a dev build's live call). This is the first time call audio touches disk outside voice
+profiles; it never leaves the Mac. Every failure (no network for the first model download, model
+error, a result with under 40% of the live speech) keeps the live labels. Calls under 45 s or over
+4 h skip it. FluidAudio's clustering preset is used as is; its docs say 0.7 counts speakers better
+on far-field meeting-room audio, the rig prints both, and nothing here has measured real calls.
+Not done: the voice clips saved as profiles still come from the live segments, so a profile can
+contain a slice of someone else; re-harvesting them from the final segments is the next step for
+"recognized by name next time". Live labels during the call are unchanged.
+
+The customer quoted "Speaker 2/3" labels. Those only exist in mic-only sessions (no Screen
+Recording permission, or an Apple call): one mixed stream that includes his own voice and room
+echo, and no speaker snapshots at all. The final pass runs on that stream too, but the real fix
+there is granting Screen Recording. Ask before assuming.
+
+Checked: mapping and archive logic under Swift 6 on Linux; tests/session cases with a stubbed
+pass. `tests/diarization` runs the real models on a scripted three-voice `say` call and scores
+live vs final (CI: informational step, numbers in the job summary). Synthetic voices are easier
+than a real call, so that is a floor. Not checked: any real call, an M1, a long meeting's timing.
+
+## 2026-11-28: Automatic speaker snapshots apply names (reverses "confirmation before naming")
+
+The customer turned on "Automatically take speaker-name screenshots" and expected names to be
+picked up. They were only ever suggested (2026-10-06: "screenshots provide evidence, not proof"),
+and only from six snapshots in the first 90 seconds, when most people on a group call have not
+spoken yet. With the automatic preference on: a match that passes the existing evidence rules (the
+same name on the highlighted tile in two snapshots at least 10 s apart while only that voice is
+talking, no competing name or voice; or the one-on-one roster rule) is applied through
+`renameSpeaker` without a card; after the first six, a snapshot is taken every 30 s while any
+remote voice is still unnamed, up to 40 per meeting; and after the final speaker pass the
+highlighted-tile sightings are matched again against the final voices. Manual (per-meeting Allow)
+mode keeps six snapshots and one-tap suggestions. Cost accepted: a wrong match now also saves a
+voice profile under that name; the evidence threshold is unchanged and a rename fixes both.
+Images are still never stored or sent anywhere. Still requires names visible on tiles and a
+speaker outline (Zoom, Meet); Teams and Slack have no adapter.
+
+## 2026-11-28: AI notes belong to the saved file, not the live session
+
+Customer: with a Claude account, AI notes appear automatically for some meetings only; Regenerate
+always works. Two causes in the code. (1) `generateReview` dropped its result when
+`reviewGenerationID` changed, which happens when the next meeting starts: back-to-back calls left
+the earlier one with no notes at all. (2) One failed AI call (the CLI's 15 s auth check on a busy
+Mac, a usage limit after an hour of live coaching, a network blip) left the basic recap for good.
+Now a generation carries its file path: if the session moved on, finished notes are saved to that
+file and unfinished ones are queued. `NotesBackfill` writes queued notes from the saved file the
+way Regenerate does: 45 s and 5 min after a failure, when a later meeting ends, and 20 s after
+launch; six attempts per meeting, at least 15 min apart after the first two. Never over
+hand-edited notes, never a local model beside a live meeting, setup problems (CLI missing, not
+signed in) are not queued because retrying cannot fix them. Not confirmed with the customer's
+log which of the two causes he hit.
+

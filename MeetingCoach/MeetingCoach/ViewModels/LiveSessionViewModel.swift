@@ -1268,7 +1268,6 @@ final class LiveSessionViewModel {
         if channel == .system {
             latestRemoteLabels = Set(segments.map(\.speaker))
             latestSystemSegments = segments
-            refreshVisualSpeakerSuggestions()
         }
 
         // Each utterance only needs the segments that can overlap it. Both
@@ -1286,6 +1285,7 @@ final class LiveSessionViewModel {
             if channel == .system {
                 recomputeRemoteAlias()
                 maybeSuggestMerge()
+                refreshVisualSpeakerSuggestions()
             }
             return
         }
@@ -1338,6 +1338,9 @@ final class LiveSessionViewModel {
         if channel == .system {
             recomputeRemoteAlias()
             if !final { maybeSuggestMerge() }
+            // After the relabel above: in automatic mode this applies names,
+            // and a rename must see the transcript under its new labels.
+            refreshVisualSpeakerSuggestions()
         }
         guard changed else { return }
         if var engine = signalEngine {

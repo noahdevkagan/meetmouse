@@ -12,6 +12,7 @@ New clone setup (one time): `git config core.hooksPath scripts/githooks`
 | 2. transcript (`tests/asr`) | ASR quality + edge cases | yes |
 | 3. nudges (`tests/nudges`) | signal behavior unchanged | yes |
 | 4. ship scorecard (`bench/scorecard.py`) | accuracy + nudge quality vs previous records | no (informational) |
+| speaker attribution (`tests/diarization`) | live labels vs the whole-call final pass on a scripted three-voice call (real models; ASR-adjacent pushes and CI) | no (informational) |
 
 Escape hatches: `SKIP_GATE=1 git push` (emergency), `FAST=1 git push`
 (skips the slowest audio case). Pushes touching only `docs/`, markdown,

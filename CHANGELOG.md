@@ -7,6 +7,12 @@ to commit subjects since the previous tag.
 
 Keep bullets short and user-facing — what changed for *them*, not how.
 
+## Unreleased
+
+- Who said what, checked again after the call: when a meeting ends, MeetMouse goes over the whole recording once more to tell the voices apart, then fixes the transcript and writes the notes from that. Calls with several other people should no longer have their lines swapped in the saved meeting. Names you gave during the call are kept. The live transcript during the call is unchanged, and the audio is deleted as soon as the check is done.
+- "Automatically take speaker-name screenshots" now names people by itself: when a name is seen twice on the highlighted speaker while that voice is talking, it is applied without asking. Snapshots continue every 30 seconds while someone is still unnamed, instead of stopping after the first minute and a half. Click a name in the transcript to change it.
+- AI notes no longer go missing: starting your next meeting while the previous one's notes are still being written keeps them, and if the AI fails once (busy, usage limit, no connection) MeetMouse retries on its own instead of leaving the basic recap.
+
 ## 0.38.0 — 2026-11-26
 
 - Teams: one private page for your team's meeting notes. One person buys a team license ($40 once, unlimited seats, at meetmouse.com/team), creates the team in Settings → Team, and clicks "Invite people…". Joining unlocks MeetMouse on each teammate's Mac.

@@ -655,24 +655,18 @@ func visualSpeakerChecks(scratch: URL) async {
         try? await Task.sleep(for: .milliseconds(50))
         let solo = [SpeakerSegment(speaker: "Them 1", start: 5, end: 105)]
         audio.onSpeakerSegments?(.system, solo)
-        var suggestion = vm.speakerNameSuggestions.first { $0.kind == .visualName }
-        check(suggestion?.label == "Them 1" && suggestion?.name == "Sarah",
-              "visual pipeline \(platform): late voice evidence produces correct suggestion")
-        check(vm.utterances.first?.speaker == "Them 1",
-              "visual pipeline \(platform): suggestion awaits confirmation")
-
-        audio.onSpeakerSegments?(.system, solo + [.init(speaker: "Them 2", start: 5, end: 105)])
-        check(!vm.speakerNameSuggestions.contains { $0.kind == .visualName },
-              "visual pipeline \(platform): revised overlapping voices withdraw suggestion")
-        audio.onSpeakerSegments?(.system, solo)
-        suggestion = vm.speakerNameSuggestions.first { $0.kind == .visualName }
-        if let suggestion { vm.confirmNameSuggestion(suggestion) }
+        // Automatic mode applies a name that passes the evidence rules:
+        // no card to confirm.
+        check(!vm.speakerNameSuggestions.contains { $0.kind == .visualName }
+              && vm.utterances.first?.speaker == "Sarah",
+              "visual pipeline \(platform): late voice evidence names the speaker without a card",
+              "got \(vm.utterances.map(\.speaker)), \(vm.speakerNameSuggestions.map(\.key))")
         check(vm.turns.contains { $0.speaker == "Sarah" }
               && audio.renames.contains { $0 == ("Them 1", "Sarah") },
-              "visual pipeline \(platform): confirmation updates transcript and capture")
+              "visual pipeline \(platform): the applied name reaches transcript and capture")
         audio.onSpeakerSegments?(.system, solo)
         check(vm.utterances.first?.speaker == "Sarah",
-              "visual pipeline \(platform): late segments preserve confirmed name")
+              "visual pipeline \(platform): late segments preserve the applied name")
 
         vm.stopLive()
         let files = (try? FileManager.default.contentsOfDirectory(at: scratch,
@@ -681,7 +675,7 @@ func visualSpeakerChecks(scratch: URL) async {
             try? String(contentsOf: $0, encoding: .utf8)
         }.first { $0.contains(words) }
         check(saved?.contains("Sarah: \(words)") == true,
-              "visual pipeline \(platform): confirmed name persists after Stop")
+              "visual pipeline \(platform): applied name persists after Stop")
         vm.deleteSession()
     }
 

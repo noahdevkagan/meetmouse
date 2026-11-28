@@ -307,6 +307,9 @@ final class VisualSpeakerCapture {
                 // Past the first six: only while someone is still unnamed.
                 if self.count >= Self.limit, self.wantsMore?() != true {
                     do { try await self.pause(.seconds(30)) } catch { return }
+                    // A pause that returns at once (tests) must still let
+                    // the rest of the main actor run.
+                    await Task.yield()
                     continue
                 }
                 do {

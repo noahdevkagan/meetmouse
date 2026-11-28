@@ -137,7 +137,7 @@ enum NotesBackfill {
             let url = URL(fileURLWithPath: path)
             guard let content = try? String(contentsOf: url, encoding: .utf8),
                   !MeetingNotesFile.isEdited(content),
-                  let source = source(in: content) else {
+                  let saved = Self.source(in: content) else {
                 // Deleted, hand-edited, or nothing to summarize.
                 resolve(path, defaults: defaults)
                 continue
@@ -153,17 +153,17 @@ enum NotesBackfill {
 
             let model = settings.effectiveModel
             let budget = ReviewBudget.forModel(model)
-            let savedLanguage = source.languageCode.flatMap {
+            let savedLanguage = saved.languageCode.flatMap {
                 MeetingLanguageSelection.resolvedPersistedCode($0)?.language
             }
             let (system, user) = PromptBuilder.buildPostCallReviewPrompt(
-                nudges: [], transcript: source.transcript,
+                nudges: [], transcript: saved.transcript,
                 context: PreCallContext.saved(in: content),
-                durationMinutes: source.durationMinutes,
+                durationMinutes: saved.durationMinutes,
                 languageName: settings.notesLanguage.notesLanguageName(
                     meetingLanguage: savedLanguage,
                     detected: savedLanguage == nil && settings.notesLanguage == .meeting
-                        ? TranscriptLanguageDetector.tally(source.lineTexts).dominant : nil),
+                        ? TranscriptLanguageDetector.tally(saved.lineTexts).dominant : nil),
                 budget: budget)
             do {
                 // The session's own review call (and its test seam).
