@@ -83,6 +83,8 @@ final class SpeakerDiarizer: @unchecked Sendable {
     private var finalPassDone = false
     private var finalPassWaiters: [@Sendable ([SpeakerSegment]?) -> Void] = []
     private var finalResult: [SpeakerSegment]?
+    /// The live model variant. The test rig swaps it to compare.
+    nonisolated(unsafe) static var liveVariant: LSEENDVariant = .dihard3
     /// Settings for the offline pipeline. The test rig swaps this to compare
     /// alternatives against the shipped one.
     nonisolated(unsafe) static var finalPassConfig = OfflineDiarizerConfig.default
@@ -114,7 +116,7 @@ final class SpeakerDiarizer: @unchecked Sendable {
                 // .dihard3: in-the-wild conversations — right for room audio
                 // (in-person meetings, phone-on-speaker near the Mac) and
                 // holds up on compressed meeting-app streams.
-                let d = try await LSEENDDiarizer(variant: .dihard3)
+                let d = try await LSEENDDiarizer(variant: Self.liveVariant)
                 self.queue.async {
                     guard !self.stopped else { return }
                     self.enroll(into: d)
@@ -123,7 +125,7 @@ final class SpeakerDiarizer: @unchecked Sendable {
                         try? d.addAudio(chunk.samples, sourceSampleRate: chunk.rate)
                     }
                     self.preload = []
-                    mclog("[Diarizer:\(self.labelPrefix)] Ready (LS-EEND dihard3)")
+                    mclog("[Diarizer:\(self.labelPrefix)] Ready (LS-EEND \(Self.liveVariant))")
                 }
             } catch {
                 mclog("[Diarizer:\(self.labelPrefix)] Unavailable: \(error.localizedDescription)")

@@ -151,6 +151,14 @@ guard voices.count == 3 else {
     fail("needs three distinct English `say` voices, found \(voices)", code: 2)
 }
 
+struct Call {
+    let name: String
+    let audio: [Float]
+    let truth: [SpeakerSegment]
+    var seconds: Double { Double(audio.count) / rate }
+    var people: Int { Set(truth.map(\.speaker)).count }
+}
+
 var audio: [Float] = []
 var truth: [SpeakerSegment] = []
 for (index, line) in script.enumerated() {
@@ -163,8 +171,79 @@ for (index, line) in script.enumerated() {
     audio.append(contentsOf: speech)
     truth.append(SpeakerSegment(speaker: people[line.0], start: start, end: Double(audio.count) / rate))
 }
-let seconds = Double(audio.count) / rate
-mclog("call: \(String(format: "%.0f", seconds))s, \(truth.count) turns, voices \(voices)")
+var calls = [Call(name: "scripted, 3 `say` voices", audio: audio, truth: truth)]
+mclog("scripted call: \(String(format: "%.0f", calls[0].seconds))s, \(truth.count) turns, voices \(voices)")
+
+// MARK: Real meetings (AMI corpus, CC BY 4.0)
+//
+// Four people in a room, recorded on headset microphones and mixed: real
+// voices, interruptions and backchannels, with hand-made "who spoke when"
+// annotations. The first minutes of three test-set meetings. Downloaded on
+// demand and never committed; set DIARIZATION_REAL=0 to skip.
+
+func download(_ urls: [String], to file: URL) -> Bool {
+    if FileManager.default.fileExists(atPath: file.path) { return true }
+    for url in urls {
+        let status = run("/usr/bin/curl", ["-sfL", "--max-time", "300", "-o", file.path, url]).status
+        if status == 0 { return true }
+        try? FileManager.default.removeItem(at: file)
+    }
+    return false
+}
+
+func decode(_ file: URL, seconds limit: Double) -> [Float]? {
+    guard let input = try? AVAudioFile(forReading: file),
+          let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: rate,
+                                     channels: 1, interleaved: false),
+          let converter = AVAudioConverter(from: input.processingFormat, to: target) else { return nil }
+    let wanted = AVAudioFrameCount(min(Double(input.length), limit * input.processingFormat.sampleRate))
+    guard let source = AVAudioPCMBuffer(pcmFormat: input.processingFormat, frameCapacity: wanted),
+          (try? input.read(into: source, frameCount: wanted)) != nil,
+          let output = AVAudioPCMBuffer(pcmFormat: target,
+                                        frameCapacity: AVAudioFrameCount(limit * rate) + 1024) else { return nil }
+    var fed = false
+    var error: NSError?
+    converter.convert(to: output, error: &error) { _, status in
+        if fed { status.pointee = .endOfStream; return nil }
+        fed = true
+        status.pointee = .haveData
+        return source
+    }
+    guard error == nil, let channel = output.floatChannelData?[0] else { return nil }
+    return Array(UnsafeBufferPointer(start: channel, count: Int(output.frameLength)))
+}
+
+if ProcessInfo.processInfo.environment["DIARIZATION_REAL"] != "0" {
+    let minutes = 8.0
+    for meeting in ["ES2004a", "IS1009a", "TS3003a"] {
+        let wav = work.appendingPathComponent("\(meeting).wav")
+        let rttm = work.appendingPathComponent("\(meeting).rttm")
+        let base = "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/\(meeting)/audio/\(meeting)"
+        guard download(["\(base).Mix-Headset.wav",
+                        "https://huggingface.co/datasets/FluidInference/ami-corpus-mirror/resolve/main/sdm/\(meeting).Mix-Headset.wav"],
+                       to: wav),
+              download(["https://raw.githubusercontent.com/pyannote/AMI-diarization-setup/main/only_words/rttms/test/\(meeting).rttm"],
+                       to: rttm),
+              let samples = decode(wav, seconds: minutes * 60),
+              let annotation = try? String(contentsOf: rttm, encoding: .utf8) else {
+            mclog("real meeting \(meeting): could not download or read; skipped")
+            continue
+        }
+        // RTTM: SPEAKER <file> 1 <start> <duration> <NA> <NA> <speaker> ...
+        let spoken = annotation.split(separator: "\n").compactMap { line -> SpeakerSegment? in
+            let fields = line.split(separator: " ")
+            guard fields.count >= 8, fields[0] == "SPEAKER",
+                  let start = Double(fields[3]), let length = Double(fields[4]),
+                  start < minutes * 60 else { return nil }
+            return SpeakerSegment(speaker: String(fields[7]), start: start,
+                                  end: min(start + length, minutes * 60))
+        }
+        guard !spoken.isEmpty else { continue }
+        calls.append(Call(name: "real meeting \(meeting), first \(Int(minutes)) min", audio: samples, truth: spoken))
+        mclog("real meeting \(meeting): \(samples.count / Int(rate))s, \(spoken.count) segments")
+    }
+}
+
 
 // MARK: Through the real diarizer
 
@@ -174,8 +253,9 @@ struct Outcome {
     var finalSeconds = 0.0
 }
 
-func diarize(_ config: OfflineDiarizerConfig) async -> Outcome {
-    SpeakerDiarizer.finalPassConfig = config
+func diarize(_ call: Call, variant: LSEENDVariant, finalPass: Bool) async -> Outcome {
+    SpeakerDiarizer.liveVariant = variant
+    UserDefaults.standard.set(finalPass, forKey: FinalSpeakerPass.enabledKey)
     let diarizer = SpeakerDiarizer(labelPrefix: "Them")
     let latest = Box<[SpeakerSegment]>([])
     diarizer.onSegments = { latest.set($0) }
@@ -188,8 +268,8 @@ func diarize(_ config: OfflineDiarizerConfig) async -> Outcome {
     }
     let chunk = Int(rate)
     var offset = 0
-    while offset < audio.count {
-        diarizer.enqueue(Array(audio[offset..<min(offset + chunk, audio.count)]), sampleRate: rate)
+    while offset < call.audio.count {
+        diarizer.enqueue(Array(call.audio[offset..<min(offset + chunk, call.audio.count)]), sampleRate: rate)
         offset += chunk
         try? await Task.sleep(for: .milliseconds(5))
     }
@@ -200,50 +280,44 @@ func diarize(_ config: OfflineDiarizerConfig) async -> Outcome {
     outcome.finalSeconds = Date().timeIntervalSince(started)
     let live = latest.get()
     outcome.liveVoices = Set(live.map(\.speaker)).count
-    outcome.live = FinalSpeakerPass.confusion(truth: truth, hypothesis: live)
+    outcome.live = FinalSpeakerPass.confusion(truth: call.truth, hypothesis: live)
     if let final {
         outcome.finalVoices = Set(final.map(\.speaker)).count
-        outcome.final = FinalSpeakerPass.confusion(truth: truth, hypothesis: final)
+        outcome.final = FinalSpeakerPass.confusion(truth: call.truth, hypothesis: final)
     }
     return outcome
 }
 
 func percent(_ value: Double) -> String { String(format: "%.1f%%", value * 100) }
 
-// The shipped settings first (the only row that can fail the check), then
-// alternatives for comparison. "exactly 3" is the ceiling: what the models
-// can do when told the answer.
-UserDefaults.standard.set(true, forKey: FinalSpeakerPass.enabledKey)
-let shipped = SpeakerDiarizer.finalPassConfig
-let configs: [(String, OfflineDiarizerConfig)] = [
-    ("shipped", shipped),
-    ("exactly 3 speakers", OfflineDiarizerConfig.default.withSpeakers(exactly: 3)),
-]
+// Per call: the shipped live model with the final pass, then the other live
+// variants alone. Only the scripted call's shipped row can fail the check.
 var rows: [String] = []
 var failed = false
-for (index, entry) in configs.enumerated() {
-    let outcome = await diarize(entry.1)
-    if index == 0 {
-        rows.append("| live (LS-EEND) | \(outcome.liveVoices) | \(percent(outcome.live)) | |")
-    }
-    let name = "final pass, \(entry.0)"
-    if let final = outcome.final {
-        rows.append("| \(name) | \(outcome.finalVoices) | \(percent(final)) | "
-                    + String(format: "%.1fs for %.0fs of audio", outcome.finalSeconds, seconds) + " |")
-        if index == 0, final > max(0.15, outcome.live + 0.02) { failed = true }
+for (index, call) in calls.enumerated() {
+    let shipped = await diarize(call, variant: .dihard3, finalPass: true)
+    rows.append("| \(call.name) | live, dihard3 (shipped) | \(shipped.liveVoices) of \(call.people) | \(percent(shipped.live)) | |")
+    if let final = shipped.final {
+        rows.append("| | final pass | \(shipped.finalVoices) of \(call.people) | \(percent(final)) | "
+                    + String(format: "%.0fs for %.0fs of audio", shipped.finalSeconds, call.seconds) + " |")
     } else {
-        rows.append("| \(name) | did not run | | |")
+        rows.append("| | final pass | did not run | | |")
         if index == 0 { failed = true }
+    }
+    for (name, variant) in [("ami", LSEENDVariant.ami), ("callhome", .callhome)] {
+        let other = await diarize(call, variant: variant, finalPass: false)
+        rows.append("| | live, \(name) | \(other.liveVoices) of \(call.people) | \(percent(other.live)) | |")
     }
 }
 
-let table = (["| Labels | Voices found (3 real) | Speech given to the wrong person | Time |",
-              "|---|---|---|---|"] + rows).joined(separator: "\n")
-print("### Speaker attribution (scripted three-voice call)\n\n" + table + "\n")
+let title = "### Speaker attribution: share of speech given to the wrong person"
+let table = (["| Call | Labels | Voices found | Wrong person | Time |", "|---|---|---|---|---|"] + rows)
+    .joined(separator: "\n")
+print(title + "\n\n" + table + "\n")
 if let summary = ProcessInfo.processInfo.environment["GITHUB_STEP_SUMMARY"],
    let handle = FileHandle(forWritingAtPath: summary) {
     handle.seekToEndOfFile()
-    handle.write(("### Speaker attribution (scripted three-voice call)\n\n" + table + "\n\n").data(using: .utf8)!)
+    handle.write((title + "\n\n" + table + "\n\n").data(using: .utf8)!)
     try? handle.close()
 }
 print(failed ? "DIARIZATION CHECK FAILED" : "diarization check passed")

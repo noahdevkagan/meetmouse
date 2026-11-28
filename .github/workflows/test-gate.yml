@@ -99,7 +99,7 @@ jobs:
       # release should hang on. tests/session covers the logic around it.
       - name: Speaker attribution (live vs final pass, informational)
         continue-on-error: true
-        timeout-minutes: 25
+        timeout-minutes: 45
         run: bash tests/diarization/run.sh
 
       # The compare-before-you-ship report: transcription accuracy + Them
