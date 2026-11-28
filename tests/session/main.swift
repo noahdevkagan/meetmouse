@@ -2519,7 +2519,9 @@ func runTests() async {
         let settings = liveSettings()
         settings.semanticCoachEnabled = false
         let vm = LiveSessionViewModel()
-        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: OllamaManager())
+        // Held here: the session keeps its engine weakly.
+        let engine = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: engine)
         try? await Task.sleep(for: .milliseconds(150))
         if let capture = AudioCaptureManager.last {
             capture.onUtterance?(Utterance(t: 1, speaker: "Them", text: "The budget is approved for next quarter.", endT: 5))
@@ -2603,7 +2605,9 @@ func runTests() async {
         let settings = liveSettings()
         settings.semanticCoachEnabled = false
         let vm = LiveSessionViewModel()
-        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: OllamaManager())
+        // Held here: the session keeps its engine weakly.
+        let engine = OllamaManager()
+        vm.startLive(context: PreCallContext(), settings: settings, ollamaManager: engine)
         try? await Task.sleep(for: .milliseconds(150))
         AudioCaptureManager.last?.onUtterance?(Utterance(t: 1, speaker: "You", text: "Send the proposal tomorrow.", endT: 3))
         vm.stopLive()
